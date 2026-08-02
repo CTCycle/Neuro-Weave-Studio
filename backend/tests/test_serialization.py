@@ -1,0 +1,9 @@
+from neuro_weave.domain.graph import ModelGraph, ProjectExportBundle, ProjectCreate
+
+
+def test_project_bundle_round_trip() -> None:
+    bundle = ProjectExportBundle(project=ProjectCreate(name="Example", graph=ModelGraph()))
+    restored = ProjectExportBundle.model_validate_json(bundle.model_dump_json())
+    assert restored.format_version == 1
+    assert restored.project.graph.schema_version == 1
+    assert restored.project.name == "Example"

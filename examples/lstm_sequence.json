@@ -1,0 +1,110 @@
+{
+  "name": "LSTM sequence model",
+  "description": "Sequence input processed by an LSTM and classification head.",
+  "target_framework": "keras",
+  "graph": {
+    "schema_version": 1,
+    "nodes": [
+      {
+        "id": "sequence",
+        "definition_id": "input.sequence",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 0,
+          "y": 100
+        },
+        "parameters": {
+          "shape": [
+            null,
+            50,
+            16
+          ],
+          "dtype": "float32"
+        }
+      },
+      {
+        "id": "lstm",
+        "definition_id": "recurrent.lstm",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 300,
+          "y": 100
+        },
+        "parameters": {
+          "units": 32,
+          "return_sequences": false,
+          "input_size": 16
+        }
+      },
+      {
+        "id": "classifier",
+        "definition_id": "layer.dense",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 600,
+          "y": 100
+        },
+        "parameters": {
+          "units": 4,
+          "activation": "softmax",
+          "use_bias": true
+        }
+      },
+      {
+        "id": "prediction",
+        "definition_id": "output.classification",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 900,
+          "y": 100
+        },
+        "parameters": {
+          "name": "sequence_class"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source_node_id": "sequence",
+        "source_port_id": "output",
+        "target_node_id": "lstm",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e2",
+        "source_node_id": "lstm",
+        "source_port_id": "output",
+        "target_node_id": "classifier",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e3",
+        "source_node_id": "classifier",
+        "source_port_id": "output",
+        "target_node_id": "prediction",
+        "target_port_id": "input"
+      }
+    ],
+    "model_configuration": {
+      "optimizer": "adam",
+      "optimizer_parameters": {
+        "learning_rate": 0.001
+      },
+      "losses": {},
+      "metrics": {},
+      "mixed_precision": false,
+      "random_seed": 42
+    },
+    "export_settings": {
+      "include_comments": true,
+      "include_shape_assertions": true,
+      "preferred_binary_format": "keras"
+    },
+    "future_training_configuration": {}
+  }
+}

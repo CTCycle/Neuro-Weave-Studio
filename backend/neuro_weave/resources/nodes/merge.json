@@ -1,0 +1,787 @@
+{
+  "nodes": [
+    {
+      "id": "merge.add",
+      "version": 1,
+      "display_name": "Add",
+      "category": "merge",
+      "description": "Add operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.subtract",
+      "version": 1,
+      "display_name": "Subtract",
+      "category": "merge",
+      "description": "Subtract operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.multiply",
+      "version": 1,
+      "display_name": "Multiply",
+      "category": "merge",
+      "description": "Multiply operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.divide",
+      "version": 1,
+      "display_name": "Divide",
+      "category": "merge",
+      "description": "Divide operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.average",
+      "version": 1,
+      "display_name": "Average",
+      "category": "merge",
+      "description": "Average operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.maximum",
+      "version": 1,
+      "display_name": "Maximum",
+      "category": "merge",
+      "description": "Maximum operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.minimum",
+      "version": 1,
+      "display_name": "Minimum",
+      "category": "merge",
+      "description": "Minimum operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.dot",
+      "version": 1,
+      "display_name": "Dot Product",
+      "category": "merge",
+      "description": "Dot Product operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.matmul",
+      "version": 1,
+      "display_name": "Matrix Multiplication",
+      "category": "merge",
+      "description": "Matrix Multiplication operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.residual",
+      "version": 1,
+      "display_name": "Residual Connection",
+      "category": "merge",
+      "description": "Residual Connection operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.skip",
+      "version": 1,
+      "display_name": "Skip Connection",
+      "category": "merge",
+      "description": "Skip Connection operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.concatenate",
+      "version": 1,
+      "display_name": "Concatenate",
+      "category": "merge",
+      "description": "Concatenate operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": -1,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "concatenate",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "Combine",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.stack",
+      "version": 1,
+      "display_name": "Stack",
+      "category": "merge",
+      "description": "Stack operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": 0,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "concatenate",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Layers",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.split",
+      "version": 1,
+      "display_name": "Split",
+      "category": "merge",
+      "description": "Split operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "outputs",
+          "display_name": "Outputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "sections",
+          "display_name": "Sections",
+          "type": "integer",
+          "default": 2,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": -1,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "split",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Split",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    }
+  ]
+}

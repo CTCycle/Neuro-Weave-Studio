@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Frontend
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Runtime data
+*.db
+*.sqlite
+*.sqlite3
+exports/
+artifacts/
+logs/
+
+# Model binaries and weights
+*.keras
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.mlmodel
+*.bin
+
+# Environment and IDE
+.env
+.env.local
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Archives
+*.zip

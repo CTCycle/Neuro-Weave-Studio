@@ -1,0 +1,1459 @@
+{
+  "nodes": [
+    {
+      "id": "conv.conv1d",
+      "version": 1,
+      "display_name": "Conv1D",
+      "category": "convolutional",
+      "description": "Conv1D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "filters",
+          "display_name": "Filters",
+          "type": "integer",
+          "default": 32,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "kernel_size",
+          "display_name": "Kernel Size",
+          "type": "shape",
+          "default": [
+            3
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "enum",
+          "default": "same",
+          "required": false,
+          "options": [
+            "valid",
+            "same"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "activation",
+          "display_name": "Activation",
+          "type": "enum",
+          "default": "linear",
+          "required": false,
+          "options": [
+            "linear",
+            "relu",
+            "gelu"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data Format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "use_bias",
+          "display_name": "Use Bias",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "conv_nd",
+        "config": {
+          "dimensions": 1
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ScanLine",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.max_pool1d",
+      "version": 1,
+      "display_name": "Max Pooling 1D",
+      "category": "convolutional",
+      "description": "Max Pooling 1D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "pool_size",
+          "display_name": "Pool Size",
+          "type": "shape",
+          "default": [
+            2
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "pool_nd",
+        "config": {
+          "dimensions": 1
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ChevronsDown",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.average_pool1d",
+      "version": 1,
+      "display_name": "Average Pooling 1D",
+      "category": "convolutional",
+      "description": "Average Pooling 1D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "pool_size",
+          "display_name": "Pool Size",
+          "type": "shape",
+          "default": [
+            2
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "pool_nd",
+        "config": {
+          "dimensions": 1
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ChevronsDown",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.global_pool1d",
+      "version": 1,
+      "display_name": "Global Pooling 1D",
+      "category": "convolutional",
+      "description": "Global Pooling 1D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "mode",
+          "display_name": "Mode",
+          "type": "enum",
+          "default": "average",
+          "required": false,
+          "options": [
+            "average",
+            "maximum"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "global_pool_nd",
+        "config": {
+          "dimensions": 1
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Minimize2",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.conv2d",
+      "version": 1,
+      "display_name": "Conv2D",
+      "category": "convolutional",
+      "description": "Conv2D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 4
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "filters",
+          "display_name": "Filters",
+          "type": "integer",
+          "default": 32,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "kernel_size",
+          "display_name": "Kernel Size",
+          "type": "shape",
+          "default": [
+            3,
+            3
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "enum",
+          "default": "same",
+          "required": false,
+          "options": [
+            "valid",
+            "same"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "activation",
+          "display_name": "Activation",
+          "type": "enum",
+          "default": "linear",
+          "required": false,
+          "options": [
+            "linear",
+            "relu",
+            "gelu"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data Format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "use_bias",
+          "display_name": "Use Bias",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "conv_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ScanLine",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.max_pool2d",
+      "version": 1,
+      "display_name": "Max Pooling 2D",
+      "category": "convolutional",
+      "description": "Max Pooling 2D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 4
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "pool_size",
+          "display_name": "Pool Size",
+          "type": "shape",
+          "default": [
+            2,
+            2
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "pool_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ChevronsDown",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.average_pool2d",
+      "version": 1,
+      "display_name": "Average Pooling 2D",
+      "category": "convolutional",
+      "description": "Average Pooling 2D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 4
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "pool_size",
+          "display_name": "Pool Size",
+          "type": "shape",
+          "default": [
+            2,
+            2
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "pool_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ChevronsDown",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.global_pool2d",
+      "version": 1,
+      "display_name": "Global Pooling 2D",
+      "category": "convolutional",
+      "description": "Global Pooling 2D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 4
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "mode",
+          "display_name": "Mode",
+          "type": "enum",
+          "default": "average",
+          "required": false,
+          "options": [
+            "average",
+            "maximum"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "global_pool_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Minimize2",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.conv3d",
+      "version": 1,
+      "display_name": "Conv3D",
+      "category": "convolutional",
+      "description": "Conv3D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 5
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "filters",
+          "display_name": "Filters",
+          "type": "integer",
+          "default": 32,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "kernel_size",
+          "display_name": "Kernel Size",
+          "type": "shape",
+          "default": [
+            3,
+            3,
+            3
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "enum",
+          "default": "same",
+          "required": false,
+          "options": [
+            "valid",
+            "same"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "activation",
+          "display_name": "Activation",
+          "type": "enum",
+          "default": "linear",
+          "required": false,
+          "options": [
+            "linear",
+            "relu",
+            "gelu"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data Format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "use_bias",
+          "display_name": "Use Bias",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "conv_nd",
+        "config": {
+          "dimensions": 3
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ScanLine",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.max_pool3d",
+      "version": 1,
+      "display_name": "Max Pooling 3D",
+      "category": "convolutional",
+      "description": "Max Pooling 3D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 5
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "pool_size",
+          "display_name": "Pool Size",
+          "type": "shape",
+          "default": [
+            2,
+            2,
+            2
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "pool_nd",
+        "config": {
+          "dimensions": 3
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ChevronsDown",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.average_pool3d",
+      "version": 1,
+      "display_name": "Average Pooling 3D",
+      "category": "convolutional",
+      "description": "Average Pooling 3D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 5
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "pool_size",
+          "display_name": "Pool Size",
+          "type": "shape",
+          "default": [
+            2,
+            2,
+            2
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "pool_nd",
+        "config": {
+          "dimensions": 3
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ChevronsDown",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.global_pool3d",
+      "version": 1,
+      "display_name": "Global Pooling 3D",
+      "category": "convolutional",
+      "description": "Global Pooling 3D operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 5
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "mode",
+          "display_name": "Mode",
+          "type": "enum",
+          "default": "average",
+          "required": false,
+          "options": [
+            "average",
+            "maximum"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "global_pool_nd",
+        "config": {
+          "dimensions": 3
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Minimize2",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.transposed",
+      "version": 1,
+      "display_name": "Transposed Convolution",
+      "category": "convolutional",
+      "description": "Transposed Convolution operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "dimensions",
+          "display_name": "Dimensions",
+          "type": "enum",
+          "default": 2,
+          "required": false,
+          "options": [
+            1,
+            2,
+            3
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "filters",
+          "display_name": "Filters",
+          "type": "integer",
+          "default": 32,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "kernel_size",
+          "display_name": "Kernel Size",
+          "type": "shape",
+          "default": [
+            3,
+            3
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "conv_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ScanLine",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.depthwise",
+      "version": 1,
+      "display_name": "Depthwise Convolution",
+      "category": "convolutional",
+      "description": "Depthwise Convolution operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "filters",
+          "display_name": "Filters",
+          "type": "integer",
+          "default": 32,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "kernel_size",
+          "display_name": "Kernel Size",
+          "type": "shape",
+          "default": [
+            3,
+            3
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "conv_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ScanLine",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.separable",
+      "version": 1,
+      "display_name": "Separable Convolution",
+      "category": "convolutional",
+      "description": "Separable Convolution operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "filters",
+          "display_name": "Filters",
+          "type": "integer",
+          "default": 32,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "kernel_size",
+          "display_name": "Kernel Size",
+          "type": "shape",
+          "default": [
+            3,
+            3
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "conv_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ScanLine",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.upsampling",
+      "version": 1,
+      "display_name": "Upsampling",
+      "category": "convolutional",
+      "description": "Upsampling operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "size",
+          "display_name": "Size",
+          "type": "shape",
+          "default": [
+            2,
+            2
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ChevronsUp",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.padding",
+      "version": 1,
+      "display_name": "Padding",
+      "category": "convolutional",
+      "description": "Padding operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "shape",
+          "default": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Expand",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.cropping",
+      "version": 1,
+      "display_name": "Cropping",
+      "category": "convolutional",
+      "description": "Cropping operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "cropping",
+          "display_name": "Cropping",
+          "type": "shape",
+          "default": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Crop",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    }
+  ]
+}

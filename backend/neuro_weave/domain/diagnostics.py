@@ -1,0 +1,23 @@
+from __future__ import annotations
+
+from pydantic import BaseModel, Field
+
+from neuro_weave.domain.enums import DiagnosticSeverity, TargetFramework
+from neuro_weave.domain.graph import ShapeSummary
+
+
+class ValidationDiagnostic(BaseModel):
+    code: str
+    severity: DiagnosticSeverity
+    message: str
+    node_id: str | None = None
+    edge_id: str | None = None
+    framework: TargetFramework | None = None
+    details: dict[str, object] = Field(default_factory=dict)
+
+
+class ValidationResult(BaseModel):
+    valid: bool
+    diagnostics: list[ValidationDiagnostic]
+    shape_summaries: list[ShapeSummary] = Field(default_factory=list)
+    total_parameters: int | None = None

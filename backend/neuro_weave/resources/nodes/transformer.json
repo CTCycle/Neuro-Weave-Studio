@@ -1,0 +1,899 @@
+{
+  "nodes": [
+    {
+      "id": "attention.multi_head",
+      "version": 1,
+      "display_name": "Multi-head Attention",
+      "category": "transformer",
+      "description": "Multi-head Attention operation.",
+      "inputs": [
+        {
+          "id": "query",
+          "display_name": "Query",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        },
+        {
+          "id": "context",
+          "display_name": "Context",
+          "kind": "tensor",
+          "required": false,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "num_heads",
+          "display_name": "Num Heads",
+          "type": "integer",
+          "default": 8,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "key_dim",
+          "display_name": "Key Dim",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "dropout",
+          "display_name": "Dropout",
+          "type": "number",
+          "default": 0.0,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 0,
+            "max": 0.999
+          }
+        },
+        {
+          "id": "layers",
+          "display_name": "Layers",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "attention",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sparkles",
+        "accent": "fuchsia",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/transformer_layers.md"
+    },
+    {
+      "id": "attention.self",
+      "version": 1,
+      "display_name": "Self-attention",
+      "category": "transformer",
+      "description": "Self-attention operation.",
+      "inputs": [
+        {
+          "id": "query",
+          "display_name": "Query",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "num_heads",
+          "display_name": "Num Heads",
+          "type": "integer",
+          "default": 8,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "key_dim",
+          "display_name": "Key Dim",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "dropout",
+          "display_name": "Dropout",
+          "type": "number",
+          "default": 0.0,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 0,
+            "max": 0.999
+          }
+        },
+        {
+          "id": "layers",
+          "display_name": "Layers",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "attention",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sparkles",
+        "accent": "fuchsia",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/transformer_layers.md"
+    },
+    {
+      "id": "attention.cross",
+      "version": 1,
+      "display_name": "Cross-attention",
+      "category": "transformer",
+      "description": "Cross-attention operation.",
+      "inputs": [
+        {
+          "id": "query",
+          "display_name": "Query",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        },
+        {
+          "id": "context",
+          "display_name": "Context",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "num_heads",
+          "display_name": "Num Heads",
+          "type": "integer",
+          "default": 8,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "key_dim",
+          "display_name": "Key Dim",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "dropout",
+          "display_name": "Dropout",
+          "type": "number",
+          "default": 0.0,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 0,
+            "max": 0.999
+          }
+        },
+        {
+          "id": "layers",
+          "display_name": "Layers",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "attention",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sparkles",
+        "accent": "fuchsia",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/transformer_layers.md"
+    },
+    {
+      "id": "transformer.encoder_block",
+      "version": 1,
+      "display_name": "Transformer Encoder Block",
+      "category": "transformer",
+      "description": "Transformer Encoder Block operation.",
+      "inputs": [
+        {
+          "id": "query",
+          "display_name": "Query",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "num_heads",
+          "display_name": "Num Heads",
+          "type": "integer",
+          "default": 8,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "key_dim",
+          "display_name": "Key Dim",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "dropout",
+          "display_name": "Dropout",
+          "type": "number",
+          "default": 0.0,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 0,
+            "max": 0.999
+          }
+        },
+        {
+          "id": "layers",
+          "display_name": "Layers",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "attention",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true,
+          "notes": "Supported by the MVP Keras source and uninitialized model exporter."
+        },
+        "tensorflow_keras": {
+          "supported": true,
+          "notes": "Supported by the MVP Keras source and uninitialized model exporter."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sparkles",
+        "accent": "fuchsia",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/transformer_layers.md"
+    },
+    {
+      "id": "transformer.decoder_block",
+      "version": 1,
+      "display_name": "Transformer Decoder Block",
+      "category": "transformer",
+      "description": "Transformer Decoder Block operation.",
+      "inputs": [
+        {
+          "id": "query",
+          "display_name": "Query",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        },
+        {
+          "id": "context",
+          "display_name": "Context",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "num_heads",
+          "display_name": "Num Heads",
+          "type": "integer",
+          "default": 8,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "key_dim",
+          "display_name": "Key Dim",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "dropout",
+          "display_name": "Dropout",
+          "type": "number",
+          "default": 0.0,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 0,
+            "max": 0.999
+          }
+        },
+        {
+          "id": "layers",
+          "display_name": "Layers",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "attention",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sparkles",
+        "accent": "fuchsia",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/transformer_layers.md"
+    },
+    {
+      "id": "transformer.feed_forward",
+      "version": 1,
+      "display_name": "Feed-forward Transformer Block",
+      "category": "transformer",
+      "description": "Feed-forward Transformer Block operation.",
+      "inputs": [
+        {
+          "id": "query",
+          "display_name": "Query",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "num_heads",
+          "display_name": "Num Heads",
+          "type": "integer",
+          "default": 8,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "key_dim",
+          "display_name": "Key Dim",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "dropout",
+          "display_name": "Dropout",
+          "type": "number",
+          "default": 0.0,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 0,
+            "max": 0.999
+          }
+        },
+        {
+          "id": "layers",
+          "display_name": "Layers",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "attention",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sparkles",
+        "accent": "fuchsia",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/transformer_layers.md"
+    },
+    {
+      "id": "transformer.stack",
+      "version": 1,
+      "display_name": "Complete Transformer Stack",
+      "category": "transformer",
+      "description": "Complete Transformer Stack operation.",
+      "inputs": [
+        {
+          "id": "query",
+          "display_name": "Query",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "num_heads",
+          "display_name": "Num Heads",
+          "type": "integer",
+          "default": 8,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "key_dim",
+          "display_name": "Key Dim",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "dropout",
+          "display_name": "Dropout",
+          "type": "number",
+          "default": 0.0,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 0,
+            "max": 0.999
+          }
+        },
+        {
+          "id": "layers",
+          "display_name": "Layers",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "attention",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sparkles",
+        "accent": "fuchsia",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/transformer_layers.md"
+    },
+    {
+      "id": "transformer.positional_encoding",
+      "version": 1,
+      "display_name": "Positional Encoding",
+      "category": "transformer",
+      "description": "Positional Encoding operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "mode",
+          "display_name": "Mode",
+          "type": "enum",
+          "default": "sinusoidal",
+          "required": false,
+          "options": [
+            "sinusoidal",
+            "learned"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true,
+          "notes": "Supported by the MVP Keras source and uninitialized model exporter."
+        },
+        "tensorflow_keras": {
+          "supported": true,
+          "notes": "Supported by the MVP Keras source and uninitialized model exporter."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "MapPin",
+        "accent": "fuchsia",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/transformer_layers.md"
+    },
+    {
+      "id": "transformer.residual",
+      "version": 1,
+      "display_name": "Residual Connection",
+      "category": "transformer",
+      "description": "Residual Connection operation.",
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "fuchsia",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/transformer_layers.md"
+    },
+    {
+      "id": "transformer.attention_mask",
+      "version": 1,
+      "display_name": "Attention Mask",
+      "category": "transformer",
+      "description": "Attention Mask operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "mask",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "mask",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Shield",
+        "accent": "fuchsia",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/transformer_layers.md"
+    }
+  ]
+}
