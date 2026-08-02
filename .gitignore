@@ -14,6 +14,13 @@ dist/
 coverage/
 .vite/
 
+# Project-local portable runtimes and environments
+runtimes/*
+!runtimes/.gitkeep
+app/server/.venv/
+app/client/node_modules/
+app/client/dist/
+
 # Runtime data
 *.db
 *.sqlite
@@ -21,6 +28,14 @@ coverage/
 exports/
 artifacts/
 logs/
+app/resources/runtime/*
+!app/resources/runtime/.gitkeep
+!app/resources/runtime/logs/
+app/resources/runtime/logs/*
+!app/resources/runtime/logs/.gitkeep
+!app/resources/runtime/exports/
+app/resources/runtime/exports/*
+!app/resources/runtime/exports/.gitkeep
 
 # Model binaries and weights
 *.keras
@@ -36,6 +51,7 @@ logs/
 # Environment and IDE
 .env
 .env.local
+settings/.env
 .vscode/
 .idea/
 .DS_Store
@@ -43,3 +59,11 @@ Thumbs.db
 
 # Archives
 *.zip
+
+# QA output
+assets/QA/*
+!assets/QA/.gitkeep
+
+# Keep generated dependency lockfiles under source control.
+!app/server/uv.lock
+!app/client/package-lock.json
