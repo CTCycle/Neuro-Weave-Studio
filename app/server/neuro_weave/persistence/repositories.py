@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from uuid import UUID
 
@@ -10,19 +12,40 @@ from sqlalchemy.orm import Session
 from neuro_weave.domain.enums import TargetFramework
 from neuro_weave.domain.graph import ModelGraph, ProjectDocument, ProjectSummary
 from neuro_weave.persistence.models import ProjectRecord, ProjectRevisionRecord
+from neuro_weave.persistence.session import RepositoryContext
 
 
 class ProjectRepository:
-    def __init__(self, session: Session) -> None:
-        self._session = session
+    def __init__(self, context: RepositoryContext) -> None:
+        self.context = context
+
+    @property
+    def _session_factory(self):
+        return self.context.session_factory
+
+    @contextmanager
+    def _write_session(self) -> Iterator[Session]:
+        session = self._session_factory()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def list(self) -> list[ProjectSummary]:
-        records = self._session.scalars(select(ProjectRecord).order_by(ProjectRecord.updated_at.desc())).all()
-        return [self._to_summary(record) for record in records]
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(ProjectRecord).order_by(ProjectRecord.updated_at.desc())
+            ).all()
+            return [self._to_summary(record) for record in records]
 
     def get(self, project_id: UUID) -> ProjectDocument | None:
-        record = self._session.get(ProjectRecord, str(project_id))
-        return self._to_document(record) if record is not None else None
+        with self._session_factory() as session:
+            record = session.get(ProjectRecord, str(project_id))
+            return self._to_document(record) if record is not None else None
 
     def create(
         self,
@@ -35,30 +58,31 @@ class ProjectRepository:
         validation_status: str,
     ) -> ProjectDocument:
         graph_json = graph.model_dump_json()
-        record = ProjectRecord(
-            name=name,
-            description=description,
-            created_at=timestamp,
-            updated_at=timestamp,
-            schema_version=graph.schema_version,
-            target_framework=target_framework.value,
-            current_revision=1,
-            validation_status=validation_status,
-            graph_json=graph_json,
-            generated_code_json="{}",
-        )
-        record.revisions.append(
-            ProjectRevisionRecord(
-                revision=1,
+        with self._write_session() as session:
+            record = ProjectRecord(
+                name=name,
+                description=description,
                 created_at=timestamp,
-                graph_json=graph_json,
+                updated_at=timestamp,
+                schema_version=graph.schema_version,
                 target_framework=target_framework.value,
+                current_revision=1,
+                validation_status=validation_status,
+                graph_json=graph_json,
+                generated_code_json="{}",
             )
-        )
-        self._session.add(record)
-        self._session.commit()
-        self._session.refresh(record)
-        return self._to_document(record)
+            record.revisions.append(
+                ProjectRevisionRecord(
+                    revision=1,
+                    created_at=timestamp,
+                    graph_json=graph_json,
+                    target_framework=target_framework.value,
+                )
+            )
+            session.add(record)
+            session.flush()
+            session.refresh(record)
+            return self._to_document(record)
 
     def update(
         self,
@@ -72,51 +96,59 @@ class ProjectRepository:
         validation_status: str,
         expected_revision: int | None,
     ) -> ProjectDocument | None:
-        record = self._session.get(ProjectRecord, str(project_id))
-        if record is None:
-            return None
-        if expected_revision is not None and record.current_revision != expected_revision:
-            raise ValueError(
-                f"Revision conflict: expected {expected_revision}, current {record.current_revision}"
-            )
-        revision = record.current_revision + 1
         graph_json = graph.model_dump_json()
-        record.name = name
-        record.description = description
-        record.target_framework = target_framework.value
-        record.graph_json = graph_json
-        record.schema_version = graph.schema_version
-        record.current_revision = revision
-        record.updated_at = timestamp
-        record.validation_status = validation_status
-        record.revisions.append(
-            ProjectRevisionRecord(
-                revision=revision,
-                created_at=timestamp,
-                graph_json=graph_json,
-                target_framework=target_framework.value,
+        with self._write_session() as session:
+            if expected_revision is None:
+                record = session.get(ProjectRecord, str(project_id))
+            else:
+                record = session.scalar(
+                    select(ProjectRecord)
+                    .where(ProjectRecord.id == str(project_id))
+                    .with_for_update()
+                )
+            if record is None:
+                return None
+            if expected_revision is not None and record.current_revision != expected_revision:
+                raise ValueError(
+                    f"Revision conflict: expected {expected_revision}, current {record.current_revision}"
+                )
+            revision = record.current_revision + 1
+            record.name = name
+            record.description = description
+            record.target_framework = target_framework.value
+            record.graph_json = graph_json
+            record.schema_version = graph.schema_version
+            record.current_revision = revision
+            record.updated_at = timestamp
+            record.validation_status = validation_status
+            record.revisions.append(
+                ProjectRevisionRecord(
+                    revision=revision,
+                    created_at=timestamp,
+                    graph_json=graph_json,
+                    target_framework=target_framework.value,
+                )
             )
-        )
-        self._session.commit()
-        self._session.refresh(record)
-        return self._to_document(record)
+            session.flush()
+            session.refresh(record)
+            return self._to_document(record)
 
     def delete(self, project_id: UUID) -> bool:
-        record = self._session.get(ProjectRecord, str(project_id))
-        if record is None:
-            return False
-        self._session.delete(record)
-        self._session.commit()
-        return True
+        with self._write_session() as session:
+            record = session.get(ProjectRecord, str(project_id))
+            if record is None:
+                return False
+            session.delete(record)
+            return True
 
     def save_code_snapshot(self, project_id: UUID, framework: TargetFramework, code: str) -> None:
-        record = self._session.get(ProjectRecord, str(project_id))
-        if record is None:
-            raise KeyError(str(project_id))
-        snapshots = json.loads(record.generated_code_json)
-        snapshots[framework.value] = code
-        record.generated_code_json = json.dumps(snapshots, sort_keys=True)
-        self._session.commit()
+        with self._write_session() as session:
+            record = session.get(ProjectRecord, str(project_id))
+            if record is None:
+                raise KeyError(str(project_id))
+            snapshots = json.loads(record.generated_code_json)
+            snapshots[framework.value] = code
+            record.generated_code_json = json.dumps(snapshots, sort_keys=True)
 
     def _to_document(self, record: ProjectRecord) -> ProjectDocument:
         return ProjectDocument(
