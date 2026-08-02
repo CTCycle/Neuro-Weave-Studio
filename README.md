@@ -31,8 +31,10 @@ Keras is the high-level model API. TensorFlow through Keras uses Keras with the 
 ### Windows
 
 ```powershell
-.\start_on_windows.ps1 -Mode Dev
+.\start_on_windows.bat -Mode Launch
 ```
+
+Use `-NoBrowser` for automated validation. Other modes are `Install`, `Dev`, `Backend`, `Frontend`, `Build`, `Test`, and `Stop`.
 
 ### Linux or macOS
 
@@ -40,32 +42,34 @@ Keras is the high-level model API. TensorFlow through Keras uses Keras with the 
 ./scripts/start.sh
 ```
 
-The frontend runs at `http://localhost:5173`; the API runs at `http://localhost:8000`.
+The frontend runs at `http://127.0.0.1:5173`; the API runs at `http://127.0.0.1:8000`.
 
 ## Manual setup
 
 ```bash
-cd backend
-uv sync --extra test
-uv run uvicorn neuro_weave.app:app --reload --port 8000
+cd app/server
+uv sync --frozen --extra test
+uv run uvicorn neuro_weave.app:app --host 127.0.0.1 --port 8000
 ```
 
 In another terminal:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+cd app/client
+npm ci
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
 ## Validation
 
 ```bash
-cd backend
+cd app/server
 uv run ruff check .
 uv run pytest
+uv run alembic upgrade head
 
-cd ../frontend
+cd ../client
+npm ci
 npm run lint
 npm run test
 npm run build
@@ -74,7 +78,7 @@ npm run build
 ## Optional Keras binary export
 
 ```bash
-cd backend
+cd app/server
 uv sync --extra keras --extra test
 ```
 
@@ -82,7 +86,9 @@ Binary export creates an initialized but untrained `.keras` model. It is not a t
 
 ## Examples
 
-Portable project definitions are under `examples/`. Import them through the editor or POST their project payload to `/api/projects`.
+Portable project definitions are under `app/resources/examples/`. Import them through the editor or POST their project payload to `/api/projects`.
+
+Configuration is read from `settings/.env`; generated databases, exports, logs, launcher state, and QA data belong under the ignored `app/resources/runtime/` and `assets/QA/` directories.
 
 ## Documentation
 
