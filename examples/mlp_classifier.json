@@ -1,0 +1,129 @@
+{
+  "name": "Multilayer perceptron",
+  "description": "A compact tabular classifier example.",
+  "target_framework": "keras",
+  "graph": {
+    "schema_version": 1,
+    "nodes": [
+      {
+        "id": "features",
+        "definition_id": "input.tabular",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 0,
+          "y": 100
+        },
+        "parameters": {
+          "shape": [
+            null,
+            20
+          ],
+          "dtype": "float32"
+        }
+      },
+      {
+        "id": "dense_1",
+        "definition_id": "layer.dense",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 300,
+          "y": 100
+        },
+        "parameters": {
+          "units": 64,
+          "activation": "relu",
+          "use_bias": true
+        }
+      },
+      {
+        "id": "dropout",
+        "definition_id": "layer.dropout",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 600,
+          "y": 100
+        },
+        "parameters": {
+          "rate": 0.2
+        }
+      },
+      {
+        "id": "dense_2",
+        "definition_id": "layer.dense",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 900,
+          "y": 100
+        },
+        "parameters": {
+          "units": 3,
+          "activation": "softmax",
+          "use_bias": true
+        }
+      },
+      {
+        "id": "prediction",
+        "definition_id": "output.classification",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 1200,
+          "y": 100
+        },
+        "parameters": {
+          "name": "class_prediction"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source_node_id": "features",
+        "source_port_id": "output",
+        "target_node_id": "dense_1",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e2",
+        "source_node_id": "dense_1",
+        "source_port_id": "output",
+        "target_node_id": "dropout",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e3",
+        "source_node_id": "dropout",
+        "source_port_id": "output",
+        "target_node_id": "dense_2",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e4",
+        "source_node_id": "dense_2",
+        "source_port_id": "output",
+        "target_node_id": "prediction",
+        "target_port_id": "input"
+      }
+    ],
+    "model_configuration": {
+      "optimizer": "adam",
+      "optimizer_parameters": {
+        "learning_rate": 0.001
+      },
+      "losses": {},
+      "metrics": {},
+      "mixed_precision": false,
+      "random_seed": 42
+    },
+    "export_settings": {
+      "include_comments": true,
+      "include_shape_assertions": true,
+      "preferred_binary_format": "keras"
+    },
+    "future_training_configuration": {}
+  }
+}

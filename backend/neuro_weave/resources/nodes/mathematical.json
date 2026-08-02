@@ -1,0 +1,745 @@
+{
+  "nodes": [
+    {
+      "id": "math.abs",
+      "version": 1,
+      "display_name": "Absolute Value",
+      "category": "mathematical",
+      "description": "Absolute Value operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "math",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.exp",
+      "version": 1,
+      "display_name": "Exponential",
+      "category": "mathematical",
+      "description": "Exponential operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "math",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.log",
+      "version": 1,
+      "display_name": "Logarithm",
+      "category": "mathematical",
+      "description": "Logarithm operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "math",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.power",
+      "version": 1,
+      "display_name": "Power",
+      "category": "mathematical",
+      "description": "Power operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "exponent",
+          "display_name": "Exponent",
+          "type": "number",
+          "default": 2.0,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "math",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.sqrt",
+      "version": 1,
+      "display_name": "Square Root",
+      "category": "mathematical",
+      "description": "Square Root operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "math",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.softmax",
+      "version": 1,
+      "display_name": "Softmax",
+      "category": "mathematical",
+      "description": "Softmax operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": -1,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "math",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.argmax",
+      "version": 1,
+      "display_name": "Argmax",
+      "category": "mathematical",
+      "description": "Argmax operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "math",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.reduce",
+      "version": 1,
+      "display_name": "Reduction Operations",
+      "category": "mathematical",
+      "description": "Reduction Operations operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "operation",
+          "display_name": "Operation",
+          "type": "enum",
+          "default": "mean",
+          "required": false,
+          "options": [
+            "sum",
+            "mean",
+            "max",
+            "min"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": -1,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "keepdims",
+          "display_name": "Keepdims",
+          "type": "boolean",
+          "default": false,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "math",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.slice",
+      "version": 1,
+      "display_name": "Tensor Slicing",
+      "category": "mathematical",
+      "description": "Tensor Slicing operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "expression",
+          "display_name": "Expression",
+          "type": "expression",
+          "default": ":",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "slice",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.index",
+      "version": 1,
+      "display_name": "Tensor Indexing",
+      "category": "mathematical",
+      "description": "Tensor Indexing operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "expression",
+          "display_name": "Expression",
+          "type": "expression",
+          "default": ":",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "slice",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.transpose",
+      "version": 1,
+      "display_name": "Transpose",
+      "category": "mathematical",
+      "description": "Transpose operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "axes",
+          "display_name": "Axes",
+          "type": "shape",
+          "default": [],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "transpose",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Sigma",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "math.expression",
+      "version": 1,
+      "display_name": "Safe Mathematical Expression",
+      "category": "mathematical",
+      "description": "Evaluates a restricted expression language with whitelisted tensor functions only.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "expression",
+          "display_name": "Expression",
+          "type": "expression",
+          "default": "x",
+          "required": true,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "math",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Braces",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    }
+  ]
+}

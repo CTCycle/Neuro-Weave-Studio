@@ -1,0 +1,765 @@
+{
+  "nodes": [
+    {
+      "id": "layer.dense",
+      "version": 1,
+      "display_name": "Dense / Linear",
+      "category": "core",
+      "description": "Dense / Linear operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "units",
+          "display_name": "Units",
+          "type": "integer",
+          "default": 32,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "activation",
+          "display_name": "Activation",
+          "type": "enum",
+          "default": "linear",
+          "required": false,
+          "options": [
+            "linear",
+            "relu",
+            "gelu",
+            "sigmoid",
+            "tanh",
+            "softmax"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "use_bias",
+          "display_name": "Use Bias",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "dense",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "Network",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.activation",
+      "version": 1,
+      "display_name": "Activation",
+      "category": "core",
+      "description": "Activation operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "activation",
+          "display_name": "Activation",
+          "type": "enum",
+          "default": "relu",
+          "required": false,
+          "options": [
+            "relu",
+            "gelu",
+            "sigmoid",
+            "tanh",
+            "softmax",
+            "linear"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "Zap",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.dropout",
+      "version": 1,
+      "display_name": "Dropout",
+      "category": "core",
+      "description": "Dropout operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "rate",
+          "display_name": "Rate",
+          "type": "number",
+          "default": 0.5,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 0,
+            "max": 0.999
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "dropout",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "CircleOff",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.batch_norm",
+      "version": 1,
+      "display_name": "Batch Normalization",
+      "category": "core",
+      "description": "Batch Normalization operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "momentum",
+          "display_name": "Momentum",
+          "type": "number",
+          "default": 0.99,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "epsilon",
+          "display_name": "Epsilon",
+          "type": "number",
+          "default": 0.001,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "normalization",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "PyTorch source export requires rank-aware normalization selection and is not implemented in the MVP."
+        }
+      },
+      "ui": {
+        "icon": "Scale",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.layer_norm",
+      "version": 1,
+      "display_name": "Layer Normalization",
+      "category": "core",
+      "description": "Layer Normalization operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "epsilon",
+          "display_name": "Epsilon",
+          "type": "number",
+          "default": 0.001,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "normalization",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "PyTorch source export requires rank-aware normalization selection and is not implemented in the MVP."
+        }
+      },
+      "ui": {
+        "icon": "Scale",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.group_norm",
+      "version": 1,
+      "display_name": "Group Normalization",
+      "category": "core",
+      "description": "Group Normalization operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "groups",
+          "display_name": "Groups",
+          "type": "integer",
+          "default": 32,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "epsilon",
+          "display_name": "Epsilon",
+          "type": "number",
+          "default": 0.001,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "normalization",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Scale",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.flatten",
+      "version": 1,
+      "display_name": "Flatten",
+      "category": "core",
+      "description": "Flatten operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "flatten",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "UnfoldHorizontal",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.reshape",
+      "version": 1,
+      "display_name": "Reshape",
+      "category": "core",
+      "description": "Reshape operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "target_shape",
+          "display_name": "Target Shape",
+          "type": "shape",
+          "default": [
+            -1
+          ],
+          "required": true,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "reshape",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "PanelTop",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.permute",
+      "version": 1,
+      "display_name": "Permute",
+      "category": "core",
+      "description": "Permute operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "axes",
+          "display_name": "Axes",
+          "type": "shape",
+          "default": [
+            2,
+            1
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "transpose",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ArrowLeftRight",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.repeat",
+      "version": 1,
+      "display_name": "Repeat",
+      "category": "core",
+      "description": "Repeat operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "repeats",
+          "display_name": "Repeats",
+          "type": "integer",
+          "default": 2,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Repeat2",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.embedding",
+      "version": 1,
+      "display_name": "Embedding",
+      "category": "core",
+      "description": "Embedding operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "vocabulary_size",
+          "display_name": "Vocabulary Size",
+          "type": "integer",
+          "default": 10000,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "embedding_dim",
+          "display_name": "Embedding Dim",
+          "type": "integer",
+          "default": 128,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "embedding",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "Binary",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    }
+  ]
+}

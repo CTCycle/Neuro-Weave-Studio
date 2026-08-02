@@ -1,0 +1,158 @@
+{
+  "name": "Convolutional classifier",
+  "description": "Image input, convolution, pooling and classifier head.",
+  "target_framework": "keras",
+  "graph": {
+    "schema_version": 1,
+    "nodes": [
+      {
+        "id": "image",
+        "definition_id": "input.image",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 0,
+          "y": 100
+        },
+        "parameters": {
+          "shape": [
+            null,
+            32,
+            32,
+            3
+          ],
+          "dtype": "float32"
+        }
+      },
+      {
+        "id": "conv",
+        "definition_id": "conv.conv2d",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 300,
+          "y": 100
+        },
+        "parameters": {
+          "filters": 16,
+          "kernel_size": [
+            3,
+            3
+          ],
+          "padding": "same",
+          "activation": "relu",
+          "data_format": "channels_last",
+          "use_bias": true
+        }
+      },
+      {
+        "id": "pool",
+        "definition_id": "conv.max_pool2d",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 600,
+          "y": 100
+        },
+        "parameters": {
+          "pool_size": [
+            2,
+            2
+          ]
+        }
+      },
+      {
+        "id": "flat",
+        "definition_id": "layer.flatten",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 900,
+          "y": 100
+        },
+        "parameters": {}
+      },
+      {
+        "id": "classifier",
+        "definition_id": "layer.dense",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 1200,
+          "y": 100
+        },
+        "parameters": {
+          "units": 10,
+          "activation": "softmax",
+          "use_bias": true
+        }
+      },
+      {
+        "id": "prediction",
+        "definition_id": "output.classification",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 1500,
+          "y": 100
+        },
+        "parameters": {
+          "name": "class_prediction"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source_node_id": "image",
+        "source_port_id": "output",
+        "target_node_id": "conv",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e2",
+        "source_node_id": "conv",
+        "source_port_id": "output",
+        "target_node_id": "pool",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e3",
+        "source_node_id": "pool",
+        "source_port_id": "output",
+        "target_node_id": "flat",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e4",
+        "source_node_id": "flat",
+        "source_port_id": "output",
+        "target_node_id": "classifier",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e5",
+        "source_node_id": "classifier",
+        "source_port_id": "output",
+        "target_node_id": "prediction",
+        "target_port_id": "input"
+      }
+    ],
+    "model_configuration": {
+      "optimizer": "adam",
+      "optimizer_parameters": {
+        "learning_rate": 0.001
+      },
+      "losses": {},
+      "metrics": {},
+      "mixed_precision": false,
+      "random_seed": 42
+    },
+    "export_settings": {
+      "include_comments": true,
+      "include_shape_assertions": true,
+      "preferred_binary_format": "keras"
+    },
+    "future_training_configuration": {}
+  }
+}

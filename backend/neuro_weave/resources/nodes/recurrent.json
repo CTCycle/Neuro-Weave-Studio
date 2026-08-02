@@ -1,0 +1,437 @@
+{
+  "nodes": [
+    {
+      "id": "recurrent.simple_rnn",
+      "version": 1,
+      "display_name": "Simple RNN",
+      "category": "recurrent",
+      "description": "Simple RNN operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "units",
+          "display_name": "Units",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "return_sequences",
+          "display_name": "Return Sequences",
+          "type": "boolean",
+          "default": false,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "input_size",
+          "display_name": "Input Size",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "recurrent",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "RefreshCw",
+        "accent": "orange",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/recurrent_layers.md"
+    },
+    {
+      "id": "recurrent.lstm",
+      "version": 1,
+      "display_name": "LSTM",
+      "category": "recurrent",
+      "description": "LSTM operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "units",
+          "display_name": "Units",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "return_sequences",
+          "display_name": "Return Sequences",
+          "type": "boolean",
+          "default": false,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "input_size",
+          "display_name": "Input Size",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "recurrent",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "RefreshCw",
+        "accent": "orange",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/recurrent_layers.md"
+    },
+    {
+      "id": "recurrent.gru",
+      "version": 1,
+      "display_name": "GRU",
+      "category": "recurrent",
+      "description": "GRU operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "units",
+          "display_name": "Units",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        },
+        {
+          "id": "return_sequences",
+          "display_name": "Return Sequences",
+          "type": "boolean",
+          "default": false,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "input_size",
+          "display_name": "Input Size",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 1
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "recurrent",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "RefreshCw",
+        "accent": "orange",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/recurrent_layers.md"
+    },
+    {
+      "id": "recurrent.bidirectional",
+      "version": 1,
+      "display_name": "Bidirectional Recurrent Layer",
+      "category": "recurrent",
+      "description": "Bidirectional Recurrent Layer operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "cell",
+          "display_name": "Cell",
+          "type": "enum",
+          "default": "lstm",
+          "required": false,
+          "options": [
+            "simple_rnn",
+            "lstm",
+            "gru"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "units",
+          "display_name": "Units",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "return_sequences",
+          "display_name": "Return Sequences",
+          "type": "boolean",
+          "default": false,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "recurrent",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "ArrowLeftRight",
+        "accent": "orange",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/recurrent_layers.md"
+    },
+    {
+      "id": "recurrent.stack",
+      "version": 1,
+      "display_name": "Recurrent Stack",
+      "category": "recurrent",
+      "description": "Recurrent Stack operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "cell",
+          "display_name": "Cell",
+          "type": "enum",
+          "default": "lstm",
+          "required": false,
+          "options": [
+            "simple_rnn",
+            "lstm",
+            "gru"
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "units",
+          "display_name": "Units",
+          "type": "integer",
+          "default": 64,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "layers",
+          "display_name": "Layers",
+          "type": "integer",
+          "default": 2,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "return_sequences",
+          "display_name": "Return Sequences",
+          "type": "boolean",
+          "default": false,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "recurrent",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Layers3",
+        "accent": "orange",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/recurrent_layers.md"
+    }
+  ]
+}

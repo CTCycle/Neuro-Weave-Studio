@@ -1,0 +1,434 @@
+{
+  "nodes": [
+    {
+      "id": "output.classification",
+      "version": 1,
+      "display_name": "Classification Output",
+      "category": "outputs",
+      "description": "Classification Output operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "name",
+          "display_name": "Name",
+          "type": "string",
+          "default": "classification",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "output",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogOut",
+        "accent": "amber",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "output.regression",
+      "version": 1,
+      "display_name": "Regression Output",
+      "category": "outputs",
+      "description": "Regression Output operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "name",
+          "display_name": "Name",
+          "type": "string",
+          "default": "regression",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "output",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogOut",
+        "accent": "amber",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "output.segmentation",
+      "version": 1,
+      "display_name": "Segmentation Output",
+      "category": "outputs",
+      "description": "Segmentation Output operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "name",
+          "display_name": "Name",
+          "type": "string",
+          "default": "segmentation",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "output",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogOut",
+        "accent": "amber",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "output.sequence",
+      "version": 1,
+      "display_name": "Sequence Output",
+      "category": "outputs",
+      "description": "Sequence Output operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "name",
+          "display_name": "Name",
+          "type": "string",
+          "default": "sequence",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "output",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogOut",
+        "accent": "amber",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "output.multi_head",
+      "version": 1,
+      "display_name": "Multi-output Head",
+      "category": "outputs",
+      "description": "Multi-output Head operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "name",
+          "display_name": "Name",
+          "type": "string",
+          "default": "multi_head",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "output",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogOut",
+        "accent": "amber",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "output.detection_placeholder",
+      "version": 1,
+      "display_name": "Object Detection Head Placeholder",
+      "category": "outputs",
+      "description": "Object Detection Head Placeholder operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "name",
+          "display_name": "Name",
+          "type": "string",
+          "default": "detection_placeholder",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "output",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "LogOut",
+        "accent": "amber",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "output.custom",
+      "version": 1,
+      "display_name": "Custom Output Tensor",
+      "category": "outputs",
+      "description": "Custom Output Tensor operation.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "name",
+          "display_name": "Name",
+          "type": "string",
+          "default": "custom",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "output",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogOut",
+        "accent": "amber",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    }
+  ]
+}

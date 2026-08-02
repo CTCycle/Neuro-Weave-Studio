@@ -1,0 +1,169 @@
+{
+  "name": "Small Transformer encoder",
+  "description": "Token embedding, positional encoding and a compact Transformer encoder block.",
+  "target_framework": "keras",
+  "graph": {
+    "schema_version": 1,
+    "nodes": [
+      {
+        "id": "tokens",
+        "definition_id": "input.token",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 0,
+          "y": 100
+        },
+        "parameters": {
+          "shape": [
+            null,
+            128
+          ],
+          "dtype": "int64"
+        }
+      },
+      {
+        "id": "embedding",
+        "definition_id": "layer.embedding",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 300,
+          "y": 100
+        },
+        "parameters": {
+          "vocabulary_size": 12000,
+          "embedding_dim": 128
+        }
+      },
+      {
+        "id": "positions",
+        "definition_id": "transformer.positional_encoding",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 600,
+          "y": 100
+        },
+        "parameters": {
+          "mode": "sinusoidal"
+        }
+      },
+      {
+        "id": "encoder",
+        "definition_id": "transformer.encoder_block",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 900,
+          "y": 100
+        },
+        "parameters": {
+          "num_heads": 4,
+          "key_dim": 32,
+          "dropout": 0.1,
+          "layers": 1
+        }
+      },
+      {
+        "id": "flat",
+        "definition_id": "layer.flatten",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 1200,
+          "y": 100
+        },
+        "parameters": {}
+      },
+      {
+        "id": "classifier",
+        "definition_id": "layer.dense",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 1500,
+          "y": 100
+        },
+        "parameters": {
+          "units": 2,
+          "activation": "softmax",
+          "use_bias": true
+        }
+      },
+      {
+        "id": "prediction",
+        "definition_id": "output.classification",
+        "definition_version": 1,
+        "label": null,
+        "position": {
+          "x": 1800,
+          "y": 100
+        },
+        "parameters": {
+          "name": "class_prediction"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source_node_id": "tokens",
+        "source_port_id": "output",
+        "target_node_id": "embedding",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e2",
+        "source_node_id": "embedding",
+        "source_port_id": "output",
+        "target_node_id": "positions",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e3",
+        "source_node_id": "positions",
+        "source_port_id": "output",
+        "target_node_id": "encoder",
+        "target_port_id": "query"
+      },
+      {
+        "id": "e4",
+        "source_node_id": "encoder",
+        "source_port_id": "output",
+        "target_node_id": "flat",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e5",
+        "source_node_id": "flat",
+        "source_port_id": "output",
+        "target_node_id": "classifier",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e6",
+        "source_node_id": "classifier",
+        "source_port_id": "output",
+        "target_node_id": "prediction",
+        "target_port_id": "input"
+      }
+    ],
+    "model_configuration": {
+      "optimizer": "adam",
+      "optimizer_parameters": {
+        "learning_rate": 0.001
+      },
+      "losses": {},
+      "metrics": {},
+      "mixed_precision": false,
+      "random_seed": 42
+    },
+    "export_settings": {
+      "include_comments": true,
+      "include_shape_assertions": true,
+      "preferred_binary_format": "keras"
+    },
+    "future_training_configuration": {}
+  }
+}

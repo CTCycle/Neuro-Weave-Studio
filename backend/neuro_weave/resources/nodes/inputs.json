@@ -1,0 +1,570 @@
+{
+  "nodes": [
+    {
+      "id": "input.tensor",
+      "version": 1,
+      "display_name": "Input Tensor",
+      "category": "inputs",
+      "description": "Input Tensor operation.",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "shape",
+          "display_name": "Shape",
+          "type": "shape",
+          "default": [
+            null,
+            32
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "enum",
+          "default": "float32",
+          "required": false,
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+            "bool"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "input",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogIn",
+        "accent": "cyan",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "input.image",
+      "version": 1,
+      "display_name": "Image Input",
+      "category": "inputs",
+      "description": "Image Input operation.",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "shape",
+          "display_name": "Shape",
+          "type": "shape",
+          "default": [
+            null,
+            224,
+            224,
+            3
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "enum",
+          "default": "float32",
+          "required": false,
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+            "bool"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "input",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogIn",
+        "accent": "cyan",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "input.sequence",
+      "version": 1,
+      "display_name": "Sequence Input",
+      "category": "inputs",
+      "description": "Sequence Input operation.",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "shape",
+          "display_name": "Shape",
+          "type": "shape",
+          "default": [
+            null,
+            100,
+            64
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "enum",
+          "default": "float32",
+          "required": false,
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+            "bool"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "input",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogIn",
+        "accent": "cyan",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "input.tabular",
+      "version": 1,
+      "display_name": "Tabular Input",
+      "category": "inputs",
+      "description": "Tabular Input operation.",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "shape",
+          "display_name": "Shape",
+          "type": "shape",
+          "default": [
+            null,
+            20
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "enum",
+          "default": "float32",
+          "required": false,
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+            "bool"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "input",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogIn",
+        "accent": "cyan",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "input.token",
+      "version": 1,
+      "display_name": "Token Input",
+      "category": "inputs",
+      "description": "Token Input operation.",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "shape",
+          "display_name": "Shape",
+          "type": "shape",
+          "default": [
+            null,
+            128
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "enum",
+          "default": "int64",
+          "required": false,
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+            "bool"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "input",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogIn",
+        "accent": "cyan",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "input.mask",
+      "version": 1,
+      "display_name": "Mask Input",
+      "category": "inputs",
+      "description": "Mask Input operation.",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "shape",
+          "display_name": "Shape",
+          "type": "shape",
+          "default": [
+            null,
+            128
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "enum",
+          "default": "bool",
+          "required": false,
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+            "bool"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "input",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": true
+        },
+        "tensorflow_keras": {
+          "supported": true
+        },
+        "pytorch": {
+          "supported": true
+        }
+      },
+      "ui": {
+        "icon": "LogIn",
+        "accent": "cyan",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "input.constant",
+      "version": 1,
+      "display_name": "Constant",
+      "category": "inputs",
+      "description": "Constant operation.",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "shape",
+          "display_name": "Shape",
+          "type": "shape",
+          "default": [
+            null,
+            1
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "value",
+          "display_name": "Value",
+          "type": "number",
+          "default": 0.0,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "input",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Hash",
+        "accent": "cyan",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "input.parameter",
+      "version": 1,
+      "display_name": "Parameter",
+      "category": "inputs",
+      "description": "Parameter operation.",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "shape",
+          "display_name": "Shape",
+          "type": "shape",
+          "default": [
+            1
+          ],
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "initializer",
+          "display_name": "Initializer",
+          "type": "enum",
+          "default": "zeros",
+          "required": false,
+          "options": [
+            "zeros",
+            "ones",
+            "random_normal"
+          ],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "input",
+        "config": {}
+      },
+      "frameworks": {
+        "keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "tensorflow_keras": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        }
+      },
+      "ui": {
+        "icon": "Variable",
+        "accent": "cyan",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    }
+  ]
+}

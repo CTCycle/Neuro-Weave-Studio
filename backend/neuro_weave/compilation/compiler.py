@@ -1,0 +1,54 @@
+from __future__ import annotations
+
+import keyword
+import re
+
+from neuro_weave.catalog.loader import NodeCatalog
+from neuro_weave.domain.compilation import CanonicalModelIR, CompiledNode
+from neuro_weave.domain.enums import TargetFramework
+from neuro_weave.domain.graph import ModelGraph
+from neuro_weave.validation.graph_utils import incoming_edges, topological_order
+
+
+def _variable_name(node_id: str) -> str:
+    value = re.sub(r"[^a-zA-Z0-9_]", "_", node_id)
+    if value and (value[0].isdigit() or keyword.iskeyword(value)):
+        value = f"node_{value}"
+    return value or "node"
+
+
+def compile_to_ir(
+    graph: ModelGraph,
+    framework: TargetFramework,
+    catalog: NodeCatalog,
+) -> CanonicalModelIR:
+    nodes = {node.id: node for node in graph.nodes}
+    inbound = incoming_edges(graph)
+    ordered_nodes: list[CompiledNode] = []
+    used_variable_names: set[str] = set()
+    for node_id in topological_order(graph):
+        node = nodes[node_id]
+        catalog.get(node.definition_id, node.definition_version)
+        input_node_ids = [edge.source_node_id for edge in inbound.get(node_id, [])]
+        variable_name = _variable_name(node.label or node.id)
+        base_name = variable_name
+        suffix = 2
+        while variable_name in used_variable_names:
+            variable_name = f"{base_name}_{suffix}"
+            suffix += 1
+        used_variable_names.add(variable_name)
+        ordered_nodes.append(
+            CompiledNode(
+                node_id=node_id,
+                definition_id=node.definition_id,
+                variable_name=variable_name,
+                input_node_ids=input_node_ids,
+                parameters=node.parameters,
+            )
+        )
+    return CanonicalModelIR(
+        framework=framework,
+        ordered_nodes=ordered_nodes,
+        input_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("input.")],
+        output_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("output.")],
+    )
