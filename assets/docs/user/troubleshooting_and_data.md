@@ -14,7 +14,7 @@ If startup reports missing tables, confirm the active `settings/.env` values.
 For a disposable or intentionally reset workspace, run:
 
 ```powershell
-.\start_on_windows.bat -Mode InitializeDatabase
+.\start_on_windows.ps1 -Mode InitializeDatabase
 ```
 
 This is destructive: embedded SQLite data is removed, and PostgreSQL

@@ -46,6 +46,6 @@ resets.
 
 - Backend: `app/server/neuro_weave/app.py`, exposing `create_app()` and `app`.
 - Frontend: `app/client/src/main.tsx`, bootstrapping `App.tsx`.
-- Windows: `start_on_windows.ps1` or `start_on_windows.bat`.
+- Windows: `start_on_windows.ps1`.
 - Database reset: `app/scripts/initialize_database.py` or launcher mode
   `InitializeDatabase`.
