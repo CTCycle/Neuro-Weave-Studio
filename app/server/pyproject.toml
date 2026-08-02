@@ -13,7 +13,7 @@ dependencies = [
   "pydantic>=2.11,<3",
   "pydantic-settings>=2.10,<3",
   "SQLAlchemy>=2.0.41,<3",
-  "psycopg[binary]>=3.2,<4",
+  "alembic>=1.16,<2",
   "python-multipart>=0.0.20,<1",
 ]
 
@@ -27,11 +27,26 @@ test = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["neuro_weave"]
+only-include = [
+  "app.py",
+  "alembic.ini",
+  "api",
+  "common",
+  "compilation",
+  "configurations",
+  "domain",
+  "exporters",
+  "migrations",
+  "repositories",
+  "resources",
+  "services",
+  "validation",
+]
 
 [tool.pytest.ini_options]
-testpaths = ["../tests/backend"]
-addopts = "-q --basetemp=../../assets/QA/pytest-tmp"
+testpaths = ["../tests"]
+pythonpath = ["."]
+addopts = "-q"
 
 [tool.ruff]
 line-length = 100
