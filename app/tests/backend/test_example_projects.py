@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import ast
-import pytest
 
+import pytest
 from neuro_weave.catalog.loader import get_node_catalog
 from neuro_weave.domain.enums import TargetFramework
 from neuro_weave.domain.graph import ProjectCreate
+from neuro_weave.paths import EXAMPLES_ROOT
 from neuro_weave.services.compilation_service import CompilationService
 from neuro_weave.validation.validator import GraphValidator
-from neuro_weave.paths import EXAMPLES_ROOT
 
 
 @pytest.mark.parametrize(

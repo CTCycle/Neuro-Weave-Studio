@@ -8,8 +8,8 @@ rm -f "$QA_DB"
 cd "$ROOT/app/server"
 uv sync --frozen --extra test
 uv run ruff check .
-NEURO_WEAVE_DATABASE_URL="sqlite:///$QA_DB" NEURO_WEAVE_EXPORT_ROOT="$QA_ROOT/exports" uv run pytest
-NEURO_WEAVE_DATABASE_URL="sqlite:///$QA_DB" uv run alembic upgrade head
+EMBEDDED_DATABASE="true" DATABASE_SQLITE_PATH="$QA_DB" NEURO_WEAVE_EXPORT_ROOT="$QA_ROOT/exports" uv run python ../scripts/initialize_database.py --drop-existing
+EMBEDDED_DATABASE="true" DATABASE_SQLITE_PATH="$QA_DB" NEURO_WEAVE_EXPORT_ROOT="$QA_ROOT/exports" uv run pytest
 cd "$ROOT/app/client"
 npm ci
 npm run lint

@@ -1,4 +1,4 @@
-from neuro_weave.domain.graph import ModelGraph, ProjectExportBundle, ProjectCreate
+from neuro_weave.domain.graph import ModelGraph, ProjectCreate, ProjectExportBundle
 
 
 def test_project_bundle_round_trip() -> None:

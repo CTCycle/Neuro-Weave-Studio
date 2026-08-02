@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("Launch", "Install", "Dev", "Backend", "Frontend", "Build", "Test", "Stop")]
+    [ValidateSet("Launch", "Install", "InitializeDatabase", "Dev", "Backend", "Frontend", "Build", "Test", "Stop")]
     [string]$Mode = "Launch",
     [switch]$NoBrowser,
     [switch]$VisibleBackendLog
@@ -27,6 +27,17 @@ $NodeExe = $null
 $NpmCmd = $null
 
 New-Item -ItemType Directory -Force $RuntimeRoot, $LogRoot | Out-Null
+
+function Ensure-EnvironmentFile {
+    $environmentFile = Join-Path $SettingsRoot ".env"
+    $exampleFile = Join-Path $SettingsRoot ".env.example"
+    if (-not (Test-Path -LiteralPath $environmentFile)) {
+        if (-not (Test-Path -LiteralPath $exampleFile)) {
+            throw "Missing settings/.env.example."
+        }
+        Copy-Item -LiteralPath $exampleFile -Destination $environmentFile
+    }
+}
 
 function Invoke-External {
     param([string]$FilePath, [string[]]$Arguments, [string]$WorkingDirectory)
@@ -94,6 +105,7 @@ function Ensure-Python {
 }
 
 function Initialize-Tools {
+    Ensure-EnvironmentFile
     $script:UvExe = Ensure-Uv
     $node = Ensure-Node
     $script:NodeExe = $node[0]
@@ -202,7 +214,7 @@ function Assert-Ready {
     $venvPython = Join-Path $VenvRoot "Scripts\python.exe"
     $basePrefix = (& $venvPython -c "import sys; print(sys.base_prefix)").Trim()
     if (-not $basePrefix.StartsWith($PythonRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "app/server/.venv is not based on the pinned project-local Python under $PythonRoot. Run Install again." }
-    Invoke-External $venvPython @("-c", "import alembic, fastapi, pydantic, sqlalchemy, uvicorn") $ServerRoot
+    Invoke-External $venvPython @("-c", "import fastapi, pydantic, psycopg, sqlalchemy, uvicorn") $ServerRoot
     if (-not (Test-Path (Join-Path $ClientRoot "node_modules\.bin\vite.cmd"))) { throw "Missing Vite runner. Run Install first." }
     if (-not (Test-Path (Join-Path $ClientRoot "dist\index.html"))) { throw "Missing frontend dist. Run Build first." }
 }
@@ -231,6 +243,20 @@ function Start-Backend {
     $records = @(Read-ProcessRecords)
     $records += $record
     Write-ProcessRecords $records
+}
+
+function Initialize-Database {
+    Initialize-Tools
+    Stop-ProjectProcesses
+    $databaseScript = Join-Path $Root "app\scripts\initialize_database.py"
+    if (-not (Test-Path -LiteralPath $databaseScript)) {
+        throw "Database initializer is missing: $databaseScript"
+    }
+    Invoke-External $UvExe @(
+        "run", "--project", "app/server", "--python", $PythonExe,
+        "python", "app/scripts/initialize_database.py", "--drop-existing"
+    ) $Root
+    Write-Host "Database initialization completed." -ForegroundColor Green
 }
 
 function Start-Frontend {
@@ -267,6 +293,7 @@ function Open-Application {
 
 switch ($Mode) {
     "Install" { Install-Dependencies }
+    "InitializeDatabase" { Initialize-Database }
     "Build" { Build-Frontend }
     "Stop" { Stop-ProjectProcesses }
     "Backend" { Assert-Ready; Start-Backend; Wait-ForUrl "http://127.0.0.1:8000/health" }

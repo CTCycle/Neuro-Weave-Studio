@@ -1,8 +1,12 @@
 from pathlib import Path
 
 import pytest
-
-from neuro_weave.domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+from neuro_weave.domain.graph import (
+    EdgeInstance,
+    ModelGraph,
+    NodeInstance,
+    Position,
+)
 from neuro_weave.exporters.keras_exporter import KerasBinaryExporter
 
 

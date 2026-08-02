@@ -1,6 +1,6 @@
 # NeuroWeave Documentation Index
 
-Last updated: 2026-07-30
+Last updated: 2026-08-02
 
 ## Purpose
 
@@ -17,6 +17,7 @@ This is the root navigation document for the repository. Read it first, then ope
 
 - `architecture/system_overview.md`
 - `architecture/backend_architecture.md`
+- `architecture/api_surface.md`
 - `architecture/frontend_architecture.md`
 - `architecture/graph_compiler.md`
 - `architecture/shape_inference.md`
@@ -68,6 +69,14 @@ This is the root navigation document for the repository. Read it first, then ope
 - `runtime/configuration.md`
 - `runtime/troubleshooting.md`
 
+## User
+
+- `user/getting_started.md`
+- `user/workflow_editor.md`
+- `user/projects_and_exports.md`
+- `user/troubleshooting_and_data.md`
+- `user/checklists.md`
+
 ## Decisions
 
 - `decisions/adr_001_frontend_framework.md`
@@ -82,3 +91,12 @@ This is the root navigation document for the repository. Read it first, then ope
 3. Keep each leaf focused on one concern.
 4. Update architecture, ontology, and user-facing documentation with implementation changes.
 5. Include an explicit `Last updated` date in every document.
+
+## Current implementation boundary
+
+The MVP is a local-first architecture editor. It persists projects and immutable
+revision snapshots, validates graphs on the backend, compiles a framework-
+independent representation, and exports the documented Keras, TensorFlow-through-
+Keras, PyTorch, JSON, and optional initialized `.keras` formats. Training,
+datasets, experiment tracking, learned weights, deployment, and third-party
+executable plugins remain outside the implemented boundary.
