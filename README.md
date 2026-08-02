@@ -45,9 +45,9 @@ The frontend runs at `http://localhost:5173`; the API runs at `http://localhost:
 ## Manual setup
 
 ```bash
-cd backend
+cd app/server
 uv sync --extra test
-uv run uvicorn neuro_weave.app:app --reload --port 8000
+PYTHONPATH=. uv run uvicorn app:app --reload --port 8000
 ```
 
 In another terminal:
@@ -61,11 +61,11 @@ npm run dev
 ## Validation
 
 ```bash
-cd backend
+cd app/server
 uv run ruff check .
 uv run pytest
 
-cd ../frontend
+cd ../../frontend
 npm run lint
 npm run test
 npm run build
@@ -74,7 +74,7 @@ npm run build
 ## Optional Keras binary export
 
 ```bash
-cd backend
+cd app/server
 uv sync --extra keras --extra test
 ```
 

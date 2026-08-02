@@ -3,9 +3,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 trap 'kill 0' EXIT
 (
-  cd "$ROOT/backend"
+  cd "$ROOT/app/server"
   uv sync --extra test
-  uv run uvicorn neuro_weave.app:app --reload --port 8000
+  PYTHONPATH="$ROOT/app/server" uv run uvicorn app:app --reload --port 8000
 ) &
 (
   cd "$ROOT/frontend"
