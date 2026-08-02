@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-02
 
-On Windows run `start_on_windows.bat -Mode Launch` for a build-backed FastAPI
+On Windows run `start_on_windows.ps1 -Mode Launch` for a build-backed FastAPI
 plus Vite preview. `-Mode Install` provisions pinned project-local runtimes;
 `Dev`, `Backend`, `Frontend`, `Build`, `Test`, `Stop`, and
 `InitializeDatabase` are also available. Add `-NoBrowser` for automation.

@@ -31,7 +31,7 @@ Keras is the high-level model API. TensorFlow through Keras uses Keras with the 
 ### Windows
 
 ```powershell
-.\start_on_windows.bat -Mode Launch
+.\start_on_windows.ps1 -Mode Launch
 ```
 
 Use `-NoBrowser` for automated validation. Other modes are `Install`, `InitializeDatabase`, `Dev`, `Backend`, `Frontend`, `Build`, `Test`, and `Stop`.
@@ -88,7 +88,7 @@ Binary export creates an initialized but untrained `.keras` model. It is not a t
 
 Portable project definitions are under `app/resources/examples/`. Import them through the editor or POST their project payload to `/api/projects`.
 
-Configuration is read from `settings/.env`. `EMBEDDED_DATABASE=true` uses the automatically created SQLite database at `app/resources/runtime/neuro_weave.db`; set it to `false` and provide the `DATABASE_*` PostgreSQL settings for an external database. Generated databases, exports, logs, launcher state, and QA data belong under the ignored `app/resources/runtime/` and `assets/QA/` directories. Run `start_on_windows.bat -Mode InitializeDatabase` only when you intentionally want to reset the application schema.
+Configuration is read from `settings/.env`. `EMBEDDED_DATABASE=true` uses the automatically created SQLite database at `app/resources/runtime/neuro_weave.db`; set it to `false` and provide the `DATABASE_*` PostgreSQL settings for an external database. Generated databases, exports, logs, launcher state, and QA data belong under the ignored `app/resources/runtime/` and `assets/QA/` directories. Run `start_on_windows.ps1 -Mode InitializeDatabase` only when you intentionally want to reset the application schema.
 
 ## Documentation
 

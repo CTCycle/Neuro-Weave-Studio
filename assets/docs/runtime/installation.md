@@ -3,7 +3,7 @@
 Last updated: 2026-08-02
 
 Install Python 3.12 or newer, Node.js 20 or newer, and `uv`, or use the pinned
-project-local runtimes through `start_on_windows.bat -Mode Install`.
+project-local runtimes through `start_on_windows.ps1 -Mode Install`.
 
 Manual setup:
 

@@ -11,7 +11,7 @@ weights; it produces validated architecture definitions and source artifacts.
 On Windows, use:
 
 ```powershell
-.\start_on_windows.bat -Mode Launch
+.\start_on_windows.ps1 -Mode Launch
 ```
 
 The launcher starts the backend at `http://127.0.0.1:8000` and the frontend at

@@ -35,7 +35,7 @@ side-effect-free; writes commit or roll back as one unit.
 Normal startup initializes only a missing embedded SQLite file. Existing SQLite
 files and PostgreSQL databases are schema-checked but never silently rebuilt.
 `app/scripts/initialize_database.py --drop-existing` and
-`start_on_windows.bat -Mode InitializeDatabase` are the explicit destructive
+`start_on_windows.ps1 -Mode InitializeDatabase` are the explicit destructive
 reset paths. SQLite resets delete the configured file and its WAL/SHM sidecars;
 PostgreSQL resets drop and recreate only NeuroWeave-owned tables.
 
