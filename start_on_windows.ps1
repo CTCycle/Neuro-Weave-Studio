@@ -5,15 +5,24 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Backend = Join-Path $Root "backend"
+$Server = Join-Path $Root "app\server"
 $Frontend = Join-Path $Root "frontend"
 
 function Start-Backend {
-    Push-Location $Backend
+    Push-Location $Server
+    $PreviousPythonPath = $env:PYTHONPATH
     try {
+        $env:PYTHONPATH = $Server
         uv sync --extra test
-        uv run uvicorn neuro_weave.app:app --reload --port 8000
-    } finally { Pop-Location }
+        uv run uvicorn app:app --reload --port 8000
+    } finally {
+        if ($null -eq $PreviousPythonPath) {
+            Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+        } else {
+            $env:PYTHONPATH = $PreviousPythonPath
+        }
+        Pop-Location
+    }
 }
 
 function Start-Frontend {
@@ -32,7 +41,21 @@ switch ($Mode) {
         Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-File", $MyInvocation.MyCommand.Path, "-Mode", "Frontend"
     }
     "Test" {
-        Push-Location $Backend; uv sync --extra test; uv run ruff check .; uv run pytest; Pop-Location
+        Push-Location $Server
+        $PreviousPythonPath = $env:PYTHONPATH
+        try {
+            $env:PYTHONPATH = $Server
+            uv sync --extra test
+            uv run ruff check . ..\tests
+            uv run pytest ..\tests
+        } finally {
+            if ($null -eq $PreviousPythonPath) {
+                Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+            } else {
+                $env:PYTHONPATH = $PreviousPythonPath
+            }
+            Pop-Location
+        }
         Push-Location $Frontend; npm install; npm run lint; npm run test; Pop-Location
     }
     "Build" {

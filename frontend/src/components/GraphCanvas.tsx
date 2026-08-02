@@ -11,6 +11,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { ModelNode } from './ModelNode'
+import type { EditorEdge } from '../domain/types'
 import { useGraphStore } from '../state/graphStore'
 
 const nodeTypes = { modelNode: ModelNode }
@@ -30,6 +31,15 @@ function CanvasInner() {
   const selectEdge = useGraphStore((state) => state.selectEdge)
   const applyLayout = useGraphStore((state) => state.autoLayout)
   const checkpoint = useGraphStore((state) => state.checkpoint)
+  const flowConnectionValidation = useCallback(
+    (connection: Connection | EditorEdge) => isConnectionValid({
+      source: connection.source,
+      target: connection.target,
+      sourceHandle: connection.sourceHandle ?? null,
+      targetHandle: connection.targetHandle ?? null,
+    }),
+    [isConnectionValid],
+  )
 
   const onDrop = useCallback((event: DragEvent) => {
     event.preventDefault()
@@ -71,12 +81,31 @@ function CanvasInner() {
     const handler = (event: KeyboardEvent) => {
       const state = useGraphStore.getState()
       const command = event.ctrlKey || event.metaKey
-      if (command && event.key.toLowerCase() === 'z') { event.preventDefault(); event.shiftKey ? state.redo() : state.undo() }
-      if (command && event.key.toLowerCase() === 'y') { event.preventDefault(); state.redo() }
-      if (command && event.key.toLowerCase() === 'c') { state.copySelected() }
-      if (command && event.key.toLowerCase() === 'v') { event.preventDefault(); state.pasteCopied() }
-      if ((event.key === 'Delete' || event.key === 'Backspace') && !(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement)) state.deleteSelected()
-      if (command && event.key.toLowerCase() === 'l') { event.preventDefault(); autoLayout() }
+      if (command && event.key.toLowerCase() === 'z') {
+        event.preventDefault()
+        if (event.shiftKey) state.redo()
+        else state.undo()
+      }
+      if (command && event.key.toLowerCase() === 'y') {
+        event.preventDefault()
+        state.redo()
+      }
+      if (command && event.key.toLowerCase() === 'c') state.copySelected()
+      if (command && event.key.toLowerCase() === 'v') {
+        event.preventDefault()
+        state.pasteCopied()
+      }
+      if (
+        (event.key === 'Delete' || event.key === 'Backspace') &&
+        !(event.target instanceof HTMLInputElement) &&
+        !(event.target instanceof HTMLTextAreaElement)
+      ) {
+        state.deleteSelected()
+      }
+      if (command && event.key.toLowerCase() === 'l') {
+        event.preventDefault()
+        autoLayout()
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -91,7 +120,7 @@ function CanvasInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={(connection: Connection) => connect(connection)}
-        isValidConnection={isConnectionValid}
+        isValidConnection={flowConnectionValidation}
         onNodeClick={(_, node) => selectNode(node.id)}
         onNodeDragStart={checkpoint}
         onEdgeClick={(_, edge) => selectEdge(edge.id)}

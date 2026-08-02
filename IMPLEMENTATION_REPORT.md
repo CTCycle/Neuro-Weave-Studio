@@ -1,6 +1,6 @@
 # NeuroWeave Studio Implementation Report
 
-Last updated: 2026-07-30
+Last updated: 2026-08-02
 
 ## Result
 
@@ -25,7 +25,7 @@ The interface, visual language, model ontology, graph contracts, persistence sch
 
 ### Backend
 
-- FastAPI application factory, CORS configuration, health and metadata routes.
+- Flat `app/server` FastAPI application factory, CORS configuration, health and metadata routes.
 - Project CRUD, duplication, optimistic revision checks, JSON import, and JSON export.
 - SQLite persistence through SQLAlchemy.
 - Immutable project revision snapshots.
