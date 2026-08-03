@@ -21,6 +21,11 @@ coverage/
 exports/
 artifacts/
 logs/
+app/resources/runtime/
+assets/QA/
+runtimes/
+*.lock
+**/package-lock.json
 
 # Model binaries and weights
 *.keras
@@ -35,6 +40,7 @@ logs/
 
 # Environment and IDE
 .env
+**/.env
 .env.local
 .vscode/
 .idea/

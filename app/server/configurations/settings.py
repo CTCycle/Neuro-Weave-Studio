@@ -68,7 +68,7 @@ class _DatabaseEnvironment(BaseSettings):
 
     embedded_database: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("EMBEDDED_DATABASE", "embedded_database"),
+        validation_alias=AliasChoices("DATABASE_EMBEDDED", "database_embedded"),
     )
     url: str | None = Field(
         default=None,
@@ -164,7 +164,7 @@ def _strict_bool(value: str | None, *, default: bool) -> bool:
         return True
     if lowered in _FALSE_VALUES:
         return False
-    raise ValueError("EMBEDDED_DATABASE and DATABASE_SSL must be boolean values")
+    raise ValueError("DATABASE_EMBEDDED and DATABASE_SSL must be boolean values")
 
 
 def _positive_int(value: str | None, *, default: int, label: str) -> int:

@@ -13,7 +13,7 @@ from repositories.session import close_repository_context
 
 @pytest.fixture()
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("EMBEDDED_DATABASE", "true")
+    monkeypatch.setenv("DATABASE_EMBEDDED", "true")
     monkeypatch.setenv("DATABASE_SQLITE_PATH", str(tmp_path / "test.db"))
     monkeypatch.setenv("NEURO_WEAVE_EXPORT_ROOT", str(tmp_path / "exports"))
     get_settings.cache_clear()

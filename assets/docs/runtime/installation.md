@@ -1,5 +1,7 @@
 # Installation
 
-Last updated: 2026-08-02
+Last updated: 2026-08-03
 
-Install Python 3.12 or newer, Node.js 20 or newer, and `uv`. Run `uv sync --extra test` in `app/server` and `npm install` in `frontend`. Add `--extra keras` only when local TensorFlow-backed binary export is required because it is a large optional dependency. Copy `.env.example` to `.env` only when overriding defaults.
+Run `start_on_windows.ps1` from the repository root and select **Install or repair dependencies** when local runtimes or dependencies are missing. The launcher uses pinned repository-local Python 3.12.11, uv 0.12.0, and Node.js 22.23.1 under `runtimes/`; subsequent launches validate the installed environment and skip synchronization when it is usable.
+
+The canonical environment file is `settings/.env`. If it is absent, the launcher copies `settings/.env.example` without overwriting an existing file. Never commit `settings/.env` or other `.env` files.
