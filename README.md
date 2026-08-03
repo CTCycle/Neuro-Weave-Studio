@@ -31,16 +31,20 @@ Keras is the high-level model API. TensorFlow through Keras uses Keras with the 
 ### Windows
 
 ```powershell
-.\start_on_windows.ps1 -Mode Dev
+.\start_on_windows.ps1
 ```
 
-### Linux or macOS
+The launcher menu provides these actions:
 
-```bash
-./scripts/start.sh
-```
+- Launch application
+- Install or repair dependencies
+- Initialize PostgreSQL
+- Run the validation suite
+- Exit
 
-The frontend runs at `http://localhost:5173`; the API runs at `http://localhost:8000`.
+The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, then owns both child processes until Ctrl+C.
+
+`settings/.env` is created from `settings/.env.example` on first launch and is never overwritten. The default SQLite database is `app/resources/runtime/neuro_weave.db`; an existing file is reused without schema rebuilding.
 
 ## Manual setup
 
@@ -58,12 +62,18 @@ npm install
 npm run dev
 ```
 
+## Database configuration
+
+SQLite is the default. Set `DATABASE_EMBEDDED=false` and provide the PostgreSQL connection fields in `settings/.env`, then select **Initialize PostgreSQL** in the launcher before ordinary application startup. Normal PostgreSQL startup only checks readiness; it does not create the database or schema.
+
 ## Validation
 
-```bash
+Select **Run validation suite** in the launcher, or run the backend and frontend checks manually:
+
+```powershell
 cd app/server
-uv run ruff check .
-uv run pytest
+uv run ruff check . ..\tests
+uv run pytest ..\tests
 
 cd ../../frontend
 npm run lint

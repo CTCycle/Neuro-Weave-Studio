@@ -5,10 +5,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from sqlalchemy import inspect, select
+from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.orm import Session
 
-from configurations.settings import REPOSITORY_ROOT, DatabaseSettings, get_database_settings
+import repositories.initializer as initializer
+from configurations.settings import (
+    REPOSITORY_ROOT,
+    DatabaseSettings,
+    get_database_settings,
+)
 from domain.enums import TargetFramework
 from domain.graph import ModelGraph
 from repositories.backend import (
@@ -31,7 +36,7 @@ def _clear_database_cache() -> None:
 
 
 def test_embedded_database_settings_resolve_relative_path(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setenv("EMBEDDED_DATABASE", "true")
+    monkeypatch.setenv("DATABASE_EMBEDDED", "true")
     monkeypatch.setenv("DATABASE_SQLITE_PATH", "assets/QA/contract.db")
     _clear_database_cache()
 
@@ -42,7 +47,7 @@ def test_embedded_database_settings_resolve_relative_path(monkeypatch, tmp_path:
 
 
 def test_embedded_database_rejects_invalid_boolean(monkeypatch) -> None:
-    monkeypatch.setenv("EMBEDDED_DATABASE", "sometimes")
+    monkeypatch.setenv("DATABASE_EMBEDDED", "sometimes")
     _clear_database_cache()
 
     with pytest.raises(ValueError, match="must be boolean"):
@@ -50,7 +55,7 @@ def test_embedded_database_rejects_invalid_boolean(monkeypatch) -> None:
 
 
 def test_ssl_rejects_invalid_boolean(monkeypatch) -> None:
-    monkeypatch.setenv("EMBEDDED_DATABASE", "true")
+    monkeypatch.setenv("DATABASE_EMBEDDED", "true")
     monkeypatch.setenv("DATABASE_SSL", "maybe")
     _clear_database_cache()
 
@@ -59,7 +64,7 @@ def test_ssl_rejects_invalid_boolean(monkeypatch) -> None:
 
 
 def test_external_database_url_is_overridden_by_explicit_values(monkeypatch) -> None:
-    monkeypatch.setenv("EMBEDDED_DATABASE", "false")
+    monkeypatch.setenv("DATABASE_EMBEDDED", "false")
     monkeypatch.setenv(
         "DATABASE_URL",
         "postgresql://url_user:url%20password@url.example:6543/url_db?sslmode=require&connect_timeout=17",
@@ -83,7 +88,7 @@ def test_external_database_url_is_overridden_by_explicit_values(monkeypatch) -> 
 
 
 def test_external_database_requires_connection_identity(monkeypatch) -> None:
-    monkeypatch.setenv("EMBEDDED_DATABASE", "false")
+    monkeypatch.setenv("DATABASE_EMBEDDED", "false")
     for key in (
         "DATABASE_URL",
         "DATABASE_HOST",
@@ -98,7 +103,7 @@ def test_external_database_requires_connection_identity(monkeypatch) -> None:
 
 
 def test_old_namespaced_database_key_is_not_a_compatibility_path(monkeypatch) -> None:
-    monkeypatch.delenv("EMBEDDED_DATABASE", raising=False)
+    monkeypatch.delenv("DATABASE_EMBEDDED", raising=False)
     monkeypatch.setenv("NEURO_WEAVE_DATABASE_URL", "postgresql://legacy.example/legacy")
     monkeypatch.delenv("DATABASE_SQLITE_PATH", raising=False)
     _clear_database_cache()
@@ -145,7 +150,48 @@ def test_external_database_rejects_uninstalled_driver() -> None:
         build_database_backend(settings)
 
 
-def test_missing_sqlite_file_is_initialized_and_explicit_reset_removes_rows(tmp_path: Path) -> None:
+def test_explicit_initializer_rejects_embedded_database(tmp_path: Path) -> None:
+    settings = DatabaseSettings(embedded_database=True, sqlite_path=tmp_path / "database.db")
+
+    with pytest.raises(ValueError, match="DATABASE_EMBEDDED=false"):
+        initialize_database(settings)
+
+
+def test_initializer_is_the_only_runtime_schema_creator() -> None:
+    initializer = REPOSITORY_ROOT / "app/server/repositories/initializer.py"
+    source = initializer.read_text(encoding="utf-8")
+
+    assert source.count("Base.metadata.create_all") == 1
+    assert "inspect(" not in source
+
+
+def test_postgres_startup_only_runs_readiness_query(monkeypatch) -> None:
+    engine = create_engine("sqlite:///:memory:")
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE projects (id INTEGER)"))
+    backend = object.__new__(initializer.PostgresBackend)
+    backend.engine = engine
+    backend.db_path = None
+    settings = DatabaseSettings(
+        embedded_database=False,
+        engine="postgresql+psycopg",
+        host="db.example",
+        database_name="neuro_weave",
+        username="postgres",
+    )
+
+    monkeypatch.setattr(initializer, "build_database_backend", lambda _: backend)
+    monkeypatch.setattr(
+        initializer,
+        "_create_schema",
+        lambda _: pytest.fail("ordinary PostgreSQL startup must not create schema"),
+    )
+
+    assert initializer.ensure_database_ready(settings) is backend
+    engine.dispose()
+
+
+def test_missing_sqlite_file_is_initialized_once(tmp_path: Path) -> None:
     db_path = tmp_path / "database.db"
     settings = DatabaseSettings(embedded_database=True, sqlite_path=db_path)
 
@@ -172,17 +218,16 @@ def test_missing_sqlite_file_is_initialized_and_explicit_reset_removes_rows(tmp_
         session.commit()
 
     backend.engine.dispose()
-    reset_backend = initialize_database(settings, drop_existing=True)
-    reset_factory = build_session_factory(reset_backend.engine)
-    with reset_factory() as session:
-        assert session.scalar(select(ProjectRecord)) is None
-    reset_backend.engine.dispose()
+    reopened = ensure_database_ready(settings)
+    with build_session_factory(reopened.engine)() as session:
+        assert session.scalar(select(ProjectRecord).where(ProjectRecord.name == "reset me"))
+    reopened.engine.dispose()
 
 
 def test_existing_sqlite_schema_is_not_reset_on_normal_startup(tmp_path: Path) -> None:
     db_path = tmp_path / "existing.db"
     settings = DatabaseSettings(embedded_database=True, sqlite_path=db_path)
-    backend = initialize_database(settings)
+    backend = ensure_database_ready(settings)
     with Session(backend.engine) as session:
         session.add(
             ProjectRecord(
@@ -211,11 +256,11 @@ def test_postgres_project_persistence_when_configured(monkeypatch: pytest.Monkey
     test_database_url = os.getenv("TEST_DATABASE_URL")
     if not test_database_url:
         pytest.skip("TEST_DATABASE_URL is not configured")
-    monkeypatch.setenv("EMBEDDED_DATABASE", "false")
+    monkeypatch.setenv("DATABASE_EMBEDDED", "false")
     monkeypatch.setenv("DATABASE_URL", test_database_url)
     get_database_settings.cache_clear()
     settings = get_database_settings()
-    backend = initialize_database(settings, drop_existing=True)
+    backend = initialize_database(settings)
     context = RepositoryContext(
         backend=backend,
         engine=backend.engine,
@@ -245,5 +290,5 @@ def test_existing_stale_sqlite_schema_fails_without_recreating(tmp_path: Path) -
     db_path.touch()
     settings = DatabaseSettings(embedded_database=True, sqlite_path=db_path)
 
-    with pytest.raises(RuntimeError, match="missing required table"):
+    with pytest.raises(RuntimeError, match="unavailable or has not been initialized"):
         ensure_database_ready(settings)

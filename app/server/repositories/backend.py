@@ -76,7 +76,6 @@ class SQLiteBackend:
         try:
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.execute("PRAGMA busy_timeout=30000")
-            cursor.execute("PRAGMA journal_mode=WAL")
         finally:
             cursor.close()
 
