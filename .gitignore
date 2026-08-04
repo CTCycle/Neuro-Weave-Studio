@@ -13,6 +13,7 @@ node_modules/
 dist/
 coverage/
 .vite/
+*.tsbuildinfo
 
 # Runtime data
 *.db
@@ -25,7 +26,6 @@ app/resources/runtime/
 assets/QA/
 runtimes/
 *.lock
-**/package-lock.json
 
 # Model binaries and weights
 *.keras

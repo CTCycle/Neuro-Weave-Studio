@@ -9,7 +9,21 @@ import type {
   ValidationResult,
 } from '../domain/types'
 
-const API_ROOT = import.meta.env.VITE_API_ROOT ?? ''
+const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//
+
+function normalizeApiBase(rawValue: string | undefined): string {
+  const candidate = (rawValue || '/api').trim()
+  if (!candidate) return '/api'
+  if (ABSOLUTE_URL_PATTERN.test(candidate)) {
+    throw new Error('VITE_API_BASE_URL must be a relative path (for example /api).')
+  }
+  const withLeadingSlash = candidate.startsWith('/') ? candidate : `/${candidate}`
+  return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash
+}
+
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE_URL)
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -18,7 +32,7 @@ class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_ROOT}${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   })
@@ -31,7 +45,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function requestBlob(path: string, init?: RequestInit): Promise<Blob> {
-  const response = await fetch(`${API_ROOT}${path}`, init)
+  const response = await fetch(`${API_BASE}${path}`, init)
   if (!response.ok) {
     const payload = await response.json().catch(() => ({ detail: response.statusText }))
     throw new ApiError(response.status, JSON.stringify(payload.detail ?? payload))
@@ -41,15 +55,15 @@ async function requestBlob(path: string, init?: RequestInit): Promise<Blob> {
 
 export const api = {
   async catalog(): Promise<NodeManifest[]> {
-    const response = await request<{ nodes: NodeManifest[] }>('/api/nodes/catalog')
+    const response = await request<{ nodes: NodeManifest[] }>('/nodes/catalog')
     return response.nodes
   },
   async listProjects(): Promise<ProjectSummary[]> {
-    const response = await request<{ projects: ProjectSummary[] }>('/api/projects')
+    const response = await request<{ projects: ProjectSummary[] }>('/projects')
     return response.projects
   },
   getProject(id: string): Promise<ProjectDocument> {
-    return request(`/api/projects/${id}`)
+    return request(`/projects/${id}`)
   },
   createProject(payload: {
     name: string
@@ -57,7 +71,7 @@ export const api = {
     target_framework: TargetFramework
     graph: ModelGraph
   }): Promise<ProjectDocument> {
-    return request('/api/projects', { method: 'POST', body: JSON.stringify(payload) })
+    return request('/projects', { method: 'POST', body: JSON.stringify(payload) })
   },
   updateProject(id: string, payload: {
     name: string
@@ -66,39 +80,39 @@ export const api = {
     graph: ModelGraph
     expected_revision: number
   }): Promise<ProjectDocument> {
-    return request(`/api/projects/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+    return request(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
   },
   duplicateProject(id: string, name?: string): Promise<ProjectDocument> {
-    return request(`/api/projects/${id}/duplicate`, {
+    return request(`/projects/${id}/duplicate`, {
       method: 'POST',
       body: JSON.stringify({ name: name ?? null }),
     })
   },
   deleteProject(id: string): Promise<void> {
-    return request(`/api/projects/${id}`, { method: 'DELETE' })
+    return request(`/projects/${id}`, { method: 'DELETE' })
   },
   exportProject(id: string): Promise<ProjectExportBundle> {
-    return request(`/api/projects/${id}/export`)
+    return request(`/projects/${id}/export`)
   },
   importProject(bundle: ProjectExportBundle): Promise<ProjectDocument> {
-    return request('/api/projects/import', { method: 'POST', body: JSON.stringify(bundle) })
+    return request('/projects/import', { method: 'POST', body: JSON.stringify(bundle) })
   },
   validate(graph: ModelGraph, framework: TargetFramework): Promise<ValidationResult> {
-    return request('/api/validation', {
+    return request('/validation', {
       method: 'POST',
       body: JSON.stringify({ graph, framework }),
     })
   },
   compile(graph: ModelGraph, framework: TargetFramework): Promise<CompilationResult> {
-    return request('/api/compilation', {
+    return request('/compilation', {
       method: 'POST',
       body: JSON.stringify({ graph, framework }),
     })
   },
   sourceForProject(id: string, framework: TargetFramework): Promise<{ code: string }> {
-    return request(`/api/exports/${id}/source/${framework}`)
+    return request(`/exports/${id}/source/${framework}`)
   },
   exportKerasModel(id: string): Promise<Blob> {
-    return requestBlob(`/api/exports/${id}/keras-model`, { method: 'POST' })
+    return requestBlob(`/exports/${id}/keras-model`, { method: 'POST' })
   },
 }

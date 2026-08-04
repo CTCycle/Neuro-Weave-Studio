@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 $script:RepoRoot = $PSScriptRoot
 $script:AppDir = Join-Path $RepoRoot 'app'
 $script:ServerDir = Join-Path $AppDir 'server'
-$script:FrontendDir = Join-Path $RepoRoot 'frontend'
+$script:ClientDir = Join-Path $AppDir 'client'
 $script:ScriptsDir = Join-Path $AppDir 'scripts'
 $script:SettingsDir = Join-Path $RepoRoot 'settings'
 $script:RuntimeDir = Join-Path $RepoRoot 'runtimes'
@@ -164,6 +164,7 @@ function Import-DotEnv {
         FASTAPI_PORT = '8000'
         UI_HOST = '127.0.0.1'
         UI_PORT = '5173'
+        VITE_API_BASE_URL = '/api'
         RELOAD = 'true'
     }
     foreach ($key in $defaults.Keys) {
@@ -201,27 +202,47 @@ function Sync-Dependencies {
     } finally { Pop-Location }
 
     $npm = Get-Npm
-    Push-Location $script:FrontendDir
+    $clientPackage = Join-Path $script:ClientDir 'package.json'
+    $clientLock = Join-Path $script:ClientDir 'package-lock.json'
+    if (-not (Test-Path -LiteralPath $clientPackage)) {
+        throw "Missing frontend package manifest: $clientPackage"
+    }
+    if (-not (Test-Path -LiteralPath $clientLock)) {
+        throw "Missing frontend lockfile: $clientLock"
+    }
+    Push-Location $script:ClientDir
     try {
         Write-Step 'Installing frontend dependencies.'
-        if (Test-Path -LiteralPath (Join-Path $script:FrontendDir 'package-lock.json')) {
-            & $npm ci
-        } else {
-            & $npm install
-        }
+        & $npm ci
         if ($LASTEXITCODE -ne 0) { throw "Frontend dependency installation failed with exit code $LASTEXITCODE." }
     } finally { Pop-Location }
     Write-Ok 'Dependencies are ready.'
+}
+
+function Invoke-FrontendBuild {
+    $npm = Get-Npm
+    Push-Location $script:ClientDir
+    try {
+        Write-Step 'Building frontend.'
+        & $npm run build
+        if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE." }
+    } finally { Pop-Location }
 }
 
 function Test-DependenciesReady {
     param([switch]$IncludeTests)
 
     $venvPython = Get-VenvPython
-    $vite = Join-Path $script:FrontendDir 'node_modules\.bin\vite.cmd'
+    $clientPackage = Join-Path $script:ClientDir 'package.json'
+    $clientLock = Join-Path $script:ClientDir 'package-lock.json'
+    $clientModules = Join-Path $script:ClientDir 'node_modules'
+    $clientInstallState = Join-Path $clientModules '.package-lock.json'
+    $vite = Join-Path $clientModules '.bin\vite.cmd'
     if (-not (Test-Path -LiteralPath $venvPython) -or
         -not (Test-Path -LiteralPath (Join-Path $script:ServerDir 'app.py')) -or
-        -not (Test-Path -LiteralPath (Join-Path $script:FrontendDir 'package.json')) -or
+        -not (Test-Path -LiteralPath $clientPackage) -or
+        -not (Test-Path -LiteralPath $clientLock) -or
+        -not (Test-Path -LiteralPath $clientInstallState) -or
         -not (Test-Path -LiteralPath $vite)) {
         return $false
     }
@@ -312,6 +333,7 @@ function Invoke-Launch {
     } else {
         Write-Ok 'Application environments are ready; skipped dependency installation.'
     }
+    Invoke-FrontendBuild
 
     $backendHost = [Environment]::GetEnvironmentVariable('FASTAPI_HOST', 'Process')
     $backendPort = Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'
@@ -334,7 +356,7 @@ function Invoke-Launch {
         Write-Ok 'Backend is healthy.'
 
         Write-Step "Starting frontend at http://$uiHost`:$uiPort"
-        Start-ManagedProcess -Name 'Frontend' -FilePath $npm -ArgumentList @('run', 'dev', '--', '--host', $uiHost, '--port', [string]$uiPort, '--strictPort') -WorkingDirectory $script:FrontendDir | Out-Null
+        Start-ManagedProcess -Name 'Frontend' -FilePath $npm -ArgumentList @('run', 'preview', '--', '--host', $uiHost, '--port', [string]$uiPort, '--strictPort') -WorkingDirectory $script:ClientDir | Out-Null
         $uiUrl = "http://$uiHost`:$uiPort/"
         if (-not (Invoke-HealthCheck -Url $uiUrl)) {
             throw "Frontend did not become ready at $uiUrl. See $($script:LogDir)."
@@ -360,6 +382,7 @@ function Invoke-Install {
     Ensure-PortableRuntimes
     Import-DotEnv
     Sync-Dependencies -IncludeTests
+    Invoke-FrontendBuild
 }
 
 function Invoke-PostgresInitialization {
@@ -404,7 +427,7 @@ function Invoke-TestSuite {
     }
 
     $npm = Get-Npm
-    Push-Location $script:FrontendDir
+    Push-Location $script:ClientDir
     try {
         Write-Step 'Running frontend lint, tests, and build.'
         & $npm run lint
