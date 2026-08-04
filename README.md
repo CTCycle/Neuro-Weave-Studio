@@ -57,7 +57,7 @@ PYTHONPATH=. uv run uvicorn app:app --reload --port 8000
 In another terminal:
 
 ```bash
-cd frontend
+cd app/client
 npm install
 npm run dev
 ```
@@ -75,7 +75,7 @@ cd app/server
 uv run ruff check . ..\tests
 uv run pytest ..\tests
 
-cd ../../frontend
+cd ../client
 npm run lint
 npm run test
 npm run build

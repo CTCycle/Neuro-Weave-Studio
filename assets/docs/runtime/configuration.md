@@ -8,4 +8,4 @@ Database settings use `DATABASE_EMBEDDED`, `DATABASE_SQLITE_PATH`, `DATABASE_URL
 
 Application settings use `NEURO_WEAVE_CORS_ORIGINS`, `NEURO_WEAVE_LOG_LEVEL`, `NEURO_WEAVE_LOG_FILE`, and `NEURO_WEAVE_EXPORT_ROOT`. Relative SQLite, log, and export paths are anchored to the repository root. The default database is `app/resources/runtime/neuro_weave.db`; generated artifacts use `app/resources/runtime/exports`.
 
-`FASTAPI_HOST`, `FASTAPI_PORT`, `UI_HOST`, `UI_PORT`, and `RELOAD` configure the local servers. Vite reads the same values from `settings/.env` and proxies `/api` and `/health` to the backend.
+`FASTAPI_HOST`, `FASTAPI_PORT`, `UI_HOST`, `UI_PORT`, and `RELOAD` configure the local servers. `VITE_API_BASE_URL` defaults to `/api`; Vite reads these values from `settings/.env` and proxies the API base and `/health` to the backend in both development and preview modes.

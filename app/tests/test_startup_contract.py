@@ -21,6 +21,12 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "Assert-PortAvailable" in source
     assert "Invoke-HealthCheck" in source
     assert "Stop-ManagedProcesses" in source
+    assert "$script:ClientDir = Join-Path $AppDir 'client'" in source
+    assert "Invoke-FrontendBuild" in source
+    assert "'run', 'preview'" in source
+    assert "Front" + "endDir" not in source
+    assert "Join-Path $RepoRoot 'frontend'" not in source
+    assert "'run', 'dev'" not in source
     assert "-NoExit" not in source
     assert "Stop-PortListeners" not in source
 
@@ -33,6 +39,7 @@ def test_environment_contract_is_canonical_and_secret_safe() -> None:
     assert "DATABASE_EMBEDDED=true" in template
     assert "DATABASE_SQLITE_PATH=" in template
     assert "DATABASE_URL=" in template
+    assert "VITE_API_BASE_URL=/api" in template
     assert not (REPOSITORY_ROOT / ".env.example").exists()
     assert "Copy-Item -LiteralPath $script:EnvironmentExample" in launcher
     assert "Missing environment template" in launcher
@@ -50,3 +57,11 @@ def test_launcher_has_one_explicit_postgres_action_and_no_destructive_reset() ->
     assert "--drop-existing" not in source
     assert "drop-existing" not in source.lower()
     assert "taskkill.exe /PID $child.Process.Id /T /F" in source
+
+
+def test_launcher_requires_the_canonical_frontend_lockfile() -> None:
+    source = LAUNCHER.read_text(encoding="utf-8")
+
+    assert "$clientLock = Join-Path $script:ClientDir 'package-lock.json'" in source
+    assert "& $npm ci" in source
+    assert "& $npm install" not in source
