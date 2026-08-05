@@ -133,7 +133,14 @@ function CanvasInner() {
         maxZoom={2.5}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} />
-        <MiniMap zoomable pannable nodeStrokeWidth={3} />
+        <MiniMap
+          zoomable
+          pannable
+          nodeColor="#315866"
+          nodeStrokeColor="#82d3d9"
+          nodeStrokeWidth={2}
+          maskColor="rgba(5, 10, 14, .72)"
+        />
         <Controls showInteractive={false} />
         <div className="canvas-hint">Drop a node to build the model • Ctrl+L auto-layout</div>
       </ReactFlow>
