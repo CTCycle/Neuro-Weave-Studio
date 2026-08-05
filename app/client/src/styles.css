@@ -24,7 +24,7 @@
 body { margin: 0; min-width: 1180px; min-height: 100vh; overflow: hidden; background: radial-gradient(circle at 70% 10%, #152632 0, transparent 32%), var(--bg); }
 button, input, select { font: inherit; }
 button { color: inherit; }
-.app-shell { height: 100vh; display: grid; grid-template-rows: 62px 1fr; }
+.app-shell { height: 100vh; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 62px 1fr; }
 .project-toolbar { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--border); background: rgba(11, 17, 23, .94); backdrop-filter: blur(18px); z-index: 20; }
 .brand-mark { display: flex; gap: 10px; align-items: center; margin-right: 6px; }
 .brand-mark > span { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--accent); color: var(--accent-bright); font: 500 12px 'IBM Plex Mono', Consolas, monospace; transform: rotate(45deg); }
@@ -44,7 +44,8 @@ button { color: inherit; }
 .toolbar-actions { margin-left: auto; display: flex; gap: 6px; }
 .toolbar-actions .secondary { border-color: var(--border); background: var(--surface); font-size: 12px; }
 .toolbar-actions .primary { background: var(--accent); color: #18110d; font-weight: 700; padding-inline: 16px; }
-.workspace-grid { min-height: 0; display: grid; grid-template-columns: 288px minmax(620px, 1fr) 302px; gap: 8px; padding: 8px; }
+.workspace-grid { min-width: 0; min-height: 0; display: grid; grid-template-columns: 288px minmax(620px, 1fr) 302px; gap: 8px; padding: 8px; }
+.workspace-grid > * { min-width: 0; }
 .panel { background: rgba(17,26,34,.96); border: 1px solid var(--border); border-radius: 8px; min-height: 0; }
 .catalog-panel, .inspector-panel { display: flex; flex-direction: column; padding: 16px; overflow: hidden; }
 .panel-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -53,7 +54,7 @@ h2 { margin: 4px 0 0; font-size: 17px; }
 .count-pill, .status-pill { border: 1px solid var(--border); color: var(--muted); background: var(--surface-2); border-radius: 999px; padding: 5px 8px; font: 500 10px 'IBM Plex Mono', Consolas, monospace; }
 .search-field { height: 38px; margin: 16px 0 10px; display: flex; align-items: center; gap: 8px; background: #0c141b; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; color: var(--muted); }
 .search-field input { flex: 1; min-width: 0; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 12px; }
-.category-tabs { display: flex; flex: 0 0 auto; align-items: flex-start; gap: 5px; min-height: 30px; overflow-x: auto; overflow-y: hidden; padding-bottom: 8px; scrollbar-width: none; scrollbar-color: transparent transparent; -webkit-overflow-scrolling: touch; }
+.category-tabs { display: flex; flex: 0 0 auto; min-width: 0; flex-wrap: wrap; align-content: flex-start; align-items: flex-start; gap: 5px; min-height: 30px; overflow: visible; padding-bottom: 2px; }
 .category-tabs:hover, .category-tabs:focus-within { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
 .catalog-list, .inspector-panel, .diagnostic-list, .code-drawer pre { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; -webkit-overflow-scrolling: touch; }
 .catalog-list, .inspector-panel { scrollbar-gutter: stable; }
@@ -72,10 +73,11 @@ h2 { margin: 4px 0 0; font-size: 17px; }
 .catalog-item small { display: block; color: var(--muted); font-size: 10px; line-height: 1.35; margin-top: 4px; }
 .catalog-item.export-limited { border-style: dashed; }
 .compatibility-badge { font: 500 8px 'IBM Plex Mono', Consolas, monospace; color: var(--warning); white-space: nowrap; }
-.center-workspace { min-height: 0; display: grid; grid-template-rows: 70px minmax(300px, 1fr) 205px; gap: 8px; }
-.configuration-strip { display: flex; align-items: center; gap: 12px; padding: 10px 14px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scrollbar-color: transparent transparent; -webkit-overflow-scrolling: touch; }
+.center-workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: 122px minmax(260px, 1fr) 150px; gap: 8px; }
+.configuration-strip { display: flex; flex-wrap: wrap; align-content: flex-start; align-items: flex-start; column-gap: 12px; row-gap: 6px; padding: 10px 14px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; scrollbar-color: transparent transparent; -webkit-overflow-scrolling: touch; }
 .configuration-strip:hover, .configuration-strip:focus-within { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
-.configuration-strip > div { width: 170px; display: flex; flex-direction: column; }
+.configuration-strip > div { width: 155px; flex: 0 0 155px; display: flex; flex-direction: column; }
+.configuration-strip > label { flex: 0 0 118px; min-width: 0; }
 .configuration-strip strong { font-size: 12px; margin-top: 4px; }
 .compact-field { display: flex; flex-direction: column; gap: 4px; }
 .compact-field span, .compact-toggle span { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
@@ -83,7 +85,9 @@ h2 { margin: 4px 0 0; font-size: 17px; }
 .compact-toggle { display: flex; gap: 8px; align-items: center; }
 .canvas-shell { min-height: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #0c1319; position: relative; }
 .react-flow__background { opacity: .48; }
-.react-flow__minimap { background: #111a22; border: 1px solid var(--border); border-radius: 5px; }
+.react-flow__minimap { width: 170px; height: 110px; background: #0d151c; border: 1px solid var(--border-strong); border-radius: 6px; box-shadow: 0 10px 22px rgba(0,0,0,.28); }
+.react-flow__minimap::before { content: 'MINI MAP'; position: absolute; top: 5px; left: 7px; z-index: 1; padding: 2px 4px; border: 1px solid rgba(101,201,212,.35); border-radius: 3px; background: rgba(13,21,28,.84); color: var(--cyan); font: 500 8px 'IBM Plex Mono', Consolas, monospace; letter-spacing: .1em; pointer-events: none; }
+.react-flow__minimap-svg { display: block; width: 100%; height: 100%; }
 .react-flow__controls { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; box-shadow: none; }
 .react-flow__controls button { background: var(--surface); color: var(--text); border-bottom-color: var(--border); }
 .react-flow__edge-path { stroke: #617d8e; stroke-width: 2; }
@@ -110,7 +114,7 @@ h2 { margin: 4px 0 0; font-size: 17px; }
 .summary-card > strong { font-size: 10px; color: var(--accent-bright); text-transform: uppercase; letter-spacing: .08em; }
 .summary-card > div { display: flex; justify-content: space-between; margin-top: 8px; color: var(--muted); font-size: 10px; }
 .summary-card code { color: var(--text); font: 400 10px 'IBM Plex Mono', Consolas, monospace; }
-.validation-panel { padding: 14px 16px; overflow: hidden; }
+.validation-panel { padding: 14px 16px; overflow-x: hidden; overflow-y: auto; }
 .status-pill { display: inline-flex; gap: 5px; align-items: center; }
 .status-pill.valid { color: var(--success); } .status-pill.invalid { color: var(--error); }
 .model-stats { display: flex; gap: 8px; margin: 10px 0; }
