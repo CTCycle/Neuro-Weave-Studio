@@ -10,6 +10,7 @@ from domain.graph import ModelGraph
 from validation.graph_utils import incoming_edges, topological_order
 
 
+###############################################################################
 def _variable_name(node_id: str) -> str:
     value = re.sub(r"[^a-zA-Z0-9_]", "_", node_id)
     if value and (value[0].isdigit() or keyword.iskeyword(value)):
@@ -17,6 +18,7 @@ def _variable_name(node_id: str) -> str:
     return value or "node"
 
 
+###############################################################################
 def compile_to_ir(
     graph: ModelGraph,
     framework: TargetFramework,

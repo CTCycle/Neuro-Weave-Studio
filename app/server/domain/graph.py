@@ -13,11 +13,13 @@ from domain.tensor import TensorSpec
 GRAPH_SCHEMA_VERSION = 1
 
 
+###############################################################################
 class Position(BaseModel):
     x: float = Field(allow_inf_nan=False)
     y: float = Field(allow_inf_nan=False)
 
 
+###############################################################################
 class NodeInstance(BaseModel):
     id: str = Field(min_length=1, max_length=120, pattern=r"^[A-Za-z][A-Za-z0-9_.-]*$")
     definition_id: str
@@ -27,6 +29,7 @@ class NodeInstance(BaseModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
 
 
+###############################################################################
 class EdgeInstance(BaseModel):
     id: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z][A-Za-z0-9_.-]*$")
     source_node_id: str
@@ -35,6 +38,7 @@ class EdgeInstance(BaseModel):
     target_port_id: str
 
 
+###############################################################################
 class ModelConfiguration(BaseModel):
     optimizer: str = "adam"
     optimizer_parameters: dict[str, Any] = Field(default_factory=lambda: {"learning_rate": 0.001})
@@ -47,12 +51,14 @@ class ModelConfiguration(BaseModel):
     random_seed: int | None = 42
 
 
+###############################################################################
 class ExportSettings(BaseModel):
     include_comments: bool = True
     include_shape_assertions: bool = True
     preferred_binary_format: str = "keras"
 
 
+###############################################################################
 class ModelGraph(BaseModel):
     schema_version: Literal[1] = GRAPH_SCHEMA_VERSION
     nodes: list[NodeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
@@ -61,6 +67,7 @@ class ModelGraph(BaseModel):
     export_settings: ExportSettings = Field(default_factory=ExportSettings)
     future_training_configuration: dict[str, Any] = Field(default_factory=dict)
 
+    # -------------------------------------------------------------------------
     @model_validator(mode="after")
     def unique_ids(self) -> ModelGraph:
         nodes = self.nodes  # pyright: ignore[reportUnknownVariableType]
@@ -74,6 +81,7 @@ class ModelGraph(BaseModel):
         return self
 
 
+###############################################################################
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=2000)
@@ -81,6 +89,7 @@ class ProjectCreate(BaseModel):
     graph: ModelGraph = Field(default_factory=ModelGraph)
 
 
+###############################################################################
 class ProjectUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=2000)
@@ -89,6 +98,7 @@ class ProjectUpdate(BaseModel):
     expected_revision: int = Field(ge=1)
 
 
+###############################################################################
 class ProjectDocument(BaseModel):
     id: UUID
     name: str
@@ -103,6 +113,7 @@ class ProjectDocument(BaseModel):
     generated_code_snapshots: dict[str, str] = Field(default_factory=dict)
 
 
+###############################################################################
 class ProjectSummary(BaseModel):
     id: UUID
     name: str
@@ -113,14 +124,17 @@ class ProjectSummary(BaseModel):
     validation_status: ValidationStatus
 
 
+###############################################################################
 class ProjectListResponse(BaseModel):
     projects: list[ProjectSummary]
 
 
+###############################################################################
 class ProjectDuplicateRequest(BaseModel):
     name: str | None = Field(default=None, max_length=160)
 
 
+###############################################################################
 class ProjectExportBundle(BaseModel):
     format: Literal["neuro-weave-project"] = "neuro-weave-project"
     format_version: Literal[1] = 1
@@ -128,6 +142,7 @@ class ProjectExportBundle(BaseModel):
     project: ProjectCreate
 
 
+###############################################################################
 class ShapeSummary(BaseModel):
     node_id: str
     outputs: dict[str, TensorSpec]

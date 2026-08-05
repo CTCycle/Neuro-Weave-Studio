@@ -6,6 +6,7 @@ from domain.enums import TargetFramework
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 
 
+###############################################################################
 def test_compiler_generates_unique_keyword_safe_variable_names() -> None:
     graph = ModelGraph(
         nodes=[

@@ -9,15 +9,20 @@ from domain.manifests import NodeManifest
 RESOURCE_ROOT = Path(__file__).resolve().parents[2] / "resources" / "nodes"
 
 
+###############################################################################
 class NodeCatalog:
+
+    # -------------------------------------------------------------------------
     def __init__(self, manifests: list[NodeManifest]) -> None:
         self._manifests = sorted(manifests, key=lambda item: (item.category, item.display_name))
         self._by_key = {(item.id, item.version): item for item in self._manifests}
 
+    # -------------------------------------------------------------------------
     @property
     def manifests(self) -> list[NodeManifest]:
         return list(self._manifests)
 
+    # -------------------------------------------------------------------------
     def get(self, definition_id: str, version: int = 1) -> NodeManifest:
         try:
             return self._by_key[(definition_id, version)]
@@ -25,6 +30,7 @@ class NodeCatalog:
             raise KeyError(f"Unknown node definition: {definition_id}@{version}") from exc
 
 
+###############################################################################
 def get_node_catalog() -> NodeCatalog:
     manifests: list[NodeManifest] = []
     for path in sorted(RESOURCE_ROOT.glob("*.json")):

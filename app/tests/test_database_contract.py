@@ -39,10 +39,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateTable
 
 
+###############################################################################
 def _settings(path: Path) -> DatabaseSettings:
     return DatabaseSettings(embedded_database=True, sqlite_path=path)
 
 
+###############################################################################
 def _context(path: Path) -> RepositoryContext:
     backend = initialize_database(_settings(path), reset=True)
     return RepositoryContext(
@@ -52,10 +54,12 @@ def _context(path: Path) -> RepositoryContext:
     )
 
 
+###############################################################################
 def fail_schema_recreation(_engine: object) -> None:
     pytest.fail("ordinary startup must not recreate the schema")
 
 
+###############################################################################
 def test_embedded_database_settings_resolve_relative_path(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -67,6 +71,7 @@ def test_embedded_database_settings_resolve_relative_path(
     assert settings.sqlite_path == (REPOSITORY_ROOT / "assets/QA/contract.db").resolve()
 
 
+###############################################################################
 def test_embedded_database_rejects_invalid_boolean(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_EMBEDDED", "sometimes")
 
@@ -74,6 +79,7 @@ def test_embedded_database_rejects_invalid_boolean(monkeypatch: pytest.MonkeyPat
         get_database_settings()
 
 
+###############################################################################
 def test_ssl_rejects_invalid_boolean(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_EMBEDDED", "true")
     monkeypatch.setenv("DATABASE_SSL", "maybe")
@@ -82,6 +88,7 @@ def test_ssl_rejects_invalid_boolean(monkeypatch: pytest.MonkeyPatch) -> None:
         get_database_settings()
 
 
+###############################################################################
 def test_external_database_url_is_overridden_by_explicit_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -106,6 +113,7 @@ def test_external_database_url_is_overridden_by_explicit_values(
     assert settings.connect_timeout == 17
 
 
+###############################################################################
 def test_external_database_requires_connection_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_EMBEDDED", "false")
     for key in ("DATABASE_URL", "DATABASE_HOST", "DATABASE_NAME", "DATABASE_USERNAME"):
@@ -114,6 +122,7 @@ def test_external_database_requires_connection_identity(monkeypatch: pytest.Monk
         get_database_settings()
 
 
+###############################################################################
 def test_postgres_url_and_connect_args_escape_credentials() -> None:
     settings = DatabaseSettings(
         embedded_database=False,
@@ -139,6 +148,7 @@ def test_postgres_url_and_connect_args_escape_credentials() -> None:
     }
 
 
+###############################################################################
 def test_external_database_rejects_uninstalled_driver() -> None:
     settings = DatabaseSettings(
         embedded_database=False,
@@ -153,6 +163,7 @@ def test_external_database_rejects_uninstalled_driver() -> None:
         build_database_backend(settings)
 
 
+###############################################################################
 def test_schema_is_canonical_on_both_dialects() -> None:
     sqlite_sql = "\n".join(
         str(CreateTable(table).compile(dialect=sqlite.dialect()))
@@ -179,6 +190,7 @@ def test_schema_is_canonical_on_both_dialects() -> None:
     assert "uq_project_revisions_revision" in postgres_sql
 
 
+###############################################################################
 def test_explicit_sqlite_reset_creates_schema_and_marker(tmp_path: Path) -> None:
     path = tmp_path / "database.db"
     backend = initialize_database(_settings(path), reset=True)
@@ -200,6 +212,7 @@ def test_explicit_sqlite_reset_creates_schema_and_marker(tmp_path: Path) -> None
     backend.engine.dispose()
 
 
+###############################################################################
 def test_existing_sqlite_schema_is_checked_without_recreation(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -216,6 +229,7 @@ def test_existing_sqlite_schema_is_checked_without_recreation(
     reopened.engine.dispose()
 
 
+###############################################################################
 def test_incompatible_sqlite_file_requires_explicit_reset(tmp_path: Path) -> None:
     path = tmp_path / "old.db"
     path.touch()
@@ -224,6 +238,7 @@ def test_incompatible_sqlite_file_requires_explicit_reset(tmp_path: Path) -> Non
         ensure_database_ready(_settings(path))
 
 
+###############################################################################
 def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> None:
     context = _context(tmp_path / "repository.db")
     now = datetime.now(UTC)
@@ -267,6 +282,7 @@ def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> 
         context.dispose()
 
 
+###############################################################################
 def test_transaction_rolls_back_partial_project(tmp_path: Path) -> None:
     context = _context(tmp_path / "rollback.db")
     now = datetime.now(UTC)
@@ -291,6 +307,7 @@ def test_transaction_rolls_back_partial_project(tmp_path: Path) -> None:
         context.dispose()
 
 
+###############################################################################
 def test_project_and_dependents_cascade(tmp_path: Path) -> None:
     context = _context(tmp_path / "cascade.db")
     now = datetime.now(UTC)
@@ -334,6 +351,7 @@ def test_project_and_dependents_cascade(tmp_path: Path) -> None:
         context.dispose()
 
 
+###############################################################################
 def test_foreign_keys_are_enabled_for_sqlite(tmp_path: Path) -> None:
     backend = initialize_database(_settings(tmp_path / "foreign-keys.db"), reset=True)
     with backend.engine.connect() as connection:
@@ -341,6 +359,7 @@ def test_foreign_keys_are_enabled_for_sqlite(tmp_path: Path) -> None:
     backend.engine.dispose()
 
 
+###############################################################################
 def test_node_delete_cascades_incident_edges(tmp_path: Path) -> None:
     context = _context(tmp_path / "node-cascade.db")
     now = datetime.now(UTC)
@@ -399,6 +418,7 @@ def test_node_delete_cascades_incident_edges(tmp_path: Path) -> None:
         context.dispose()
 
 
+###############################################################################
 def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
     context = _context(tmp_path / "cross-project-edge.db")
     now = datetime.now(UTC)
@@ -473,6 +493,7 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
         context.dispose()
 
 
+###############################################################################
 def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> None:
     context = _context(tmp_path / "constraints.db")
     now = datetime.now(UTC)
@@ -575,6 +596,7 @@ def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> Non
         context.dispose()
 
 
+###############################################################################
 def test_unavailable_postgres_startup_fails_without_initializing() -> None:
     settings = DatabaseSettings(
         embedded_database=False,
@@ -590,6 +612,7 @@ def test_unavailable_postgres_startup_fails_without_initializing() -> None:
         ensure_database_ready(settings)
 
 
+###############################################################################
 @pytest.mark.skipif(not os.getenv("TEST_DATABASE_URL"), reason="TEST_DATABASE_URL is not configured")
 def test_postgres_schema_can_be_recreated_when_configured(
     monkeypatch: pytest.MonkeyPatch,

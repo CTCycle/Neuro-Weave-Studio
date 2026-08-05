@@ -6,7 +6,10 @@ from domain.compilation import CanonicalModelIR
 from domain.graph import ModelGraph
 
 
+###############################################################################
 class SourceExporter(ABC):
+
+    # -------------------------------------------------------------------------
     @abstractmethod
     def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
         raise NotImplementedError

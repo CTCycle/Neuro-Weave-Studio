@@ -23,7 +23,10 @@ from services.project_service import ProjectService
 from services.validation_service import ValidationService
 
 
+###############################################################################
 class ExportService:
+
+    # -------------------------------------------------------------------------
     def __init__(
         self,
         *,
@@ -43,6 +46,7 @@ class ExportService:
         self._available_keras_backends = tuple(available_keras_backends)
         self._settings = settings
 
+    # -------------------------------------------------------------------------
     def source(self, project_id: UUID, framework: TargetFramework) -> SourceExportResponse:
         project = self._projects.get(project_id)
         if project is None:
@@ -69,6 +73,7 @@ class ExportService:
             uow.commit()
         return SourceExportResponse(framework=framework, code=result.code)
 
+    # -------------------------------------------------------------------------
     def keras_model(self, project_id: UUID, backend: KerasBackend) -> tuple[Path, str]:
         project = self._projects.get(project_id)
         if project is None:
@@ -91,6 +96,7 @@ class ExportService:
             raise BinaryExportUnavailableError(str(exc)) from exc
         return destination, destination.name
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _safe_filename_stem(value: str) -> str:
         sanitized = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")

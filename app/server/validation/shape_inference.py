@@ -10,10 +10,12 @@ from domain.tensor import TensorSpec
 from validation.graph_utils import incoming_edges, topological_order
 
 
+###############################################################################
 class ShapeInferenceError(ValueError):
     pass
 
 
+###############################################################################
 def _int_parameter(parameters: dict[str, Any], key: str, default: int | None = None) -> int:
     value = parameters.get(key, default)
     if not isinstance(value, int):
@@ -21,6 +23,7 @@ def _int_parameter(parameters: dict[str, Any], key: str, default: int | None = N
     return value
 
 
+###############################################################################
 def _spatial_parameter(
     parameters: dict[str, Any],
     key: str,
@@ -38,6 +41,7 @@ def _spatial_parameter(
     return [int(item) for item in items]
 
 
+###############################################################################
 def _convolution_size(
     size: object,
     *,
@@ -62,6 +66,7 @@ def _convolution_size(
     return result
 
 
+###############################################################################
 def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
     nodes = {node.id: node for node in graph.nodes}
     inbound = incoming_edges(graph)

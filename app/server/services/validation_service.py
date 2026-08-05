@@ -13,6 +13,7 @@ from validation.safe_expression import SafeExpressionError, validate_safe_expres
 from validation.shape_inference import ShapeInferenceError, infer_shapes
 
 
+###############################################################################
 def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     if value is None:
         return not parameter.required
@@ -34,6 +35,7 @@ def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     return True
 
 
+###############################################################################
 def _output_name(node: Any) -> str:
     configured = node.parameters.get("name")
     if isinstance(configured, str) and configured.strip():
@@ -41,11 +43,15 @@ def _output_name(node: Any) -> str:
     return node.label or node.id
 
 
+###############################################################################
 class ValidationService:
     """Application-facing graph validation service."""
+
+    # -------------------------------------------------------------------------
     def __init__(self, catalog: NodeCatalog) -> None:
         self._catalog = catalog
 
+    # -------------------------------------------------------------------------
     def validate(self, graph: ModelGraph, framework: TargetFramework) -> ValidationResult:
         diagnostics: list[ValidationDiagnostic] = []
         nodes = {node.id: node for node in graph.nodes}

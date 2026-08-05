@@ -14,6 +14,7 @@ from configurations.settings import DatabaseSettings
 POSTGRES_DATABASE_NAME_RE = re.compile(r"^\w[\w-]{0,62}$", re.ASCII)
 
 
+###############################################################################
 def normalize_postgres_engine(engine: str | None) -> str:
     normalized = (engine or "postgresql+psycopg").casefold()
     if normalized in {"postgres", "postgresql"}:
@@ -21,6 +22,7 @@ def normalize_postgres_engine(engine: str | None) -> str:
     return normalized
 
 
+###############################################################################
 def validate_postgres_database_name(database_name: str) -> str:
     normalized = str(database_name or "").strip()
     if not POSTGRES_DATABASE_NAME_RE.fullmatch(normalized):
@@ -28,6 +30,7 @@ def validate_postgres_database_name(database_name: str) -> str:
     return normalized
 
 
+###############################################################################
 def build_postgres_url(settings: DatabaseSettings, database_name: str | None = None) -> str:
     if not settings.host or not settings.username:
         raise ValueError("PostgreSQL host and username are required")
@@ -41,6 +44,7 @@ def build_postgres_url(settings: DatabaseSettings, database_name: str | None = N
     )
 
 
+###############################################################################
 def build_postgres_connect_args(settings: DatabaseSettings) -> dict[str, Any]:
     connect_args: dict[str, Any] = {
         "connect_timeout": settings.connect_timeout,
@@ -53,7 +57,10 @@ def build_postgres_connect_args(settings: DatabaseSettings) -> dict[str, Any]:
     return connect_args
 
 
+###############################################################################
 class SQLiteBackend:
+
+    # -------------------------------------------------------------------------
     def __init__(self, settings: DatabaseSettings) -> None:
         if settings.sqlite_path is None:
             raise ValueError("SQLite path is required for embedded database mode")
@@ -70,6 +77,7 @@ class SQLiteBackend:
         )
         event.listen(self.engine, "connect", self._configure_connection)
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _configure_connection(dbapi_connection: Any, _connection_record: Any) -> None:
         cursor = dbapi_connection.cursor()
@@ -80,7 +88,10 @@ class SQLiteBackend:
             cursor.close()
 
 
+###############################################################################
 class PostgresBackend:
+
+    # -------------------------------------------------------------------------
     def __init__(self, settings: DatabaseSettings) -> None:
         if not settings.host:
             raise ValueError("Database host must be provided for external database")
@@ -103,6 +114,7 @@ class PostgresBackend:
 DatabaseBackend = SQLiteBackend | PostgresBackend
 
 
+###############################################################################
 def build_database_backend(settings: DatabaseSettings) -> DatabaseBackend:
     if settings.embedded_database:
         return SQLiteBackend(settings)
@@ -111,5 +123,6 @@ def build_database_backend(settings: DatabaseSettings) -> DatabaseBackend:
     return PostgresBackend(settings)
 
 
+###############################################################################
 def build_session_factory(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)

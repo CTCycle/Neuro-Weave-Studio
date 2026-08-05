@@ -11,6 +11,7 @@ ParameterType = Literal[
 ]
 
 
+###############################################################################
 class PortDefinition(BaseModel):
     id: str = Field(min_length=1, max_length=80)
     display_name: str
@@ -21,6 +22,7 @@ class PortDefinition(BaseModel):
     description: str = ""
 
 
+###############################################################################
 class ParameterDefinition(BaseModel):
     id: str = Field(min_length=1, max_length=80)
     display_name: str
@@ -32,12 +34,14 @@ class ParameterDefinition(BaseModel):
     description: str = ""
 
 
+###############################################################################
 class FrameworkMapping(BaseModel):
     supported: bool = True
     symbol: str | None = None
     notes: str | None = None
 
 
+###############################################################################
 class UiMetadata(BaseModel):
     icon: str = "Box"
     accent: str = "slate"
@@ -45,11 +49,13 @@ class UiMetadata(BaseModel):
     height: int = Field(default=120, ge=80, le=500)
 
 
+###############################################################################
 class ShapeRule(BaseModel):
     kind: str
     config: dict[str, Any] = Field(default_factory=dict)
 
 
+###############################################################################
 class NodeManifest(BaseModel):
     id: str = Field(pattern=r"^[a-z][a-z0-9_.-]+$")
     version: int = Field(default=1, ge=1)
@@ -65,6 +71,7 @@ class NodeManifest(BaseModel):
     deprecated: bool = False
     documentation_ref: str
 
+    # -------------------------------------------------------------------------
     @model_validator(mode="after")
     def unique_contract_names(self) -> NodeManifest:
         inputs = self.inputs  # pyright: ignore[reportUnknownVariableType]
@@ -81,6 +88,7 @@ class NodeManifest(BaseModel):
         return self
 
 
+###############################################################################
 class NodeCatalogResponse(BaseModel):
     schema_version: int = 1
     nodes: list[NodeManifest]

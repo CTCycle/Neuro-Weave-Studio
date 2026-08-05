@@ -7,6 +7,7 @@ from configurations.settings import REPOSITORY_ROOT
 CLIENT_ROOT = REPOSITORY_ROOT / "app" / "client"
 
 
+###############################################################################
 def test_app_client_is_the_only_frontend_source() -> None:
     assert (CLIENT_ROOT / "package.json").is_file()
     assert (CLIENT_ROOT / "package-lock.json").is_file()
@@ -14,6 +15,7 @@ def test_app_client_is_the_only_frontend_source() -> None:
     assert not (REPOSITORY_ROOT / "frontend").exists()
 
 
+###############################################################################
 def test_frontend_build_and_api_contracts_are_canonical() -> None:
     package = json.loads((CLIENT_ROOT / "package.json").read_text(encoding="utf-8"))
     assert package["scripts"]["build"] == "tsc -b && vite build"
@@ -27,6 +29,7 @@ def test_frontend_build_and_api_contracts_are_canonical() -> None:
     assert "VITE_API_BASE_URL" in api_client
 
 
+###############################################################################
 def test_backend_points_at_the_canonical_client_build() -> None:
     backend = (REPOSITORY_ROOT / "app" / "server" / "app.py").read_text(encoding="utf-8")
     paths = (REPOSITORY_ROOT / "app" / "server" / "common" / "path.py").read_text(encoding="utf-8")

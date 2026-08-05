@@ -5,7 +5,10 @@ from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
 
+###############################################################################
 class KerasSourceExporter(SourceExporter):
+
+    # -------------------------------------------------------------------------
     def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
         nodes = {node.id: node for node in graph.nodes}
         lines = [

@@ -3,23 +3,27 @@ from __future__ import annotations
 from enum import StrEnum
 
 
+###############################################################################
 class TargetFramework(StrEnum):
     KERAS = "keras"
     TENSORFLOW_KERAS = "tensorflow_keras"
     PYTORCH = "pytorch"
 
 
+###############################################################################
 class KerasBackend(StrEnum):
     TENSORFLOW = "tensorflow"
     TORCH = "torch"
 
 
+###############################################################################
 class ValidationStatus(StrEnum):
     UNKNOWN = "unknown"
     VALID = "valid"
     INVALID = "invalid"
 
 
+###############################################################################
 class DiagnosticSeverity(StrEnum):
     ERROR = "error"
     WARNING = "warning"
@@ -27,6 +31,7 @@ class DiagnosticSeverity(StrEnum):
     INFO = "info"
 
 
+###############################################################################
 class DataType(StrEnum):
     FLOAT16 = "float16"
     FLOAT32 = "float32"
@@ -36,6 +41,7 @@ class DataType(StrEnum):
     BOOL = "bool"
 
 
+###############################################################################
 class PortKind(StrEnum):
     TENSOR = "tensor"
     TENSOR_LIST = "tensor_list"

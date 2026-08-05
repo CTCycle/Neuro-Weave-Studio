@@ -11,20 +11,26 @@ from repositories.contracts import ProjectMetadata, RepositoryRevisionConflictEr
 from repositories.models import ProjectRecord
 
 
+###############################################################################
 class ProjectRepository:
+
+    # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    # -------------------------------------------------------------------------
     def list_metadata(self) -> list[ProjectMetadata]:
         records = self._session.scalars(
             select(ProjectRecord).order_by(ProjectRecord.updated_at.desc())
         ).all()
         return [self._to_metadata(record) for record in records]
 
+    # -------------------------------------------------------------------------
     def get_metadata(self, project_id: UUID) -> ProjectMetadata | None:
         record = self._session.get(ProjectRecord, str(project_id))
         return self._to_metadata(record) if record is not None else None
 
+    # -------------------------------------------------------------------------
     def create(
         self,
         *,
@@ -49,6 +55,7 @@ class ProjectRepository:
         self._session.flush()
         return self._to_metadata(record)
 
+    # -------------------------------------------------------------------------
     def update(
         self,
         project_id: UUID,
@@ -90,6 +97,7 @@ class ProjectRepository:
         assert record is not None
         return self._to_metadata(record)
 
+    # -------------------------------------------------------------------------
     def delete(self, project_id: UUID) -> bool:
         record = self._session.get(ProjectRecord, str(project_id))
         if record is None:
@@ -98,6 +106,7 @@ class ProjectRepository:
         self._session.flush()
         return True
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _to_metadata(record: ProjectRecord) -> ProjectMetadata:
         return ProjectMetadata(

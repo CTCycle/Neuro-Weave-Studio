@@ -9,6 +9,7 @@ ENV_FILE = SETTINGS_ROOT / ".env"
 ENV_EXAMPLE_FILE = SETTINGS_ROOT / ".env.example"
 
 
+###############################################################################
 def ensure_environment_file(
     environment_file: Path = ENV_FILE,
     environment_example_file: Path = ENV_EXAMPLE_FILE,

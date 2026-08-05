@@ -5,10 +5,12 @@ from pydantic import BaseModel, Field
 from domain.enums import KerasBackend, TargetFramework
 
 
+###############################################################################
 class HealthResponse(BaseModel):
     status: str
 
 
+###############################################################################
 class MetadataConfiguration(BaseModel):
     optimizers: list[str] = Field(default_factory=lambda: ["adam", "adamw", "sgd", "rmsprop"])
     losses: list[str] = Field(
@@ -29,6 +31,7 @@ class MetadataConfiguration(BaseModel):
     regularizers: list[str] = Field(default_factory=lambda: ["none", "l1", "l2", "l1_l2"])
 
 
+###############################################################################
 class MetadataResponse(BaseModel):
     name: str
     version: str

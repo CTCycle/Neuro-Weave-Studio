@@ -10,6 +10,7 @@ SOURCE_ROOTS = (
 )
 
 
+###############################################################################
 def _python_files() -> list[Path]:
     files: list[Path] = []
     for root in SOURCE_ROOTS:
@@ -26,6 +27,7 @@ def _python_files() -> list[Path]:
     return sorted(set(files))
 
 
+###############################################################################
 def _parent_map(tree: ast.AST) -> dict[ast.AST, ast.AST]:
     parents: dict[ast.AST, ast.AST] = {}
     for parent in ast.walk(tree):
@@ -34,6 +36,7 @@ def _parent_map(tree: ast.AST) -> dict[ast.AST, ast.AST]:
     return parents
 
 
+###############################################################################
 def _nested_definitions(
     tree: ast.AST, path: Path, parents: dict[ast.AST, ast.AST]
 ) -> list[str]:
@@ -51,6 +54,7 @@ def _nested_definitions(
     return violations
 
 
+###############################################################################
 def test_backend_python_structure_contract() -> None:
     violations: list[str] = []
     for path in _python_files():
