@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any
+from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog
 from domain.diagnostics import ValidationDiagnostic, ValidationResult
 from domain.enums import DiagnosticSeverity, TargetFramework
 from domain.graph import ModelGraph
-from domain.manifests import ParameterDefinition
+from domain.manifests import NodeManifest, ParameterDefinition
 from validation.graph_utils import topological_order
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
@@ -25,10 +25,11 @@ def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     if parameter.type in {"string", "enum", "expression"}:
         return isinstance(value, str)
     if parameter.type == "shape":
+        dimensions = cast(list[Any], value) if isinstance(value, list) else []
         return isinstance(value, list) and all(
             dimension is None
             or (isinstance(dimension, int) and not isinstance(dimension, bool))
-            for dimension in value
+            for dimension in dimensions
         )
     return True
 
@@ -40,14 +41,15 @@ def _output_name(node: Any) -> str:
     return node.label or node.id
 
 
-class GraphValidator:
+class ValidationService:
+    """Application-facing graph validation service."""
     def __init__(self, catalog: NodeCatalog) -> None:
         self._catalog = catalog
 
     def validate(self, graph: ModelGraph, framework: TargetFramework) -> ValidationResult:
         diagnostics: list[ValidationDiagnostic] = []
         nodes = {node.id: node for node in graph.nodes}
-        manifests = {}
+        manifests: dict[str, NodeManifest] = {}
 
         for node in graph.nodes:
             try:
@@ -122,9 +124,10 @@ class GraphValidator:
                         )
                     )
                 if parameter.type == "shape" and isinstance(value, list):
+                    dimensions = cast(list[Any], value)
                     invalid_dimensions = [
                         dimension
-                        for dimension in value
+                        for dimension in dimensions
                         if isinstance(dimension, int) and dimension == 0
                     ]
                     if invalid_dimensions:
@@ -335,3 +338,5 @@ class GraphValidator:
             shape_summaries=shape_summaries,
             total_parameters=total_parameters,
         )
+
+

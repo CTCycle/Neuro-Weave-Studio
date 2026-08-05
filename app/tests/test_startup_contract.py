@@ -13,7 +13,7 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     for menu_entry in (
         "[1] Launch application",
         "[2] Install or repair dependencies",
-        "[3] Initialize PostgreSQL",
+        "[3] Initialize or recreate database",
         "[4] Run validation suite",
         "[5] Exit",
     ):
@@ -29,6 +29,13 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "'run', 'dev'" not in source
     assert "-NoExit" not in source
     assert "Stop-PortListeners" not in source
+    assert "'app:create_app', '--factory'" in source
+    assert "[1] Keras only" in source
+    assert "[2] Keras + TensorFlow" in source
+    assert "[3] Keras + Torch" in source
+    assert "[4] Keras + TensorFlow + Torch" in source
+    assert "-m pyright" in source
+    assert "app:app" not in source
 
 
 def test_environment_contract_is_canonical_and_secret_safe() -> None:
@@ -41,8 +48,8 @@ def test_environment_contract_is_canonical_and_secret_safe() -> None:
     assert "DATABASE_URL=" in template
     assert "VITE_API_BASE_URL=/api" in template
     assert not (REPOSITORY_ROOT / ".env.example").exists()
-    assert "Copy-Item -LiteralPath $script:EnvironmentExample" in launcher
-    assert "Missing environment template" in launcher
+    assert "ensure_environment.py" in launcher
+    assert "EnvironmentExample" not in launcher
     assert "settings/.env" not in ignored
     assert "**/.env" in ignored
     assert ".env.example" not in ignored
@@ -50,12 +57,12 @@ def test_environment_contract_is_canonical_and_secret_safe() -> None:
     assert "Write-Host $env:" not in launcher
 
 
-def test_launcher_has_one_explicit_postgres_action_and_no_destructive_reset() -> None:
+def test_launcher_has_one_explicit_database_action_with_confirmed_reset() -> None:
     source = LAUNCHER.read_text(encoding="utf-8")
 
-    assert "Invoke-PostgresInitialization" in source
-    assert "--drop-existing" not in source
-    assert "drop-existing" not in source.lower()
+    assert "Invoke-DatabaseInitialization" in source
+    assert "--reset" in source
+    assert "Type RESET to continue" in source
     assert "taskkill.exe /PID $child.Process.Id /T /F" in source
 
 

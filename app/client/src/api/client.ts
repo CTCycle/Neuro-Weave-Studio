@@ -1,5 +1,7 @@
 import type {
   CompilationResult,
+  KerasBackend,
+  MetadataResponse,
   ModelGraph,
   NodeManifest,
   ProjectDocument,
@@ -109,10 +111,17 @@ export const api = {
       body: JSON.stringify({ graph, framework }),
     })
   },
+  metadata(): Promise<MetadataResponse> {
+    return request('/metadata')
+  },
   sourceForProject(id: string, framework: TargetFramework): Promise<{ code: string }> {
     return request(`/exports/${id}/source/${framework}`)
   },
-  exportKerasModel(id: string): Promise<Blob> {
-    return requestBlob(`/exports/${id}/keras-model`, { method: 'POST' })
+  exportKerasModel(id: string, backend: KerasBackend): Promise<Blob> {
+    return requestBlob(`/exports/${id}/keras-model`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ backend }),
+    })
   },
 }

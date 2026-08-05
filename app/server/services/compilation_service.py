@@ -7,11 +7,11 @@ from domain.enums import TargetFramework
 from domain.graph import ModelGraph
 from exporters.keras_exporter import KerasSourceExporter
 from exporters.pytorch_exporter import PyTorchSourceExporter
-from validation.validator import GraphValidator
+from services.validation_service import ValidationService
 
 
 class CompilationService:
-    def __init__(self, catalog: NodeCatalog, validator: GraphValidator) -> None:
+    def __init__(self, catalog: NodeCatalog, validator: ValidationService) -> None:
         self._catalog = catalog
         self._validator = validator
         self._exporters = {

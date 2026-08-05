@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import cast
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,21 +14,27 @@ from api.routes import catalog, compilation, exports, health, metadata, projects
 from common import path as common_path
 from common.catalogs.loader import get_node_catalog
 from common.logging_config import configure_logging
-from configurations.settings import get_settings
-from repositories.session import close_repository_context, get_repository_context
+from configurations.settings import Settings, get_database_settings, get_settings
+from models.keras_backend_runner import KerasBackendRunner
+from repositories.session import create_repository_context
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    settings = get_settings()
+async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+    settings = cast(Settings, application.state.settings)
     configure_logging(settings.log_level)
     settings.export_root.mkdir(parents=True, exist_ok=True)
-    get_node_catalog()
-    get_repository_context()
+    catalog = get_node_catalog()
+    repository_context = create_repository_context(get_database_settings())
+    backend_runner = KerasBackendRunner()
+    application.state.catalog = catalog
+    application.state.repository_context = repository_context
+    application.state.backend_runner = backend_runner
+    application.state.available_keras_backends = backend_runner.available_backends()
     try:
         yield
     finally:
-        close_repository_context()
+        repository_context.dispose()
 
 
 def _client_build_available() -> bool:
@@ -65,6 +72,7 @@ def create_app() -> FastAPI:
         description="Framework-independent visual model architecture service",
         lifespan=lifespan,
     )
+    application.state.settings = settings
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
@@ -107,6 +115,3 @@ def create_app() -> FastAPI:
             include_in_schema=False,
         )
     return application
-
-
-app = create_app()

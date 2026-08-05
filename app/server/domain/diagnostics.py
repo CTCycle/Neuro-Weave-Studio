@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from domain.enums import DiagnosticSeverity, TargetFramework
-from domain.graph import ShapeSummary
+from domain.graph import ModelGraph, ShapeSummary
 
 
 class ValidationDiagnostic(BaseModel):
@@ -19,5 +19,10 @@ class ValidationDiagnostic(BaseModel):
 class ValidationResult(BaseModel):
     valid: bool
     diagnostics: list[ValidationDiagnostic]
-    shape_summaries: list[ShapeSummary] = Field(default_factory=list)
+    shape_summaries: list[ShapeSummary] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     total_parameters: int | None = None
+
+
+class ValidationRequest(BaseModel):
+    graph: ModelGraph
+    framework: TargetFramework

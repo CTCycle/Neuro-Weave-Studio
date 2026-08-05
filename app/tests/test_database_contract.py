@@ -3,67 +3,88 @@ from __future__ import annotations
 import os
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import UUID
 
 import pytest
-from sqlalchemy import create_engine, inspect, select, text
-from sqlalchemy.orm import Session
-
-import repositories.initializer as initializer
 from configurations.settings import (
     REPOSITORY_ROOT,
     DatabaseSettings,
     get_database_settings,
 )
-from domain.enums import TargetFramework
-from domain.graph import ModelGraph
+from domain.enums import TargetFramework, ValidationStatus
+from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+from repositories import initializer
 from repositories.backend import (
     build_database_backend,
     build_postgres_connect_args,
     build_postgres_url,
     build_session_factory,
 )
-from repositories.initializer import (
-    ensure_database_ready,
-    initialize_database,
+from repositories.base import Base
+from repositories.initializer import ensure_database_ready, initialize_database
+from repositories.models import (
+    GeneratedCodeSnapshotRecord,
+    ProjectEdgeRecord,
+    ProjectGraphSettingsRecord,
+    ProjectNodeRecord,
+    ProjectRecord,
+    ProjectRevisionRecord,
+    SchemaMetadataRecord,
 )
-from repositories.models import ProjectRecord
-from repositories.projects import ProjectRepository
 from repositories.session import RepositoryContext
+from sqlalchemy import inspect, select, text
+from sqlalchemy.dialects import postgresql, sqlite
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from sqlalchemy.schema import CreateTable
 
 
-def _clear_database_cache() -> None:
-    get_database_settings.cache_clear()
+def _settings(path: Path) -> DatabaseSettings:
+    return DatabaseSettings(embedded_database=True, sqlite_path=path)
 
 
-def test_embedded_database_settings_resolve_relative_path(monkeypatch, tmp_path: Path) -> None:
+def _context(path: Path) -> RepositoryContext:
+    backend = initialize_database(_settings(path), reset=True)
+    return RepositoryContext(
+        backend=backend,
+        engine=backend.engine,
+        session_factory=build_session_factory(backend.engine),
+    )
+
+
+def fail_schema_recreation(_engine: object) -> None:
+    pytest.fail("ordinary startup must not recreate the schema")
+
+
+def test_embedded_database_settings_resolve_relative_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("DATABASE_EMBEDDED", "true")
     monkeypatch.setenv("DATABASE_SQLITE_PATH", "assets/QA/contract.db")
-    _clear_database_cache()
-
     settings = get_database_settings()
 
     assert settings.embedded_database is True
     assert settings.sqlite_path == (REPOSITORY_ROOT / "assets/QA/contract.db").resolve()
 
 
-def test_embedded_database_rejects_invalid_boolean(monkeypatch) -> None:
+def test_embedded_database_rejects_invalid_boolean(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_EMBEDDED", "sometimes")
-    _clear_database_cache()
 
     with pytest.raises(ValueError, match="must be boolean"):
         get_database_settings()
 
 
-def test_ssl_rejects_invalid_boolean(monkeypatch) -> None:
+def test_ssl_rejects_invalid_boolean(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_EMBEDDED", "true")
     monkeypatch.setenv("DATABASE_SSL", "maybe")
-    _clear_database_cache()
 
     with pytest.raises(ValueError, match="must be boolean"):
         get_database_settings()
 
 
-def test_external_database_url_is_overridden_by_explicit_values(monkeypatch) -> None:
+def test_external_database_url_is_overridden_by_explicit_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("DATABASE_EMBEDDED", "false")
     monkeypatch.setenv(
         "DATABASE_URL",
@@ -72,8 +93,6 @@ def test_external_database_url_is_overridden_by_explicit_values(monkeypatch) -> 
     monkeypatch.setenv("DATABASE_HOST", "explicit.example")
     monkeypatch.setenv("DATABASE_NAME", "explicit_db")
     monkeypatch.setenv("DATABASE_USERNAME", "explicit_user")
-    _clear_database_cache()
-
     settings = get_database_settings()
 
     assert settings.embedded_database is False
@@ -87,28 +106,12 @@ def test_external_database_url_is_overridden_by_explicit_values(monkeypatch) -> 
     assert settings.connect_timeout == 17
 
 
-def test_external_database_requires_connection_identity(monkeypatch) -> None:
+def test_external_database_requires_connection_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_EMBEDDED", "false")
-    for key in (
-        "DATABASE_URL",
-        "DATABASE_HOST",
-        "DATABASE_NAME",
-        "DATABASE_USERNAME",
-    ):
+    for key in ("DATABASE_URL", "DATABASE_HOST", "DATABASE_NAME", "DATABASE_USERNAME"):
         monkeypatch.delenv(key, raising=False)
-    _clear_database_cache()
-
     with pytest.raises(ValueError, match="requires DATABASE_HOST"):
         get_database_settings()
-
-
-def test_old_namespaced_database_key_is_not_a_compatibility_path(monkeypatch) -> None:
-    monkeypatch.delenv("DATABASE_EMBEDDED", raising=False)
-    monkeypatch.setenv("NEURO_WEAVE_DATABASE_URL", "postgresql://legacy.example/legacy")
-    monkeypatch.delenv("DATABASE_SQLITE_PATH", raising=False)
-    _clear_database_cache()
-
-    assert get_database_settings().embedded_database is True
 
 
 def test_postgres_url_and_connect_args_escape_credentials() -> None:
@@ -150,145 +153,455 @@ def test_external_database_rejects_uninstalled_driver() -> None:
         build_database_backend(settings)
 
 
-def test_explicit_initializer_rejects_embedded_database(tmp_path: Path) -> None:
-    settings = DatabaseSettings(embedded_database=True, sqlite_path=tmp_path / "database.db")
-
-    with pytest.raises(ValueError, match="DATABASE_EMBEDDED=false"):
-        initialize_database(settings)
-
-
-def test_initializer_is_the_only_runtime_schema_creator() -> None:
-    initializer = REPOSITORY_ROOT / "app/server/repositories/initializer.py"
-    source = initializer.read_text(encoding="utf-8")
-
-    assert source.count("Base.metadata.create_all") == 1
-    assert "inspect(" not in source
-
-
-def test_postgres_startup_only_runs_readiness_query(monkeypatch) -> None:
-    engine = create_engine("sqlite:///:memory:")
-    with engine.begin() as connection:
-        connection.execute(text("CREATE TABLE projects (id INTEGER)"))
-    backend = object.__new__(initializer.PostgresBackend)
-    backend.engine = engine
-    backend.db_path = None
-    settings = DatabaseSettings(
-        embedded_database=False,
-        engine="postgresql+psycopg",
-        host="db.example",
-        database_name="neuro_weave",
-        username="postgres",
+def test_schema_is_canonical_on_both_dialects() -> None:
+    sqlite_sql = "\n".join(
+        str(CreateTable(table).compile(dialect=sqlite.dialect()))
+        for table in Base.metadata.sorted_tables
+    )
+    postgres_sql = "\n".join(
+        str(CreateTable(table).compile(dialect=postgresql.dialect()))
+        for table in Base.metadata.sorted_tables
     )
 
-    monkeypatch.setattr(initializer, "build_database_backend", lambda _: backend)
+    expected = {
+        "schema_metadata",
+        "projects",
+        "project_graph_settings",
+        "project_nodes",
+        "project_edges",
+        "project_revisions",
+        "generated_code_snapshots",
+    }
+    assert {table.name for table in Base.metadata.sorted_tables} == expected
+    assert "JSONB" not in sqlite_sql + postgres_sql
+    assert "UUID" not in sqlite_sql + postgres_sql
+    assert "FOREIGN KEY(project_id, source_node_id)" in sqlite_sql
+    assert "uq_project_revisions_revision" in postgres_sql
+
+
+def test_explicit_sqlite_reset_creates_schema_and_marker(tmp_path: Path) -> None:
+    path = tmp_path / "database.db"
+    backend = initialize_database(_settings(path), reset=True)
+
+    assert path.exists()
+    assert set(inspect(backend.engine).get_table_names()) == {
+        "schema_metadata",
+        "projects",
+        "project_graph_settings",
+        "project_nodes",
+        "project_edges",
+        "project_revisions",
+        "generated_code_snapshots",
+    }
+    with Session(backend.engine) as session:
+        marker = session.get(SchemaMetadataRecord, 1)
+        assert marker is not None
+        assert marker.schema_version == 1
+    backend.engine.dispose()
+
+
+def test_existing_sqlite_schema_is_checked_without_recreation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "database.db"
+    backend = initialize_database(_settings(path), reset=True)
+    backend.engine.dispose()
+
     monkeypatch.setattr(
         initializer,
         "_create_schema",
-        lambda _: pytest.fail("ordinary PostgreSQL startup must not create schema"),
+        fail_schema_recreation,
     )
-
-    assert initializer.ensure_database_ready(settings) is backend
-    engine.dispose()
-
-
-def test_missing_sqlite_file_is_initialized_once(tmp_path: Path) -> None:
-    db_path = tmp_path / "database.db"
-    settings = DatabaseSettings(embedded_database=True, sqlite_path=db_path)
-
-    backend = ensure_database_ready(settings)
-    assert db_path.exists()
-    assert {"projects", "project_revisions"}.issubset(
-        inspect(backend.engine).get_table_names()
-    )
-    with Session(backend.engine) as session:
-        session.add(
-            ProjectRecord(
-                name="reset me",
-                description="",
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                schema_version=1,
-                target_framework="keras",
-                current_revision=1,
-                validation_status="valid",
-                graph_json="{}",
-                generated_code_json="{}",
-            )
-        )
-        session.commit()
-
-    backend.engine.dispose()
-    reopened = ensure_database_ready(settings)
-    with build_session_factory(reopened.engine)() as session:
-        assert session.scalar(select(ProjectRecord).where(ProjectRecord.name == "reset me"))
+    reopened = ensure_database_ready(_settings(path))
     reopened.engine.dispose()
 
 
-def test_existing_sqlite_schema_is_not_reset_on_normal_startup(tmp_path: Path) -> None:
-    db_path = tmp_path / "existing.db"
-    settings = DatabaseSettings(embedded_database=True, sqlite_path=db_path)
-    backend = ensure_database_ready(settings)
-    with Session(backend.engine) as session:
-        session.add(
-            ProjectRecord(
-                name="keep me",
-                description="",
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                schema_version=1,
-                target_framework="keras",
-                current_revision=1,
-                validation_status="valid",
-                graph_json="{}",
-                generated_code_json="{}",
-            )
-        )
-        session.commit()
-    backend.engine.dispose()
+def test_incompatible_sqlite_file_requires_explicit_reset(tmp_path: Path) -> None:
+    path = tmp_path / "old.db"
+    path.touch()
 
-    reopened = ensure_database_ready(settings)
-    with Session(reopened.engine) as session:
-        assert session.scalar(select(ProjectRecord).where(ProjectRecord.name == "keep me"))
-    reopened.engine.dispose()
+    with pytest.raises(RuntimeError, match="canonical NeuroWeave schema"):
+        ensure_database_ready(_settings(path))
 
 
-def test_postgres_project_persistence_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    test_database_url = os.getenv("TEST_DATABASE_URL")
-    if not test_database_url:
-        pytest.skip("TEST_DATABASE_URL is not configured")
-    monkeypatch.setenv("DATABASE_EMBEDDED", "false")
-    monkeypatch.setenv("DATABASE_URL", test_database_url)
-    get_database_settings.cache_clear()
-    settings = get_database_settings()
-    backend = initialize_database(settings)
-    context = RepositoryContext(
-        backend=backend,
-        engine=backend.engine,
-        session_factory=build_session_factory(backend.engine),
-    )
-    repository = ProjectRepository(context)
+def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> None:
+    context = _context(tmp_path / "repository.db")
     now = datetime.now(UTC)
     try:
-        created = repository.create(
-            name="PostgreSQL contract",
-            description="",
-            target_framework=TargetFramework.KERAS,
-            graph=ModelGraph(),
-            timestamp=now,
-            validation_status="valid",
-        )
-        reopened = repository.get(created.id)
-        assert reopened is not None
-        assert reopened.current_revision == 1
+        with context.new_unit_of_work() as uow:
+            created = uow.projects.create(
+                name="Repository project",
+                description="",
+                target_framework=TargetFramework.KERAS,
+                graph_schema_version=1,
+                timestamp=now,
+                validation_status=ValidationStatus.VALID,
+            )
+            graph = ModelGraph()
+            uow.graphs.replace(created.id, graph)
+            uow.revisions.append(
+                created.id,
+                revision=1,
+                graph=graph,
+                target_framework=TargetFramework.KERAS,
+                timestamp=now,
+            )
+            uow.code_snapshots.upsert(
+                created.id,
+                revision=1,
+                target_framework=TargetFramework.KERAS,
+                source_code="model = None",
+                timestamp=now,
+            )
+            uow.commit()
+
+        with context.new_unit_of_work() as uow:
+            metadata = uow.projects.get_metadata(created.id)
+            assert metadata is not None
+            assert metadata.current_revision == 1
+            assert uow.graphs.load(created.id, 1) == ModelGraph()
+            assert uow.code_snapshots.list_for_revision(created.id, 1) == {
+                "keras": "model = None"
+            }
     finally:
         context.dispose()
-        get_database_settings.cache_clear()
 
 
-def test_existing_stale_sqlite_schema_fails_without_recreating(tmp_path: Path) -> None:
-    db_path = tmp_path / "stale.db"
-    db_path.touch()
-    settings = DatabaseSettings(embedded_database=True, sqlite_path=db_path)
+def test_transaction_rolls_back_partial_project(tmp_path: Path) -> None:
+    context = _context(tmp_path / "rollback.db")
+    now = datetime.now(UTC)
+    project_id: UUID | None = None
+    try:
+        with pytest.raises(RuntimeError, match="force rollback"), context.new_unit_of_work() as uow:
+            metadata = uow.projects.create(
+                name="Rolled back",
+                description="",
+                target_framework=TargetFramework.KERAS,
+                graph_schema_version=1,
+                timestamp=now,
+                validation_status=ValidationStatus.VALID,
+            )
+            project_id = metadata.id
+            raise RuntimeError("force rollback")
 
-    with pytest.raises(RuntimeError, match="unavailable or has not been initialized"):
+        with context.new_unit_of_work() as uow:
+            assert project_id is not None
+            assert uow.projects.get_metadata(project_id) is None
+    finally:
+        context.dispose()
+
+
+def test_project_and_dependents_cascade(tmp_path: Path) -> None:
+    context = _context(tmp_path / "cascade.db")
+    now = datetime.now(UTC)
+    try:
+        with context.new_unit_of_work() as uow:
+            project = uow.projects.create(
+                name="Cascade",
+                description="",
+                target_framework=TargetFramework.KERAS,
+                graph_schema_version=1,
+                timestamp=now,
+                validation_status=ValidationStatus.VALID,
+            )
+            graph = ModelGraph()
+            uow.graphs.replace(project.id, graph)
+            uow.revisions.append(
+                project.id,
+                revision=1,
+                graph=graph,
+                target_framework=TargetFramework.KERAS,
+                timestamp=now,
+            )
+            uow.code_snapshots.upsert(
+                project.id,
+                revision=1,
+                target_framework=TargetFramework.KERAS,
+                source_code="code",
+                timestamp=now,
+            )
+            uow.commit()
+
+        with context.new_unit_of_work() as uow:
+            assert uow.projects.delete(project.id)
+            uow.commit()
+        with Session(context.engine) as session:
+            assert session.scalar(select(ProjectRecord)) is None
+            assert session.scalar(select(ProjectGraphSettingsRecord)) is None
+            assert session.scalar(select(ProjectRevisionRecord)) is None
+            assert session.scalar(select(GeneratedCodeSnapshotRecord)) is None
+    finally:
+        context.dispose()
+
+
+def test_foreign_keys_are_enabled_for_sqlite(tmp_path: Path) -> None:
+    backend = initialize_database(_settings(tmp_path / "foreign-keys.db"), reset=True)
+    with backend.engine.connect() as connection:
+        assert connection.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
+    backend.engine.dispose()
+
+
+def test_node_delete_cascades_incident_edges(tmp_path: Path) -> None:
+    context = _context(tmp_path / "node-cascade.db")
+    now = datetime.now(UTC)
+    graph = ModelGraph(
+        nodes=[
+            NodeInstance(
+                id="source",
+                definition_id="input.tabular",
+                position=Position(x=0, y=0),
+            ),
+            NodeInstance(
+                id="target",
+                definition_id="output.classification",
+                position=Position(x=1, y=0),
+            ),
+        ],
+        edges=[
+            EdgeInstance(
+                id="edge",
+                source_node_id="source",
+                source_port_id="output",
+                target_node_id="target",
+                target_port_id="input",
+            )
+        ],
+    )
+    try:
+        with context.new_unit_of_work() as uow:
+            project = uow.projects.create(
+                name="Node cascade",
+                description="",
+                target_framework=TargetFramework.KERAS,
+                graph_schema_version=1,
+                timestamp=now,
+                validation_status=ValidationStatus.VALID,
+            )
+            uow.graphs.replace(project.id, graph)
+            uow.revisions.append(
+                project.id,
+                revision=1,
+                graph=graph,
+                target_framework=TargetFramework.KERAS,
+                timestamp=now,
+            )
+            uow.commit()
+
+        with Session(context.engine) as session:
+            node = session.get(ProjectNodeRecord, (str(project.id), "source"))
+            assert node is not None
+            session.delete(node)
+            session.commit()
+
+        with Session(context.engine) as session:
+            assert session.scalar(select(ProjectEdgeRecord)) is None
+    finally:
+        context.dispose()
+
+
+def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
+    context = _context(tmp_path / "cross-project-edge.db")
+    now = datetime.now(UTC)
+    try:
+        with context.new_unit_of_work() as uow:
+            first = uow.projects.create(
+                name="First",
+                description="",
+                target_framework=TargetFramework.KERAS,
+                graph_schema_version=1,
+                timestamp=now,
+                validation_status=ValidationStatus.VALID,
+            )
+            second = uow.projects.create(
+                name="Second",
+                description="",
+                target_framework=TargetFramework.KERAS,
+                graph_schema_version=1,
+                timestamp=now,
+                validation_status=ValidationStatus.VALID,
+            )
+            first_graph = ModelGraph(
+                nodes=[
+                    NodeInstance(
+                        id="source",
+                        definition_id="input.tabular",
+                        position=Position(x=0, y=0),
+                    )
+                ]
+            )
+            second_graph = ModelGraph(
+                nodes=[
+                    NodeInstance(
+                        id="target",
+                        definition_id="output.classification",
+                        position=Position(x=0, y=0),
+                    )
+                ]
+            )
+            uow.graphs.replace(first.id, first_graph)
+            uow.graphs.replace(second.id, second_graph)
+            uow.revisions.append(
+                first.id,
+                revision=1,
+                graph=first_graph,
+                target_framework=TargetFramework.KERAS,
+                timestamp=now,
+            )
+            uow.revisions.append(
+                second.id,
+                revision=1,
+                graph=second_graph,
+                target_framework=TargetFramework.KERAS,
+                timestamp=now,
+            )
+            uow.commit()
+
+        with pytest.raises(Exception, match="FOREIGN KEY"), Session(context.engine) as session:
+            session.add(
+                ProjectEdgeRecord(
+                    project_id=str(first.id),
+                    edge_id="cross",
+                    ordinal=0,
+                    source_node_id="source",
+                    source_port_id="output",
+                    target_node_id="target",
+                    target_port_id="input",
+                )
+            )
+            session.commit()
+    finally:
+        context.dispose()
+
+
+def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> None:
+    context = _context(tmp_path / "constraints.db")
+    now = datetime.now(UTC)
+    graph = ModelGraph(
+        nodes=[
+            NodeInstance(
+                id="source",
+                definition_id="input.tabular",
+                position=Position(x=0, y=0),
+            ),
+            NodeInstance(
+                id="target",
+                definition_id="output.classification",
+                position=Position(x=1, y=0),
+            ),
+        ],
+        edges=[
+            EdgeInstance(
+                id="edge",
+                source_node_id="source",
+                source_port_id="output",
+                target_node_id="target",
+                target_port_id="input",
+            )
+        ],
+    )
+    try:
+        with context.new_unit_of_work() as uow:
+            project = uow.projects.create(
+                name="Constraint project",
+                description="",
+                target_framework=TargetFramework.KERAS,
+                graph_schema_version=1,
+                timestamp=now,
+                validation_status=ValidationStatus.VALID,
+            )
+            uow.graphs.replace(project.id, graph)
+            uow.revisions.append(
+                project.id,
+                revision=1,
+                graph=graph,
+                target_framework=TargetFramework.KERAS,
+                timestamp=now,
+            )
+            uow.commit()
+
+        with pytest.raises(IntegrityError), Session(context.engine) as session:
+            session.add(
+                ProjectNodeRecord(
+                    project_id=str(project.id),
+                    node_id="source",
+                    ordinal=0,
+                    definition_id="input.tabular",
+                    definition_version=1,
+                    position_x=0,
+                    position_y=0,
+                    parameters_json={},
+                )
+            )
+            session.commit()
+
+        with pytest.raises(IntegrityError), Session(context.engine) as session:
+            session.add(
+                ProjectEdgeRecord(
+                    project_id=str(project.id),
+                    edge_id="edge",
+                    ordinal=0,
+                    source_node_id="source",
+                    source_port_id="output",
+                    target_node_id="target",
+                    target_port_id="input",
+                )
+            )
+            session.commit()
+
+        with pytest.raises(IntegrityError), Session(context.engine) as session:
+            session.add(
+                ProjectRevisionRecord(
+                    project_id=str(project.id),
+                    revision=1,
+                    graph_schema_version=1,
+                    target_framework="keras",
+                    graph_snapshot_json={},
+                    created_at=now,
+                )
+            )
+            session.commit()
+
+        with pytest.raises(IntegrityError), Session(context.engine) as session:
+            session.add(
+                ProjectRecord(
+                    name=" ",
+                    description="",
+                    target_framework="unknown",
+                    validation_status=ValidationStatus.UNKNOWN,
+                )
+            )
+            session.commit()
+    finally:
+        context.dispose()
+
+
+def test_unavailable_postgres_startup_fails_without_initializing() -> None:
+    settings = DatabaseSettings(
+        embedded_database=False,
+        engine="postgresql+psycopg",
+        host="127.0.0.1",
+        port=1,
+        database_name="not_initialized",
+        username="postgres",
+        connect_timeout=1,
+    )
+
+    with pytest.raises(RuntimeError, match="canonical NeuroWeave schema"):
         ensure_database_ready(settings)
+
+
+@pytest.mark.skipif(not os.getenv("TEST_DATABASE_URL"), reason="TEST_DATABASE_URL is not configured")
+def test_postgres_schema_can_be_recreated_when_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_EMBEDDED", "false")
+    monkeypatch.setenv("DATABASE_URL", os.environ["TEST_DATABASE_URL"])
+    settings = get_database_settings()
+    backend = initialize_database(settings, reset=True)
+    try:
+        with backend.engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT schema_version FROM schema_metadata WHERE id = 1")
+            ).scalar_one() == 1
+    finally:
+        backend.engine.dispose()

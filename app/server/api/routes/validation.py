@@ -1,25 +1,17 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
-from api.dependencies import get_validator
-from domain.diagnostics import ValidationResult
-from domain.enums import TargetFramework
-from domain.graph import ModelGraph
-from validation.validator import GraphValidator
+from api.dependencies import get_validation_service
+from domain.diagnostics import ValidationRequest, ValidationResult
+from services.validation_service import ValidationService
 
 router = APIRouter(prefix="/api/validation", tags=["validation"])
 
 
-class ValidateRequest(BaseModel):
-    graph: ModelGraph
-    framework: TargetFramework
-
-
 @router.post("", response_model=ValidationResult)
 def validate_graph(
-    payload: ValidateRequest,
-    validator: GraphValidator = Depends(get_validator),
+    payload: ValidationRequest,
+    service: ValidationService = Depends(get_validation_service),
 ) -> ValidationResult:
-    return validator.validate(payload.graph, payload.framework)
+    return service.validate(payload.graph, payload.framework)

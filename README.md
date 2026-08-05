@@ -13,7 +13,7 @@ The phrase “Django DP” in the original brief was treated as ambiguous and no
 - SQLite project persistence with immutable revision snapshots.
 - Project create, save, reopen, duplicate, delete, JSON import, and JSON export.
 - Keras, TensorFlow through Keras, and PyTorch source generation for the documented supported subset.
-- Optional uninitialized Keras `.keras` export when TensorFlow and Keras optional dependencies are installed and the graph uses binary-export-supported nodes.
+- Optional uninitialized Keras `.keras` export when a selected TensorFlow or Torch backend is operational and the graph uses binary-export-supported nodes.
 - MLP, convolutional classifier, LSTM, and Transformer encoder examples.
 
 ## Important terminology
@@ -38,20 +38,20 @@ The launcher menu provides these actions:
 
 - Launch application
 - Install or repair dependencies
-- Initialize PostgreSQL
+- Initialize or recreate database
 - Run the validation suite
 - Exit
 
 The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, then owns both child processes until Ctrl+C.
 
-`settings/.env` is created from `settings/.env.example` on first launch and is never overwritten. The default SQLite database is `app/resources/runtime/neuro_weave.db`; an existing file is reused without schema rebuilding.
+`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/runtime/neuro_weave.db`. Existing databases must contain the canonical schema marker; use the explicit reset action to recreate a local database from scratch when needed. Keras is core; the launcher install menu selects Keras-only, TensorFlow, Torch, or both runtime extras.
 
 ## Manual setup
 
 ```bash
 cd app/server
 uv sync --extra test
-PYTHONPATH=. uv run uvicorn app:app --reload --port 8000
+PYTHONPATH=. uv run uvicorn app:create_app --factory --reload --port 8000
 ```
 
 In another terminal:
@@ -64,7 +64,7 @@ npm run dev
 
 ## Database configuration
 
-SQLite is the default. Set `DATABASE_EMBEDDED=false` and provide the PostgreSQL connection fields in `settings/.env`, then select **Initialize PostgreSQL** in the launcher before ordinary application startup. Normal PostgreSQL startup only checks readiness; it does not create the database or schema.
+SQLite is the default. Select **Initialize or recreate database** in the launcher. Type `RESET` when prompted to drop and recreate the managed schema. For PostgreSQL, set `DATABASE_EMBEDDED=false` and provide the connection fields in `settings/.env` before running the action. Normal startup only checks the canonical schema marker; it does not repair or migrate databases.
 
 ## Validation
 
@@ -72,7 +72,8 @@ Select **Run validation suite** in the launcher, or run the backend and frontend
 
 ```powershell
 cd app/server
-uv run ruff check . ..\tests
+uv run ruff check . ..\tests ..\scripts
+uv run pyright
 uv run pytest ..\tests
 
 cd ../client
@@ -81,14 +82,14 @@ npm run test
 npm run build
 ```
 
-## Optional Keras binary export
+## Keras backend selection and binary export
 
 ```bash
 cd app/server
-uv sync --extra keras --extra test
+uv sync --extra test --extra tensorflow  # or --extra torch, or both
 ```
 
-Binary export creates an initialized but untrained `.keras` model. It is not a trained model, does not contain learned weights, and supports only the explicitly documented subset.
+Keras is the model API layer and TensorFlow/Torch are runtime backends. The editor discovers operational backends, auto-selects the only available backend, and requires a selector choice when several are installed. Binary export creates an initialized but untrained `.keras` model. It is not a trained model, does not contain learned weights, and supports only the explicitly documented subset. With no installed backend, export is disabled and the API returns 501 for a valid unavailable-backend request.
 
 ## Examples
 

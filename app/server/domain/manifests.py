@@ -56,9 +56,9 @@ class NodeManifest(BaseModel):
     display_name: str
     category: str
     description: str
-    inputs: list[PortDefinition] = Field(default_factory=list)
-    outputs: list[PortDefinition] = Field(default_factory=list)
-    parameters: list[ParameterDefinition] = Field(default_factory=list)
+    inputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    outputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    parameters: list[ParameterDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     shape_rule: ShapeRule
     frameworks: dict[TargetFramework, FrameworkMapping]
     ui: UiMetadata = Field(default_factory=UiMetadata)
@@ -67,10 +67,13 @@ class NodeManifest(BaseModel):
 
     @model_validator(mode="after")
     def unique_contract_names(self) -> NodeManifest:
+        inputs = self.inputs  # pyright: ignore[reportUnknownVariableType]
+        outputs = self.outputs  # pyright: ignore[reportUnknownVariableType]
+        parameters = self.parameters  # pyright: ignore[reportUnknownVariableType]
         for label, definitions in (
-            ("input", self.inputs),
-            ("output", self.outputs),
-            ("parameter", self.parameters),
+            ("input", inputs),
+            ("output", outputs),
+            ("parameter", parameters),
         ):
             ids = [definition.id for definition in definitions]
             if len(ids) != len(set(ids)):

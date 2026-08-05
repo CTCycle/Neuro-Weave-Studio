@@ -1,13 +1,15 @@
 from pathlib import Path
 
 import pytest
-
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
-from exporters.keras_exporter import KerasBinaryExporter
+from models.keras_backend_runner import KerasBackendRunner
 
 
 def test_uninitialized_keras_export_when_dependency_available(tmp_path: Path) -> None:
-    pytest.importorskip("keras")
+    runner = KerasBackendRunner()
+    backend = next(iter(runner.available_backends()), None)
+    if backend is None:
+        pytest.skip("No operational Keras backend is installed")
     graph = ModelGraph(
         nodes=[
             NodeInstance(id="input", definition_id="input.tabular", position=Position(x=0, y=0), parameters={"shape": [None, 4], "dtype": "float32"}),
@@ -19,5 +21,5 @@ def test_uninitialized_keras_export_when_dependency_available(tmp_path: Path) ->
             EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    destination = KerasBinaryExporter().export(graph, tmp_path / "model.keras")
+    destination = runner.export(graph, tmp_path / "model.keras", backend)
     assert destination.is_file()

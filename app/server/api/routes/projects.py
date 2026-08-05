@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from api.dependencies import get_project_service, get_repository
+from api.dependencies import get_project_service
 from domain.graph import (
     ProjectCreate,
     ProjectDocument,
@@ -13,15 +13,20 @@ from domain.graph import (
     ProjectListResponse,
     ProjectUpdate,
 )
-from repositories.projects import ProjectRepository
+from services.errors import (
+    GraphPersistenceError,
+    RevisionConflictError,
+)
 from services.project_service import ProjectService
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
 @router.get("", response_model=ProjectListResponse)
-def list_projects(repository: ProjectRepository = Depends(get_repository)) -> ProjectListResponse:
-    return ProjectListResponse(projects=repository.list())
+def list_projects(
+    service: ProjectService = Depends(get_project_service),
+) -> ProjectListResponse:
+    return service.list()
 
 
 @router.post("", response_model=ProjectDocument, status_code=status.HTTP_201_CREATED)
@@ -29,15 +34,18 @@ def create_project(
     payload: ProjectCreate,
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectDocument:
-    return service.create(payload)
+    try:
+        return service.create(payload)
+    except GraphPersistenceError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/{project_id}", response_model=ProjectDocument)
 def get_project(
     project_id: UUID,
-    repository: ProjectRepository = Depends(get_repository),
+    service: ProjectService = Depends(get_project_service),
 ) -> ProjectDocument:
-    project = repository.get(project_id)
+    project = service.get(project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
@@ -51,7 +59,9 @@ def update_project(
 ) -> ProjectDocument:
     try:
         project = service.update(project_id, payload)
-    except ValueError as exc:
+    except GraphPersistenceError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RevisionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -61,9 +71,9 @@ def update_project(
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
     project_id: UUID,
-    repository: ProjectRepository = Depends(get_repository),
+    service: ProjectService = Depends(get_project_service),
 ) -> Response:
-    if not repository.delete(project_id):
+    if not service.delete(project_id):
         raise HTTPException(status_code=404, detail="Project not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from configurations.settings import get_database_settings
+from configurations.settings import DatabaseSettings
 from repositories.backend import DatabaseBackend, build_session_factory
 from repositories.initializer import ensure_database_ready
+from repositories.unit_of_work import UnitOfWork
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,21 +19,17 @@ class RepositoryContext:
     engine: Engine
     session_factory: sessionmaker[Session]
 
+    def new_unit_of_work(self) -> UnitOfWork:
+        return UnitOfWork(self.session_factory)
+
     def dispose(self) -> None:
         self.engine.dispose()
 
 
-@lru_cache(maxsize=1)
-def get_repository_context() -> RepositoryContext:
-    backend = ensure_database_ready(get_database_settings())
+def create_repository_context(settings: DatabaseSettings) -> RepositoryContext:
+    backend = ensure_database_ready(settings)
     return RepositoryContext(
         backend=backend,
         engine=backend.engine,
         session_factory=build_session_factory(backend.engine),
     )
-
-
-def close_repository_context() -> None:
-    if get_repository_context.cache_info().currsize:
-        get_repository_context().dispose()
-    get_repository_context.cache_clear()

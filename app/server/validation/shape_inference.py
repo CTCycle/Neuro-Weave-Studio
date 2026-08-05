@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from math import ceil, floor, prod
-from typing import Any
+from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog
+from domain.enums import DataType
 from domain.graph import ModelGraph, ShapeSummary
 from domain.tensor import TensorSpec
 from validation.graph_utils import incoming_edges, topological_order
@@ -27,13 +28,14 @@ def _spatial_parameter(
     default: list[int],
 ) -> list[int]:
     value = parameters.get(key, default)
-    if not isinstance(value, list) or len(value) != dimensions:
+    items = cast(list[Any], value) if isinstance(value, list) else []
+    if not isinstance(value, list) or len(items) != dimensions:
         raise ShapeInferenceError(
             f"Parameter '{key}' must contain exactly {dimensions} dimensions"
         )
-    if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in value):
+    if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in items):
         raise ShapeInferenceError(f"Parameter '{key}' must contain positive integers")
-    return value
+    return [int(item) for item in items]
 
 
 def _convolution_size(
@@ -85,7 +87,10 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             shape = parameters.get("shape", [None, 1])
             if not isinstance(shape, list):
                 raise ShapeInferenceError("Input shape must be a list")
-            output = TensorSpec(shape=shape, dtype=parameters.get("dtype", "float32"))
+            input_shape = cast(list[Any], shape)
+            output = TensorSpec(
+                shape=input_shape, dtype=parameters.get("dtype", DataType.FLOAT32)
+            )
         elif rule == "identity":
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")
@@ -110,7 +115,12 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             source = input_specs[0]
             batch = source.shape[0] if source.shape else None
             dimensions = source.shape[1:] if source.shape else []
-            flat = prod(dimensions) if all(isinstance(item, int) for item in dimensions) else None
+            integer_dimensions = [item for item in dimensions if isinstance(item, int)]
+            flat = (
+                prod(integer_dimensions)
+                if len(integer_dimensions) == len(dimensions)
+                else None
+            )
             output = TensorSpec(shape=[batch, flat], dtype=source.dtype)
         elif rule == "reshape":
             if not input_specs:
@@ -118,34 +128,39 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             target_shape = parameters.get("target_shape", [-1])
             if not isinstance(target_shape, list):
                 raise ShapeInferenceError("target_shape must be a list")
-            if sum(dimension == -1 for dimension in target_shape) > 1:
+            target_dimensions = cast(list[Any], target_shape)
+            if sum(dimension == -1 for dimension in target_dimensions) > 1:
                 raise ShapeInferenceError("target_shape can contain at most one inferred dimension")
             if any(
                 not isinstance(dimension, int)
                 or isinstance(dimension, bool)
                 or dimension == 0
                 or dimension < -1
-                for dimension in target_shape
+                for dimension in target_dimensions
             ):
                 raise ShapeInferenceError(
                     "target_shape dimensions must be positive integers or one -1"
                 )
             source = input_specs[0]
+            validated_target_dimensions = [int(dimension) for dimension in target_dimensions]
             resolved_shape: list[int | None] = [
-                None if dimension == -1 else dimension for dimension in target_shape
+                None if dimension == -1 else dimension for dimension in validated_target_dimensions
             ]
-            if -1 in target_shape:
+            if -1 in validated_target_dimensions:
                 source_dimensions = source.shape[1:]
                 known_target = prod(
-                    dimension for dimension in target_shape if dimension != -1
+                    dimension for dimension in validated_target_dimensions if dimension != -1
                 )
-                if all(isinstance(dimension, int) for dimension in source_dimensions):
-                    source_size = prod(source_dimensions)
+                integer_source_dimensions: list[int] = [
+                    dimension for dimension in source_dimensions if isinstance(dimension, int)
+                ]
+                if len(integer_source_dimensions) == len(source_dimensions):
+                    source_size = prod(integer_source_dimensions)
                     if source_size % known_target != 0:
                         raise ShapeInferenceError(
                             "target_shape is incompatible with the input element count"
                         )
-                    resolved_shape[target_shape.index(-1)] = source_size // known_target
+                    resolved_shape[validated_target_dimensions.index(-1)] = source_size // known_target
             output = TensorSpec(
                 shape=[source.shape[0], *resolved_shape],
                 dtype=source.dtype,
@@ -283,7 +298,7 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 raise ShapeInferenceError(f"{node_id} requires an input")
             dim = _int_parameter(parameters, "embedding_dim", 128)
             vocab = _int_parameter(parameters, "vocabulary_size", 10000)
-            output = TensorSpec(shape=[*input_specs[0].shape, dim], dtype="float32")
+            output = TensorSpec(shape=[*input_specs[0].shape, dim], dtype=DataType.FLOAT32)
             parameter_count = vocab * dim
         elif rule == "merge_same":
             if len(input_specs) < 2:
@@ -301,7 +316,10 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             normalized_axis = axis if axis >= 0 else rank + axis
             shape = list(input_specs[0].shape)
             sizes = [spec.shape[normalized_axis] for spec in input_specs]
-            shape[normalized_axis] = sum(sizes) if all(isinstance(size, int) for size in sizes) else None
+            integer_sizes = [size for size in sizes if isinstance(size, int)]
+            shape[normalized_axis] = (
+                sum(integer_sizes) if len(integer_sizes) == len(sizes) else None
+            )
             output = TensorSpec(shape=shape, dtype=input_specs[0].dtype)
         elif rule == "attention":
             if not input_specs:

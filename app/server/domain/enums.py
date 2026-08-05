@@ -9,6 +9,17 @@ class TargetFramework(StrEnum):
     PYTORCH = "pytorch"
 
 
+class KerasBackend(StrEnum):
+    TENSORFLOW = "tensorflow"
+    TORCH = "torch"
+
+
+class ValidationStatus(StrEnum):
+    UNKNOWN = "unknown"
+    VALID = "valid"
+    INVALID = "invalid"
+
+
 class DiagnosticSeverity(StrEnum):
     ERROR = "error"
     WARNING = "warning"

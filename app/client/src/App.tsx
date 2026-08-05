@@ -7,7 +7,7 @@ import { NodeCatalog } from './components/NodeCatalog'
 import { ProjectToolbar } from './components/ProjectToolbar'
 import { PropertiesInspector } from './components/PropertiesInspector'
 import { ValidationPanel } from './components/ValidationPanel'
-import type { ProjectExportBundle, ProjectSummary, TargetFramework, ValidationResult } from './domain/types'
+import type { KerasBackend, ProjectExportBundle, ProjectSummary, TargetFramework, ValidationResult } from './domain/types'
 import { useGraphStore } from './state/graphStore'
 
 export default function App() {
@@ -16,6 +16,8 @@ export default function App() {
   const [name, setName] = useState('Untitled model')
   const [description, setDescription] = useState('')
   const [framework, setFramework] = useState<TargetFramework>('keras')
+  const [availableKerasBackends, setAvailableKerasBackends] = useState<KerasBackend[]>([])
+  const [kerasBackend, setKerasBackend] = useState<KerasBackend | null>(null)
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [validation, setValidation] = useState<ValidationResult | null>(null)
   const [code, setCode] = useState<string | null>(null)
@@ -31,8 +33,13 @@ export default function App() {
 
   const refreshProjects = async () => setProjects(await api.listProjects())
   useEffect(() => {
-    Promise.all([api.catalog(), api.listProjects()])
-      .then(([catalog, projectList]) => { setManifests(catalog); setProjects(projectList) })
+    Promise.all([api.catalog(), api.listProjects(), api.metadata()])
+      .then(([catalog, projectList, metadata]) => {
+        setManifests(catalog)
+        setProjects(projectList)
+        setAvailableKerasBackends(metadata.available_keras_backends)
+        setKerasBackend(metadata.available_keras_backends.length === 1 ? metadata.available_keras_backends[0] : null)
+      })
       .catch((error) => setNotice(`Backend unavailable: ${String(error)}`))
   }, [setManifests])
 
@@ -103,10 +110,10 @@ export default function App() {
   }
 
   const exportKerasModel = async () => {
-    if (!projectId) return
+    if (!projectId || !kerasBackend) return
     setBusy(true)
     try {
-      downloadBlob(await api.exportKerasModel(projectId), `${safeFilename(name)}.keras`)
+      downloadBlob(await api.exportKerasModel(projectId, kerasBackend), `${safeFilename(name)}.keras`)
       setNotice('Uninitialized Keras model exported.')
     } catch (error) { setNotice(`Keras export failed: ${String(error)}`) } finally { setBusy(false) }
   }
@@ -121,7 +128,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <ProjectToolbar name={name} onNameChange={setName} description={description} onDescriptionChange={setDescription} framework={framework} onFrameworkChange={setFramework} projects={projects} currentProjectId={projectId} onNew={newProject} onSave={save} onOpen={open} onDuplicate={duplicate} onValidate={runValidation} onCode={previewCode} onExport={exportJson} onBinaryExport={exportKerasModel} onImport={() => importInput.current?.click()} busy={busy} />
+      <ProjectToolbar name={name} onNameChange={setName} description={description} onDescriptionChange={setDescription} framework={framework} onFrameworkChange={setFramework} availableKerasBackends={availableKerasBackends} kerasBackend={kerasBackend} onKerasBackendChange={setKerasBackend} projects={projects} currentProjectId={projectId} onNew={newProject} onSave={save} onOpen={open} onDuplicate={duplicate} onValidate={runValidation} onCode={previewCode} onExport={exportJson} onBinaryExport={exportKerasModel} onImport={() => importInput.current?.click()} busy={busy} />
       <input ref={importInput} type="file" accept="application/json,.json" hidden onChange={(event) => event.target.files?.[0] && importJson(event.target.files[0])} />
       <main className="workspace-grid">
         <NodeCatalog manifests={manifests} framework={framework} />

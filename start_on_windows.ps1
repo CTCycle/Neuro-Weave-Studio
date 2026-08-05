@@ -7,14 +7,13 @@ $script:AppDir = Join-Path $RepoRoot 'app'
 $script:ServerDir = Join-Path $AppDir 'server'
 $script:ClientDir = Join-Path $AppDir 'client'
 $script:ScriptsDir = Join-Path $AppDir 'scripts'
-$script:SettingsDir = Join-Path $RepoRoot 'settings'
+$script:EnvironmentBootstrap = Join-Path $ScriptsDir 'ensure_environment.py'
 $script:RuntimeDir = Join-Path $RepoRoot 'runtimes'
 $script:PythonDir = Join-Path $RuntimeDir 'python'
 $script:UvDir = Join-Path $RuntimeDir 'uv'
 $script:NodeDir = Join-Path $RuntimeDir 'node'
 $script:VenvDir = Join-Path $ServerDir '.venv'
-$script:EnvironmentFile = Join-Path $SettingsDir '.env'
-$script:EnvironmentExample = Join-Path $SettingsDir '.env.example'
+$script:EnvironmentFile = Join-Path (Join-Path $RepoRoot 'settings') '.env'
 $script:LogDir = Join-Path $AppDir 'resources\runtime\logs'
 $script:PythonVersion = '3.12.11'
 $script:UvVersion = '0.12.0'
@@ -149,15 +148,19 @@ function Ensure-PortableRuntimes {
     Set-LauncherEnvironment
 }
 
-function Import-DotEnv {
-    if (-not (Test-Path -LiteralPath $script:EnvironmentFile)) {
-        if (-not (Test-Path -LiteralPath $script:EnvironmentExample)) {
-            throw "Missing environment template: $($script:EnvironmentExample)"
-        }
-        New-Item -ItemType Directory -Path $script:SettingsDir -Force | Out-Null
-        Copy-Item -LiteralPath $script:EnvironmentExample -Destination $script:EnvironmentFile
-        Write-Info 'Created settings/.env from settings/.env.example.'
+function Ensure-EnvironmentFile {
+    $python = Get-PortablePython
+    if (-not (Test-Path -LiteralPath $script:EnvironmentBootstrap)) {
+        throw "Missing environment bootstrap script: $($script:EnvironmentBootstrap)"
     }
+    & $python $script:EnvironmentBootstrap
+    if ($LASTEXITCODE -ne 0) {
+        throw "Environment initialization failed with exit code $LASTEXITCODE."
+    }
+}
+
+function Import-DotEnv {
+    Ensure-EnvironmentFile
 
     $defaults = [ordered]@{
         FASTAPI_HOST = '127.0.0.1'
@@ -186,14 +189,44 @@ function Import-DotEnv {
     }
 }
 
+function Get-InstalledKerasExtras {
+    $venvPython = Get-VenvPython
+    if (-not (Test-Path -LiteralPath $venvPython)) { return @() }
+    $probe = "import importlib.util; print(','.join(name for name in ('tensorflow', 'torch') if importlib.util.find_spec(name)))"
+    $installed = (& $venvPython -c $probe 2>$null).Trim()
+    if ([string]::IsNullOrWhiteSpace($installed)) { return @() }
+    return @($installed -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+
+function Read-KerasInstallMode {
+    Write-Host '  [1] Keras only (no binary-export backend)' -ForegroundColor White
+    Write-Host '  [2] Keras + TensorFlow' -ForegroundColor White
+    Write-Host '  [3] Keras + Torch' -ForegroundColor White
+    Write-Host '  [4] Keras + TensorFlow + Torch' -ForegroundColor White
+    $selection = (Read-Host 'Select Keras installation mode [1-4]').Trim()
+    switch ($selection) {
+        '1' { return @() }
+        '2' { return @('tensorflow') }
+        '3' { return @('torch') }
+        '4' { return @('tensorflow', 'torch') }
+        default { throw 'Select a Keras installation mode from 1 through 4.' }
+    }
+}
+
 function Sync-Dependencies {
-    param([switch]$IncludeTests)
+    param(
+        [switch]$IncludeTests,
+        [string[]]$KerasBackendExtras = @(),
+        [switch]$ExplicitKerasMode
+    )
 
     $uv = Get-Uv
     $python = Get-PortablePython
     Set-LauncherEnvironment
+    if (-not $ExplicitKerasMode) { $KerasBackendExtras = Get-InstalledKerasExtras }
     $uvArguments = @('sync', '--python', $python)
     if ($IncludeTests) { $uvArguments += @('--extra', 'test') }
+    foreach ($extra in $KerasBackendExtras) { $uvArguments += @('--extra', $extra) }
     Push-Location $script:ServerDir
     try {
         Write-Step 'Synchronizing backend dependencies.'
@@ -246,8 +279,8 @@ function Test-DependenciesReady {
         -not (Test-Path -LiteralPath $vite)) {
         return $false
     }
-    $imports = 'import fastapi, uvicorn, sqlalchemy, psycopg'
-    if ($IncludeTests) { $imports += ', pytest, ruff' }
+    $imports = "import fastapi, uvicorn, sqlalchemy, psycopg; import importlib.metadata; importlib.metadata.version('keras')"
+    if ($IncludeTests) { $imports += "; importlib.metadata.version('pytest'); importlib.metadata.version('ruff'); importlib.metadata.version('pyright')" }
     & $venvPython -c $imports *> $null
     return $LASTEXITCODE -eq 0
 }
@@ -344,7 +377,7 @@ function Invoke-Launch {
 
     $venvPython = Get-VenvPython
     $npm = Get-Npm
-    $backendArguments = @('-m', 'uvicorn', 'app:app', '--host', $backendHost, '--port', [string]$backendPort)
+    $backendArguments = @('-m', 'uvicorn', 'app:create_app', '--factory', '--host', $backendHost, '--port', [string]$backendPort)
     if ([Environment]::GetEnvironmentVariable('RELOAD', 'Process') -ieq 'true') { $backendArguments += '--reload' }
     try {
         Write-Step "Starting backend at http://$backendHost`:$backendPort"
@@ -381,11 +414,12 @@ function Invoke-Launch {
 function Invoke-Install {
     Ensure-PortableRuntimes
     Import-DotEnv
-    Sync-Dependencies -IncludeTests
+    $kerasExtras = Read-KerasInstallMode
+    Sync-Dependencies -IncludeTests -KerasBackendExtras $kerasExtras -ExplicitKerasMode
     Invoke-FrontendBuild
 }
 
-function Invoke-PostgresInitialization {
+function Invoke-DatabaseInitialization {
     Ensure-PortableRuntimes
     Import-DotEnv
     if (-not (Test-DependenciesReady)) { Sync-Dependencies }
@@ -394,16 +428,23 @@ function Invoke-PostgresInitialization {
     $previousPythonPath = $env:PYTHONPATH
     try {
         $env:PYTHONPATH = $script:ServerDir
-        Write-Step 'Running explicit PostgreSQL database and schema initialization.'
+        $reset = Read-Host 'This recreates the managed database and deletes its data. Type RESET to continue'
+        $arguments = @()
+        if ($reset -ceq 'RESET') {
+            $arguments = @('--reset')
+            Write-Step 'Recreating the managed database schema from scratch.'
+        } else {
+            Write-Step 'Checking or initializing the canonical database schema without reset.'
+        }
         Push-Location $script:ServerDir
         try {
-            & $venvPython $initializer
-            if ($LASTEXITCODE -ne 0) { throw "PostgreSQL initialization failed with exit code $LASTEXITCODE." }
+            & $venvPython $initializer @arguments
+            if ($LASTEXITCODE -ne 0) { throw "Database initialization failed with exit code $LASTEXITCODE." }
         } finally { Pop-Location }
     } finally {
         if ($null -eq $previousPythonPath) { Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue } else { $env:PYTHONPATH = $previousPythonPath }
     }
-    Write-Ok 'PostgreSQL initialization completed.'
+    Write-Ok 'Database initialization completed.'
 }
 
 function Invoke-TestSuite {
@@ -416,9 +457,11 @@ function Invoke-TestSuite {
         $env:PYTHONPATH = $script:ServerDir
         Push-Location $script:ServerDir
         try {
-            Write-Step 'Running backend Ruff and pytest.'
-            & $venvPython -m ruff check . ..\tests
+            Write-Step 'Running backend Ruff, Pyright, and pytest.'
+            & $venvPython -m ruff check . ..\tests ..\scripts
             if ($LASTEXITCODE -ne 0) { throw "Backend Ruff failed with exit code $LASTEXITCODE." }
+            & $venvPython -m pyright
+            if ($LASTEXITCODE -ne 0) { throw "Backend Pyright failed with exit code $LASTEXITCODE." }
             & $venvPython -m pytest ..\tests --basetemp (Join-Path $script:RepoRoot 'assets\QA\pytest-tmp-launcher')
             if ($LASTEXITCODE -ne 0) { throw "Backend pytest failed with exit code $LASTEXITCODE." }
         } finally { Pop-Location }
@@ -447,7 +490,7 @@ function Show-Menu {
     Write-Host
     Write-Host '  [1] Launch application' -ForegroundColor White
     Write-Host '  [2] Install or repair dependencies' -ForegroundColor White
-    Write-Host '  [3] Initialize PostgreSQL' -ForegroundColor White
+    Write-Host '  [3] Initialize or recreate database' -ForegroundColor White
     Write-Host '  [4] Run validation suite' -ForegroundColor White
     Write-Host '  [5] Exit' -ForegroundColor White
 }
@@ -462,7 +505,7 @@ while ($true) {
         switch ($selection) {
             '1' { Invoke-Launch }
             '2' { Invoke-Install }
-            '3' { Invoke-PostgresInitialization }
+            '3' { Invoke-DatabaseInitialization }
             '4' { Invoke-TestSuite }
             default { throw 'Select a number from 1 through 5.' }
         }

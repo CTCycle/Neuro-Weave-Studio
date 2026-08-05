@@ -1,5 +1,5 @@
 # Testing Strategy
 
-Last updated: 2026-07-30
+Last updated: 2026-08-05
 
-Backend unit tests cover manifest loading, DAG validation, shape propagation, parameter counts, and serialization. API integration tests cover save, reopen, revision updates, JSON import and export, and both code generators. Optional Keras binary export is skipped when dependencies are absent. Frontend tests cover graph-cycle logic and catalog filtering; critical canvas interactions should gain Playwright coverage next.
+Backend unit tests cover manifest loading, DAG validation, shape propagation, parameter counts, serialization, typed OpenAPI schemas, required revisions, service-only dependencies, and Keras error contracts. Ruff and strict Pyright run over server, scripts, and backend tests. Keras binary artifact tests run for each installed operational backend and are explicitly skipped when no TensorFlow/Torch extra is installed. Frontend tests cover graph-cycle logic, catalog filtering, and zero/one/multiple backend selector states; the local UI zero-backend state is verified through the in-app Browser.
