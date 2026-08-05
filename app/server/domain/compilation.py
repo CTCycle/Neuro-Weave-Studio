@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import TargetFramework
+from domain.graph import ModelGraph
 
 
 class CompiledNode(BaseModel):
@@ -28,3 +29,8 @@ class CompilationResult(BaseModel):
     diagnostics: list[ValidationDiagnostic]
     code: str | None = None
     ir: CanonicalModelIR | None = None
+
+
+class CompilationRequest(BaseModel):
+    graph: ModelGraph
+    framework: TargetFramework

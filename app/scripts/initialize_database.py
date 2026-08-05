@@ -17,13 +17,18 @@ def _safe_error_message(error: Exception) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Explicitly initialize the configured PostgreSQL database and schema."
+        description="Explicitly initialize or recreate the configured database schema."
     )
-    parser.parse_args()
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Drop the managed schema and recreate it from scratch.",
+    )
+    args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     try:
-        initialize_database(get_database_settings())
-    except Exception as exc:  # noqa: BLE001 - CLI boundary reports a sanitized failure
+        initialize_database(get_database_settings(), reset=args.reset)
+    except Exception as exc:  # noqa: BLE001 - CLI boundary reports all initialization failures
         LOGGER.error("Database initialization failed: %s", _safe_error_message(exc))
         return 1
     LOGGER.info("Database initialization completed")

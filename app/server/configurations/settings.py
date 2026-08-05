@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
@@ -8,7 +7,12 @@ from urllib.parse import parse_qs, unquote, urlparse
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+from configurations.environment import (
+    ENV_FILE,
+    REPOSITORY_ROOT,
+    ensure_environment_file,
+)
+
 APP_ROOT = REPOSITORY_ROOT / "app"
 SETTINGS_ROOT = REPOSITORY_ROOT / "settings"
 RUNTIME_ROOT = APP_ROOT / "resources" / "runtime"
@@ -18,7 +22,7 @@ RUNTIME_EXPORT_ROOT = RUNTIME_ROOT / "exports"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=SETTINGS_ROOT / ".env",
+        env_file=ENV_FILE,
         env_prefix="NEURO_WEAVE_",
         extra="ignore",
     )
@@ -51,8 +55,8 @@ class Settings(BaseSettings):
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
 
-@lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    ensure_environment_file()
     return Settings()
 
 
@@ -60,7 +64,7 @@ class _DatabaseEnvironment(BaseSettings):
     """Raw database environment values, including the local `.env` file."""
 
     model_config = SettingsConfigDict(
-        env_file=SETTINGS_ROOT / ".env",
+        env_file=ENV_FILE,
         env_prefix="",
         extra="ignore",
         case_sensitive=False,
@@ -112,12 +116,6 @@ class _DatabaseEnvironment(BaseSettings):
             "DATABASE_CONNECT_TIMEOUT", "database_connect_timeout"
         ),
     )
-    insert_batch_size: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices(
-            "DATABASE_INSERT_BATCH_SIZE", "database_insert_batch_size"
-        ),
-    )
     sqlite_path: str | None = Field(
         default=None,
         validation_alias=AliasChoices("DATABASE_SQLITE_PATH", "database_sqlite_path"),
@@ -141,7 +139,6 @@ class DatabaseSettings(BaseModel):
     ssl: bool = False
     ssl_ca: str | None = None
     connect_timeout: int = Field(default=30, ge=1)
-    insert_batch_size: int = Field(default=1000, ge=1)
 
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
@@ -207,17 +204,16 @@ def _resolve_path(value: str | None, default: Path) -> Path:
     return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
 
 
-@lru_cache(maxsize=1)
+def _explicit_or_url(name: str, value: str | None, url_values: dict[str, Any]) -> Any:
+    explicit = _optional_text(value)
+    return explicit if explicit is not None else url_values.get(name)
+
+
 def get_database_settings() -> DatabaseSettings:
+    ensure_environment_file()
     environment = _DatabaseEnvironment()
     embedded = _strict_bool(environment.embedded_database, default=True)
     explicit_ssl = _strict_bool(environment.ssl, default=False)
-    insert_batch_size = _positive_int(
-        environment.insert_batch_size,
-        default=1000,
-        label="DATABASE_INSERT_BATCH_SIZE",
-    )
-
     if embedded:
         return DatabaseSettings(
             embedded_database=True,
@@ -230,25 +226,20 @@ def get_database_settings() -> DatabaseSettings:
                 default=30,
                 label="DATABASE_CONNECT_TIMEOUT",
             ),
-            insert_batch_size=insert_batch_size,
         )
 
     url_values = _url_database_values(_optional_text(environment.url))
 
-    def explicit_or_url(name: str, value: str | None) -> Any:
-        explicit = _optional_text(value)
-        return explicit if explicit is not None else url_values.get(name)
-
-    engine = explicit_or_url("engine", environment.engine) or "postgresql+psycopg"
-    host = explicit_or_url("host", environment.host)
-    database_name = explicit_or_url("database_name", environment.name)
-    username = explicit_or_url("username", environment.username)
-    password = explicit_or_url("password", environment.password)
+    engine = _explicit_or_url("engine", environment.engine, url_values) or "postgresql+psycopg"
+    host = _explicit_or_url("host", environment.host, url_values)
+    database_name = _explicit_or_url("database_name", environment.name, url_values)
+    username = _explicit_or_url("username", environment.username, url_values)
+    password = _explicit_or_url("password", environment.password, url_values)
     if not host or not database_name or not username:
         raise ValueError(
             "External database mode requires DATABASE_HOST, DATABASE_NAME, and DATABASE_USERNAME"
         )
-    port_value = explicit_or_url("port", environment.port)
+    port_value = _explicit_or_url("port", environment.port, url_values)
     port = _positive_int(port_value, default=5432, label="DATABASE_PORT")
     if port > 65535:
         raise ValueError("DATABASE_PORT must be between 1 and 65535")
@@ -275,5 +266,4 @@ def get_database_settings() -> DatabaseSettings:
         ssl=ssl,
         ssl_ca=_optional_text(environment.ssl_ca),
         connect_timeout=connect_timeout,
-        insert_batch_size=insert_batch_size,
     )

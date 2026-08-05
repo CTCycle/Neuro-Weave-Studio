@@ -13,7 +13,7 @@ Dimension = int | SymbolicDimension | None
 
 
 class TensorSpec(BaseModel):
-    shape: list[Dimension] = Field(default_factory=list)
+    shape: list[Dimension] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     dtype: DataType = DataType.FLOAT32
     name: str | None = None
 

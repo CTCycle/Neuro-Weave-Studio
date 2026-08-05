@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from functools import lru_cache
 from pathlib import Path
+from typing import Any, cast
 
 from domain.manifests import NodeManifest
 
@@ -25,12 +25,13 @@ class NodeCatalog:
             raise KeyError(f"Unknown node definition: {definition_id}@{version}") from exc
 
 
-@lru_cache(maxsize=1)
 def get_node_catalog() -> NodeCatalog:
     manifests: list[NodeManifest] = []
     for path in sorted(RESOURCE_ROOT.glob("*.json")):
         raw = json.loads(path.read_text(encoding="utf-8"))
-        items = raw if isinstance(raw, list) else raw["nodes"]
+        items = cast(
+            list[dict[str, Any]], raw if isinstance(raw, list) else raw["nodes"]
+        )
         manifests.extend(NodeManifest.model_validate(item) for item in items)
     if not manifests:
         raise RuntimeError(f"No node manifests found under {RESOURCE_ROOT}")

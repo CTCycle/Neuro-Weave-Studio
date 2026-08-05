@@ -1,6 +1,7 @@
 import type { Edge, Node, XYPosition } from '@xyflow/react'
 
 export type TargetFramework = 'keras' | 'tensorflow_keras' | 'pytorch'
+export type KerasBackend = 'tensorflow' | 'torch'
 export type DiagnosticSeverity = 'error' | 'warning' | 'compatibility' | 'info'
 export type PortKind = 'tensor' | 'tensor_list' | 'scalar' | 'mask'
 
@@ -146,6 +147,21 @@ export interface CompilationResult {
   framework: TargetFramework
   diagnostics: ValidationDiagnostic[]
   code?: string | null
+}
+
+export interface MetadataResponse {
+  name: string
+  version: string
+  schema_version: number
+  frameworks: TargetFramework[]
+  available_keras_backends: KerasBackend[]
+  configuration: {
+    optimizers: string[]
+    losses: string[]
+    metrics: string[]
+    initializers: string[]
+    regularizers: string[]
+  }
 }
 
 export interface EditorNodeData extends Record<string, unknown> {

@@ -1,7 +1,7 @@
 from common.catalogs.loader import get_node_catalog
 from domain.enums import DiagnosticSeverity, TargetFramework
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
-from validation.validator import GraphValidator
+from services.validation_service import ValidationService
 
 
 def make_node(node_id: str, definition_id: str, parameters: dict[str, object] | None = None) -> NodeInstance:
@@ -20,7 +20,7 @@ def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
             EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = GraphValidator(get_node_catalog()).validate(graph, TargetFramework.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, TargetFramework.KERAS)
     assert result.valid
     assert result.total_parameters == 63
     dense_summary = next(item for item in result.shape_summaries if item.node_id == "dense")
@@ -42,7 +42,7 @@ def test_cycle_is_reported_as_error() -> None:
             EdgeInstance(id="e4", source_node_id="b", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = GraphValidator(get_node_catalog()).validate(graph, TargetFramework.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, TargetFramework.KERAS)
     assert not result.valid
     assert any(item.code == "cycle_detected" and item.severity == DiagnosticSeverity.ERROR for item in result.diagnostics)
 
@@ -59,7 +59,7 @@ def test_unsafe_math_expression_is_rejected() -> None:
             EdgeInstance(id="e2", source_node_id="expression", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = GraphValidator(get_node_catalog()).validate(graph, TargetFramework.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, TargetFramework.KERAS)
     assert not result.valid
     assert any(item.code == "unsafe_expression" for item in result.diagnostics)
 
@@ -76,7 +76,7 @@ def test_pooling_updates_spatial_shape() -> None:
             EdgeInstance(id="e2", source_node_id="pool", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = GraphValidator(get_node_catalog()).validate(graph, TargetFramework.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, TargetFramework.KERAS)
     assert result.valid
     pool = next(item for item in result.shape_summaries if item.node_id == "pool")
     assert pool.outputs["output"].shape == [None, 16, 16, 3]

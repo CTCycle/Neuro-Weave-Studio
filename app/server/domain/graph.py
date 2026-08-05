@@ -1,24 +1,21 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-from domain.enums import TargetFramework
+from common.timestamps import utc_now
+from domain.enums import TargetFramework, ValidationStatus
 from domain.tensor import TensorSpec
 
-SCHEMA_VERSION = 1
-
-
-def utc_now() -> datetime:
-    return datetime.now(UTC)
+GRAPH_SCHEMA_VERSION = 1
 
 
 class Position(BaseModel):
-    x: float
-    y: float
+    x: float = Field(allow_inf_nan=False)
+    y: float = Field(allow_inf_nan=False)
 
 
 class NodeInstance(BaseModel):
@@ -57,17 +54,19 @@ class ExportSettings(BaseModel):
 
 
 class ModelGraph(BaseModel):
-    schema_version: Literal[1] = SCHEMA_VERSION
-    nodes: list[NodeInstance] = Field(default_factory=list)
-    edges: list[EdgeInstance] = Field(default_factory=list)
+    schema_version: Literal[1] = GRAPH_SCHEMA_VERSION
+    nodes: list[NodeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    edges: list[EdgeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     model_configuration: ModelConfiguration = Field(default_factory=ModelConfiguration)
     export_settings: ExportSettings = Field(default_factory=ExportSettings)
     future_training_configuration: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def unique_ids(self) -> ModelGraph:
-        node_ids = [node.id for node in self.nodes]
-        edge_ids = [edge.id for edge in self.edges]
+        nodes = self.nodes  # pyright: ignore[reportUnknownVariableType]
+        edges = self.edges  # pyright: ignore[reportUnknownVariableType]
+        node_ids = [node.id for node in nodes]
+        edge_ids = [edge.id for edge in edges]
         if len(node_ids) != len(set(node_ids)):
             raise ValueError("Node IDs must be unique")
         if len(edge_ids) != len(set(edge_ids)):
@@ -87,7 +86,7 @@ class ProjectUpdate(BaseModel):
     description: str = Field(default="", max_length=2000)
     target_framework: TargetFramework
     graph: ModelGraph
-    expected_revision: int | None = Field(default=None, ge=1)
+    expected_revision: int = Field(ge=1)
 
 
 class ProjectDocument(BaseModel):
@@ -100,7 +99,7 @@ class ProjectDocument(BaseModel):
     target_framework: TargetFramework
     current_revision: int
     graph: ModelGraph
-    validation_status: str
+    validation_status: ValidationStatus
     generated_code_snapshots: dict[str, str] = Field(default_factory=dict)
 
 
@@ -111,7 +110,7 @@ class ProjectSummary(BaseModel):
     updated_at: datetime
     target_framework: TargetFramework
     current_revision: int
-    validation_status: str
+    validation_status: ValidationStatus
 
 
 class ProjectListResponse(BaseModel):
@@ -120,10 +119,6 @@ class ProjectListResponse(BaseModel):
 
 class ProjectDuplicateRequest(BaseModel):
     name: str | None = Field(default=None, max_length=160)
-
-
-class ProjectImportRequest(BaseModel):
-    project: ProjectCreate
 
 
 class ProjectExportBundle(BaseModel):
