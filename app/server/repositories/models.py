@@ -30,6 +30,7 @@ _FRAMEWORK_SQL_VALUES = ", ".join(repr(item.value) for item in TargetFramework)
 _VALIDATION_STATUS_SQL_VALUES = ", ".join(repr(item.value) for item in ValidationStatus)
 
 
+###############################################################################
 class SchemaMetadataRecord(Base):
     __tablename__ = "schema_metadata"
 
@@ -47,6 +48,7 @@ class SchemaMetadataRecord(Base):
     )
 
 
+###############################################################################
 class ProjectRecord(Base):
     __tablename__ = "projects"
 
@@ -113,6 +115,7 @@ class ProjectRecord(Base):
     )
 
 
+###############################################################################
 class ProjectGraphSettingsRecord(Base):
     __tablename__ = "project_graph_settings"
 
@@ -171,6 +174,7 @@ class ProjectGraphSettingsRecord(Base):
     project: Mapped[ProjectRecord] = relationship(back_populates="graph_settings")
 
 
+###############################################################################
 class ProjectNodeRecord(Base):
     __tablename__ = "project_nodes"
 
@@ -210,6 +214,7 @@ class ProjectNodeRecord(Base):
     )
 
 
+###############################################################################
 class ProjectEdgeRecord(Base):
     __tablename__ = "project_edges"
 
@@ -250,6 +255,7 @@ class ProjectEdgeRecord(Base):
     )
 
 
+###############################################################################
 class ProjectRevisionRecord(Base):
     __tablename__ = "project_revisions"
 
@@ -283,6 +289,7 @@ class ProjectRevisionRecord(Base):
     )
 
 
+###############################################################################
 class GeneratedCodeSnapshotRecord(Base):
     __tablename__ = "generated_code_snapshots"
 

@@ -10,15 +10,19 @@ from domain.enums import KerasBackend
 from domain.graph import ModelGraph
 
 
+###############################################################################
 class KerasBackendRunner:
     """Probe and execute Keras in an isolated process with an explicit backend."""
 
+    # -------------------------------------------------------------------------
     def __init__(self) -> None:
         self._server_root = Path(__file__).resolve().parents[1]
 
+    # -------------------------------------------------------------------------
     def available_backends(self) -> tuple[KerasBackend, ...]:
         return tuple(backend for backend in KerasBackend if self.probe(backend))
 
+    # -------------------------------------------------------------------------
     def probe(self, backend: KerasBackend) -> bool:
         try:
             result = self._run_worker(backend, ("--probe",), input_text=None)
@@ -26,6 +30,7 @@ class KerasBackendRunner:
             return False
         return result.returncode == 0 and result.stdout.strip() == backend.value
 
+    # -------------------------------------------------------------------------
     def export(self, graph: ModelGraph, destination: Path, backend: KerasBackend) -> Path:
         destination.parent.mkdir(parents=True, exist_ok=True)
         result = self._run_worker(
@@ -40,6 +45,7 @@ class KerasBackendRunner:
             raise RuntimeError("Keras worker completed without creating the model artifact")
         return destination
 
+    # -------------------------------------------------------------------------
     def _run_worker(
         self,
         backend: KerasBackend,

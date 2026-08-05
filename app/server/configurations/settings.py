@@ -20,6 +20,7 @@ RUNTIME_LOG_ROOT = RUNTIME_ROOT / "logs"
 RUNTIME_EXPORT_ROOT = RUNTIME_ROOT / "exports"
 
 
+###############################################################################
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
@@ -34,6 +35,7 @@ class Settings(BaseSettings):
     log_file: Path = RUNTIME_LOG_ROOT / "backend.log"
     export_root: Path = RUNTIME_EXPORT_ROOT
 
+    # -------------------------------------------------------------------------
     @field_validator("export_root", mode="before")
     @classmethod
     def resolve_relative_export_root(cls, value: object) -> object:
@@ -42,6 +44,7 @@ class Settings(BaseSettings):
         path = Path(str(value))
         return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
 
+    # -------------------------------------------------------------------------
     @field_validator("log_file", mode="before")
     @classmethod
     def resolve_relative_log_file(cls, value: object) -> object:
@@ -50,16 +53,19 @@ class Settings(BaseSettings):
         path = Path(str(value))
         return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
 
+    # -------------------------------------------------------------------------
     @property
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
 
+###############################################################################
 def get_settings() -> Settings:
     ensure_environment_file()
     return Settings()
 
 
+###############################################################################
 class _DatabaseEnvironment(BaseSettings):
     """Raw database environment values, including the local `.env` file."""
 
@@ -122,6 +128,7 @@ class _DatabaseEnvironment(BaseSettings):
     )
 
 
+###############################################################################
 class DatabaseSettings(BaseModel):
     """Validated, immutable database configuration shared by repositories."""
 
@@ -145,6 +152,7 @@ _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off"}
 
 
+###############################################################################
 def _optional_text(value: object | None) -> str | None:
     if value is None:
         return None
@@ -152,6 +160,7 @@ def _optional_text(value: object | None) -> str | None:
     return normalized or None
 
 
+###############################################################################
 def _strict_bool(value: str | None, *, default: bool) -> bool:
     normalized = _optional_text(value)
     if normalized is None:
@@ -164,6 +173,7 @@ def _strict_bool(value: str | None, *, default: bool) -> bool:
     raise ValueError("DATABASE_EMBEDDED and DATABASE_SSL must be boolean values")
 
 
+###############################################################################
 def _positive_int(value: str | None, *, default: int, label: str) -> int:
     normalized = _optional_text(value)
     if normalized is None:
@@ -177,6 +187,7 @@ def _positive_int(value: str | None, *, default: int, label: str) -> int:
     return parsed
 
 
+###############################################################################
 def _url_database_values(url: str | None) -> dict[str, Any]:
     if not url:
         return {}
@@ -198,17 +209,20 @@ def _url_database_values(url: str | None) -> dict[str, Any]:
     }
 
 
+###############################################################################
 def _resolve_path(value: str | None, default: Path) -> Path:
     raw = _optional_text(value)
     path = Path(raw) if raw else default
     return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
 
 
+###############################################################################
 def _explicit_or_url(name: str, value: str | None, url_values: dict[str, Any]) -> Any:
     explicit = _optional_text(value)
     return explicit if explicit is not None else url_values.get(name)
 
 
+###############################################################################
 def get_database_settings() -> DatabaseSettings:
     ensure_environment_file()
     environment = _DatabaseEnvironment()

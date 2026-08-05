@@ -18,42 +18,51 @@ from services.runtime_service import RuntimeService
 from services.validation_service import ValidationService
 
 
+###############################################################################
 def get_catalog(request: Request) -> NodeCatalog:
     return cast(NodeCatalog, request.app.state.catalog)
 
 
+###############################################################################
 def get_settings(request: Request) -> Settings:
     return cast(Settings, request.app.state.settings)
 
 
+###############################################################################
 def get_repository_context(request: Request) -> RepositoryContext:
     return cast(RepositoryContext, request.app.state.repository_context)
 
 
+###############################################################################
 def get_uow_factory(
     repository_context: RepositoryContext = Depends(get_repository_context),
 ) -> UnitOfWorkFactory:
     return repository_context.new_unit_of_work
 
 
+###############################################################################
 def get_backend_runner(request: Request) -> KerasBackendRunner:
     return cast(KerasBackendRunner, request.app.state.backend_runner)
 
 
+###############################################################################
 def get_available_keras_backends(request: Request) -> tuple[KerasBackend, ...]:
     return cast(tuple[KerasBackend, ...], request.app.state.available_keras_backends)
 
 
+###############################################################################
 def get_validation_service(
     catalog: NodeCatalog = Depends(get_catalog),
 ) -> ValidationService:
     return ValidationService(catalog)
 
 
+###############################################################################
 def get_catalog_service(catalog: NodeCatalog = Depends(get_catalog)) -> CatalogService:
     return CatalogService(catalog)
 
 
+###############################################################################
 def get_runtime_service(
     request: Request,
     settings: Settings = Depends(get_settings),
@@ -62,6 +71,7 @@ def get_runtime_service(
     return RuntimeService(settings, available)
 
 
+###############################################################################
 def get_project_service(
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
     validator: ValidationService = Depends(get_validation_service),
@@ -69,6 +79,7 @@ def get_project_service(
     return ProjectService(uow_factory, validator)
 
 
+###############################################################################
 def get_compilation_service(
     catalog: NodeCatalog = Depends(get_catalog),
     validator: ValidationService = Depends(get_validation_service),
@@ -76,6 +87,7 @@ def get_compilation_service(
     return CompilationService(catalog, validator)
 
 
+###############################################################################
 def get_export_service(
     project_service: ProjectService = Depends(get_project_service),
     compilation_service: CompilationService = Depends(get_compilation_service),

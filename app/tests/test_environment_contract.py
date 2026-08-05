@@ -5,6 +5,7 @@ from pathlib import Path
 from configurations.environment import ensure_environment_file
 
 
+###############################################################################
 def test_missing_environment_file_is_copied_from_template(tmp_path: Path) -> None:
     template = tmp_path / ".env.example"
     environment_file = tmp_path / "settings" / ".env"
@@ -17,6 +18,7 @@ def test_missing_environment_file_is_copied_from_template(tmp_path: Path) -> Non
     assert environment_file.read_bytes() == expected
 
 
+###############################################################################
 def test_existing_environment_file_is_never_overwritten(tmp_path: Path) -> None:
     template = tmp_path / ".env.example"
     environment_file = tmp_path / ".env"

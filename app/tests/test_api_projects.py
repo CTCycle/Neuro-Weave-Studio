@@ -8,14 +8,17 @@ from repositories.models import ProjectRecord, ProjectRevisionRecord
 from sqlalchemy import select
 
 
+###############################################################################
 def fail_create_graph_replace(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("graph write failed")
 
 
+###############################################################################
 def fail_update_graph_replace(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("graph replacement failed")
 
 
+###############################################################################
 def project_payload() -> dict[str, object]:
     return {
         "name": "API MLP",
@@ -39,6 +42,7 @@ def project_payload() -> dict[str, object]:
     }
 
 
+###############################################################################
 def test_project_save_reopen_validate_and_compile(client: httpx.Client) -> None:
     created = client.post("/api/projects", json=project_payload())
     assert created.status_code == 201, created.text
@@ -71,6 +75,7 @@ def test_project_save_reopen_validate_and_compile(client: httpx.Client) -> None:
     assert client.put(f"/api/projects/{project['id']}", json=missing_revision).status_code == 422
 
 
+###############################################################################
 def test_health_and_metadata_are_typed_contracts(client: httpx.Client) -> None:
     health = client.get("/health")
     metadata = client.get("/api/metadata")
@@ -82,6 +87,7 @@ def test_health_and_metadata_are_typed_contracts(client: httpx.Client) -> None:
     assert isinstance(metadata.json()["available_keras_backends"], list)
 
 
+###############################################################################
 def test_binary_export_requires_backend_and_reports_unavailable_backend(
     client: httpx.Client,
 ) -> None:
@@ -108,6 +114,7 @@ def test_binary_export_requires_backend_and_reports_unavailable_backend(
     assert unavailable.status_code == 501
 
 
+###############################################################################
 def test_binary_export_rejects_incompatible_graph_before_backend_check(
     client: httpx.Client,
 ) -> None:
@@ -124,6 +131,7 @@ def test_binary_export_rejects_incompatible_graph_before_backend_check(
     assert response.status_code == 422
 
 
+###############################################################################
 def test_source_export_is_revision_specific(client: httpx.Client) -> None:
     created = client.post("/api/projects", json=project_payload()).json()
 
@@ -142,6 +150,7 @@ def test_source_export_is_revision_specific(client: httpx.Client) -> None:
     assert updated.json()["generated_code_snapshots"] == {}
 
 
+###############################################################################
 def test_project_delete_removes_the_project(client: httpx.Client) -> None:
     created = client.post("/api/projects", json=project_payload()).json()
 
@@ -150,6 +159,7 @@ def test_project_delete_removes_the_project(client: httpx.Client) -> None:
     assert client.get(f"/api/projects/{created['id']}").status_code == 404
 
 
+###############################################################################
 def test_project_json_export_and_import(client: httpx.Client) -> None:
     project = client.post("/api/projects", json=project_payload()).json()
     bundle = client.get(f"/api/projects/{project['id']}/export")
@@ -159,6 +169,7 @@ def test_project_json_export_and_import(client: httpx.Client) -> None:
     assert imported.json()["name"] == "API MLP"
 
 
+###############################################################################
 def test_create_rolls_back_when_graph_persistence_fails(
     client: httpx.Client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -172,6 +183,7 @@ def test_create_rolls_back_when_graph_persistence_fails(
         assert connection.execute(select(ProjectRevisionRecord)).first() is None
 
 
+###############################################################################
 def test_update_rolls_back_metadata_and_revision_when_graph_persistence_fails(
     client: httpx.Client, monkeypatch: pytest.MonkeyPatch
 ) -> None:

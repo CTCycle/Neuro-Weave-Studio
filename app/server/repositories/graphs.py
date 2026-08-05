@@ -21,10 +21,14 @@ from repositories.models import (
 )
 
 
+###############################################################################
 class GraphRepository:
+
+    # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    # -------------------------------------------------------------------------
     def load(self, project_id: UUID, graph_schema_version: int) -> ModelGraph | None:
         project_key = str(project_id)
         settings = self._session.get(ProjectGraphSettingsRecord, project_key)
@@ -83,6 +87,7 @@ class GraphRepository:
             future_training_configuration=settings.future_training_configuration_json,
         )
 
+    # -------------------------------------------------------------------------
     def replace(self, project_id: UUID, graph: ModelGraph) -> None:
         project_key = str(project_id)
         self._session.execute(

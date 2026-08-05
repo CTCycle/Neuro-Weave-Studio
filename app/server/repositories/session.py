@@ -11,6 +11,7 @@ from repositories.initializer import ensure_database_ready
 from repositories.unit_of_work import UnitOfWork
 
 
+###############################################################################
 @dataclass(frozen=True, slots=True)
 class RepositoryContext:
     """Immutable database handles shared by the application composition root."""
@@ -19,13 +20,16 @@ class RepositoryContext:
     engine: Engine
     session_factory: sessionmaker[Session]
 
+    # -------------------------------------------------------------------------
     def new_unit_of_work(self) -> UnitOfWork:
         return UnitOfWork(self.session_factory)
 
+    # -------------------------------------------------------------------------
     def dispose(self) -> None:
         self.engine.dispose()
 
 
+###############################################################################
 def create_repository_context(settings: DatabaseSettings) -> RepositoryContext:
     backend = ensure_database_ready(settings)
     return RepositoryContext(

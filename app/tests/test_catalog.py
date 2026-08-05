@@ -1,6 +1,7 @@
 from common.catalogs.loader import get_node_catalog
 
 
+###############################################################################
 def test_catalog_contains_large_manifest_set() -> None:
     catalog = get_node_catalog()
     assert len(catalog.manifests) >= 80

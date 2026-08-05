@@ -27,6 +27,8 @@ from repositories.base import Base
 from repositories.models import SchemaMetadataRecord
 
 LOGGER = logging.getLogger(__name__)
+
+###############################################################################
 def _create_schema(engine: Engine) -> None:
     Base.metadata.create_all(engine)
     with Session(engine) as session:
@@ -42,6 +44,7 @@ def _create_schema(engine: Engine) -> None:
         session.commit()
 
 
+###############################################################################
 def _check_schema_readiness(engine: Engine) -> None:
     """Check the canonical schema marker without inspecting or repairing tables."""
     try:
@@ -61,12 +64,14 @@ def _check_schema_readiness(engine: Engine) -> None:
         )
 
 
+###############################################################################
 def _sqlite_database_path(settings: DatabaseSettings) -> Path:
     if settings.sqlite_path is None:
         raise ValueError("SQLite path is required for embedded database mode")
     return Path(settings.sqlite_path).resolve()
 
 
+###############################################################################
 def _ensure_postgres_database(settings: DatabaseSettings) -> PostgresBackend:
     if not settings.database_name:
         raise ValueError("Database name is required for PostgreSQL initialization")
@@ -102,6 +107,7 @@ def _ensure_postgres_database(settings: DatabaseSettings) -> PostgresBackend:
     return PostgresBackend(settings)
 
 
+###############################################################################
 def _refuse_mixed_postgres_schema(engine: Engine) -> None:
     managed_tables = set(inspect(engine).get_table_names()).intersection(
         Base.metadata.tables
@@ -113,6 +119,7 @@ def _refuse_mixed_postgres_schema(engine: Engine) -> None:
         )
 
 
+###############################################################################
 def initialize_postgres_database(
     settings: DatabaseSettings, *, reset: bool = False
 ) -> PostgresBackend:
@@ -141,6 +148,7 @@ def initialize_postgres_database(
     return backend
 
 
+###############################################################################
 def initialize_sqlite_database(
     settings: DatabaseSettings, *, reset: bool = False
 ) -> SQLiteBackend:
@@ -169,6 +177,7 @@ def initialize_sqlite_database(
     return backend
 
 
+###############################################################################
 def initialize_database(
     settings: DatabaseSettings, *, reset: bool = False
 ) -> DatabaseBackend:
@@ -178,6 +187,7 @@ def initialize_database(
     return initialize_postgres_database(settings, reset=reset)
 
 
+###############################################################################
 def ensure_database_ready(settings: DatabaseSettings) -> DatabaseBackend:
     """Open the configured database without modifying an existing schema."""
     if settings.embedded_database:

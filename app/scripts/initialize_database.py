@@ -10,11 +10,13 @@ from repositories.initializer import initialize_database
 LOGGER = logging.getLogger(__name__)
 
 
+###############################################################################
 def _safe_error_message(error: Exception) -> str:
     message = str(error)
     message = re.sub(r"(?i)(postgres(?:ql)?(?:\+\w+)?://)[^@\s]+@", r"\1[redacted]@", message)
     return re.sub(r"(?i)(password\s*[=:]\s*)\S+", r"\1[redacted]", message)
 
+###############################################################################
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Explicitly initialize or recreate the configured database schema."

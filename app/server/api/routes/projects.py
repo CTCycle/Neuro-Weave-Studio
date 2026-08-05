@@ -22,6 +22,7 @@ from services.project_service import ProjectService
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
+###############################################################################
 @router.get("", response_model=ProjectListResponse)
 def list_projects(
     service: ProjectService = Depends(get_project_service),
@@ -29,6 +30,7 @@ def list_projects(
     return service.list()
 
 
+###############################################################################
 @router.post("", response_model=ProjectDocument, status_code=status.HTTP_201_CREATED)
 def create_project(
     payload: ProjectCreate,
@@ -40,6 +42,7 @@ def create_project(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+###############################################################################
 @router.get("/{project_id}", response_model=ProjectDocument)
 def get_project(
     project_id: UUID,
@@ -51,6 +54,7 @@ def get_project(
     return project
 
 
+###############################################################################
 @router.put("/{project_id}", response_model=ProjectDocument)
 def update_project(
     project_id: UUID,
@@ -68,6 +72,7 @@ def update_project(
     return project
 
 
+###############################################################################
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
     project_id: UUID,
@@ -78,6 +83,7 @@ def delete_project(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+###############################################################################
 @router.post("/{project_id}/duplicate", response_model=ProjectDocument, status_code=201)
 def duplicate_project(
     project_id: UUID,
@@ -90,6 +96,7 @@ def duplicate_project(
     return project
 
 
+###############################################################################
 @router.get("/{project_id}/export", response_model=ProjectExportBundle)
 def export_project(
     project_id: UUID,
@@ -101,6 +108,7 @@ def export_project(
     return bundle
 
 
+###############################################################################
 @router.post("/import", response_model=ProjectDocument, status_code=201)
 def import_project(
     payload: ProjectExportBundle,

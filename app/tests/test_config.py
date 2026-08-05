@@ -3,6 +3,7 @@ from pathlib import Path
 from configurations.settings import REPOSITORY_ROOT, Settings
 
 
+###############################################################################
 def test_relative_runtime_paths_are_anchored_to_repository_root() -> None:
     settings = Settings(
         export_root=Path("runtime/test-exports"),

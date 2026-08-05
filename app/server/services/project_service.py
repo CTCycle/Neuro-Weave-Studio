@@ -28,11 +28,15 @@ from services.errors import (
 from services.validation_service import ValidationService
 
 
+###############################################################################
 class ProjectService:
+
+    # -------------------------------------------------------------------------
     def __init__(self, uow_factory: UnitOfWorkFactory, validator: ValidationService) -> None:
         self._uow_factory = uow_factory
         self._validator = validator
 
+    # -------------------------------------------------------------------------
     def list(self) -> ProjectListResponse:
         with self._uow_factory() as uow:
             summaries = [
@@ -49,6 +53,7 @@ class ProjectService:
             ]
         return ProjectListResponse(projects=summaries)
 
+    # -------------------------------------------------------------------------
     def get(self, project_id: UUID) -> ProjectDocument | None:
         with self._uow_factory() as uow:
             metadata = uow.projects.get_metadata(project_id)
@@ -56,6 +61,7 @@ class ProjectService:
                 return None
             return self._document(uow, metadata)
 
+    # -------------------------------------------------------------------------
     def create(self, payload: ProjectCreate) -> ProjectDocument:
         validation = self._validator.validate(payload.graph, payload.target_framework)
         timestamp = utc_now()
@@ -87,6 +93,7 @@ class ProjectService:
                 "Project graph conflicts with the relational schema"
             ) from exc
 
+    # -------------------------------------------------------------------------
     def update(self, project_id: UUID, payload: ProjectUpdate) -> ProjectDocument | None:
         validation = self._validator.validate(payload.graph, payload.target_framework)
         timestamp = utc_now()
@@ -124,6 +131,7 @@ class ProjectService:
         except RepositoryRevisionConflictError as exc:
             raise RevisionConflictError(str(exc)) from exc
 
+    # -------------------------------------------------------------------------
     def delete(self, project_id: UUID) -> bool:
         with self._uow_factory() as uow:
             deleted = uow.projects.delete(project_id)
@@ -131,6 +139,7 @@ class ProjectService:
                 uow.commit()
             return deleted
 
+    # -------------------------------------------------------------------------
     def duplicate(
         self, project_id: UUID, payload: ProjectDuplicateRequest
     ) -> ProjectDocument | None:
@@ -146,6 +155,7 @@ class ProjectService:
             )
         )
 
+    # -------------------------------------------------------------------------
     def export_bundle(self, project_id: UUID) -> ProjectExportBundle | None:
         project = self.get(project_id)
         if project is None:
@@ -159,6 +169,7 @@ class ProjectService:
             )
         )
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _document(uow: UnitOfWorkProtocol, metadata: ProjectMetadata) -> ProjectDocument:
         graph = uow.graphs.load(metadata.id, metadata.graph_schema_version)

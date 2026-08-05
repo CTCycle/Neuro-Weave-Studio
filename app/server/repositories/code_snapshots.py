@@ -10,10 +10,14 @@ from domain.enums import TargetFramework
 from repositories.models import GeneratedCodeSnapshotRecord
 
 
+###############################################################################
 class CodeSnapshotRepository:
+
+    # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    # -------------------------------------------------------------------------
     def list_for_revision(self, project_id: UUID, revision: int) -> dict[str, str]:
         rows = self._session.scalars(
             select(GeneratedCodeSnapshotRecord).where(
@@ -23,6 +27,7 @@ class CodeSnapshotRepository:
         ).all()
         return {row.target_framework: row.source_code for row in rows}
 
+    # -------------------------------------------------------------------------
     def upsert(
         self,
         project_id: UUID,

@@ -5,6 +5,7 @@ from collections import defaultdict, deque
 from domain.graph import EdgeInstance, ModelGraph
 
 
+###############################################################################
 def adjacency(graph: ModelGraph) -> dict[str, list[str]]:
     result: dict[str, list[str]] = defaultdict(list)
     for edge in graph.edges:
@@ -12,6 +13,7 @@ def adjacency(graph: ModelGraph) -> dict[str, list[str]]:
     return result
 
 
+###############################################################################
 def topological_order(graph: ModelGraph) -> list[str]:
     node_ids = {node.id for node in graph.nodes}
     indegree = {node_id: 0 for node_id in node_ids}
@@ -34,6 +36,7 @@ def topological_order(graph: ModelGraph) -> list[str]:
     return ordered
 
 
+###############################################################################
 def would_create_cycle(graph: ModelGraph, source_node_id: str, target_node_id: str) -> bool:
     if source_node_id == target_node_id:
         return True
@@ -51,6 +54,7 @@ def would_create_cycle(graph: ModelGraph, source_node_id: str, target_node_id: s
     return False
 
 
+###############################################################################
 def incoming_edges(graph: ModelGraph) -> dict[str, list[EdgeInstance]]:
     result: dict[str, list[EdgeInstance]] = defaultdict(list)
     for edge in graph.edges:

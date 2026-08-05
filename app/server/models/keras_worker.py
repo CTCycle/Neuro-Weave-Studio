@@ -14,8 +14,11 @@ from domain.graph import ModelGraph
 from validation.graph_utils import incoming_edges, topological_order
 
 
+###############################################################################
 @keras.saving.register_keras_serializable(package="NeuroWeave")
 class SinusoidalPositionalEncoding(layers.Layer):
+
+    # -------------------------------------------------------------------------
     def call(self, inputs: Any) -> Any:
         length = keras.ops.shape(inputs)[1]
         depth = keras.ops.shape(inputs)[2]
@@ -35,6 +38,7 @@ class SinusoidalPositionalEncoding(layers.Layer):
         return inputs + encoding[None, :, :]
 
 
+###############################################################################
 def _build_model(graph: ModelGraph) -> keras.Model:
     nodes = {node.id: node for node in graph.nodes}
     inbound = incoming_edges(graph)
@@ -155,6 +159,7 @@ def _build_model(graph: ModelGraph) -> keras.Model:
     return keras.Model(inputs=inputs, outputs=outputs, name="neuro_weave_model")
 
 
+###############################################################################
 def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--probe", action="store_true")
@@ -162,6 +167,7 @@ def _parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
+###############################################################################
 def main() -> None:
     arguments = _parse_arguments()
     backend = keras.backend.backend()

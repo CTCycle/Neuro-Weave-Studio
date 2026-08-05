@@ -11,10 +11,14 @@ from domain.graph import ModelGraph
 from repositories.models import ProjectRevisionRecord
 
 
+###############################################################################
 class RevisionRepository:
+
+    # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    # -------------------------------------------------------------------------
     def append(
         self,
         project_id: UUID,
@@ -36,6 +40,7 @@ class RevisionRepository:
         )
         self._session.flush()
 
+    # -------------------------------------------------------------------------
     def get(self, project_id: UUID, revision: int) -> ProjectRevisionRecord | None:
         return self._session.scalar(
             select(ProjectRevisionRecord).where(

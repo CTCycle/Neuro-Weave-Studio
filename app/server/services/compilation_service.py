@@ -10,7 +10,10 @@ from exporters.pytorch_exporter import PyTorchSourceExporter
 from services.validation_service import ValidationService
 
 
+###############################################################################
 class CompilationService:
+
+    # -------------------------------------------------------------------------
     def __init__(self, catalog: NodeCatalog, validator: ValidationService) -> None:
         self._catalog = catalog
         self._validator = validator
@@ -20,6 +23,7 @@ class CompilationService:
             TargetFramework.PYTORCH: PyTorchSourceExporter(),
         }
 
+    # -------------------------------------------------------------------------
     def compile(self, graph: ModelGraph, framework: TargetFramework) -> CompilationResult:
         validation = self._validator.validate(graph, framework)
         if not validation.valid:
