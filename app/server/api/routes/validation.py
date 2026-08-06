@@ -15,4 +15,4 @@ def validate_graph(
     payload: ValidationRequest,
     service: ValidationService = Depends(get_validation_service),
 ) -> ValidationResult:
-    return service.validate(payload.graph, payload.framework)
+    return service.validate(payload.graph, payload.code_target)

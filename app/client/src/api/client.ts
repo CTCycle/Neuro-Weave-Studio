@@ -1,13 +1,13 @@
 import type {
   CompilationResult,
-  KerasBackend,
+  ExecutionBackend,
   MetadataResponse,
   ModelGraph,
   NodeManifest,
   ProjectDocument,
   ProjectExportBundle,
   ProjectSummary,
-  TargetFramework,
+  CodeTarget,
   ValidationResult,
 } from '../domain/types'
 
@@ -70,7 +70,7 @@ export const api = {
   createProject(payload: {
     name: string
     description: string
-    target_framework: TargetFramework
+    code_target: CodeTarget
     graph: ModelGraph
   }): Promise<ProjectDocument> {
     return request('/projects', { method: 'POST', body: JSON.stringify(payload) })
@@ -78,7 +78,7 @@ export const api = {
   updateProject(id: string, payload: {
     name: string
     description: string
-    target_framework: TargetFramework
+    code_target: CodeTarget
     graph: ModelGraph
     expected_revision: number
   }): Promise<ProjectDocument> {
@@ -99,29 +99,29 @@ export const api = {
   importProject(bundle: ProjectExportBundle): Promise<ProjectDocument> {
     return request('/projects/import', { method: 'POST', body: JSON.stringify(bundle) })
   },
-  validate(graph: ModelGraph, framework: TargetFramework): Promise<ValidationResult> {
+  validate(graph: ModelGraph, code_target: CodeTarget): Promise<ValidationResult> {
     return request('/validation', {
       method: 'POST',
-      body: JSON.stringify({ graph, framework }),
+      body: JSON.stringify({ graph, code_target }),
     })
   },
-  compile(graph: ModelGraph, framework: TargetFramework): Promise<CompilationResult> {
+  compile(graph: ModelGraph, code_target: CodeTarget): Promise<CompilationResult> {
     return request('/compilation', {
       method: 'POST',
-      body: JSON.stringify({ graph, framework }),
+      body: JSON.stringify({ graph, code_target }),
     })
   },
   metadata(): Promise<MetadataResponse> {
     return request('/metadata')
   },
-  sourceForProject(id: string, framework: TargetFramework): Promise<{ code: string }> {
-    return request(`/exports/${id}/source/${framework}`)
+  sourceForProject(id: string, code_target: CodeTarget): Promise<{ code: string }> {
+    return request(`/exports/${id}/source/${code_target}`)
   },
-  exportKerasModel(id: string, backend: KerasBackend): Promise<Blob> {
+  exportKerasModel(id: string, execution_backend: ExecutionBackend): Promise<Blob> {
     return requestBlob(`/exports/${id}/keras-model`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ backend }),
+      body: JSON.stringify({ execution_backend }),
     })
   },
 }

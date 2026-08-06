@@ -23,4 +23,4 @@ npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 
 Backend and frontend output from the launcher is written to `app/resources/runtime/logs`.
 
-The editor reads `/api/metadata` to discover operational Keras backends. With zero backends binary export is disabled with an installation hint; exactly one backend is selected automatically; with multiple backends the user must choose TensorFlow or Torch beside binary export. The choice is per export request and is not persisted in project data.
+The editor reads `/api/metadata` to discover operational execution backends. With zero backends binary export is disabled with an installation hint; exactly one backend is selected automatically; with multiple backends the user must choose TensorFlow, PyTorch, or JAX. The choice is per export request and is not persisted in project data. Backend logs include sanitized requested/public id, worker-reported Keras backend, duration, and outcome.

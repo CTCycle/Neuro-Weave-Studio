@@ -2,10 +2,11 @@ from typing import Any, cast
 
 import httpx
 import pytest
-from domain.enums import KerasBackend
+from sqlalchemy import select
+
+from domain.enums import ExecutionBackend
 from repositories.graphs import GraphRepository
 from repositories.models import ProjectRecord, ProjectRevisionRecord
-from sqlalchemy import select
 
 
 ###############################################################################
@@ -23,9 +24,9 @@ def project_payload() -> dict[str, object]:
     return {
         "name": "API MLP",
         "description": "Persistence integration test",
-        "target_framework": "keras",
+        "code_target": "keras",
         "graph": {
-            "schema_version": 1,
+            "schema_version": 2,
             "nodes": [
                 {"id": "input", "definition_id": "input.tabular", "definition_version": 1, "position": {"x": 0, "y": 0}, "parameters": {"shape": [None, 8], "dtype": "float32"}},
                 {"id": "dense", "definition_id": "layer.dense", "definition_version": 1, "position": {"x": 300, "y": 0}, "parameters": {"units": 2, "activation": "softmax", "use_bias": True}},
@@ -52,12 +53,12 @@ def test_project_save_reopen_validate_and_compile(client: httpx.Client) -> None:
     assert reopened.status_code == 200
     assert reopened.json()["graph"]["nodes"][1]["definition_id"] == "layer.dense"
 
-    validation = client.post("/api/validation", json={"graph": project["graph"], "framework": "keras"})
+    validation = client.post("/api/validation", json={"graph": project["graph"], "code_target": "keras"})
     assert validation.status_code == 200
     assert validation.json()["valid"] is True
 
-    keras_code = client.post("/api/compilation", json={"graph": project["graph"], "framework": "keras"})
-    torch_code = client.post("/api/compilation", json={"graph": project["graph"], "framework": "pytorch"})
+    keras_code = client.post("/api/compilation", json={"graph": project["graph"], "code_target": "keras"})
+    torch_code = client.post("/api/compilation", json={"graph": project["graph"], "code_target": "pytorch"})
     assert "keras.Model" in keras_code.json()["code"]
     assert "class GeneratedModel" in torch_code.json()["code"]
 
@@ -83,8 +84,10 @@ def test_health_and_metadata_are_typed_contracts(client: httpx.Client) -> None:
     assert health.status_code == 200
     assert health.json() == {"status": "ok"}
     assert metadata.status_code == 200
-    assert metadata.json()["frameworks"] == ["keras", "tensorflow_keras", "pytorch"]
-    assert isinstance(metadata.json()["available_keras_backends"], list)
+    assert metadata.json()["code_targets"] == ["keras", "tensorflow", "pytorch", "jax"]
+    assert {item["id"] for item in metadata.json()["execution_backends"]} == {
+        "tensorflow", "pytorch", "jax"
+    }
 
 
 ###############################################################################
@@ -96,22 +99,23 @@ def test_binary_export_requires_backend_and_reports_unavailable_backend(
     assert missing_body.status_code == 422
 
     invalid_backend = client.post(
-        f"/api/exports/{project['id']}/keras-model", json={"backend": "cuda"}
+        f"/api/exports/{project['id']}/keras-model", json={"execution_backend": "cuda"}
     )
     assert invalid_backend.status_code == 422
 
     missing_project = client.post(
         "/api/exports/00000000-0000-0000-0000-000000000000/keras-model",
-        json={"backend": "tensorflow"},
+        json={"execution_backend": "tensorflow"},
     )
     assert missing_project.status_code == 404
 
-    cast(Any, client).app.state.available_keras_backends = ()
+    cast(Any, client).app.state.backend_statuses = {}
     unavailable = client.post(
         f"/api/exports/{project['id']}/keras-model",
-        json={"backend": "tensorflow"},
+        json={"execution_backend": "tensorflow"},
     )
-    assert unavailable.status_code == 501
+    assert unavailable.status_code == 409
+    assert unavailable.json()["detail"]["code"] == "backend_unavailable"
 
 
 ###############################################################################
@@ -124,9 +128,11 @@ def test_binary_export_rejects_incompatible_graph_before_backend_check(
     nodes[1]["definition_id"] = "unknown.node"
     project = client.post("/api/projects", json=payload).json()
 
-    cast(Any, client).app.state.available_keras_backends = (KerasBackend.TENSORFLOW,)
+    cast(Any, client).app.state.backend_statuses = {
+        ExecutionBackend.TENSORFLOW: {"available": False, "reason_code": "dependency_missing"}
+    }
     response = client.post(
-        f"/api/exports/{project['id']}/keras-model", json={"backend": "tensorflow"}
+        f"/api/exports/{project['id']}/keras-model", json={"execution_backend": "tensorflow"}
     )
     assert response.status_code == 422
 
@@ -137,7 +143,7 @@ def test_source_export_is_revision_specific(client: httpx.Client) -> None:
 
     source = client.get(f"/api/exports/{created['id']}/source/keras")
     assert source.status_code == 200
-    assert source.json()["framework"] == "keras"
+    assert source.json()["code_target"] == "keras"
 
     saved = client.get(f"/api/projects/{created['id']}").json()
     assert "keras" in saved["generated_code_snapshots"]

@@ -1,5 +1,9 @@
 [CmdletBinding()]
-param()
+param(
+    [ValidateSet('Menu', 'Install', 'Launch', 'InitDb', 'Test')]
+    [string]$Action = 'Menu',
+    [string]$Backends = ''
+)
 
 $ErrorActionPreference = 'Stop'
 $script:RepoRoot = $PSScriptRoot
@@ -189,44 +193,44 @@ function Import-DotEnv {
     }
 }
 
-function Get-InstalledKerasExtras {
+function Get-InstalledExecutionBackends {
     $venvPython = Get-VenvPython
     if (-not (Test-Path -LiteralPath $venvPython)) { return @() }
-    $probe = "import importlib.util; print(','.join(name for name in ('tensorflow', 'torch') if importlib.util.find_spec(name)))"
+    $probe = "import importlib.util; print(','.join(name for name in ('tensorflow', 'torch', 'jax') if importlib.util.find_spec(name)))"
     $installed = (& $venvPython -c $probe 2>$null).Trim()
     if ([string]::IsNullOrWhiteSpace($installed)) { return @() }
-    return @($installed -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    return @($installed -split ',' | ForEach-Object {
+            $name = $_.Trim()
+            if ($name -eq 'torch') { 'pytorch' } else { $name }
+        } | Where-Object { $_ })
 }
 
-function Read-KerasInstallMode {
-    Write-Host '  [1] Keras only (no binary-export backend)' -ForegroundColor White
-    Write-Host '  [2] Keras + TensorFlow' -ForegroundColor White
-    Write-Host '  [3] Keras + Torch' -ForegroundColor White
-    Write-Host '  [4] Keras + TensorFlow + Torch' -ForegroundColor White
-    $selection = (Read-Host 'Select Keras installation mode [1-4]').Trim()
-    switch ($selection) {
-        '1' { return @() }
-        '2' { return @('tensorflow') }
-        '3' { return @('torch') }
-        '4' { return @('tensorflow', 'torch') }
-        default { throw 'Select a Keras installation mode from 1 through 4.' }
-    }
+function Read-BackendSelection {
+    $installed = @(Get-InstalledExecutionBackends)
+    Write-Host "Installed/available execution backends: $($(if ($installed.Count) { $installed -join ', ' } else { 'none' }))" -ForegroundColor DarkCyan
+    $selection = (Read-Host 'Execution backends to install (tensorflow,pytorch,jax or none)').Trim().ToLowerInvariant()
+    if ([string]::IsNullOrWhiteSpace($selection) -or $selection -eq 'none') { return @() }
+    $public = @($selection -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $unknown = @($public | Where-Object { $_ -notin @('tensorflow', 'pytorch', 'jax') })
+    if ($unknown.Count) { throw "Unknown execution backend(s): $($unknown -join ', '). Choose tensorflow, pytorch, and/or jax." }
+    return @($public | Select-Object -Unique)
 }
 
 function Sync-Dependencies {
     param(
         [switch]$IncludeTests,
-        [string[]]$KerasBackendExtras = @(),
-        [switch]$ExplicitKerasMode
+        [string[]]$BackendExtras = @(),
+        [switch]$ExplicitBackendSet
     )
 
     $uv = Get-Uv
     $python = Get-PortablePython
     Set-LauncherEnvironment
-    if (-not $ExplicitKerasMode) { $KerasBackendExtras = Get-InstalledKerasExtras }
+    if (-not $ExplicitBackendSet) { $BackendExtras = Get-InstalledExecutionBackends }
+    $BackendExtras = @($BackendExtras | ForEach-Object { if ($_ -eq 'pytorch') { 'torch' } else { $_ } })
     $uvArguments = @('sync', '--python', $python)
     if ($IncludeTests) { $uvArguments += @('--extra', 'test') }
-    foreach ($extra in $KerasBackendExtras) { $uvArguments += @('--extra', $extra) }
+    foreach ($extra in $BackendExtras) { $uvArguments += @('--extra', $extra) }
     Push-Location $script:ServerDir
     try {
         Write-Step 'Synchronizing backend dependencies.'
@@ -414,8 +418,14 @@ function Invoke-Launch {
 function Invoke-Install {
     Ensure-PortableRuntimes
     Import-DotEnv
-    $kerasExtras = Read-KerasInstallMode
-    Sync-Dependencies -IncludeTests -KerasBackendExtras $kerasExtras -ExplicitKerasMode
+    $backendExtras = if ([string]::IsNullOrWhiteSpace($Backends)) { Read-BackendSelection } else {
+        $requested = @($Backends -split ',' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
+        if ($requested -contains 'none') { $requested = @() }
+        $invalid = @($requested | Where-Object { $_ -notin @('tensorflow', 'pytorch', 'jax') })
+        if ($invalid.Count) { throw "Unknown execution backend(s): $($invalid -join ', ')." }
+        @($requested | Select-Object -Unique)
+    }
+    Sync-Dependencies -IncludeTests -BackendExtras $backendExtras -ExplicitBackendSet
     Invoke-FrontendBuild
 }
 
@@ -481,6 +491,21 @@ function Invoke-TestSuite {
         if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE." }
     } finally { Pop-Location }
     Write-Ok 'Validation suite completed.'
+}
+
+if ($Action -ne 'Menu') {
+    try {
+        switch ($Action) {
+            'Install' { Invoke-Install }
+            'Launch' { Invoke-Launch }
+            'InitDb' { Invoke-DatabaseInitialization }
+            'Test' { Invoke-TestSuite }
+        }
+    } catch {
+        Write-Fatal $_.Exception.Message
+        exit 1
+    }
+    exit 0
 }
 
 function Show-Menu {

@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from domain.enums import TargetFramework
+from domain.enums import CodeTarget
 from domain.graph import ModelGraph
 from repositories.models import ProjectRevisionRecord
 
@@ -25,7 +25,7 @@ class RevisionRepository:
         *,
         revision: int,
         graph: ModelGraph,
-        target_framework: TargetFramework,
+        code_target: CodeTarget,
         timestamp: datetime,
     ) -> None:
         self._session.add(
@@ -33,7 +33,7 @@ class RevisionRepository:
                 project_id=str(project_id),
                 revision=revision,
                 graph_schema_version=graph.schema_version,
-                target_framework=target_framework.value,
+                code_target=code_target.value,
                 created_at=timestamp,
                 graph_snapshot_json=graph.model_dump(mode="json"),
             )

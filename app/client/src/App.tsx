@@ -7,7 +7,7 @@ import { NodeCatalog } from './components/NodeCatalog'
 import { ProjectToolbar } from './components/ProjectToolbar'
 import { PropertiesInspector } from './components/PropertiesInspector'
 import { ValidationPanel } from './components/ValidationPanel'
-import type { KerasBackend, ProjectExportBundle, ProjectSummary, TargetFramework, ValidationResult } from './domain/types'
+import type { CodeTarget, ExecutionBackend, ProjectExportBundle, ProjectSummary, ValidationResult } from './domain/types'
 import { useGraphStore } from './state/graphStore'
 
 export default function App() {
@@ -15,14 +15,16 @@ export default function App() {
   const [revision, setRevision] = useState(1)
   const [name, setName] = useState('Untitled model')
   const [description, setDescription] = useState('')
-  const [framework, setFramework] = useState<TargetFramework>('keras')
-  const [availableKerasBackends, setAvailableKerasBackends] = useState<KerasBackend[]>([])
-  const [kerasBackend, setKerasBackend] = useState<KerasBackend | null>(null)
+  const [codeTarget, setCodeTarget] = useState<CodeTarget>('keras')
+  const [backendStatuses, setBackendStatuses] = useState<Array<{ id: ExecutionBackend; available: boolean; reason_code?: string | null }>>([])
+  const [executionBackend, setExecutionBackend] = useState<ExecutionBackend | null>(null)
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [validation, setValidation] = useState<ValidationResult | null>(null)
   const [code, setCode] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [railPanel, setRailPanel] = useState<'catalog' | 'inspector'>('catalog')
+  const [drawer, setDrawer] = useState<'catalog' | 'inspector' | null>(null)
   const importInput = useRef<HTMLInputElement>(null)
   const manifests = useGraphStore((state) => state.manifests)
   const setManifests = useGraphStore((state) => state.setManifests)
@@ -30,6 +32,7 @@ export default function App() {
   const reset = useGraphStore((state) => state.reset)
   const toGraph = useGraphStore((state) => state.toGraph)
   const applyDiagnostics = useGraphStore((state) => state.applyDiagnostics)
+  const addNode = useGraphStore((state) => state.addNode)
 
   const refreshProjects = async () => setProjects(await api.listProjects())
   useEffect(() => {
@@ -37,8 +40,9 @@ export default function App() {
       .then(([catalog, projectList, metadata]) => {
         setManifests(catalog)
         setProjects(projectList)
-        setAvailableKerasBackends(metadata.available_keras_backends)
-        setKerasBackend(metadata.available_keras_backends.length === 1 ? metadata.available_keras_backends[0] : null)
+        setBackendStatuses(metadata.execution_backends)
+        const available = metadata.execution_backends.filter((item) => item.available)
+        setExecutionBackend(available.length === 1 ? available[0].id : null)
       })
       .catch((error) => setNotice(`Backend unavailable: ${String(error)}`))
   }, [setManifests])
@@ -46,10 +50,10 @@ export default function App() {
   const runValidation = async () => {
     setBusy(true)
     try {
-      const result = await api.validate(toGraph(), framework)
+      const result = await api.validate(toGraph(), codeTarget)
       setValidation(result)
       applyDiagnostics(result.diagnostics, result.shape_summaries)
-      setNotice(result.valid ? 'Graph is valid for the selected framework.' : 'Graph has blocking findings.')
+      setNotice(result.valid ? `Graph is valid for ${codeTarget} code.` : 'Graph has blocking findings.')
       return result
     } catch (error) {
       setNotice(`Validation failed: ${String(error)}`)
@@ -62,8 +66,8 @@ export default function App() {
     try {
       const graph = toGraph()
       const project = projectId
-        ? await api.updateProject(projectId, { name, description, target_framework: framework, graph, expected_revision: revision })
-        : await api.createProject({ name, description, target_framework: framework, graph })
+        ? await api.updateProject(projectId, { name, description, code_target: codeTarget, graph, expected_revision: revision })
+        : await api.createProject({ name, description, code_target: codeTarget, graph })
       setProjectId(project.id)
       setRevision(project.current_revision)
       setNotice(`Saved revision ${project.current_revision}.`)
@@ -75,21 +79,21 @@ export default function App() {
     try {
       const project = await api.getProject(id)
       replaceGraph(project)
-      setProjectId(project.id); setRevision(project.current_revision); setName(project.name); setDescription(project.description); setFramework(project.target_framework); setValidation(null); setCode(null)
+      setProjectId(project.id); setRevision(project.current_revision); setName(project.name); setDescription(project.description); setCodeTarget(project.code_target); setValidation(null); setCode(null)
     } catch (error) { setNotice(`Open failed: ${String(error)}`) }
   }
 
   const newProject = () => {
-    reset(); setProjectId(null); setRevision(1); setName('Untitled model'); setDescription(''); setFramework('keras'); setValidation(null); setCode(null)
+    reset(); setProjectId(null); setRevision(1); setName('Untitled model'); setDescription(''); setCodeTarget('keras'); setValidation(null); setCode(null)
   }
 
   const previewCode = async () => {
     setBusy(true)
     try {
-      const result = await api.compile(toGraph(), framework)
+      const result = await api.compile(toGraph(), codeTarget)
       setValidation({ valid: result.valid, diagnostics: result.diagnostics, shape_summaries: [], total_parameters: null })
       if (result.code) setCode(result.code)
-      else setNotice('Code generation is blocked by validation findings.')
+      else setNotice('Code generation is blocked by compatibility findings.')
     } catch (error) { setNotice(`Code generation failed: ${String(error)}`) } finally { setBusy(false) }
   }
 
@@ -110,11 +114,11 @@ export default function App() {
   }
 
   const exportKerasModel = async () => {
-    if (!projectId || !kerasBackend) return
+    if (!projectId || !executionBackend) return
     setBusy(true)
     try {
-      downloadBlob(await api.exportKerasModel(projectId, kerasBackend), `${safeFilename(name)}.keras`)
-      setNotice('Uninitialized Keras model exported.')
+      downloadBlob(await api.exportKerasModel(projectId, executionBackend), `${safeFilename(name)}.keras`)
+      setNotice(`Keras 3 model exported with ${executionBackend}.`)
     } catch (error) { setNotice(`Keras export failed: ${String(error)}`) } finally { setBusy(false) }
   }
 
@@ -128,22 +132,26 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <ProjectToolbar name={name} onNameChange={setName} description={description} onDescriptionChange={setDescription} framework={framework} onFrameworkChange={setFramework} availableKerasBackends={availableKerasBackends} kerasBackend={kerasBackend} onKerasBackendChange={setKerasBackend} projects={projects} currentProjectId={projectId} onNew={newProject} onSave={save} onOpen={open} onDuplicate={duplicate} onValidate={runValidation} onCode={previewCode} onExport={exportJson} onBinaryExport={exportKerasModel} onImport={() => importInput.current?.click()} busy={busy} />
+      <ProjectToolbar name={name} onNameChange={setName} description={description} onDescriptionChange={setDescription} codeTarget={codeTarget} onCodeTargetChange={setCodeTarget} backendStatuses={backendStatuses} executionBackend={executionBackend} onExecutionBackendChange={setExecutionBackend} projects={projects} currentProjectId={projectId} onNew={newProject} onSave={save} onOpen={open} onDuplicate={duplicate} onValidate={runValidation} onCode={previewCode} onExport={exportJson} onBinaryExport={exportKerasModel} onImport={() => importInput.current?.click()} busy={busy} />
       <input ref={importInput} type="file" accept="application/json,.json" hidden onChange={(event) => event.target.files?.[0] && importJson(event.target.files[0])} />
-      <main className="workspace-grid">
-        <NodeCatalog manifests={manifests} framework={framework} />
+      <div className="responsive-rail-tabs" role="tablist" aria-label="Workspace panels">
+        <button className={railPanel === 'catalog' ? 'active' : ''} onClick={() => setRailPanel('catalog')}>Catalog</button>
+        <button className={railPanel === 'inspector' ? 'active' : ''} onClick={() => setRailPanel('inspector')}>Inspector</button>
+      </div>
+      <main className="workspace-grid" data-rail-panel={railPanel}>
+        <div className={`drawer-slot ${drawer === 'catalog' ? 'is-open' : ''}`}><NodeCatalog manifests={manifests} codeTarget={codeTarget} isOpen={drawer === 'catalog'} onClose={() => setDrawer(null)} onAdd={(manifest) => addNode(manifest, { x: 120 + useGraphStore.getState().nodes.length * 280, y: 120 })} /></div>
         <section className="center-workspace"><ModelConfigurationPanel /><GraphCanvas /><ValidationPanel result={validation} /></section>
-        <PropertiesInspector />
+        <div className={`drawer-slot ${drawer === 'inspector' ? 'is-open' : ''}`}><PropertiesInspector isOpen={drawer === 'inspector'} onClose={() => setDrawer(null)} /></div>
       </main>
+      <div className="small-viewport-actions"><button onClick={() => setDrawer(drawer === 'catalog' ? null : 'catalog')}>Catalog</button><button onClick={() => setDrawer(drawer === 'inspector' ? null : 'inspector')}>Inspector</button></div>
+      <p className="viewport-notice">1024×768 recommended for full graph authoring. Smaller screens use constrained drawers.</p>
       {notice && <button className="notice" onClick={() => setNotice(null)}>{notice}</button>}
       {code && <CodePreview code={code} onClose={() => setCode(null)} />}
     </div>
   )
 }
 
-function safeFilename(value: string): string {
-  return value.replaceAll(/[^a-zA-Z0-9_-]/g, '_') || 'model'
-}
+function safeFilename(value: string): string { return value.replaceAll(/[^a-zA-Z0-9_-]/g, '_') || 'model' }
 
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)

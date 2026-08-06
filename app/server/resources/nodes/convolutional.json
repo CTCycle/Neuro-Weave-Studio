@@ -107,7 +107,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -175,7 +175,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -243,7 +243,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -312,7 +312,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -437,7 +437,7 @@
         "keras": {
           "supported": true
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": true
         },
         "pytorch": {
@@ -504,7 +504,7 @@
         "keras": {
           "supported": true
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": true
         },
         "pytorch": {
@@ -572,7 +572,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -641,7 +641,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -768,7 +768,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -838,7 +838,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -908,7 +908,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -977,7 +977,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -1068,7 +1068,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -1146,7 +1146,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -1224,7 +1224,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -1291,7 +1291,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -1364,7 +1364,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
@@ -1437,7 +1437,7 @@
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },
-        "tensorflow_keras": {
+        "tensorflow": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
         },

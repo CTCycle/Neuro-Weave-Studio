@@ -8,7 +8,7 @@ from uuid import UUID
 from common.timestamps import utc_now
 from configurations.settings import Settings
 from domain.compilation import CompilationResult
-from domain.enums import KerasBackend, TargetFramework
+from domain.enums import CodeTarget, ExecutionBackend
 from domain.exports import SourceExportResponse
 from models.keras_backend_runner import KerasBackendRunner
 from repositories.contracts import UnitOfWorkFactory
@@ -35,7 +35,7 @@ class ExportService:
         validator: ValidationService,
         uow_factory: UnitOfWorkFactory,
         backend_runner: KerasBackendRunner,
-        available_keras_backends: Sequence[KerasBackend],
+        available_execution_backends: Sequence[ExecutionBackend],
         settings: Settings,
     ) -> None:
         self._projects = project_service
@@ -43,15 +43,15 @@ class ExportService:
         self._validator = validator
         self._uow_factory = uow_factory
         self._backend_runner = backend_runner
-        self._available_keras_backends = tuple(available_keras_backends)
+        self._available_execution_backends = tuple(available_execution_backends)
         self._settings = settings
 
     # -------------------------------------------------------------------------
-    def source(self, project_id: UUID, framework: TargetFramework) -> SourceExportResponse:
+    def source(self, project_id: UUID, code_target: CodeTarget) -> SourceExportResponse:
         project = self._projects.get(project_id)
         if project is None:
             raise ProjectNotFoundError(project_id)
-        result: CompilationResult = self._compilation.compile(project.graph, framework)
+        result: CompilationResult = self._compilation.compile(project.graph, code_target)
         if not result.valid or result.code is None:
             raise CompilationRejectedError(result.diagnostics)
 
@@ -66,34 +66,32 @@ class ExportService:
             uow.code_snapshots.upsert(
                 project_id,
                 revision=current.current_revision,
-                target_framework=framework,
+                code_target=code_target,
                 source_code=result.code,
                 timestamp=utc_now(),
             )
             uow.commit()
-        return SourceExportResponse(framework=framework, code=result.code)
+        return SourceExportResponse(code_target=code_target, code=result.code)
 
     # -------------------------------------------------------------------------
-    def keras_model(self, project_id: UUID, backend: KerasBackend) -> tuple[Path, str]:
+    def keras_model(self, project_id: UUID, execution_backend: ExecutionBackend) -> tuple[Path, str]:
         project = self._projects.get(project_id)
         if project is None:
             raise ProjectNotFoundError(project_id)
-        validation = self._validator.validate(project.graph, TargetFramework.KERAS)
+        validation = self._validator.validate(project.graph, CodeTarget.KERAS)
         if not validation.valid:
             raise CompilationRejectedError(validation.diagnostics)
-        if backend not in self._available_keras_backends:
-            raise BinaryExportUnavailableError(
-                f"Keras backend '{backend.value}' is not operational"
-            )
+        if execution_backend not in self._available_execution_backends:
+            raise BinaryExportUnavailableError(execution_backend)
         destination = (
             self._settings.export_root
             / str(project_id)
             / f"{self._safe_filename_stem(project.name)}.keras"
         )
         try:
-            self._backend_runner.export(project.graph, destination, backend)
+            self._backend_runner.export(project.graph, destination, execution_backend)
         except RuntimeError as exc:
-            raise BinaryExportUnavailableError(str(exc)) from exc
+            raise BinaryExportUnavailableError(execution_backend) from exc
         return destination, destination.name
 
     # -------------------------------------------------------------------------

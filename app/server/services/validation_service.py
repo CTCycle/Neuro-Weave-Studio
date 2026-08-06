@@ -4,8 +4,9 @@ from collections import Counter
 from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog
+from compilation.adapters import adapter_supported
 from domain.diagnostics import ValidationDiagnostic, ValidationResult
-from domain.enums import DiagnosticSeverity, TargetFramework
+from domain.enums import CodeTarget, DiagnosticSeverity
 from domain.graph import ModelGraph
 from domain.manifests import NodeManifest, ParameterDefinition
 from validation.graph_utils import topological_order
@@ -30,16 +31,19 @@ def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
         return isinstance(value, list) and all(
             dimension is None
             or (isinstance(dimension, int) and not isinstance(dimension, bool))
+            or isinstance(dimension, list)
             for dimension in dimensions
         )
+    if parameter.type in {"list", "tuple"}:
+        return isinstance(value, list)
     return True
 
 
 ###############################################################################
 def _output_name(node: Any) -> str:
-    configured = node.parameters.get("name")
-    if isinstance(configured, str) and configured.strip():
-        return configured.strip()
+    # Layer names are owned by the user-facing node label.  The legacy
+    # ``name`` parameter remains in some checked-in manifests for import
+    # compatibility, but it is intentionally not an independent control.
     return node.label or node.id
 
 
@@ -52,7 +56,7 @@ class ValidationService:
         self._catalog = catalog
 
     # -------------------------------------------------------------------------
-    def validate(self, graph: ModelGraph, framework: TargetFramework) -> ValidationResult:
+    def validate(self, graph: ModelGraph, code_target: CodeTarget) -> ValidationResult:
         diagnostics: list[ValidationDiagnostic] = []
         nodes = {node.id: node for node in graph.nodes}
         manifests: dict[str, NodeManifest] = {}
@@ -71,15 +75,15 @@ class ValidationService:
                     )
                 )
                 continue
-            mapping = manifest.frameworks.get(framework)
-            if mapping is None or not mapping.supported:
+            mapping = manifest.frameworks.get(code_target)
+            if mapping is None or not mapping.supported or not adapter_supported(code_target, node.definition_id):
                 diagnostics.append(
                     ValidationDiagnostic(
-                        code="unsupported_framework_feature",
+                        code="unsupported_code_target_feature",
                         severity=DiagnosticSeverity.COMPATIBILITY,
-                        message=f"{manifest.display_name} is not supported by {framework.value}",
+                        message=f"{manifest.display_name} has no explicit {code_target.value} adapter",
                         node_id=node.id,
-                        framework=framework,
+                        code_target=code_target,
                     )
                 )
             known_parameter_ids = {parameter.id for parameter in manifest.parameters}
@@ -159,26 +163,90 @@ class ValidationService:
                         )
                 minimum = parameter.constraints.get("min")
                 maximum = parameter.constraints.get("max")
-                if isinstance(value, int | float) and not isinstance(value, bool):
-                    if isinstance(minimum, int | float) and value < minimum:
+                if (
+                    isinstance(value, int | float)
+                    and not isinstance(value, bool)
+                    and isinstance(minimum, int | float)
+                    and value < minimum
+                ):
+                    diagnostics.append(
+                        ValidationDiagnostic(
+                            code="parameter_below_minimum",
+                            severity=DiagnosticSeverity.ERROR,
+                            message=f"{parameter.display_name} must be at least {minimum}",
+                            node_id=node.id,
+                        )
+                    )
+                if (
+                    isinstance(value, int | float)
+                    and not isinstance(value, bool)
+                    and isinstance(maximum, int | float)
+                    and value > maximum
+                ):
+                    diagnostics.append(
+                        ValidationDiagnostic(
+                            code="parameter_above_maximum",
+                            severity=DiagnosticSeverity.ERROR,
+                            message=f"{parameter.display_name} must be at most {maximum}",
+                            node_id=node.id,
+                        )
+                    )
+                if isinstance(value, list):
+                    items = cast(list[Any], value)
+                    expected_length = parameter.constraints.get("length")
+                    minimum_length = parameter.constraints.get("min_length")
+                    maximum_length = parameter.constraints.get("max_length")
+                    if isinstance(expected_length, int) and len(items) != expected_length:
                         diagnostics.append(
                             ValidationDiagnostic(
-                                code="parameter_below_minimum",
+                                code="parameter_length_invalid",
                                 severity=DiagnosticSeverity.ERROR,
-                                message=f"{parameter.display_name} must be at least {minimum}",
+                                message=f"{parameter.display_name} must contain exactly {expected_length} values",
                                 node_id=node.id,
                             )
                         )
-                    if isinstance(maximum, int | float) and value > maximum:
+                    if isinstance(minimum_length, int) and len(items) < minimum_length:
                         diagnostics.append(
                             ValidationDiagnostic(
-                                code="parameter_above_maximum",
+                                code="parameter_length_below_minimum",
                                 severity=DiagnosticSeverity.ERROR,
-                                message=f"{parameter.display_name} must be at most {maximum}",
+                                message=f"{parameter.display_name} must contain at least {minimum_length} values",
                                 node_id=node.id,
                             )
                         )
-
+                    if isinstance(maximum_length, int) and len(items) > maximum_length:
+                        diagnostics.append(
+                            ValidationDiagnostic(
+                                code="parameter_length_above_maximum",
+                                severity=DiagnosticSeverity.ERROR,
+                                message=f"{parameter.display_name} must contain at most {maximum_length} values",
+                                node_id=node.id,
+                            )
+                        )
+                    item_minimum = parameter.constraints.get("item_min")
+                    item_maximum = parameter.constraints.get("item_max")
+                    for item in items:
+                        if isinstance(item, int | float) and not isinstance(item, bool):
+                            if isinstance(item_minimum, int | float) and item < item_minimum:
+                                diagnostics.append(
+                                    ValidationDiagnostic(
+                                        code="parameter_item_below_minimum",
+                                        severity=DiagnosticSeverity.ERROR,
+                                        message=f"Values in {parameter.display_name} must be at least {item_minimum}",
+                                        node_id=node.id,
+                                    )
+                                )
+                                break
+                            if isinstance(item_maximum, int | float) and item > item_maximum:
+                                diagnostics.append(
+                                    ValidationDiagnostic(
+                                        code="parameter_item_above_maximum",
+                                        severity=DiagnosticSeverity.ERROR,
+                                        message=f"Values in {parameter.display_name} must be at most {item_maximum}",
+                                        node_id=node.id,
+                                    )
+                                )
+                                break
         incoming_by_port: Counter[tuple[str, str]] = Counter()
         outgoing_by_node: Counter[str] = Counter()
         edge_contracts: Counter[tuple[str, str, str, str]] = Counter()
@@ -344,5 +412,3 @@ class ValidationService:
             shape_summaries=shape_summaries,
             total_parameters=total_parameters,
         )
-
-

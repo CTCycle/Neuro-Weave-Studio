@@ -8,6 +8,12 @@ from exporters.base import SourceExporter
 ###############################################################################
 class KerasSourceExporter(SourceExporter):
 
+    @staticmethod
+    def _option(value: object) -> object:
+        """Turn the UI's explicit ``none`` choice into a Keras null."""
+
+        return None if value in (None, "", "none") else value
+
     # -------------------------------------------------------------------------
     def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
         nodes = {node.id: node for node in graph.nodes}
@@ -55,7 +61,7 @@ class KerasSourceExporter(SourceExporter):
                 )
             elif definition == "layer.dense":
                 lines.append(
-                    f"    {variable} = layers.Dense({parameters.get('units', 32)!r}, activation={parameters.get('activation', 'linear')!r}, use_bias={parameters.get('use_bias', True)!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.Dense({parameters.get('units', 32)!r}, activation={parameters.get('activation', 'linear')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._option(parameters.get('kernel_initializer', 'glorot_uniform'))!r}, bias_initializer={self._option(parameters.get('bias_initializer', 'zeros'))!r}, kernel_regularizer={self._option(parameters.get('kernel_regularizer', 'none'))!r}, bias_regularizer={self._option(parameters.get('bias_regularizer', 'none'))!r}, activity_regularizer={self._option(parameters.get('activity_regularizer', 'none'))!r}, kernel_constraint={self._option(parameters.get('kernel_constraint', 'none'))!r}, bias_constraint={self._option(parameters.get('bias_constraint', 'none'))!r}, name={node.id!r})({source})"
                 )
             elif definition == "layer.activation":
                 lines.append(
@@ -63,33 +69,37 @@ class KerasSourceExporter(SourceExporter):
                 )
             elif definition == "layer.dropout":
                 lines.append(
-                    f"    {variable} = layers.Dropout({parameters.get('rate', 0.5)!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.Dropout({parameters.get('rate', 0.5)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
                 )
             elif definition == "layer.flatten":
-                lines.append(f"    {variable} = layers.Flatten(name={node.id!r})({source})")
+                lines.append(f"    {variable} = layers.Flatten(data_format={parameters.get('data_format', 'channels_last')!r}, name={node.id!r})({source})")
             elif definition == "layer.batch_norm":
-                lines.append(f"    {variable} = layers.BatchNormalization(name={node.id!r})({source})")
+                lines.append(
+                    f"    {variable} = layers.BatchNormalization(axis={parameters.get('axis', -1)!r}, momentum={parameters.get('momentum', 0.99)!r}, epsilon={parameters.get('epsilon', 0.001)!r}, center={parameters.get('center', True)!r}, scale={parameters.get('scale', True)!r}, beta_initializer={self._option(parameters.get('beta_initializer', 'zeros'))!r}, gamma_initializer={self._option(parameters.get('gamma_initializer', 'ones'))!r}, moving_mean_initializer={self._option(parameters.get('moving_mean_initializer', 'zeros'))!r}, moving_variance_initializer={self._option(parameters.get('moving_variance_initializer', 'ones'))!r}, beta_regularizer={self._option(parameters.get('beta_regularizer', 'none'))!r}, gamma_regularizer={self._option(parameters.get('gamma_regularizer', 'none'))!r}, beta_constraint={self._option(parameters.get('beta_constraint', 'none'))!r}, gamma_constraint={self._option(parameters.get('gamma_constraint', 'none'))!r}, synchronized={parameters.get('synchronized', False)!r}, name={node.id!r})({source})"
+                )
             elif definition == "layer.layer_norm":
-                lines.append(f"    {variable} = layers.LayerNormalization(name={node.id!r})({source})")
+                lines.append(
+                    f"    {variable} = layers.LayerNormalization(axis={parameters.get('axis', [-1])!r}, epsilon={parameters.get('epsilon', 0.001)!r}, center={parameters.get('center', True)!r}, scale={parameters.get('scale', True)!r}, beta_initializer={self._option(parameters.get('beta_initializer', 'zeros'))!r}, gamma_initializer={self._option(parameters.get('gamma_initializer', 'ones'))!r}, beta_regularizer={self._option(parameters.get('beta_regularizer', 'none'))!r}, gamma_regularizer={self._option(parameters.get('gamma_regularizer', 'none'))!r}, beta_constraint={self._option(parameters.get('beta_constraint', 'none'))!r}, gamma_constraint={self._option(parameters.get('gamma_constraint', 'none'))!r}, name={node.id!r})({source})"
+                )
             elif definition == "layer.embedding":
                 lines.append(
-                    f"    {variable} = layers.Embedding({parameters.get('vocabulary_size', 10000)!r}, {parameters.get('embedding_dim', 128)!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.Embedding({parameters.get('vocabulary_size', 10000)!r}, {parameters.get('embedding_dim', 128)!r}, embeddings_initializer={self._option(parameters.get('embeddings_initializer', 'uniform'))!r}, embeddings_regularizer={self._option(parameters.get('embeddings_regularizer', 'none'))!r}, activity_regularizer={self._option(parameters.get('activity_regularizer', 'none'))!r}, embeddings_constraint={self._option(parameters.get('embeddings_constraint', 'none'))!r}, mask_zero={parameters.get('mask_zero', False)!r}, lora_rank={parameters.get('lora_rank')!r}, name={node.id!r})({source})"
                 )
             elif definition == "conv.conv2d":
                 lines.append(
-                    f"    {variable} = layers.Conv2D({parameters.get('filters', 32)!r}, {parameters.get('kernel_size', [3, 3])!r}, padding={parameters.get('padding', 'same')!r}, activation={parameters.get('activation', 'linear')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.Conv2D({parameters.get('filters', 32)!r}, {parameters.get('kernel_size', [3, 3])!r}, strides={parameters.get('strides', [1, 1])!r}, padding={parameters.get('padding', 'same')!r}, data_format={parameters.get('data_format', 'channels_last')!r}, dilation_rate={parameters.get('dilation_rate', [1, 1])!r}, groups={parameters.get('groups', 1)!r}, activation={parameters.get('activation', 'linear')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._option(parameters.get('kernel_initializer', 'glorot_uniform'))!r}, bias_initializer={self._option(parameters.get('bias_initializer', 'zeros'))!r}, kernel_regularizer={self._option(parameters.get('kernel_regularizer', 'none'))!r}, bias_regularizer={self._option(parameters.get('bias_regularizer', 'none'))!r}, activity_regularizer={self._option(parameters.get('activity_regularizer', 'none'))!r}, kernel_constraint={self._option(parameters.get('kernel_constraint', 'none'))!r}, bias_constraint={self._option(parameters.get('bias_constraint', 'none'))!r}, name={node.id!r})({source})"
                 )
             elif definition == "conv.max_pool2d":
                 lines.append(
-                    f"    {variable} = layers.MaxPooling2D(pool_size={parameters.get('pool_size', [2, 2])!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.MaxPooling2D(pool_size={parameters.get('pool_size', [2, 2])!r}, strides={parameters.get('strides')!r}, padding={parameters.get('padding', 'valid')!r}, data_format={parameters.get('data_format', 'channels_last')!r}, name={node.id!r})({source})"
                 )
             elif definition == "recurrent.lstm":
                 lines.append(
-                    f"    {variable} = layers.LSTM({parameters.get('units', 64)!r}, return_sequences={parameters.get('return_sequences', False)!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.LSTM({parameters.get('units', 64)!r}, activation={parameters.get('activation', 'tanh')!r}, recurrent_activation={parameters.get('recurrent_activation', 'sigmoid')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._option(parameters.get('kernel_initializer', 'glorot_uniform'))!r}, recurrent_initializer={self._option(parameters.get('recurrent_initializer', 'orthogonal'))!r}, bias_initializer={self._option(parameters.get('bias_initializer', 'zeros'))!r}, unit_forget_bias={parameters.get('unit_forget_bias', True)!r}, dropout={parameters.get('dropout', 0.0)!r}, recurrent_dropout={parameters.get('recurrent_dropout', 0.0)!r}, return_sequences={parameters.get('return_sequences', False)!r}, return_state={parameters.get('return_state', False)!r}, go_backwards={parameters.get('go_backwards', False)!r}, stateful={parameters.get('stateful', False)!r}, unroll={parameters.get('unroll', False)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
                 )
             elif definition == "recurrent.gru":
                 lines.append(
-                    f"    {variable} = layers.GRU({parameters.get('units', 64)!r}, return_sequences={parameters.get('return_sequences', False)!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.GRU({parameters.get('units', 64)!r}, activation={parameters.get('activation', 'tanh')!r}, recurrent_activation={parameters.get('recurrent_activation', 'sigmoid')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._option(parameters.get('kernel_initializer', 'glorot_uniform'))!r}, recurrent_initializer={self._option(parameters.get('recurrent_initializer', 'orthogonal'))!r}, bias_initializer={self._option(parameters.get('bias_initializer', 'zeros'))!r}, reset_after={parameters.get('reset_after', True)!r}, dropout={parameters.get('dropout', 0.0)!r}, recurrent_dropout={parameters.get('recurrent_dropout', 0.0)!r}, return_sequences={parameters.get('return_sequences', False)!r}, return_state={parameters.get('return_state', False)!r}, go_backwards={parameters.get('go_backwards', False)!r}, stateful={parameters.get('stateful', False)!r}, unroll={parameters.get('unroll', False)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
                 )
             elif definition in {"merge.add", "merge.residual", "merge.skip"}:
                 lines.append(
@@ -103,7 +113,7 @@ class KerasSourceExporter(SourceExporter):
                 query = inputs[0]
                 value = inputs[1] if len(inputs) > 1 else query
                 lines.append(
-                    f"    {variable} = layers.MultiHeadAttention(num_heads={parameters.get('num_heads', 8)!r}, key_dim={parameters.get('key_dim', 64)!r}, name={node.id!r})({query}, {value})"
+                    f"    {variable} = layers.MultiHeadAttention(num_heads={parameters.get('num_heads', 8)!r}, key_dim={parameters.get('key_dim', 64)!r}, value_dim={parameters.get('value_dim')!r}, dropout={parameters.get('dropout', 0.0)!r}, use_bias={parameters.get('use_bias', True)!r}, output_shape={parameters.get('output_shape')!r}, attention_axes={parameters.get('attention_axes')!r}, kernel_initializer={self._option(parameters.get('kernel_initializer', 'glorot_uniform'))!r}, bias_initializer={self._option(parameters.get('bias_initializer', 'zeros'))!r}, name={node.id!r})({query}, {value})"
                 )
             elif definition == "transformer.positional_encoding":
                 lines.append(
@@ -130,7 +140,7 @@ class KerasSourceExporter(SourceExporter):
             elif definition.startswith("output."):
                 lines.append(f"    {variable} = {source}")
             else:
-                lines.append(f"    {variable} = {source}  # {definition}: identity fallback for supported project serialization only")
+                raise ValueError(f"No Keras adapter registered for {definition}")
         input_variables = ", ".join(variables[node_id] for node_id in ir.input_node_ids)
         output_variables = ", ".join(variables[node_id] for node_id in ir.output_node_ids)
         lines.extend(

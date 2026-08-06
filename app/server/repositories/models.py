@@ -22,11 +22,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from common.constants import DATABASE_SCHEMA_VERSION
 from common.timestamps import utc_now
-from domain.enums import TargetFramework, ValidationStatus
+from domain.enums import CodeTarget, ValidationStatus
 from repositories.base import Base
 from repositories.types import UTCDateTime
 
-_FRAMEWORK_SQL_VALUES = ", ".join(repr(item.value) for item in TargetFramework)
+_CODE_TARGET_SQL_VALUES = ", ".join(repr(item.value) for item in CodeTarget)
 _VALIDATION_STATUS_SQL_VALUES = ", ".join(repr(item.value) for item in ValidationStatus)
 
 
@@ -60,8 +60,8 @@ class ProjectRecord(Base):
     graph_schema_version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1
     )
-    target_framework: Mapped[str] = mapped_column(
-        String(32), nullable=False, default=TargetFramework.KERAS.value
+    code_target: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=CodeTarget.KERAS.value
     )
     current_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     validation_status: Mapped[str] = mapped_column(
@@ -103,8 +103,8 @@ class ProjectRecord(Base):
         CheckConstraint("length(trim(name)) > 0", name="ck_projects_name_nonempty"),
         CheckConstraint("graph_schema_version >= 1", name="ck_projects_graph_version"),
         CheckConstraint(
-            f"target_framework IN ({_FRAMEWORK_SQL_VALUES})",
-            name="ck_projects_target_framework",
+            f"code_target IN ({_CODE_TARGET_SQL_VALUES})",
+            name="ck_projects_code_target",
         ),
         CheckConstraint("current_revision >= 1", name="ck_projects_revision"),
         CheckConstraint(
@@ -265,7 +265,7 @@ class ProjectRevisionRecord(Base):
     )
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     graph_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
-    target_framework: Mapped[str] = mapped_column(String(32), nullable=False)
+    code_target: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=utc_now
     )
@@ -282,8 +282,8 @@ class ProjectRevisionRecord(Base):
             "graph_schema_version >= 1", name="ck_project_revisions_graph_version"
         ),
         CheckConstraint(
-            f"target_framework IN ({_FRAMEWORK_SQL_VALUES})",
-            name="ck_project_revisions_target_framework",
+            f"code_target IN ({_CODE_TARGET_SQL_VALUES})",
+            name="ck_project_revisions_code_target",
         ),
         Index("ix_project_revisions_project_created", "project_id", "created_at"),
     )
@@ -295,7 +295,7 @@ class GeneratedCodeSnapshotRecord(Base):
 
     project_id: Mapped[str] = mapped_column(String(36), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    target_framework: Mapped[str] = mapped_column(String(32), nullable=False)
+    code_target: Mapped[str] = mapped_column(String(32), nullable=False)
     source_code: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=utc_now
@@ -306,7 +306,7 @@ class GeneratedCodeSnapshotRecord(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint(
-            "project_id", "revision", "target_framework", name="pk_generated_code_snapshots"
+            "project_id", "revision", "code_target", name="pk_generated_code_snapshots"
         ),
         ForeignKeyConstraint(
             ["project_id", "revision"],
@@ -316,8 +316,8 @@ class GeneratedCodeSnapshotRecord(Base):
         ),
         CheckConstraint("revision >= 1", name="ck_generated_code_snapshots_revision"),
         CheckConstraint(
-            f"target_framework IN ({_FRAMEWORK_SQL_VALUES})",
-            name="ck_generated_code_snapshots_target_framework",
+            f"code_target IN ({_CODE_TARGET_SQL_VALUES})",
+            name="ck_generated_code_snapshots_code_target",
         ),
         Index("ix_generated_code_snapshots_project", "project_id", "revision"),
     )

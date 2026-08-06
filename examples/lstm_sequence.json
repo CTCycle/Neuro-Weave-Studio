@@ -1,9 +1,9 @@
 {
   "name": "LSTM sequence model",
   "description": "Sequence input processed by an LSTM and classification head.",
-  "target_framework": "keras",
+  "code_target": "keras",
   "graph": {
-    "schema_version": 1,
+    "schema_version": 2,
     "nodes": [
       {
         "id": "sequence",

@@ -3,11 +3,10 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from domain.diagnostics import ValidationDiagnostic
-from domain.enums import TargetFramework
+from domain.enums import CodeTarget
 from domain.graph import ModelGraph
 
 
-###############################################################################
 class CompiledNode(BaseModel):
     node_id: str
     definition_id: str
@@ -16,25 +15,22 @@ class CompiledNode(BaseModel):
     parameters: dict[str, object] = Field(default_factory=dict)
 
 
-###############################################################################
 class CanonicalModelIR(BaseModel):
-    schema_version: int = 1
-    framework: TargetFramework
+    schema_version: int = 2
+    code_target: CodeTarget
     ordered_nodes: list[CompiledNode]
     input_node_ids: list[str]
     output_node_ids: list[str]
 
 
-###############################################################################
 class CompilationResult(BaseModel):
     valid: bool
-    framework: TargetFramework
+    code_target: CodeTarget
     diagnostics: list[ValidationDiagnostic]
     code: str | None = None
     ir: CanonicalModelIR | None = None
 
 
-###############################################################################
 class CompilationRequest(BaseModel):
     graph: ModelGraph
-    framework: TargetFramework
+    code_target: CodeTarget

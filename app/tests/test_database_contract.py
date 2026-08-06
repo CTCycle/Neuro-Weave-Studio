@@ -6,12 +6,18 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from sqlalchemy import inspect, select, text
+from sqlalchemy.dialects import postgresql, sqlite
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from sqlalchemy.schema import CreateTable
+
 from configurations.settings import (
     REPOSITORY_ROOT,
     DatabaseSettings,
     get_database_settings,
 )
-from domain.enums import TargetFramework, ValidationStatus
+from domain.enums import CodeTarget, ValidationStatus
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from repositories import initializer
 from repositories.backend import (
@@ -32,11 +38,6 @@ from repositories.models import (
     SchemaMetadataRecord,
 )
 from repositories.session import RepositoryContext
-from sqlalchemy import inspect, select, text
-from sqlalchemy.dialects import postgresql, sqlite
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-from sqlalchemy.schema import CreateTable
 
 
 ###############################################################################
@@ -208,7 +209,7 @@ def test_explicit_sqlite_reset_creates_schema_and_marker(tmp_path: Path) -> None
     with Session(backend.engine) as session:
         marker = session.get(SchemaMetadataRecord, 1)
         assert marker is not None
-        assert marker.schema_version == 1
+        assert marker.schema_version == 2
     backend.engine.dispose()
 
 
@@ -247,8 +248,8 @@ def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> 
             created = uow.projects.create(
                 name="Repository project",
                 description="",
-                target_framework=TargetFramework.KERAS,
-                graph_schema_version=1,
+                code_target=CodeTarget.KERAS,
+                graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -258,13 +259,13 @@ def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> 
                 created.id,
                 revision=1,
                 graph=graph,
-                target_framework=TargetFramework.KERAS,
+                code_target=CodeTarget.KERAS,
                 timestamp=now,
             )
             uow.code_snapshots.upsert(
                 created.id,
                 revision=1,
-                target_framework=TargetFramework.KERAS,
+                code_target=CodeTarget.KERAS,
                 source_code="model = None",
                 timestamp=now,
             )
@@ -274,7 +275,7 @@ def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> 
             metadata = uow.projects.get_metadata(created.id)
             assert metadata is not None
             assert metadata.current_revision == 1
-            assert uow.graphs.load(created.id, 1) == ModelGraph()
+            assert uow.graphs.load(created.id, 2) == ModelGraph()
             assert uow.code_snapshots.list_for_revision(created.id, 1) == {
                 "keras": "model = None"
             }
@@ -292,8 +293,8 @@ def test_transaction_rolls_back_partial_project(tmp_path: Path) -> None:
             metadata = uow.projects.create(
                 name="Rolled back",
                 description="",
-                target_framework=TargetFramework.KERAS,
-                graph_schema_version=1,
+                code_target=CodeTarget.KERAS,
+                graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -316,8 +317,8 @@ def test_project_and_dependents_cascade(tmp_path: Path) -> None:
             project = uow.projects.create(
                 name="Cascade",
                 description="",
-                target_framework=TargetFramework.KERAS,
-                graph_schema_version=1,
+                code_target=CodeTarget.KERAS,
+                graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -327,13 +328,13 @@ def test_project_and_dependents_cascade(tmp_path: Path) -> None:
                 project.id,
                 revision=1,
                 graph=graph,
-                target_framework=TargetFramework.KERAS,
+                code_target=CodeTarget.KERAS,
                 timestamp=now,
             )
             uow.code_snapshots.upsert(
                 project.id,
                 revision=1,
-                target_framework=TargetFramework.KERAS,
+                code_target=CodeTarget.KERAS,
                 source_code="code",
                 timestamp=now,
             )
@@ -391,8 +392,8 @@ def test_node_delete_cascades_incident_edges(tmp_path: Path) -> None:
             project = uow.projects.create(
                 name="Node cascade",
                 description="",
-                target_framework=TargetFramework.KERAS,
-                graph_schema_version=1,
+                code_target=CodeTarget.KERAS,
+                graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -401,7 +402,7 @@ def test_node_delete_cascades_incident_edges(tmp_path: Path) -> None:
                 project.id,
                 revision=1,
                 graph=graph,
-                target_framework=TargetFramework.KERAS,
+                code_target=CodeTarget.KERAS,
                 timestamp=now,
             )
             uow.commit()
@@ -427,16 +428,16 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
             first = uow.projects.create(
                 name="First",
                 description="",
-                target_framework=TargetFramework.KERAS,
-                graph_schema_version=1,
+                code_target=CodeTarget.KERAS,
+                graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
             second = uow.projects.create(
                 name="Second",
                 description="",
-                target_framework=TargetFramework.KERAS,
-                graph_schema_version=1,
+                code_target=CodeTarget.KERAS,
+                graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -464,14 +465,14 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
                 first.id,
                 revision=1,
                 graph=first_graph,
-                target_framework=TargetFramework.KERAS,
+                code_target=CodeTarget.KERAS,
                 timestamp=now,
             )
             uow.revisions.append(
                 second.id,
                 revision=1,
                 graph=second_graph,
-                target_framework=TargetFramework.KERAS,
+                code_target=CodeTarget.KERAS,
                 timestamp=now,
             )
             uow.commit()
@@ -525,8 +526,8 @@ def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> Non
             project = uow.projects.create(
                 name="Constraint project",
                 description="",
-                target_framework=TargetFramework.KERAS,
-                graph_schema_version=1,
+                code_target=CodeTarget.KERAS,
+                graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -535,7 +536,7 @@ def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> Non
                 project.id,
                 revision=1,
                 graph=graph,
-                target_framework=TargetFramework.KERAS,
+                code_target=CodeTarget.KERAS,
                 timestamp=now,
             )
             uow.commit()
@@ -574,8 +575,8 @@ def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> Non
                 ProjectRevisionRecord(
                     project_id=str(project.id),
                     revision=1,
-                    graph_schema_version=1,
-                    target_framework="keras",
+                    graph_schema_version=2,
+                    code_target="keras",
                     graph_snapshot_json={},
                     created_at=now,
                 )
@@ -587,7 +588,7 @@ def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> Non
                 ProjectRecord(
                     name=" ",
                     description="",
-                    target_framework="unknown",
+                    code_target="unknown",
                     validation_status=ValidationStatus.UNKNOWN,
                 )
             )

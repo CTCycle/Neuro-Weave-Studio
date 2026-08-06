@@ -6,7 +6,7 @@ from fastapi import Depends, Request
 
 from common.catalogs.loader import NodeCatalog
 from configurations.settings import Settings
-from domain.enums import KerasBackend
+from domain.enums import ExecutionBackend
 from models.keras_backend_runner import KerasBackendRunner
 from repositories.contracts import UnitOfWorkFactory
 from repositories.session import RepositoryContext
@@ -46,8 +46,8 @@ def get_backend_runner(request: Request) -> KerasBackendRunner:
 
 
 ###############################################################################
-def get_available_keras_backends(request: Request) -> tuple[KerasBackend, ...]:
-    return cast(tuple[KerasBackend, ...], request.app.state.available_keras_backends)
+def get_backend_statuses(request: Request) -> dict[ExecutionBackend, dict[str, object]]:
+    return cast(dict[ExecutionBackend, dict[str, object]], request.app.state.backend_statuses)
 
 
 ###############################################################################
@@ -67,8 +67,8 @@ def get_runtime_service(
     request: Request,
     settings: Settings = Depends(get_settings),
 ) -> RuntimeService:
-    available = cast(tuple[KerasBackend, ...], request.app.state.available_keras_backends)
-    return RuntimeService(settings, available)
+    statuses = cast(dict[ExecutionBackend, dict[str, object]], request.app.state.backend_statuses)
+    return RuntimeService(settings, statuses)
 
 
 ###############################################################################
@@ -94,7 +94,7 @@ def get_export_service(
     validator: ValidationService = Depends(get_validation_service),
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
     backend_runner: KerasBackendRunner = Depends(get_backend_runner),
-    available_keras_backends: tuple[KerasBackend, ...] = Depends(get_available_keras_backends),
+    backend_statuses: dict[ExecutionBackend, dict[str, object]] = Depends(get_backend_statuses),
     settings: Settings = Depends(get_settings),
 ) -> ExportService:
     return ExportService(
@@ -103,6 +103,8 @@ def get_export_service(
         validator=validator,
         uow_factory=uow_factory,
         backend_runner=backend_runner,
-        available_keras_backends=available_keras_backends,
+        available_execution_backends=tuple(
+            backend for backend, status in backend_statuses.items() if status.get("available")
+        ),
         settings=settings,
     )

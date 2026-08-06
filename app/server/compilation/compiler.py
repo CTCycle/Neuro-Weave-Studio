@@ -5,7 +5,7 @@ import re
 
 from common.catalogs.loader import NodeCatalog
 from domain.compilation import CanonicalModelIR, CompiledNode
-from domain.enums import TargetFramework
+from domain.enums import CodeTarget
 from domain.graph import ModelGraph
 from validation.graph_utils import incoming_edges, topological_order
 
@@ -21,7 +21,7 @@ def _variable_name(node_id: str) -> str:
 ###############################################################################
 def compile_to_ir(
     graph: ModelGraph,
-    framework: TargetFramework,
+    code_target: CodeTarget,
     catalog: NodeCatalog,
 ) -> CanonicalModelIR:
     nodes = {node.id: node for node in graph.nodes}
@@ -49,7 +49,7 @@ def compile_to_ir(
             )
         )
     return CanonicalModelIR(
-        framework=framework,
+        code_target=code_target,
         ordered_nodes=ordered_nodes,
         input_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("input.")],
         output_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("output.")],

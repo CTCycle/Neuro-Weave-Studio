@@ -1,9 +1,9 @@
 {
   "name": "Convolutional classifier",
   "description": "Image input, convolution, pooling and classifier head.",
-  "target_framework": "keras",
+  "code_target": "keras",
   "graph": {
-    "schema_version": 1,
+    "schema_version": 2,
     "nodes": [
       {
         "id": "image",

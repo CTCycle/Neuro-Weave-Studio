@@ -7,10 +7,10 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 
 from common.timestamps import utc_now
-from domain.enums import TargetFramework, ValidationStatus
+from domain.enums import CodeTarget, ValidationStatus
 from domain.tensor import TensorSpec
 
-GRAPH_SCHEMA_VERSION = 1
+GRAPH_SCHEMA_VERSION = 2
 
 
 ###############################################################################
@@ -60,7 +60,7 @@ class ExportSettings(BaseModel):
 
 ###############################################################################
 class ModelGraph(BaseModel):
-    schema_version: Literal[1] = GRAPH_SCHEMA_VERSION
+    schema_version: Literal[2] = GRAPH_SCHEMA_VERSION
     nodes: list[NodeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     edges: list[EdgeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     model_configuration: ModelConfiguration = Field(default_factory=ModelConfiguration)
@@ -85,7 +85,7 @@ class ModelGraph(BaseModel):
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=2000)
-    target_framework: TargetFramework = TargetFramework.KERAS
+    code_target: CodeTarget = CodeTarget.KERAS
     graph: ModelGraph = Field(default_factory=ModelGraph)
 
 
@@ -93,7 +93,7 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=2000)
-    target_framework: TargetFramework
+    code_target: CodeTarget
     graph: ModelGraph
     expected_revision: int = Field(ge=1)
 
@@ -106,7 +106,7 @@ class ProjectDocument(BaseModel):
     created_at: datetime
     updated_at: datetime
     schema_version: int
-    target_framework: TargetFramework
+    code_target: CodeTarget
     current_revision: int
     graph: ModelGraph
     validation_status: ValidationStatus
@@ -119,7 +119,7 @@ class ProjectSummary(BaseModel):
     name: str
     description: str
     updated_at: datetime
-    target_framework: TargetFramework
+    code_target: CodeTarget
     current_revision: int
     validation_status: ValidationStatus
 
@@ -137,7 +137,7 @@ class ProjectDuplicateRequest(BaseModel):
 ###############################################################################
 class ProjectExportBundle(BaseModel):
     format: Literal["neuro-weave-project"] = "neuro-weave-project"
-    format_version: Literal[1] = 1
+    format_version: Literal[2] = 2
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
 

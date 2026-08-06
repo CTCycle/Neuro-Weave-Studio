@@ -4,10 +4,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from domain.enums import PortKind, TargetFramework
+from domain.enums import CodeTarget, PortKind
 
 ParameterType = Literal[
-    "string", "integer", "number", "boolean", "enum", "shape", "axis", "expression"
+    "string", "integer", "number", "boolean", "enum", "shape", "axis", "list", "tuple", "expression"
 ]
 
 
@@ -32,6 +32,9 @@ class ParameterDefinition(BaseModel):
     constraints: dict[str, Any] = Field(default_factory=dict)
     options: list[Any] = Field(default_factory=list)
     description: str = ""
+    group: str = "General"
+    nullable: bool = False
+    ui: dict[str, Any] = Field(default_factory=dict)
 
 
 ###############################################################################
@@ -66,7 +69,7 @@ class NodeManifest(BaseModel):
     outputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     parameters: list[ParameterDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     shape_rule: ShapeRule
-    frameworks: dict[TargetFramework, FrameworkMapping]
+    frameworks: dict[CodeTarget, FrameworkMapping]
     ui: UiMetadata = Field(default_factory=UiMetadata)
     deprecated: bool = False
     documentation_ref: str

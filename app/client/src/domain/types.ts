@@ -1,7 +1,7 @@
 import type { Edge, Node, XYPosition } from '@xyflow/react'
 
-export type TargetFramework = 'keras' | 'tensorflow_keras' | 'pytorch'
-export type KerasBackend = 'tensorflow' | 'torch'
+export type CodeTarget = 'keras' | 'tensorflow' | 'pytorch' | 'jax'
+export type ExecutionBackend = 'tensorflow' | 'pytorch' | 'jax'
 export type DiagnosticSeverity = 'error' | 'warning' | 'compatibility' | 'info'
 export type PortKind = 'tensor' | 'tensor_list' | 'scalar' | 'mask'
 
@@ -18,12 +18,15 @@ export interface PortDefinition {
 export interface ParameterDefinition {
   id: string
   display_name: string
-  type: 'string' | 'integer' | 'number' | 'boolean' | 'enum' | 'shape' | 'axis' | 'expression'
+  type: 'string' | 'integer' | 'number' | 'boolean' | 'enum' | 'shape' | 'axis' | 'expression' | 'list' | 'tuple'
   default: unknown
   required: boolean
   constraints: Record<string, unknown>
   options: unknown[]
   description: string
+  group?: string
+  nullable?: boolean
+  ui?: Record<string, unknown>
 }
 
 export interface NodeManifest {
@@ -36,7 +39,7 @@ export interface NodeManifest {
   outputs: PortDefinition[]
   parameters: ParameterDefinition[]
   shape_rule: { kind: string; config: Record<string, unknown> }
-  frameworks: Record<TargetFramework, { supported: boolean; symbol?: string; notes?: string }>
+  frameworks: Record<string, { supported: boolean; symbol?: string; notes?: string }>
   ui: { icon: string; accent: string; width: number; height: number }
   deprecated: boolean
   documentation_ref: string
@@ -96,7 +99,7 @@ export interface ProjectDocument {
   created_at: string
   updated_at: string
   schema_version: number
-  target_framework: TargetFramework
+  code_target: CodeTarget
   current_revision: number
   graph: ModelGraph
   validation_status: string
@@ -108,7 +111,7 @@ export interface ProjectSummary {
   name: string
   description: string
   updated_at: string
-  target_framework: TargetFramework
+  code_target: CodeTarget
   current_revision: number
   validation_status: string
 }
@@ -119,7 +122,7 @@ export interface ValidationDiagnostic {
   message: string
   node_id?: string | null
   edge_id?: string | null
-  framework?: TargetFramework | null
+  code_target?: CodeTarget | null
   details: Record<string, unknown>
 }
 
@@ -144,7 +147,7 @@ export interface ValidationResult {
 
 export interface CompilationResult {
   valid: boolean
-  framework: TargetFramework
+  code_target: CodeTarget
   diagnostics: ValidationDiagnostic[]
   code?: string | null
 }
@@ -153,8 +156,8 @@ export interface MetadataResponse {
   name: string
   version: string
   schema_version: number
-  frameworks: TargetFramework[]
-  available_keras_backends: KerasBackend[]
+  code_targets: CodeTarget[]
+  execution_backends: Array<{ id: ExecutionBackend; available: boolean; reason_code?: string | null }>
   configuration: {
     optimizers: string[]
     losses: string[]
@@ -177,12 +180,12 @@ export type EditorEdge = Edge
 
 export interface ProjectExportBundle {
   format: 'neuro-weave-project'
-  format_version: 1
+  format_version: 2
   exported_at: string
   project: {
     name: string
     description: string
-    target_framework: TargetFramework
+    code_target: CodeTarget
     graph: ModelGraph
   }
 }

@@ -206,7 +206,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   toGraph: () => {
     const state = get()
     return {
-      schema_version: 1,
+      schema_version: 2,
       nodes: state.nodes.map((node) => ({
         id: node.id,
         definition_id: node.data.manifest.id,

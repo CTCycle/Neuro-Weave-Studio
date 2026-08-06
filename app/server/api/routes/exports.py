@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
 from api.dependencies import get_export_service
-from domain.enums import TargetFramework
+from domain.enums import CodeTarget
 from domain.exports import KerasBinaryExportRequest, SourceExportResponse
 from services.errors import (
     BinaryExportUnavailableError,
@@ -20,14 +20,14 @@ router = APIRouter(prefix="/api/exports", tags=["exports"])
 
 
 ###############################################################################
-@router.get("/{project_id}/source/{framework}", response_model=SourceExportResponse)
+@router.get("/{project_id}/source/{code_target}", response_model=SourceExportResponse)
 def export_source(
     project_id: UUID,
-    framework: TargetFramework,
+    code_target: CodeTarget,
     service: ExportService = Depends(get_export_service),
 ) -> SourceExportResponse:
     try:
-        return service.source(project_id, framework)
+        return service.source(project_id, code_target)
     except ProjectNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except CompilationRejectedError as exc:
@@ -50,7 +50,7 @@ def export_keras_model(
     service: ExportService = Depends(get_export_service),
 ) -> FileResponse:
     try:
-        destination, filename = service.keras_model(project_id, payload.backend)
+        destination, filename = service.keras_model(project_id, payload.execution_backend)
     except ProjectNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except CompilationRejectedError as exc:
@@ -62,7 +62,14 @@ def export_keras_model(
             },
         ) from exc
     except BinaryExportUnavailableError as exc:
-        raise HTTPException(status_code=501, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "backend_unavailable",
+                "backend": exc.backend,
+                "message": str(exc),
+            },
+        ) from exc
     return FileResponse(
         path=destination,
         filename=filename,
