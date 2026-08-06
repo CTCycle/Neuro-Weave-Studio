@@ -80,10 +80,13 @@ class PyTorchSourceExporter(SourceExporter):
                 variables[item.node_id] = name
             elif definition in {"layer.dense", "layer.dropout", "layer.flatten", "layer.batch_norm", "layer.layer_norm", "layer.embedding", "conv.conv2d", "conv.max_pool2d"}:
                 lines.append(f"        {name} = self.{name}({source})")
+                activation = node.parameters.get("activation", "linear")
+                if definition in {"layer.dense", "conv.conv2d"} and activation != "linear":
+                    lines.append(f"        {name} = ({self._activation(str(activation))})({name})")
                 variables[item.node_id] = name
             elif definition == "layer.activation":
                 activation = node.parameters.get("activation", "relu")
-                function = {"relu": "torch.relu", "sigmoid": "torch.sigmoid", "tanh": "torch.tanh", "softmax": "lambda value: torch.softmax(value, dim=-1)"}.get(str(activation), "lambda value: value")
+                function = self._activation(str(activation))
                 lines.append(f"        {name} = ({function})({source})")
                 variables[item.node_id] = name
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
@@ -101,8 +104,22 @@ class PyTorchSourceExporter(SourceExporter):
                 lines.append(f"        {name} = {source}")
                 variables[item.node_id] = name
             else:
-                lines.append(f"        {name} = {source}  # {definition}: unsupported operation kept as identity")
+                raise ValueError(f"No PyTorch adapter registered for {definition}")
                 variables[item.node_id] = name
         outputs = [variables[node_id] for node_id in ir.output_node_ids]
         lines.append(f"        return {outputs[0] if len(outputs) == 1 else '(' + ', '.join(outputs) + ')'}")
         return "\n".join(lines) + "\n"
+
+    @staticmethod
+    def _activation(value: str) -> str:
+        try:
+            return {
+                "linear": "lambda value: value",
+                "relu": "torch.relu",
+                "sigmoid": "torch.sigmoid",
+                "tanh": "torch.tanh",
+                "gelu": "torch.nn.functional.gelu",
+                "softmax": "lambda value: torch.softmax(value, dim=-1)",
+            }[value]
+        except KeyError as exc:
+            raise ValueError(f"No PyTorch activation adapter registered for {value}") from exc

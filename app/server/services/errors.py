@@ -32,4 +32,6 @@ class CompilationRejectedError(ValueError):
 
 ###############################################################################
 class BinaryExportUnavailableError(RuntimeError):
-    pass
+    def __init__(self, backend: object) -> None:
+        self.backend = str(getattr(backend, "value", backend))
+        super().__init__(f"Execution backend '{self.backend}' is not operational")

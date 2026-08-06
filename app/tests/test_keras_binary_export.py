@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from models.keras_backend_runner import KerasBackendRunner
 

@@ -1,3 +1,3 @@
 from __future__ import annotations
 
-DATABASE_SCHEMA_VERSION = 1
+DATABASE_SCHEMA_VERSION = 2

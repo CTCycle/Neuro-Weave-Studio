@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from domain.enums import KerasBackend, TargetFramework
+from domain.enums import CodeTarget, ExecutionBackend
 
 
 ###############################################################################
@@ -36,6 +36,12 @@ class MetadataResponse(BaseModel):
     name: str
     version: str
     schema_version: int
-    frameworks: list[TargetFramework]
-    available_keras_backends: list[KerasBackend]
+    code_targets: list[CodeTarget]
+    execution_backends: list[ExecutionBackendStatus]
     configuration: MetadataConfiguration
+
+
+class ExecutionBackendStatus(BaseModel):
+    id: ExecutionBackend
+    available: bool
+    reason_code: str | None = None

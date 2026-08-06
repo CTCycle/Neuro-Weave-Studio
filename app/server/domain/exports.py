@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from domain.enums import KerasBackend, TargetFramework
+from domain.enums import CodeTarget, ExecutionBackend
 
 
 ###############################################################################
 class SourceExportResponse(BaseModel):
-    framework: TargetFramework
+    code_target: CodeTarget
     code: str
 
 
 ###############################################################################
 class KerasBinaryExportRequest(BaseModel):
-    backend: KerasBackend
+    execution_backend: ExecutionBackend

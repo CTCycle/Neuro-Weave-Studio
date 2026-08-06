@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from domain.enums import TargetFramework, ValidationStatus
+from domain.enums import CodeTarget, ValidationStatus
 from repositories.contracts import ProjectMetadata, RepositoryRevisionConflictError
 from repositories.models import ProjectRecord
 
@@ -36,7 +36,7 @@ class ProjectRepository:
         *,
         name: str,
         description: str,
-        target_framework: TargetFramework,
+        code_target: CodeTarget,
         graph_schema_version: int,
         timestamp: datetime,
         validation_status: ValidationStatus,
@@ -45,7 +45,7 @@ class ProjectRepository:
             name=name,
             description=description,
             graph_schema_version=graph_schema_version,
-            target_framework=target_framework.value,
+            code_target=code_target.value,
             current_revision=1,
             validation_status=validation_status,
             created_at=timestamp,
@@ -62,7 +62,7 @@ class ProjectRepository:
         *,
         name: str,
         description: str,
-        target_framework: TargetFramework,
+        code_target: CodeTarget,
         graph_schema_version: int,
         timestamp: datetime,
         validation_status: ValidationStatus,
@@ -78,7 +78,7 @@ class ProjectRepository:
                 name=name,
                 description=description,
                 graph_schema_version=graph_schema_version,
-                target_framework=target_framework.value,
+                code_target=code_target.value,
                 current_revision=expected_revision + 1,
                 validation_status=validation_status,
                 updated_at=timestamp,
@@ -116,7 +116,7 @@ class ProjectRepository:
             created_at=record.created_at,
             updated_at=record.updated_at,
             graph_schema_version=record.graph_schema_version,
-            target_framework=TargetFramework(record.target_framework),
+            code_target=CodeTarget(record.code_target),
             current_revision=record.current_revision,
             validation_status=ValidationStatus(record.validation_status),
         )

@@ -15,4 +15,4 @@ def compile_graph(
     payload: CompilationRequest,
     service: CompilationService = Depends(get_compilation_service),
 ) -> CompilationResult:
-    return service.compile(payload.graph, payload.framework)
+    return service.compile(payload.graph, payload.code_target)

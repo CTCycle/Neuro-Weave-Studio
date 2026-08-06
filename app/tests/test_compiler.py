@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from common.catalogs.loader import get_node_catalog
 from compilation.compiler import compile_to_ir
-from domain.enums import TargetFramework
+from domain.enums import CodeTarget
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 
 
@@ -21,6 +21,6 @@ def test_compiler_generates_unique_keyword_safe_variable_names() -> None:
             EdgeInstance(id="e3", source_node_id="dense-b", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    ir = compile_to_ir(graph, TargetFramework.KERAS, get_node_catalog())
+    ir = compile_to_ir(graph, CodeTarget.KERAS, get_node_catalog())
     names = [node.variable_name for node in ir.ordered_nodes]
     assert names == ["node_class", "hidden", "hidden_2", "result"]

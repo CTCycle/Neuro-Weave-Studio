@@ -45,7 +45,7 @@ class ProjectService:
                     name=item.name,
                     description=item.description,
                     updated_at=item.updated_at,
-                    target_framework=item.target_framework,
+                    code_target=item.code_target,
                     current_revision=item.current_revision,
                     validation_status=item.validation_status,
                 )
@@ -63,14 +63,14 @@ class ProjectService:
 
     # -------------------------------------------------------------------------
     def create(self, payload: ProjectCreate) -> ProjectDocument:
-        validation = self._validator.validate(payload.graph, payload.target_framework)
+        validation = self._validator.validate(payload.graph, payload.code_target)
         timestamp = utc_now()
         try:
             with self._uow_factory() as uow:
                 metadata = uow.projects.create(
                     name=payload.name,
                     description=payload.description,
-                    target_framework=payload.target_framework,
+                    code_target=payload.code_target,
                     graph_schema_version=payload.graph.schema_version,
                     timestamp=timestamp,
                     validation_status=(
@@ -82,7 +82,7 @@ class ProjectService:
                     metadata.id,
                     revision=1,
                     graph=payload.graph,
-                    target_framework=payload.target_framework,
+                    code_target=payload.code_target,
                     timestamp=timestamp,
                 )
                 document = self._document(uow, metadata)
@@ -95,7 +95,7 @@ class ProjectService:
 
     # -------------------------------------------------------------------------
     def update(self, project_id: UUID, payload: ProjectUpdate) -> ProjectDocument | None:
-        validation = self._validator.validate(payload.graph, payload.target_framework)
+        validation = self._validator.validate(payload.graph, payload.code_target)
         timestamp = utc_now()
         try:
             with self._uow_factory() as uow:
@@ -103,7 +103,7 @@ class ProjectService:
                     project_id,
                     name=payload.name,
                     description=payload.description,
-                    target_framework=payload.target_framework,
+                    code_target=payload.code_target,
                     graph_schema_version=payload.graph.schema_version,
                     timestamp=timestamp,
                     validation_status=(
@@ -118,7 +118,7 @@ class ProjectService:
                     metadata.id,
                     revision=metadata.current_revision,
                     graph=payload.graph,
-                    target_framework=payload.target_framework,
+                    code_target=payload.code_target,
                     timestamp=timestamp,
                 )
                 document = self._document(uow, metadata)
@@ -150,7 +150,7 @@ class ProjectService:
             ProjectCreate(
                 name=payload.name or f"{source.name} copy",
                 description=source.description,
-                target_framework=source.target_framework,
+                code_target=source.code_target,
                 graph=source.graph,
             )
         )
@@ -164,7 +164,7 @@ class ProjectService:
             project=ProjectCreate(
                 name=project.name,
                 description=project.description,
-                target_framework=project.target_framework,
+                code_target=project.code_target,
                 graph=project.graph,
             )
         )
@@ -182,7 +182,7 @@ class ProjectService:
             created_at=metadata.created_at,
             updated_at=metadata.updated_at,
             schema_version=metadata.graph_schema_version,
-            target_framework=metadata.target_framework,
+            code_target=metadata.code_target,
             current_revision=metadata.current_revision,
             graph=graph,
             validation_status=metadata.validation_status,

@@ -31,7 +31,7 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
     application.state.catalog = catalog
     application.state.repository_context = repository_context
     application.state.backend_runner = backend_runner
-    application.state.available_keras_backends = backend_runner.available_backends()
+    application.state.backend_statuses = backend_runner.probe_statuses()
     try:
         yield
     finally:

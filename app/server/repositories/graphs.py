@@ -46,7 +46,7 @@ class GraphRepository:
             .order_by(ProjectEdgeRecord.ordinal)
         ).all()
         return ModelGraph(
-            schema_version=cast(Literal[1], graph_schema_version),
+            schema_version=cast(Literal[2], graph_schema_version),
             nodes=[
                 NodeInstance(
                     id=node.node_id,

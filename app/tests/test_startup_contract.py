@@ -31,10 +31,11 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "-NoExit" not in source
     assert "Stop-PortListeners" not in source
     assert "'app:create_app', '--factory'" in source
-    assert "[1] Keras only" in source
-    assert "[2] Keras + TensorFlow" in source
-    assert "[3] Keras + Torch" in source
-    assert "[4] Keras + TensorFlow + Torch" in source
+    assert "Execution backends to install" in source
+    assert "tensorflow,pytorch,jax" in source
+    assert "'Install' { Invoke-Install }" in source
+    assert "[string]$Backends" in source
+    assert "Get-InstalledExecutionBackends" in source
     assert "-m pyright" in source
     assert "app:app" not in source
 

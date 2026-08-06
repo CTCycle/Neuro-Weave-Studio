@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from domain.enums import TargetFramework
+from domain.enums import CodeTarget
 from repositories.models import GeneratedCodeSnapshotRecord
 
 
@@ -25,7 +25,7 @@ class CodeSnapshotRepository:
                 GeneratedCodeSnapshotRecord.revision == revision,
             )
         ).all()
-        return {row.target_framework: row.source_code for row in rows}
+        return {row.code_target: row.source_code for row in rows}
 
     # -------------------------------------------------------------------------
     def upsert(
@@ -33,14 +33,14 @@ class CodeSnapshotRepository:
         project_id: UUID,
         *,
         revision: int,
-        target_framework: TargetFramework,
+        code_target: CodeTarget,
         source_code: str,
         timestamp: datetime,
     ) -> None:
         key = {
             "project_id": str(project_id),
             "revision": revision,
-            "target_framework": target_framework.value,
+            "code_target": code_target.value,
         }
         row = self._session.get(GeneratedCodeSnapshotRecord, key)
         if row is None:
