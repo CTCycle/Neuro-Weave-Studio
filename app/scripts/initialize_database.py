@@ -9,7 +9,6 @@ from repositories.initializer import initialize_database
 
 LOGGER = logging.getLogger(__name__)
 
-
 ###############################################################################
 def _safe_error_message(error: Exception) -> str:
     message = str(error)

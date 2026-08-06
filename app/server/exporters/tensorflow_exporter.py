@@ -5,9 +5,11 @@ from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
 
+###############################################################################
 class TensorFlowSourceExporter(SourceExporter):
     """Generate a dependency-light TensorFlow ``tf.Module``."""
 
+    # -------------------------------------------------------------------------
     def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
         nodes = {node.id: node for node in graph.nodes}
         lines = [
@@ -111,6 +113,7 @@ class TensorFlowSourceExporter(SourceExporter):
         lines.extend(["", "", "def build_model() -> GeneratedModel:", "    return GeneratedModel()", ""])
         return "\n".join(lines)
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _activation(value: str) -> str:
         try:

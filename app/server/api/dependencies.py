@@ -17,21 +17,17 @@ from services.project_service import ProjectService
 from services.runtime_service import RuntimeService
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def get_catalog(request: Request) -> NodeCatalog:
     return cast(NodeCatalog, request.app.state.catalog)
-
 
 ###############################################################################
 def get_settings(request: Request) -> Settings:
     return cast(Settings, request.app.state.settings)
 
-
 ###############################################################################
 def get_repository_context(request: Request) -> RepositoryContext:
     return cast(RepositoryContext, request.app.state.repository_context)
-
 
 ###############################################################################
 def get_uow_factory(
@@ -39,16 +35,13 @@ def get_uow_factory(
 ) -> UnitOfWorkFactory:
     return repository_context.new_unit_of_work
 
-
 ###############################################################################
 def get_backend_runner(request: Request) -> KerasBackendRunner:
     return cast(KerasBackendRunner, request.app.state.backend_runner)
 
-
 ###############################################################################
 def get_backend_statuses(request: Request) -> dict[ExecutionBackend, dict[str, object]]:
     return cast(dict[ExecutionBackend, dict[str, object]], request.app.state.backend_statuses)
-
 
 ###############################################################################
 def get_validation_service(
@@ -56,11 +49,9 @@ def get_validation_service(
 ) -> ValidationService:
     return ValidationService(catalog)
 
-
 ###############################################################################
 def get_catalog_service(catalog: NodeCatalog = Depends(get_catalog)) -> CatalogService:
     return CatalogService(catalog)
-
 
 ###############################################################################
 def get_runtime_service(
@@ -70,7 +61,6 @@ def get_runtime_service(
     statuses = cast(dict[ExecutionBackend, dict[str, object]], request.app.state.backend_statuses)
     return RuntimeService(settings, statuses)
 
-
 ###############################################################################
 def get_project_service(
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
@@ -78,14 +68,12 @@ def get_project_service(
 ) -> ProjectService:
     return ProjectService(uow_factory, validator)
 
-
 ###############################################################################
 def get_compilation_service(
     catalog: NodeCatalog = Depends(get_catalog),
     validator: ValidationService = Depends(get_validation_service),
 ) -> CompilationService:
     return CompilationService(catalog, validator)
-
 
 ###############################################################################
 def get_export_service(

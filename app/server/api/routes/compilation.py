@@ -8,7 +8,6 @@ from services.compilation_service import CompilationService
 
 router = APIRouter(prefix="/api/compilation", tags=["compilation"])
 
-
 ###############################################################################
 @router.post("", response_model=CompilationResult)
 def compile_graph(

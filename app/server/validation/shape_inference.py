@@ -9,11 +9,9 @@ from domain.graph import ModelGraph, ShapeSummary
 from domain.tensor import TensorSpec
 from validation.graph_utils import incoming_edges, topological_order
 
-
 ###############################################################################
 class ShapeInferenceError(ValueError):
     pass
-
 
 ###############################################################################
 def _int_parameter(parameters: dict[str, Any], key: str, default: int | None = None) -> int:
@@ -21,7 +19,6 @@ def _int_parameter(parameters: dict[str, Any], key: str, default: int | None = N
     if not isinstance(value, int):
         raise ShapeInferenceError(f"Parameter '{key}' must be an integer")
     return value
-
 
 ###############################################################################
 def _spatial_parameter(
@@ -39,7 +36,6 @@ def _spatial_parameter(
     if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in items):
         raise ShapeInferenceError(f"Parameter '{key}' must contain positive integers")
     return [int(item) for item in items]
-
 
 ###############################################################################
 def _convolution_size(
@@ -64,7 +60,6 @@ def _convolution_size(
     if result <= 0:
         raise ShapeInferenceError("Kernel and stride produce a non-positive output dimension")
     return result
-
 
 ###############################################################################
 def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:

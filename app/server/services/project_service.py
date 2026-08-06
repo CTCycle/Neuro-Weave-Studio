@@ -27,7 +27,6 @@ from services.errors import (
 )
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 class ProjectService:
 

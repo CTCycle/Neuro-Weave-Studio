@@ -17,11 +17,13 @@ KERAS_EXTENSIONS = frozenset(
 )
 
 
+###############################################################################
 def adapter_supported(code_target: CodeTarget, definition_id: str) -> bool:
     if code_target is CodeTarget.KERAS:
         return definition_id in PORTABLE_CORE or definition_id in KERAS_EXTENSIONS
     return definition_id in PORTABLE_CORE
 
 
+###############################################################################
 def adapter_name(code_target: CodeTarget, definition_id: str) -> str:
     return f"{code_target.value}:{definition_id}"

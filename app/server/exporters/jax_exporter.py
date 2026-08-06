@@ -5,9 +5,11 @@ from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
 
+###############################################################################
 class JaxSourceExporter(SourceExporter):
     """Generate a Flax Linen module for the JAX code target."""
 
+    # -------------------------------------------------------------------------
     def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
         nodes = {node.id: node for node in graph.nodes}
         lines = [
@@ -81,6 +83,7 @@ class JaxSourceExporter(SourceExporter):
         lines.extend(["", "", "def build_model() -> GeneratedModel:", "    return GeneratedModel()", ""])
         return "\n".join(lines)
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _activation(value: str) -> str:
         try:

@@ -6,6 +6,7 @@ from domain.enums import CodeTarget, DiagnosticSeverity
 from domain.graph import ModelGraph, ShapeSummary
 
 
+###############################################################################
 class ValidationDiagnostic(BaseModel):
     code: str
     severity: DiagnosticSeverity
@@ -16,6 +17,7 @@ class ValidationDiagnostic(BaseModel):
     details: dict[str, object] = Field(default_factory=dict)
 
 
+###############################################################################
 class ValidationResult(BaseModel):
     valid: bool
     diagnostics: list[ValidationDiagnostic]
@@ -23,6 +25,7 @@ class ValidationResult(BaseModel):
     total_parameters: int | None = None
 
 
+###############################################################################
 class ValidationRequest(BaseModel):
     graph: ModelGraph
     code_target: CodeTarget

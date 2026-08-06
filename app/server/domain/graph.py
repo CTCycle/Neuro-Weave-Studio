@@ -12,12 +12,10 @@ from domain.tensor import TensorSpec
 
 GRAPH_SCHEMA_VERSION = 2
 
-
 ###############################################################################
 class Position(BaseModel):
     x: float = Field(allow_inf_nan=False)
     y: float = Field(allow_inf_nan=False)
-
 
 ###############################################################################
 class NodeInstance(BaseModel):
@@ -28,7 +26,6 @@ class NodeInstance(BaseModel):
     position: Position
     parameters: dict[str, Any] = Field(default_factory=dict)
 
-
 ###############################################################################
 class EdgeInstance(BaseModel):
     id: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z][A-Za-z0-9_.-]*$")
@@ -36,7 +33,6 @@ class EdgeInstance(BaseModel):
     source_port_id: str
     target_node_id: str
     target_port_id: str
-
 
 ###############################################################################
 class ModelConfiguration(BaseModel):
@@ -50,13 +46,11 @@ class ModelConfiguration(BaseModel):
     mixed_precision: bool = False
     random_seed: int | None = 42
 
-
 ###############################################################################
 class ExportSettings(BaseModel):
     include_comments: bool = True
     include_shape_assertions: bool = True
     preferred_binary_format: str = "keras"
-
 
 ###############################################################################
 class ModelGraph(BaseModel):
@@ -80,14 +74,12 @@ class ModelGraph(BaseModel):
             raise ValueError("Edge IDs must be unique")
         return self
 
-
 ###############################################################################
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=2000)
     code_target: CodeTarget = CodeTarget.KERAS
     graph: ModelGraph = Field(default_factory=ModelGraph)
-
 
 ###############################################################################
 class ProjectUpdate(BaseModel):
@@ -96,7 +88,6 @@ class ProjectUpdate(BaseModel):
     code_target: CodeTarget
     graph: ModelGraph
     expected_revision: int = Field(ge=1)
-
 
 ###############################################################################
 class ProjectDocument(BaseModel):
@@ -112,7 +103,6 @@ class ProjectDocument(BaseModel):
     validation_status: ValidationStatus
     generated_code_snapshots: dict[str, str] = Field(default_factory=dict)
 
-
 ###############################################################################
 class ProjectSummary(BaseModel):
     id: UUID
@@ -123,16 +113,13 @@ class ProjectSummary(BaseModel):
     current_revision: int
     validation_status: ValidationStatus
 
-
 ###############################################################################
 class ProjectListResponse(BaseModel):
     projects: list[ProjectSummary]
 
-
 ###############################################################################
 class ProjectDuplicateRequest(BaseModel):
     name: str | None = Field(default=None, max_length=160)
-
 
 ###############################################################################
 class ProjectExportBundle(BaseModel):
@@ -140,7 +127,6 @@ class ProjectExportBundle(BaseModel):
     format_version: Literal[2] = 2
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
-
 
 ###############################################################################
 class ShapeSummary(BaseModel):

@@ -4,7 +4,6 @@ from domain.compilation import CanonicalModelIR
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
-
 ###############################################################################
 class PyTorchSourceExporter(SourceExporter):
 
@@ -110,6 +109,7 @@ class PyTorchSourceExporter(SourceExporter):
         lines.append(f"        return {outputs[0] if len(outputs) == 1 else '(' + ', '.join(outputs) + ')'}")
         return "\n".join(lines) + "\n"
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _activation(value: str) -> str:
         try:

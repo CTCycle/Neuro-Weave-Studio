@@ -3,11 +3,9 @@ from domain.enums import CodeTarget, DiagnosticSeverity
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def make_node(node_id: str, definition_id: str, parameters: dict[str, object] | None = None) -> NodeInstance:
     return NodeInstance(id=node_id, definition_id=definition_id, position=Position(x=0, y=0), parameters=parameters or {})
-
 
 ###############################################################################
 def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
@@ -27,7 +25,6 @@ def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
     assert result.total_parameters == 63
     dense_summary = next(item for item in result.shape_summaries if item.node_id == "dense")
     assert dense_summary.outputs["output"].shape == [None, 3]
-
 
 ###############################################################################
 def test_cycle_is_reported_as_error() -> None:
@@ -49,7 +46,6 @@ def test_cycle_is_reported_as_error() -> None:
     assert not result.valid
     assert any(item.code == "cycle_detected" and item.severity == DiagnosticSeverity.ERROR for item in result.diagnostics)
 
-
 ###############################################################################
 def test_unsafe_math_expression_is_rejected() -> None:
     graph = ModelGraph(
@@ -66,7 +62,6 @@ def test_unsafe_math_expression_is_rejected() -> None:
     result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
     assert not result.valid
     assert any(item.code == "unsafe_expression" for item in result.diagnostics)
-
 
 ###############################################################################
 def test_pooling_updates_spatial_shape() -> None:

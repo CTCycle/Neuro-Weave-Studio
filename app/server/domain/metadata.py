@@ -4,11 +4,9 @@ from pydantic import BaseModel, Field
 
 from domain.enums import CodeTarget, ExecutionBackend
 
-
 ###############################################################################
 class HealthResponse(BaseModel):
     status: str
-
 
 ###############################################################################
 class MetadataConfiguration(BaseModel):
@@ -30,7 +28,6 @@ class MetadataConfiguration(BaseModel):
     )
     regularizers: list[str] = Field(default_factory=lambda: ["none", "l1", "l2", "l1_l2"])
 
-
 ###############################################################################
 class MetadataResponse(BaseModel):
     name: str
@@ -41,6 +38,7 @@ class MetadataResponse(BaseModel):
     configuration: MetadataConfiguration
 
 
+###############################################################################
 class ExecutionBackendStatus(BaseModel):
     id: ExecutionBackend
     available: bool

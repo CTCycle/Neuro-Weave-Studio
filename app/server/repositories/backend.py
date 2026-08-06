@@ -13,7 +13,6 @@ from configurations.settings import DatabaseSettings
 
 POSTGRES_DATABASE_NAME_RE = re.compile(r"^\w[\w-]{0,62}$", re.ASCII)
 
-
 ###############################################################################
 def normalize_postgres_engine(engine: str | None) -> str:
     normalized = (engine or "postgresql+psycopg").casefold()
@@ -21,14 +20,12 @@ def normalize_postgres_engine(engine: str | None) -> str:
         return "postgresql+psycopg"
     return normalized
 
-
 ###############################################################################
 def validate_postgres_database_name(database_name: str) -> str:
     normalized = str(database_name or "").strip()
     if not POSTGRES_DATABASE_NAME_RE.fullmatch(normalized):
         raise ValueError("Invalid PostgreSQL database name")
     return normalized
-
 
 ###############################################################################
 def build_postgres_url(settings: DatabaseSettings, database_name: str | None = None) -> str:
@@ -43,7 +40,6 @@ def build_postgres_url(settings: DatabaseSettings, database_name: str | None = N
         f"@{settings.host}:{settings.port or 5432}/{target_name}"
     )
 
-
 ###############################################################################
 def build_postgres_connect_args(settings: DatabaseSettings) -> dict[str, Any]:
     connect_args: dict[str, Any] = {
@@ -55,7 +51,6 @@ def build_postgres_connect_args(settings: DatabaseSettings) -> dict[str, Any]:
         if settings.ssl_ca:
             connect_args["sslrootcert"] = settings.ssl_ca
     return connect_args
-
 
 ###############################################################################
 class SQLiteBackend:
@@ -87,7 +82,6 @@ class SQLiteBackend:
         finally:
             cursor.close()
 
-
 ###############################################################################
 class PostgresBackend:
 
@@ -113,7 +107,6 @@ class PostgresBackend:
 
 DatabaseBackend = SQLiteBackend | PostgresBackend
 
-
 ###############################################################################
 def build_database_backend(settings: DatabaseSettings) -> DatabaseBackend:
     if settings.embedded_database:
@@ -121,7 +114,6 @@ def build_database_backend(settings: DatabaseSettings) -> DatabaseBackend:
     if normalize_postgres_engine(settings.engine) != "postgresql+psycopg":
         raise ValueError(f"Unsupported database engine: {settings.engine}")
     return PostgresBackend(settings)
-
 
 ###############################################################################
 def build_session_factory(engine: Engine) -> sessionmaker[Session]:

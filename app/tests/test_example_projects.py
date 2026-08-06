@@ -13,7 +13,6 @@ from services.validation_service import ValidationService
 
 EXAMPLES_ROOT = Path(__file__).resolve().parents[2] / "examples"
 
-
 ###############################################################################
 @pytest.mark.parametrize(
     "filename",
@@ -34,7 +33,6 @@ def test_example_projects_validate_and_generate_parseable_keras_source(filename:
     assert result.valid is True, result.diagnostics
     assert result.code is not None
     ast.parse(result.code)
-
 
 ###############################################################################
 def test_mlp_generates_parseable_pytorch_source() -> None:

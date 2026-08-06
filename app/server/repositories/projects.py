@@ -10,7 +10,6 @@ from domain.enums import CodeTarget, ValidationStatus
 from repositories.contracts import ProjectMetadata, RepositoryRevisionConflictError
 from repositories.models import ProjectRecord
 
-
 ###############################################################################
 class ProjectRepository:
 

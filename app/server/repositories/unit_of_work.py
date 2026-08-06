@@ -10,7 +10,6 @@ from repositories.graphs import GraphRepository
 from repositories.projects import ProjectRepository
 from repositories.revisions import RevisionRepository
 
-
 ###############################################################################
 class UnitOfWork:
     """One explicit session boundary shared by all repositories in an operation."""

@@ -18,7 +18,6 @@ from configurations.settings import Settings, get_database_settings, get_setting
 from models.keras_backend_runner import KerasBackendRunner
 from repositories.session import create_repository_context
 
-
 ###############################################################################
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
@@ -37,11 +36,9 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
     finally:
         repository_context.dispose()
 
-
 ###############################################################################
 def _client_build_available() -> bool:
     return (common_path.FRONTEND_DIST_ROOT / "index.html").is_file()
-
 
 ###############################################################################
 def _resolve_client_file(full_path: str) -> Path | None:
@@ -51,11 +48,9 @@ def _resolve_client_file(full_path: str) -> Path | None:
         return None
     return requested_path if requested_path.is_file() else None
 
-
 ###############################################################################
 def _serve_client_root() -> FileResponse:
     return FileResponse(common_path.FRONTEND_DIST_ROOT / "index.html")
-
 
 ###############################################################################
 def _serve_client_path(full_path: str) -> FileResponse:
@@ -64,11 +59,9 @@ def _serve_client_path(full_path: str) -> FileResponse:
         return FileResponse(client_file)
     return _serve_client_root()
 
-
 ###############################################################################
 def _redirect_root_to_docs() -> RedirectResponse:
     return RedirectResponse("/docs")
-
 
 ###############################################################################
 def create_app() -> FastAPI:
