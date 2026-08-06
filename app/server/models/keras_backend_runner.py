@@ -14,17 +14,21 @@ from domain.graph import ModelGraph
 LOGGER = logging.getLogger(__name__)
 
 
+###############################################################################
 class KerasBackendRunner:
     """Probe and execute Keras in isolated workers with explicit provenance."""
 
+    # -------------------------------------------------------------------------
     def __init__(self) -> None:
         self._server_root = Path(__file__).resolve().parents[1]
 
+    # -------------------------------------------------------------------------
     def available_backends(self) -> tuple[ExecutionBackend, ...]:
         return tuple(
             backend for backend, status in self.probe_statuses().items() if status["available"]
         )
 
+    # -------------------------------------------------------------------------
     def probe_statuses(self) -> dict[ExecutionBackend, dict[str, object]]:
         statuses: dict[ExecutionBackend, dict[str, object]] = {}
         for backend in ExecutionBackend:
@@ -48,9 +52,11 @@ class KerasBackendRunner:
             )
         return statuses
 
+    # -------------------------------------------------------------------------
     def probe(self, backend: ExecutionBackend) -> bool:
         return bool(self.probe_statuses()[backend]["available"])
 
+    # -------------------------------------------------------------------------
     def export(self, graph: ModelGraph, destination: Path, backend: ExecutionBackend) -> Path:
         destination.parent.mkdir(parents=True, exist_ok=True)
         started = time.perf_counter()
@@ -73,6 +79,7 @@ class KerasBackendRunner:
         )
         return destination
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _reason_code(result: subprocess.CompletedProcess[str]) -> str:
         detail = (result.stderr or "").lower()
@@ -82,6 +89,7 @@ class KerasBackendRunner:
             return "backend_import_failed"
         return "probe_failed"
 
+    # -------------------------------------------------------------------------
     def _run_worker(
         self,
         backend: ExecutionBackend,

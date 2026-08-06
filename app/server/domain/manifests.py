@@ -10,7 +10,6 @@ ParameterType = Literal[
     "string", "integer", "number", "boolean", "enum", "shape", "axis", "list", "tuple", "expression"
 ]
 
-
 ###############################################################################
 class PortDefinition(BaseModel):
     id: str = Field(min_length=1, max_length=80)
@@ -20,7 +19,6 @@ class PortDefinition(BaseModel):
     accepts_multiple: bool = False
     rank: int | None = Field(default=None, ge=0)
     description: str = ""
-
 
 ###############################################################################
 class ParameterDefinition(BaseModel):
@@ -36,13 +34,11 @@ class ParameterDefinition(BaseModel):
     nullable: bool = False
     ui: dict[str, Any] = Field(default_factory=dict)
 
-
 ###############################################################################
 class FrameworkMapping(BaseModel):
     supported: bool = True
     symbol: str | None = None
     notes: str | None = None
-
 
 ###############################################################################
 class UiMetadata(BaseModel):
@@ -51,12 +47,10 @@ class UiMetadata(BaseModel):
     width: int = Field(default=250, ge=180, le=500)
     height: int = Field(default=120, ge=80, le=500)
 
-
 ###############################################################################
 class ShapeRule(BaseModel):
     kind: str
     config: dict[str, Any] = Field(default_factory=dict)
-
 
 ###############################################################################
 class NodeManifest(BaseModel):
@@ -89,7 +83,6 @@ class NodeManifest(BaseModel):
             if len(ids) != len(set(ids)):
                 raise ValueError(f"Duplicate {label} identifiers in manifest {self.id}")
         return self
-
 
 ###############################################################################
 class NodeCatalogResponse(BaseModel):

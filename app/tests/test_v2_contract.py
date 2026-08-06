@@ -10,6 +10,7 @@ from compilation.adapters import adapter_supported
 from domain.enums import CodeTarget, ExecutionBackend
 
 
+###############################################################################
 def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
     catalog = get_node_catalog()
     assert len(catalog.manifests) == 85
@@ -24,6 +25,7 @@ def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
             assert isinstance(parameter.options, list)
 
 
+###############################################################################
 def test_native_adapter_registry_has_no_identity_fallback() -> None:
     catalog = get_node_catalog()
     for manifest in catalog.manifests:
@@ -32,6 +34,7 @@ def test_native_adapter_registry_has_no_identity_fallback() -> None:
             assert adapter_supported(CodeTarget.PYTORCH, manifest.id)
 
 
+###############################################################################
 def test_high_parameter_keras_layers_expose_safe_constructor_controls() -> None:
     catalog = get_node_catalog()
     expected = {
@@ -61,6 +64,7 @@ def test_high_parameter_keras_layers_expose_safe_constructor_controls() -> None:
                 assert parameter.options
 
 
+###############################################################################
 def test_metadata_reports_v2_targets_and_backend_states(client: httpx.Client) -> None:
     response: httpx.Response = client.get("/api/metadata")
     assert response.status_code == 200
@@ -71,6 +75,7 @@ def test_metadata_reports_v2_targets_and_backend_states(client: httpx.Client) ->
     assert [item["id"] for item in backend_items] == [item.value for item in ExecutionBackend]
 
 
+###############################################################################
 def test_project_and_binary_contract_v2(client: httpx.Client) -> None:
     graph: dict[str, Any] = {
         "schema_version": 2,
@@ -93,6 +98,7 @@ def test_project_and_binary_contract_v2(client: httpx.Client) -> None:
     assert unknown.status_code == 422
 
 
+###############################################################################
 def test_all_code_targets_generate_parseable_source(client: httpx.Client) -> None:
     graph: dict[str, Any] = {
         "schema_version": 2,

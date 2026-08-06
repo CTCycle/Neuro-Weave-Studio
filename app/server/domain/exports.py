@@ -4,12 +4,10 @@ from pydantic import BaseModel
 
 from domain.enums import CodeTarget, ExecutionBackend
 
-
 ###############################################################################
 class SourceExportResponse(BaseModel):
     code_target: CodeTarget
     code: str
-
 
 ###############################################################################
 class KerasBinaryExportRequest(BaseModel):

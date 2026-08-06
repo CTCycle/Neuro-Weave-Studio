@@ -43,7 +43,6 @@ def _create_schema(engine: Engine) -> None:
             )
         session.commit()
 
-
 ###############################################################################
 def _check_schema_readiness(engine: Engine) -> None:
     """Check the canonical schema marker without inspecting or repairing tables."""
@@ -63,13 +62,11 @@ def _check_schema_readiness(engine: Engine) -> None:
             "schema. Recreate the database explicitly."
         )
 
-
 ###############################################################################
 def _sqlite_database_path(settings: DatabaseSettings) -> Path:
     if settings.sqlite_path is None:
         raise ValueError("SQLite path is required for embedded database mode")
     return Path(settings.sqlite_path).resolve()
-
 
 ###############################################################################
 def _ensure_postgres_database(settings: DatabaseSettings) -> PostgresBackend:
@@ -106,7 +103,6 @@ def _ensure_postgres_database(settings: DatabaseSettings) -> PostgresBackend:
 
     return PostgresBackend(settings)
 
-
 ###############################################################################
 def _refuse_mixed_postgres_schema(engine: Engine) -> None:
     managed_tables = set(inspect(engine).get_table_names()).intersection(
@@ -117,7 +113,6 @@ def _refuse_mixed_postgres_schema(engine: Engine) -> None:
             "The PostgreSQL database contains an older or incomplete NeuroWeave "
             "schema. Re-run initialization with --reset."
         )
-
 
 ###############################################################################
 def initialize_postgres_database(
@@ -147,7 +142,6 @@ def initialize_postgres_database(
     LOGGER.info("PostgreSQL schema initialization completed")
     return backend
 
-
 ###############################################################################
 def initialize_sqlite_database(
     settings: DatabaseSettings, *, reset: bool = False
@@ -176,7 +170,6 @@ def initialize_sqlite_database(
         raise
     return backend
 
-
 ###############################################################################
 def initialize_database(
     settings: DatabaseSettings, *, reset: bool = False
@@ -185,7 +178,6 @@ def initialize_database(
     if settings.embedded_database:
         return initialize_sqlite_database(settings, reset=reset)
     return initialize_postgres_database(settings, reset=reset)
-
 
 ###############################################################################
 def ensure_database_ready(settings: DatabaseSettings) -> DatabaseBackend:

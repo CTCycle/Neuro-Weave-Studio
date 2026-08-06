@@ -5,7 +5,6 @@ from compilation.compiler import compile_to_ir
 from domain.enums import CodeTarget
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 
-
 ###############################################################################
 def test_compiler_generates_unique_keyword_safe_variable_names() -> None:
     graph = ModelGraph(

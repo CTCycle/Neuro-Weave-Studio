@@ -8,12 +8,10 @@ from services.catalog_service import CatalogService
 
 router = APIRouter(prefix="/api/nodes", tags=["node catalog"])
 
-
 ###############################################################################
 @router.get("/catalog", response_model=NodeCatalogResponse)
 def catalog(service: CatalogService = Depends(get_catalog_service)) -> NodeCatalogResponse:
     return service.list()
-
 
 ###############################################################################
 @router.get("/{definition_id}/{version}", response_model=NodeManifest)

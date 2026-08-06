@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-
 ###############################################################################
 class CodeTarget(StrEnum):
     """Public source-generation targets for the Keras 3 model API."""
@@ -12,7 +11,6 @@ class CodeTarget(StrEnum):
     PYTORCH = "pytorch"
     JAX = "jax"
 
-
 ###############################################################################
 class ExecutionBackend(StrEnum):
     TENSORFLOW = "tensorflow"
@@ -20,12 +18,11 @@ class ExecutionBackend(StrEnum):
     JAX = "jax"
 
 
+###############################################################################
 def keras_backend_value(backend: ExecutionBackend) -> str:
     """Map the public PyTorch id to the Keras worker value ``torch``."""
 
     return "torch" if backend is ExecutionBackend.PYTORCH else backend.value
-
-
 
 ###############################################################################
 class ValidationStatus(StrEnum):
@@ -33,14 +30,12 @@ class ValidationStatus(StrEnum):
     VALID = "valid"
     INVALID = "invalid"
 
-
 ###############################################################################
 class DiagnosticSeverity(StrEnum):
     ERROR = "error"
     WARNING = "warning"
     COMPATIBILITY = "compatibility"
     INFO = "info"
-
 
 ###############################################################################
 class DataType(StrEnum):
@@ -50,7 +45,6 @@ class DataType(StrEnum):
     INT32 = "int32"
     INT64 = "int64"
     BOOL = "bool"
-
 
 ###############################################################################
 class PortKind(StrEnum):

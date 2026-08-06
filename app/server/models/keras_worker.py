@@ -14,9 +14,9 @@ from domain.graph import ModelGraph
 from validation.graph_utils import incoming_edges, topological_order
 
 
+###############################################################################
 def _option(value: Any) -> Any:
     return None if value in (None, "", "none") else value
-
 
 ###############################################################################
 @keras.saving.register_keras_serializable(package="NeuroWeave")
@@ -40,7 +40,6 @@ class SinusoidalPositionalEncoding(layers.Layer):
         )[None, :]
         encoding = keras.ops.sin(angles) * even + keras.ops.cos(angles) * (1.0 - even)
         return inputs + encoding[None, :, :]
-
 
 ###############################################################################
 def _build_model(graph: ModelGraph) -> keras.Model:
@@ -255,14 +254,12 @@ def _build_model(graph: ModelGraph) -> keras.Model:
     outputs = [tensors[node.id] for node in graph.nodes if node.definition_id.startswith("output.")]
     return keras.Model(inputs=inputs, outputs=outputs, name="neuro_weave_model")
 
-
 ###############################################################################
 def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--probe", action="store_true")
     parser.add_argument("--destination", type=Path)
     return parser.parse_args()
-
 
 ###############################################################################
 def main() -> None:

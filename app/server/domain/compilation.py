@@ -7,6 +7,7 @@ from domain.enums import CodeTarget
 from domain.graph import ModelGraph
 
 
+###############################################################################
 class CompiledNode(BaseModel):
     node_id: str
     definition_id: str
@@ -15,6 +16,7 @@ class CompiledNode(BaseModel):
     parameters: dict[str, object] = Field(default_factory=dict)
 
 
+###############################################################################
 class CanonicalModelIR(BaseModel):
     schema_version: int = 2
     code_target: CodeTarget
@@ -23,6 +25,7 @@ class CanonicalModelIR(BaseModel):
     output_node_ids: list[str]
 
 
+###############################################################################
 class CompilationResult(BaseModel):
     valid: bool
     code_target: CodeTarget
@@ -31,6 +34,7 @@ class CompilationResult(BaseModel):
     ir: CanonicalModelIR | None = None
 
 
+###############################################################################
 class CompilationRequest(BaseModel):
     graph: ModelGraph
     code_target: CodeTarget

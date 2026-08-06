@@ -16,11 +16,9 @@ _ALLOWED_FUNCTIONS = {
 _ALLOWED_BINARY_OPERATORS = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow, ast.Mod)
 _ALLOWED_UNARY_OPERATORS = (ast.UAdd, ast.USub)
 
-
 ###############################################################################
 class SafeExpressionError(ValueError):
     pass
-
 
 ###############################################################################
 def validate_safe_expression(expression: str) -> None:

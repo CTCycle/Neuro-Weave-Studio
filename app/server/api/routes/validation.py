@@ -8,7 +8,6 @@ from services.validation_service import ValidationService
 
 router = APIRouter(prefix="/api/validation", tags=["validation"])
 
-
 ###############################################################################
 @router.post("", response_model=ValidationResult)
 def validate_graph(

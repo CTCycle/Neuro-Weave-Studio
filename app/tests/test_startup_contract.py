@@ -6,7 +6,6 @@ LAUNCHER = REPOSITORY_ROOT / "start_on_windows.ps1"
 GITIGNORE = REPOSITORY_ROOT / ".gitignore"
 ENV_EXAMPLE = REPOSITORY_ROOT / "settings/.env.example"
 
-
 ###############################################################################
 def test_launcher_owns_the_interactive_startup_contract() -> None:
     source = LAUNCHER.read_text(encoding="utf-8")
@@ -39,7 +38,6 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "-m pyright" in source
     assert "app:app" not in source
 
-
 ###############################################################################
 def test_environment_contract_is_canonical_and_secret_safe() -> None:
     template = ENV_EXAMPLE.read_text(encoding="utf-8")
@@ -59,7 +57,6 @@ def test_environment_contract_is_canonical_and_secret_safe() -> None:
     assert "Write-Host $value" not in launcher
     assert "Write-Host $env:" not in launcher
 
-
 ###############################################################################
 def test_launcher_has_one_explicit_database_action_with_confirmed_reset() -> None:
     source = LAUNCHER.read_text(encoding="utf-8")
@@ -68,7 +65,6 @@ def test_launcher_has_one_explicit_database_action_with_confirmed_reset() -> Non
     assert "--reset" in source
     assert "Type RESET to continue" in source
     assert "taskkill.exe /PID $child.Process.Id /T /F" in source
-
 
 ###############################################################################
 def test_launcher_requires_the_canonical_frontend_lockfile() -> None:

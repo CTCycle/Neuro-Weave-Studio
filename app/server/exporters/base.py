@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from domain.compilation import CanonicalModelIR
 from domain.graph import ModelGraph
 
-
 ###############################################################################
 class SourceExporter(ABC):
 

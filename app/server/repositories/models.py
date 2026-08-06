@@ -29,7 +29,6 @@ from repositories.types import UTCDateTime
 _CODE_TARGET_SQL_VALUES = ", ".join(repr(item.value) for item in CodeTarget)
 _VALIDATION_STATUS_SQL_VALUES = ", ".join(repr(item.value) for item in ValidationStatus)
 
-
 ###############################################################################
 class SchemaMetadataRecord(Base):
     __tablename__ = "schema_metadata"
@@ -46,7 +45,6 @@ class SchemaMetadataRecord(Base):
         CheckConstraint("id = 1", name="ck_schema_metadata_singleton"),
         CheckConstraint("schema_version >= 1", name="ck_schema_metadata_version"),
     )
-
 
 ###############################################################################
 class ProjectRecord(Base):
@@ -114,7 +112,6 @@ class ProjectRecord(Base):
         Index("ix_projects_updated_at", "updated_at"),
     )
 
-
 ###############################################################################
 class ProjectGraphSettingsRecord(Base):
     __tablename__ = "project_graph_settings"
@@ -173,7 +170,6 @@ class ProjectGraphSettingsRecord(Base):
 
     project: Mapped[ProjectRecord] = relationship(back_populates="graph_settings")
 
-
 ###############################################################################
 class ProjectNodeRecord(Base):
     __tablename__ = "project_nodes"
@@ -212,7 +208,6 @@ class ProjectNodeRecord(Base):
         ),
         Index("ix_project_nodes_definition", "definition_id", "definition_version"),
     )
-
 
 ###############################################################################
 class ProjectEdgeRecord(Base):
@@ -254,7 +249,6 @@ class ProjectEdgeRecord(Base):
         Index("ix_project_edges_target", "project_id", "target_node_id"),
     )
 
-
 ###############################################################################
 class ProjectRevisionRecord(Base):
     __tablename__ = "project_revisions"
@@ -287,7 +281,6 @@ class ProjectRevisionRecord(Base):
         ),
         Index("ix_project_revisions_project_created", "project_id", "created_at"),
     )
-
 
 ###############################################################################
 class GeneratedCodeSnapshotRecord(Base):

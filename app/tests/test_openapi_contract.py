@@ -23,12 +23,10 @@ EXPECTED_SCHEMAS = {
     "KerasBinaryExportRequest",
 }
 
-
 ###############################################################################
 def _response_schema(operation: dict[str, Any], status: str = "200") -> dict[str, Any]:
     response = operation["responses"][status]
     return response["content"]["application/json"]["schema"]
-
 
 ###############################################################################
 def test_openapi_uses_named_schemas_for_stable_contracts() -> None:

@@ -33,6 +33,7 @@ _REGULARIZER_OPTIONS = ["none", "l1", "l2", "l1_l2"]
 _CONSTRAINT_OPTIONS = ["none", "max_norm", "min_max_norm", "non_neg", "unit_norm"]
 
 
+###############################################################################
 def _parameter(
     identifier: str,
     display_name: str,
@@ -59,6 +60,7 @@ def _parameter(
     }
 
 
+###############################################################################
 def _initializer_parameter(identifier: str, label: str, default: str) -> dict[str, Any]:
     return _parameter(
         identifier,
@@ -70,6 +72,7 @@ def _initializer_parameter(identifier: str, label: str, default: str) -> dict[st
     )
 
 
+###############################################################################
 def _regularizer_parameter(identifier: str, label: str) -> dict[str, Any]:
     return _parameter(
         identifier,
@@ -81,6 +84,7 @@ def _regularizer_parameter(identifier: str, label: str) -> dict[str, Any]:
     )
 
 
+###############################################################################
 def _constraint_parameter(identifier: str, label: str) -> dict[str, Any]:
     return _parameter(
         identifier,
@@ -92,6 +96,7 @@ def _constraint_parameter(identifier: str, label: str) -> dict[str, Any]:
     )
 
 
+###############################################################################
 def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
     """Return the serializable Keras constructor controls for key layers.
 
@@ -257,6 +262,7 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
     return []
 
 
+###############################################################################
 def _normalize_manifest(raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize the checked-in catalog into the v2 four-target contract."""
 
@@ -313,7 +319,6 @@ def _normalize_manifest(raw: dict[str, Any]) -> dict[str, Any]:
     item["parameters"] = unique_parameters
     return item
 
-
 ###############################################################################
 class NodeCatalog:
 
@@ -333,7 +338,6 @@ class NodeCatalog:
             return self._by_key[(definition_id, version)]
         except KeyError as exc:
             raise KeyError(f"Unknown node definition: {definition_id}@{version}") from exc
-
 
 ###############################################################################
 def get_node_catalog() -> NodeCatalog:

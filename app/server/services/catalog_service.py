@@ -3,7 +3,6 @@ from __future__ import annotations
 from common.catalogs.loader import NodeCatalog
 from domain.manifests import NodeCatalogResponse, NodeManifest
 
-
 ###############################################################################
 class CatalogService:
 

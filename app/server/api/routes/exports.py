@@ -18,7 +18,6 @@ from services.export_service import ExportService
 
 router = APIRouter(prefix="/api/exports", tags=["exports"])
 
-
 ###############################################################################
 @router.get("/{project_id}/source/{code_target}", response_model=SourceExportResponse)
 def export_source(
@@ -40,7 +39,6 @@ def export_source(
         ) from exc
     except RevisionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-
 
 ###############################################################################
 @router.post("/{project_id}/keras-model")

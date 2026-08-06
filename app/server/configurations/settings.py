@@ -19,7 +19,6 @@ RUNTIME_ROOT = APP_ROOT / "resources" / "runtime"
 RUNTIME_LOG_ROOT = RUNTIME_ROOT / "logs"
 RUNTIME_EXPORT_ROOT = RUNTIME_ROOT / "exports"
 
-
 ###############################################################################
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -58,12 +57,10 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
-
 ###############################################################################
 def get_settings() -> Settings:
     ensure_environment_file()
     return Settings()
-
 
 ###############################################################################
 class _DatabaseEnvironment(BaseSettings):
@@ -127,7 +124,6 @@ class _DatabaseEnvironment(BaseSettings):
         validation_alias=AliasChoices("DATABASE_SQLITE_PATH", "database_sqlite_path"),
     )
 
-
 ###############################################################################
 class DatabaseSettings(BaseModel):
     """Validated, immutable database configuration shared by repositories."""
@@ -151,14 +147,12 @@ class DatabaseSettings(BaseModel):
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off"}
 
-
 ###############################################################################
 def _optional_text(value: object | None) -> str | None:
     if value is None:
         return None
     normalized = str(value).strip()
     return normalized or None
-
 
 ###############################################################################
 def _strict_bool(value: str | None, *, default: bool) -> bool:
@@ -172,7 +166,6 @@ def _strict_bool(value: str | None, *, default: bool) -> bool:
         return False
     raise ValueError("DATABASE_EMBEDDED and DATABASE_SSL must be boolean values")
 
-
 ###############################################################################
 def _positive_int(value: str | None, *, default: int, label: str) -> int:
     normalized = _optional_text(value)
@@ -185,7 +178,6 @@ def _positive_int(value: str | None, *, default: int, label: str) -> int:
     if parsed < 1:
         raise ValueError(f"{label} must be greater than zero")
     return parsed
-
 
 ###############################################################################
 def _url_database_values(url: str | None) -> dict[str, Any]:
@@ -208,19 +200,16 @@ def _url_database_values(url: str | None) -> dict[str, Any]:
         "connect_timeout": query.get("connect_timeout", [None])[0],
     }
 
-
 ###############################################################################
 def _resolve_path(value: str | None, default: Path) -> Path:
     raw = _optional_text(value)
     path = Path(raw) if raw else default
     return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
 
-
 ###############################################################################
 def _explicit_or_url(name: str, value: str | None, url_values: dict[str, Any]) -> Any:
     explicit = _optional_text(value)
     return explicit if explicit is not None else url_values.get(name)
-
 
 ###############################################################################
 def get_database_settings() -> DatabaseSettings:

@@ -4,14 +4,12 @@ from collections import defaultdict, deque
 
 from domain.graph import EdgeInstance, ModelGraph
 
-
 ###############################################################################
 def adjacency(graph: ModelGraph) -> dict[str, list[str]]:
     result: dict[str, list[str]] = defaultdict(list)
     for edge in graph.edges:
         result[edge.source_node_id].append(edge.target_node_id)
     return result
-
 
 ###############################################################################
 def topological_order(graph: ModelGraph) -> list[str]:
@@ -35,7 +33,6 @@ def topological_order(graph: ModelGraph) -> list[str]:
         raise ValueError("Graph contains a cycle")
     return ordered
 
-
 ###############################################################################
 def would_create_cycle(graph: ModelGraph, source_node_id: str, target_node_id: str) -> bool:
     if source_node_id == target_node_id:
@@ -52,7 +49,6 @@ def would_create_cycle(graph: ModelGraph, source_node_id: str, target_node_id: s
         visited.add(current)
         stack.extend(outgoing.get(current, []))
     return False
-
 
 ###############################################################################
 def incoming_edges(graph: ModelGraph) -> dict[str, list[EdgeInstance]]:

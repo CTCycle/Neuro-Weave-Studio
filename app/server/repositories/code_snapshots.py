@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from domain.enums import CodeTarget
 from repositories.models import GeneratedCodeSnapshotRecord
 
-
 ###############################################################################
 class CodeSnapshotRepository:
 
