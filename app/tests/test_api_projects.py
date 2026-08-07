@@ -2,10 +2,11 @@ from typing import Any, cast
 
 import httpx
 import pytest
+from sqlalchemy import select
+
 from domain.enums import ExecutionBackend
 from repositories.graphs import GraphRepository
 from repositories.models import ProjectRecord, ProjectRevisionRecord
-from sqlalchemy import select
 
 
 ###############################################################################

@@ -402,6 +402,9 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .workflow-card .primary, .workflow-card .secondary { min-height: 36px; }
 .generated-code-panel { min-height: 360px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; margin-top: 12px; padding: 14px; }
 .generated-code-panel pre { min-height: 0; margin: 0; overflow: auto; }
+.code-copy-control { display: inline-flex; align-items: center; gap: 8px; }
+.copy-status { color: var(--color-success, #2f8f6b); font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+.copy-status-error { color: var(--color-danger, #b45454); }
 .generated-code-placeholder { display: flex; align-items: center; flex-direction: column; gap: 8px; margin-top: 12px; padding: 54px 20px; color: var(--muted); text-align: center; }
 .generated-code-placeholder strong { color: var(--text); }
 .placeholder-glyph { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--cyan); }
@@ -439,6 +442,7 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .confirm-dialog p { color: var(--muted); font-size: 11px; line-height: 1.5; }
 .dialog-actions { justify-content: flex-end; margin-top: 18px; }
 .dialog-actions button { min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.dialog-actions .danger-action { border-color: var(--error); background: var(--error); color: #1b0d0f; }
 
 @media (max-width: 1199px) {
   .builder-toolbar { grid-template-columns: minmax(140px, .8fr) minmax(160px, 1fr) minmax(130px, 170px) auto; }

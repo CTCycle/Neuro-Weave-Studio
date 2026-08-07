@@ -19,6 +19,8 @@ export function ModelWorkspacePage() {
   const [project, setProject] = useState<ProjectDocument | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
   const navigate = useNavigate()
 
   const refresh = async () => {
@@ -52,12 +54,17 @@ export function ModelWorkspacePage() {
   }
 
   const remove = async () => {
-    if (!project || !window.confirm(`Delete “${project.name}”? This cannot be undone.`)) return
+    if (!project) return
+    setDeleteBusy(true)
     try {
       await api.deleteProject(project.id)
       await refreshProjects()
       navigate('/models')
-    } catch (reason) { setError(`Delete failed: ${messageFor(reason)}`) }
+    } catch (reason) {
+      setError(`Delete failed: ${messageFor(reason)}`)
+      setDeleteBusy(false)
+      setDeleteOpen(false)
+    }
   }
 
   const exportJson = async () => {
@@ -80,12 +87,13 @@ export function ModelWorkspacePage() {
   return <div className="model-workspace-page">
     <header className="workspace-header">
       <div className="workspace-header-top"><Link className="back-link" to="/models"><ArrowLeft size={15} />All models</Link><span className="workspace-kicker">MODEL WORKSPACE</span></div>
-      <div className="workspace-title-row"><div><h1>{project.name}</h1><p>{project.description || 'No description added.'}</p></div><div className="workspace-header-actions"><Link className="secondary inline-action" to={`/builder/${project.id}`}><Settings2 size={15} />Edit architecture</Link><button className="secondary" onClick={duplicate}><Copy size={15} />Duplicate</button><button className="icon-button danger-button" title="Delete model" onClick={remove}><Trash2 size={16} /></button></div></div>
+      <div className="workspace-title-row"><div><h1>{project.name}</h1><p>{project.description || 'No description added.'}</p></div><div className="workspace-header-actions"><Link className="secondary inline-action" to={`/builder/${project.id}`}><Settings2 size={15} />Edit architecture</Link><button className="secondary" onClick={duplicate}><Copy size={15} />Duplicate</button><button className="icon-button danger-button" title="Delete model" aria-label="Delete model" onClick={() => setDeleteOpen(true)}><Trash2 size={16} /></button></div></div>
       <div className="workspace-meta"><ValidationStatusBadge status={project.validation_status} /><CompilationStatusBadge compiled={Boolean(project.generated_code_snapshots[project.code_target])} target={codeTargetShortLabels[project.code_target]} /><span><GitBranch size={13} />Revision {project.current_revision}</span><span><Box size={13} />{project.graph.nodes.length} nodes · {project.graph.edges.length} connections</span><span><FileCode2 size={13} />{codeTargetLabels[project.code_target]}</span></div>
       <nav className="workspace-tabs" aria-label="Model workspace sections"><NavLink to={`/models/${project.id}`} end>Overview</NavLink><NavLink to={`/models/${project.id}/compilation`}>Compilation</NavLink><NavLink to={`/models/${project.id}/inference`}>Inference</NavLink></nav>
     </header>
     <div className="workspace-body"><Outlet context={{ project, refresh } satisfies ModelWorkspaceContext} /></div>
     <div className="workspace-footer-actions"><button className="secondary" onClick={exportJson}><Download size={15} />Export JSON</button><Link className="secondary inline-action" to={`/models/${project.id}/compilation`}><UploadCloud size={15} />Open compilation</Link></div>
+    {deleteOpen && <div className="dialog-backdrop"><section className="confirm-dialog panel" role="alertdialog" aria-modal="true" aria-labelledby="delete-model-title"><span className="eyebrow">DELETE MODEL</span><h2 id="delete-model-title">Delete “{project.name}”?</h2><p>This permanently removes the saved architecture, revisions, and generated snapshots. This action cannot be undone.</p><div className="dialog-actions"><button className="secondary" onClick={() => setDeleteOpen(false)} disabled={deleteBusy}>Cancel</button><button className="primary danger-action" onClick={remove} disabled={deleteBusy}>{deleteBusy ? 'Deleting…' : 'Delete permanently'}</button></div></section></div>}
   </div>
 }
 
