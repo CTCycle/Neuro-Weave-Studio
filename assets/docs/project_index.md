@@ -1,6 +1,6 @@
 # NeuroWeave Documentation Index
 
-Last updated: 2026-08-06
+Last updated: 2026-08-07
 
 ## Purpose
 
@@ -10,7 +10,7 @@ This is the root navigation document for the repository. Read it first, then ope
 
 - `product/vision_and_scope.md`: product boundary and MVP definition.
 - `product/user_personas.md`: intended users and capability assumptions.
-- `product/user_flows.md`: primary editor and export journeys.
+- `product/user_flows.md`: catalog, Builder, workspace, and export journeys.
 - `product/roadmap.md`: staged expansion beyond architecture design.
 
 ## Architecture
@@ -58,6 +58,7 @@ This is the root navigation document for the repository. Read it first, then ope
 
 - `ui/design_system.md`
 - `ui/editor_interactions.md`
+- `ui/model_workspaces.md`
 - `ui/accessibility.md`
 - `ui/error_and_validation_patterns.md`
 

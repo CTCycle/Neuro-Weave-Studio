@@ -18,10 +18,20 @@ interface Props {
   backendStatus?: ExecutionBackendStatus
   state: SmokeTestViewState
   onRun: () => void
-  onClose: () => void
+  onClose?: () => void
+  embedded?: boolean
 }
 
-export function ModelSmokeTestDrawer({ backend, backendStatus, state, onRun, onClose }: Props) {
+export function ModelSmokeTestDrawer({ backend, backendStatus, state, onRun, onClose, embedded = false }: Props) {
+  const content = <>
+    <div className="smoke-test-intro"><FlaskConical size={18} /><p>Generated dummy inputs, one forward pass in inference mode, and no training or weight updates.</p></div>
+    <div className="smoke-test-context"><span>Backend</span><strong>{backend ?? 'Choose an operational backend'}</strong><span>Device</span><strong>{backendStatus?.device_name ?? (backendStatus?.available ? (backendStatus.accelerator ?? 'CPU') : 'Unavailable')}</strong></div>
+    {state.status === 'ready' && <ReadyState backend={backend} onRun={onRun} />}
+    {state.status === 'loading' && <div className="smoke-test-state loading" role="status"><LoaderCircle className="spin" size={22} /><strong>Running one dummy-tensor pass…</strong><span>Building the configured model and checking tensor shapes.</span></div>}
+    {state.status === 'succeeded' && <SuccessState result={state.result} />}
+    {state.status === 'error' && <ErrorState error={state.error} onRun={onRun} />}
+  </>
+  if (embedded) return <section className="smoke-test-panel panel"><div className="drawer-heading"><div><span className="eyebrow">INFERENCE-ONLY DRY RUN</span><h2>Model smoke test</h2></div><FlaskConical size={18} /></div><div className="smoke-test-content">{content}</div></section>
   return (
     <div className="drawer-backdrop" role="presentation" onMouseDown={onClose}>
       <aside className="code-drawer smoke-test-drawer" role="dialog" aria-modal="true" aria-label="Model smoke test" onMouseDown={(event) => event.stopPropagation()}>
@@ -29,14 +39,7 @@ export function ModelSmokeTestDrawer({ backend, backendStatus, state, onRun, onC
           <div><span className="eyebrow">INFERENCE-ONLY DRY RUN</span><h2>Model smoke test</h2></div>
           <button className="icon-button" title="Close" onClick={onClose}><X size={18} /></button>
         </div>
-        <div className="smoke-test-content">
-          <div className="smoke-test-intro"><FlaskConical size={18} /><p>Generated dummy inputs, one forward pass in inference mode, and no training or weight updates.</p></div>
-          <div className="smoke-test-context"><span>Backend</span><strong>{backend ?? 'Choose an operational backend'}</strong><span>Device</span><strong>{backendStatus?.device_name ?? (backendStatus?.available ? (backendStatus.accelerator ?? 'CPU') : 'Unavailable')}</strong></div>
-          {state.status === 'ready' && <ReadyState backend={backend} onRun={onRun} />}
-          {state.status === 'loading' && <div className="smoke-test-state loading" role="status"><LoaderCircle className="spin" size={22} /><strong>Running one dummy-tensor pass…</strong><span>Building the configured model and checking tensor shapes.</span></div>}
-          {state.status === 'succeeded' && <SuccessState result={state.result} />}
-          {state.status === 'error' && <ErrorState error={state.error} onRun={onRun} />}
-        </div>
+        <div className="smoke-test-content">{content}</div>
       </aside>
     </div>
   )

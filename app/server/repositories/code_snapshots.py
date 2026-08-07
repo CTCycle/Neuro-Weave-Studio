@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from domain.enums import CodeTarget
 from repositories.models import GeneratedCodeSnapshotRecord
+
 
 ###############################################################################
 class CodeSnapshotRepository:
@@ -25,6 +27,28 @@ class CodeSnapshotRepository:
             )
         ).all()
         return {row.code_target: row.source_code for row in rows}
+
+    # -------------------------------------------------------------------------
+    def targets_for_revisions(
+        self, revisions: Mapping[UUID, int]
+    ) -> dict[UUID, list[CodeTarget]]:
+        if not revisions:
+            return {}
+        conditions = [
+            and_(
+                GeneratedCodeSnapshotRecord.project_id == str(project_id),
+                GeneratedCodeSnapshotRecord.revision == revision,
+            )
+            for project_id, revision in revisions.items()
+        ]
+        rows = self._session.scalars(
+            select(GeneratedCodeSnapshotRecord).where(or_(*conditions))
+        ).all()
+        result: dict[UUID, list[CodeTarget]] = {}
+        for row in rows:
+            project_id = UUID(row.project_id)
+            result.setdefault(project_id, []).append(CodeTarget(row.code_target))
+        return result
 
     # -------------------------------------------------------------------------
     def upsert(

@@ -103,6 +103,9 @@ class ProjectDocument(BaseModel):
     validation_status: ValidationStatus
     generated_code_snapshots: dict[str, str] = Field(default_factory=dict)
 
+def _empty_code_targets() -> list[CodeTarget]:
+    return []
+
 ###############################################################################
 class ProjectSummary(BaseModel):
     id: UUID
@@ -112,6 +115,9 @@ class ProjectSummary(BaseModel):
     code_target: CodeTarget
     current_revision: int
     validation_status: ValidationStatus
+    node_count: int = Field(ge=0)
+    edge_count: int = Field(ge=0)
+    compiled_targets: list[CodeTarget] = Field(default_factory=_empty_code_targets)
 
 ###############################################################################
 class ProjectListResponse(BaseModel):

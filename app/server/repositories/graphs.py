@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Literal, cast
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from domain.graph import (
@@ -14,11 +15,13 @@ from domain.graph import (
     NodeInstance,
     Position,
 )
+from repositories.contracts import GraphSummary
 from repositories.models import (
     ProjectEdgeRecord,
     ProjectGraphSettingsRecord,
     ProjectNodeRecord,
 )
+
 
 ###############################################################################
 class GraphRepository:
@@ -85,6 +88,33 @@ class GraphRepository:
             ),
             future_training_configuration=settings.future_training_configuration_json,
         )
+
+    # -------------------------------------------------------------------------
+    def summaries(self, project_ids: Sequence[UUID]) -> dict[UUID, GraphSummary]:
+        if not project_ids:
+            return {}
+        keys = [str(project_id) for project_id in project_ids]
+        node_counts: dict[str, int] = {}
+        for row in self._session.execute(
+            select(ProjectNodeRecord.project_id, func.count(ProjectNodeRecord.node_id))
+            .where(ProjectNodeRecord.project_id.in_(keys))
+            .group_by(ProjectNodeRecord.project_id)
+        ).all():
+            node_counts[str(row[0])] = int(row[1])
+        edge_counts: dict[str, int] = {}
+        for row in self._session.execute(
+            select(ProjectEdgeRecord.project_id, func.count(ProjectEdgeRecord.edge_id))
+            .where(ProjectEdgeRecord.project_id.in_(keys))
+            .group_by(ProjectEdgeRecord.project_id)
+        ).all():
+            edge_counts[str(row[0])] = int(row[1])
+        return {
+            project_id: GraphSummary(
+                node_count=int(node_counts.get(str(project_id), 0)),
+                edge_count=int(edge_counts.get(str(project_id), 0)),
+            )
+            for project_id in project_ids
+        }
 
     # -------------------------------------------------------------------------
     def replace(self, project_id: UUID, graph: ModelGraph) -> None:

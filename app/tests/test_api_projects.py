@@ -2,11 +2,11 @@ from typing import Any, cast
 
 import httpx
 import pytest
-from sqlalchemy import select
-
 from domain.enums import ExecutionBackend
 from repositories.graphs import GraphRepository
 from repositories.models import ProjectRecord, ProjectRevisionRecord
+from sqlalchemy import select
+
 
 ###############################################################################
 def fail_create_graph_replace(*_args: object, **_kwargs: object) -> None:
@@ -44,6 +44,13 @@ def test_project_save_reopen_validate_and_compile(client: httpx.Client) -> None:
     created = client.post("/api/projects", json=project_payload())
     assert created.status_code == 201, created.text
     project = created.json()
+    assert project["generated_code_snapshots"] == {}
+    summaries = client.get("/api/projects")
+    assert summaries.status_code == 200
+    summary = next(item for item in summaries.json()["projects"] if item["id"] == project["id"])
+    assert summary["node_count"] == 3
+    assert summary["edge_count"] == 2
+    assert summary["compiled_targets"] == []
 
     reopened = client.get(f"/api/projects/{project['id']}")
     assert reopened.status_code == 200
@@ -58,12 +65,23 @@ def test_project_save_reopen_validate_and_compile(client: httpx.Client) -> None:
     assert "keras.Model" in keras_code.json()["code"]
     assert "class GeneratedModel" in torch_code.json()["code"]
 
+    source = client.get(f"/api/exports/{project['id']}/source/keras")
+    assert source.status_code == 200
+    compiled_summary = next(
+        item for item in client.get("/api/projects").json()["projects"] if item["id"] == project["id"]
+    )
+    assert compiled_summary["compiled_targets"] == ["keras"]
+
     update_payload = project_payload()
     update_payload["name"] = "API MLP updated"
     update_payload["expected_revision"] = project["current_revision"]
     updated = client.put(f"/api/projects/{project['id']}", json=update_payload)
     assert updated.status_code == 200
     assert updated.json()["current_revision"] == 2
+    updated_summary = next(
+        item for item in client.get("/api/projects").json()["projects"] if item["id"] == project["id"]
+    )
+    assert updated_summary["compiled_targets"] == []
 
     stale = client.put(f"/api/projects/{project['id']}", json=update_payload)
     assert stale.status_code == 409
