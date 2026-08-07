@@ -11,11 +11,14 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     source = LAUNCHER.read_text(encoding="utf-8")
 
     for menu_entry in (
-        "[1] Launch application",
-        "[2] Install or repair dependencies",
-        "[3] Initialize or recreate database",
-        "[4] Run validation suite",
-        "[5] Exit",
+        "'1' -Label 'Launch application'",
+        "'2' -Label 'Install or repair dependencies'",
+        "'3' -Label 'Initialize or recreate database'",
+        "'4' -Label 'Run validation suite'",
+        "'5' -Label 'Remove logs'",
+        "'6' -Label 'Clear cache'",
+        "'7' -Label 'Uninstall application'",
+        "'8' -Label 'Exit'",
     ):
         assert menu_entry in source
     assert "Assert-PortAvailable" in source
@@ -35,6 +38,12 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "'Install' { Invoke-Install }" in source
     assert "[string]$Backends" in source
     assert "Get-InstalledExecutionBackends" in source
+    assert "Read-InstallationType" in source
+    assert "ALWAYS_REBUILD" in source
+    assert "'CleanLogs' { Invoke-RemoveApplicationLogs }" in source
+    assert "'ClearCache' { Invoke-ClearApplicationCache }" in source
+    assert "'Uninstall' { Invoke-UninstallApplication }" in source
+    assert "Type UNINSTALL to continue" in source
     assert "-m pyright" in source
     assert "app:app" not in source
 
@@ -48,6 +57,7 @@ def test_environment_contract_is_canonical_and_secret_safe() -> None:
     assert "DATABASE_SQLITE_PATH=" in template
     assert "DATABASE_URL=" in template
     assert "VITE_API_BASE_URL=/api" in template
+    assert "ALWAYS_REBUILD=true" in template
     assert not (REPOSITORY_ROOT / ".env.example").exists()
     assert "ensure_environment.py" in launcher
     assert "EnvironmentExample" not in launcher
@@ -64,7 +74,8 @@ def test_launcher_has_one_explicit_database_action_with_confirmed_reset() -> Non
     assert "Invoke-DatabaseInitialization" in source
     assert "--reset" in source
     assert "Type RESET to continue" in source
-    assert "taskkill.exe /PID $child.Process.Id /T /F" in source
+    assert "Get-DescendantProcessIds" in source
+    assert "Stop-Process -Id $processId -Force" in source
 
 ###############################################################################
 def test_launcher_requires_the_canonical_frontend_lockfile() -> None:
