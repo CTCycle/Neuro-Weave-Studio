@@ -114,6 +114,9 @@ export interface ProjectSummary {
   code_target: CodeTarget
   current_revision: number
   validation_status: string
+  node_count: number
+  edge_count: number
+  compiled_targets: CodeTarget[]
 }
 
 export interface ValidationDiagnostic {
@@ -198,6 +201,20 @@ export interface SmokeTestErrorDetail {
   backend?: string
   reason_code?: string
   diagnostics?: ValidationDiagnostic[]
+}
+
+export const codeTargetLabels: Record<CodeTarget, string> = {
+  keras: 'Portable Keras',
+  tensorflow: 'Native TensorFlow',
+  pytorch: 'Native PyTorch',
+  jax: 'Native JAX / Flax',
+}
+
+export const codeTargetShortLabels: Record<CodeTarget, string> = {
+  keras: 'Keras',
+  tensorflow: 'TensorFlow',
+  pytorch: 'PyTorch',
+  jax: 'JAX / Flax',
 }
 
 export interface EditorNodeData extends Record<string, unknown> {

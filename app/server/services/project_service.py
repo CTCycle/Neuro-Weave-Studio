@@ -27,6 +27,7 @@ from services.errors import (
 )
 from services.validation_service import ValidationService
 
+
 ###############################################################################
 class ProjectService:
 
@@ -38,6 +39,11 @@ class ProjectService:
     # -------------------------------------------------------------------------
     def list(self) -> ProjectListResponse:
         with self._uow_factory() as uow:
+            metadata = uow.projects.list_metadata()
+            graph_summaries = uow.graphs.summaries([item.id for item in metadata])
+            compiled_targets = uow.code_snapshots.targets_for_revisions(
+                {item.id: item.current_revision for item in metadata}
+            )
             summaries = [
                 ProjectSummary(
                     id=item.id,
@@ -47,8 +53,11 @@ class ProjectService:
                     code_target=item.code_target,
                     current_revision=item.current_revision,
                     validation_status=item.validation_status,
+                    node_count=graph_summaries[item.id].node_count,
+                    edge_count=graph_summaries[item.id].edge_count,
+                    compiled_targets=compiled_targets.get(item.id, []),
                 )
-                for item in uow.projects.list_metadata()
+                for item in metadata
             ]
         return ProjectListResponse(projects=summaries)
 

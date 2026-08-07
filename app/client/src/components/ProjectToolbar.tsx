@@ -1,5 +1,6 @@
-import { Box, Copy, Download, FilePlus2, FlaskConical, LayoutDashboard, MoreHorizontal, Redo2, Save, Undo2, Upload } from 'lucide-react'
-import type { CodeTarget, ExecutionBackend, ExecutionBackendStatus, ProjectSummary } from '../domain/types'
+import { Hammer, LayoutDashboard, Play, Save, Undo2, Redo2, WandSparkles } from 'lucide-react'
+import type { CodeTarget } from '../domain/types'
+import { codeTargetLabels } from '../domain/types'
 import { useGraphStore } from '../state/graphStore'
 
 interface Props {
@@ -7,53 +8,29 @@ interface Props {
   onNameChange: (name: string) => void
   description: string
   onDescriptionChange: (description: string) => void
-  codeTarget?: CodeTarget
-  onCodeTargetChange?: (target: CodeTarget) => void
-  backendStatuses?: ExecutionBackendStatus[]
-  executionBackend?: ExecutionBackend | null
-  onExecutionBackendChange?: (backend: ExecutionBackend | null) => void
-  projects: ProjectSummary[]
-  currentProjectId: string | null
-  onNew: () => void
+  codeTarget: CodeTarget
+  onCodeTargetChange: (target: CodeTarget) => void
   onSave: () => void
-  onOpen: (id: string) => void
-  onDuplicate: () => void
+  onCompile: () => void
   onValidate: () => void
-  onSmokeTestOpen: () => void
-  onCode: () => void
-  onExport: () => void
-  onBinaryExport: () => void
-  onImport: () => void
   busy: boolean
+  modelId: string | null
+  onOpenWorkspace: () => void
 }
-
-const targetLabels: Record<CodeTarget, string> = { keras: 'Portable Keras', tensorflow: 'Native TensorFlow', pytorch: 'Native PyTorch', jax: 'Native JAX / Flax' }
 
 export function ProjectToolbar(props: Props) {
   const undo = useGraphStore((state) => state.undo)
   const redo = useGraphStore((state) => state.redo)
-  const selectedTarget = props.codeTarget ?? 'keras'
-  const statuses = props.backendStatuses ?? []
-  const selectedBackend = props.executionBackend ?? null
-  const backendCount = statuses.filter((item) => item.available).length
   return (
-    <header className="project-toolbar">
-      <div className="brand-mark"><span>NW</span><div><strong>NeuroWeave</strong><small>MODEL STUDIO</small></div></div>
-      <div className="project-identity"><input className="project-title" value={props.name} onChange={(event) => props.onNameChange(event.target.value)} aria-label="Project name" /><input className="project-description" value={props.description} onChange={(event) => props.onDescriptionChange(event.target.value)} aria-label="Project description" placeholder="Optional project description" /></div>
-      <div className="target-controls">
-        <span className="api-badge" title="Keras 3 is the fixed model API">Keras 3 API</span>
-        <label className="toolbar-select"><span>Code target</span><select value={selectedTarget} onChange={(event) => props.onCodeTargetChange?.(event.target.value as CodeTarget)} aria-label="Code target"><option value="keras">Portable Keras</option>{Object.entries(targetLabels).filter(([value]) => value !== 'keras').map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label className="toolbar-select"><span>Execution backend</span><select value={selectedBackend ?? ''} onChange={(event) => { const value = event.target.value || null; props.onExecutionBackendChange?.(value as ExecutionBackend | null) }} aria-label="Execution backend" disabled={props.busy || backendCount === 0}><option value="">{backendCount === 0 ? 'None operational' : backendCount === 1 ? 'Select backend' : 'Choose backend…'}</option>{statuses.map((backend) => <option key={backend.id} value={backend.id} disabled={!backend.available}>{`${backend.id}${backend.available ? ` · ${(backend.accelerator ?? 'cpu').toUpperCase()}` : ` · ${backend.reason_code ?? 'unavailable'}`}`}</option>)}</select></label>
+    <section className="builder-toolbar panel">
+      <div className="builder-toolbar-heading"><div><span className="eyebrow">MODEL BUILDER</span><strong>Architecture authoring</strong></div><span className="builder-badge"><Hammer size={14} />Drafting mode</span></div>
+      <div className="builder-identity">
+        <input className="project-title" value={props.name} onChange={(event) => props.onNameChange(event.target.value)} aria-label="Model name" />
+        <input className="project-description" value={props.description} onChange={(event) => props.onDescriptionChange(event.target.value)} aria-label="Model description" placeholder="Optional model description" />
       </div>
-      <div className="toolbar-group project-actions">
-        <button title="New project" onClick={props.onNew}><FilePlus2 size={17} /></button>
-        <select value={props.currentProjectId ?? ''} onChange={(event) => event.target.value && props.onOpen(event.target.value)} aria-label="Open project"><option value="">Open project…</option>{props.projects.map((project) => <option key={project.id} value={project.id}>{project.name} · r{project.current_revision}</option>)}</select>
-        <button title="Save" disabled={props.busy} onClick={props.onSave}><Save size={17} /></button>
-        <button title="Duplicate project" disabled={!props.currentProjectId} onClick={props.onDuplicate}><Copy size={17} /></button>
-      </div>
-      <div className="toolbar-group"><button title="Undo" onClick={undo}><Undo2 size={17} /></button><button title="Redo" onClick={redo}><Redo2 size={17} /></button></div>
-      <div className="toolbar-actions"><button className="secondary" title="Validate graph" onClick={props.onValidate}><LayoutDashboard size={16} />Validate</button><button className="secondary smoke-action" title="Run inference-only smoke test" aria-label="Smoke test" onClick={props.onSmokeTestOpen} disabled={props.busy}><FlaskConical size={16} />Smoke test</button><button className="primary" onClick={props.onCode} disabled={props.busy}>Preview code</button><button className="secondary binary-action" disabled={!props.currentProjectId || !selectedBackend || props.busy} onClick={props.onBinaryExport}><Box size={16} />Export .keras</button></div>
-      <details className="toolbar-overflow"><summary aria-label="More project actions"><MoreHorizontal size={18} /></summary><div className="overflow-menu"><button onClick={props.onImport}><Upload size={16} />Import JSON</button><button disabled={!props.currentProjectId} onClick={props.onExport}><Download size={16} />Export JSON</button></div></details>
-    </header>
+      <label className="toolbar-select builder-target"><span>Code target</span><select value={props.codeTarget} onChange={(event) => props.onCodeTargetChange(event.target.value as CodeTarget)} aria-label="Code target">{Object.entries(codeTargetLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      <div className="toolbar-group builder-history"><button title="Undo" onClick={undo}><Undo2 size={17} /></button><button title="Redo" onClick={redo}><Redo2 size={17} /></button></div>
+      <div className="builder-actions"><button className="secondary" onClick={props.onValidate} disabled={props.busy}><LayoutDashboard size={16} />Validate</button><button className="secondary" onClick={props.onCompile} disabled={props.busy}><WandSparkles size={16} />Save &amp; compile</button><button className="primary" onClick={props.onSave} disabled={props.busy}><Save size={16} />Save model</button>{props.modelId && <button className="secondary" onClick={props.onOpenWorkspace} disabled={props.busy}><Play size={16} />Open workspace</button>}</div>
+    </section>
   )
 }

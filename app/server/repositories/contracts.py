@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
@@ -21,6 +22,13 @@ class ProjectMetadata:
     code_target: CodeTarget
     current_revision: int
     validation_status: ValidationStatus
+
+
+###############################################################################
+@dataclass(frozen=True, slots=True)
+class GraphSummary:
+    node_count: int
+    edge_count: int
 
 
 ###############################################################################
@@ -66,6 +74,9 @@ class GraphRepositoryProtocol(Protocol):
     # -------------------------------------------------------------------------
     def replace(self, project_id: UUID, graph: ModelGraph) -> None: ...
 
+    # -------------------------------------------------------------------------
+    def summaries(self, project_ids: Sequence[UUID]) -> dict[UUID, GraphSummary]: ...
+
 
 ###############################################################################
 class RevisionRepositoryProtocol(Protocol):
@@ -80,6 +91,11 @@ class CodeSnapshotRepositoryProtocol(Protocol):
 
     # -------------------------------------------------------------------------
     def list_for_revision(self, project_id: UUID, revision: int) -> dict[str, str]: ...
+
+    # -------------------------------------------------------------------------
+    def targets_for_revisions(
+        self, revisions: Mapping[UUID, int]
+    ) -> dict[UUID, list[CodeTarget]]: ...
 
     # -------------------------------------------------------------------------
     def upsert(self, project_id: UUID, *, revision: int, code_target: CodeTarget,
