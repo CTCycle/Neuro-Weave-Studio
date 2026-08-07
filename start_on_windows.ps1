@@ -1,11 +1,16 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'Install', 'Launch', 'InitDb', 'Test')]
+    [ValidateSet('Menu', 'Install', 'Launch', 'InitDb', 'Test', 'CleanLogs', 'ClearCache', 'Uninstall')]
     [string]$Action = 'Menu',
-    [string]$Backends = ''
+    [string]$Backends = '',
+    [ValidateSet('Standard', 'Development')]
+    [string]$InstallationType = 'Development',
+    [switch]$NoBrowser
 )
 
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+Set-StrictMode -Version Latest
 $script:RepoRoot = $PSScriptRoot
 $script:AppDir = Join-Path $RepoRoot 'app'
 $script:ServerDir = Join-Path $AppDir 'server'
@@ -19,16 +24,39 @@ $script:NodeDir = Join-Path $RuntimeDir 'node'
 $script:VenvDir = Join-Path $ServerDir '.venv'
 $script:EnvironmentFile = Join-Path (Join-Path $RepoRoot 'settings') '.env'
 $script:LogDir = Join-Path $AppDir 'resources\runtime\logs'
+$script:FrontendDistIndex = Join-Path $ClientDir 'dist\index.html'
 $script:PythonVersion = '3.12.11'
 $script:UvVersion = '0.12.0'
 $script:NodeVersion = '22.23.1'
 $script:Children = [System.Collections.Generic.List[object]]::new()
+$script:NoBrowser = $NoBrowser
 
-function Write-Step([string]$Message) { Write-Host "[STEP] $Message" -ForegroundColor Cyan }
-function Write-Ok([string]$Message) { Write-Host "[OK]   $Message" -ForegroundColor Green }
-function Write-Info([string]$Message) { Write-Host "[INFO] $Message" -ForegroundColor DarkCyan }
-function Write-Warn([string]$Message) { Write-Host "[WARN] $Message" -ForegroundColor Yellow }
-function Write-Fatal([string]$Message) { Write-Host "[FAIL] $Message" -ForegroundColor Red }
+function Write-Status {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('STEP', 'OK', 'INFO', 'WARN', 'FAIL', 'RUN', 'WAIT', 'SUCCESS')]
+        [string]$Level,
+        [Parameter(Mandatory = $true)][string]$Message
+    )
+
+    $color = switch ($Level) {
+        'STEP' { 'Cyan' }
+        'OK' { 'Green' }
+        'INFO' { 'DarkCyan' }
+        'WARN' { 'Yellow' }
+        'FAIL' { 'Red' }
+        'RUN' { 'Cyan' }
+        'WAIT' { 'Yellow' }
+        'SUCCESS' { 'Green' }
+    }
+    Write-Host ("[{0}] {1}" -f $Level, $Message) -ForegroundColor $color
+}
+
+function Write-Step([string]$Message) { Write-Status -Level STEP -Message $Message }
+function Write-Ok([string]$Message) { Write-Status -Level OK -Message $Message }
+function Write-Info([string]$Message) { Write-Status -Level INFO -Message $Message }
+function Write-Warn([string]$Message) { Write-Status -Level WARN -Message $Message }
+function Write-Fatal([string]$Message) { Write-Status -Level FAIL -Message $Message }
 
 function Get-PortablePythonPath {
     return Join-Path $script:PythonDir "cpython-$($script:PythonVersion)-windows-x86_64-none\python.exe"
@@ -72,7 +100,11 @@ function Set-LauncherEnvironment {
     $env:UV_CACHE_DIR = Join-Path $script:RuntimeDir '.uv-cache'
     $env:UV_PROJECT_ENVIRONMENT = $script:VenvDir
     $env:UV_LINK_MODE = 'copy'
-    $env:PATH = "$($script:NodeDir);$($env:PATH)"
+    $nodePath = [IO.Path]::GetFullPath($script:NodeDir).TrimEnd('\')
+    $pathEntries = @($env:PATH -split ';' | Where-Object {
+            $_ -and [IO.Path]::GetFullPath($_).TrimEnd('\') -ine $nodePath
+        })
+    $env:PATH = "$nodePath;$($pathEntries -join ';')"
     Clear-PythonEnvironment
 }
 
@@ -84,7 +116,7 @@ function Invoke-DownloadAndExtract {
     )
 
     New-Item -ItemType Directory -Path (Split-Path -Parent $ArchivePath), $DestinationPath -Force | Out-Null
-    Write-Info "Downloading runtime archive."
+    Write-Info "Downloading $Uri"
     Invoke-WebRequest -Uri $Uri -OutFile $ArchivePath
     try {
         Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestinationPath -Force
@@ -161,11 +193,18 @@ function Ensure-EnvironmentFile {
     if ($LASTEXITCODE -ne 0) {
         throw "Environment initialization failed with exit code $LASTEXITCODE."
     }
+    if (-not (Test-Path -LiteralPath $script:EnvironmentFile)) {
+        throw "Environment bootstrap completed without creating $($script:EnvironmentFile)."
+    }
 }
 
 function Import-DotEnv {
     Ensure-EnvironmentFile
 
+    $inheritedEnvironmentKeys = @{}
+    foreach ($entry in Get-ChildItem Env:) {
+        $inheritedEnvironmentKeys[$entry.Name] = $true
+    }
     $defaults = [ordered]@{
         FASTAPI_HOST = '127.0.0.1'
         FASTAPI_PORT = '8000'
@@ -173,9 +212,10 @@ function Import-DotEnv {
         UI_PORT = '5173'
         VITE_API_BASE_URL = '/api'
         RELOAD = 'true'
+        ALWAYS_REBUILD = 'true'
     }
     foreach ($key in $defaults.Keys) {
-        if (-not (Test-Path -LiteralPath "Env:$key")) {
+        if (-not $inheritedEnvironmentKeys.ContainsKey($key)) {
             Set-Item -LiteralPath "Env:$key" -Value $defaults[$key]
         }
     }
@@ -187,10 +227,23 @@ function Import-DotEnv {
         if ($separator -lt 1) { continue }
         $key = $line.Substring(0, $separator).Trim()
         $value = $line.Substring($separator + 1).Trim().Trim('"').Trim("'")
-        if (-not (Test-Path -LiteralPath "Env:$key")) {
+        if (-not $inheritedEnvironmentKeys.ContainsKey($key)) {
             Set-Item -LiteralPath "Env:$key" -Value $value
         }
     }
+}
+
+function Get-BooleanEnvironmentValue {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][bool]$Default
+    )
+
+    $raw = [Environment]::GetEnvironmentVariable($Name, 'Process')
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $Default }
+    if ($raw -ieq 'true') { return $true }
+    if ($raw -ieq 'false') { return $false }
+    throw "$Name must be either 'true' or 'false'."
 }
 
 function Get-InstalledExecutionBackends {
@@ -205,15 +258,30 @@ function Get-InstalledExecutionBackends {
         } | Where-Object { $_ })
 }
 
+function ConvertTo-BackendExtras {
+    param([AllowEmptyString()][string]$Selection)
+
+    if ([string]::IsNullOrWhiteSpace($Selection)) { return @() }
+    $requested = @($Selection -split ',' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
+    if ($requested -contains 'none') {
+        if ($requested.Count -gt 1) {
+            throw "The backend selection 'none' cannot be combined with another backend."
+        }
+        return @()
+    }
+
+    $invalid = @($requested | Where-Object { $_ -notin @('tensorflow', 'pytorch', 'jax') })
+    if ($invalid.Count) {
+        throw "Unknown execution backend(s): $($invalid -join ', '). Choose tensorflow, pytorch, and/or jax."
+    }
+    return @($requested | Select-Object -Unique)
+}
+
 function Read-BackendSelection {
     $installed = @(Get-InstalledExecutionBackends)
     Write-Host "Installed/available execution backends: $($(if ($installed.Count) { $installed -join ', ' } else { 'none' }))" -ForegroundColor DarkCyan
     $selection = (Read-Host 'Execution backends to install (tensorflow,pytorch,jax or none)').Trim().ToLowerInvariant()
-    if ([string]::IsNullOrWhiteSpace($selection) -or $selection -eq 'none') { return @() }
-    $public = @($selection -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-    $unknown = @($public | Where-Object { $_ -notin @('tensorflow', 'pytorch', 'jax') })
-    if ($unknown.Count) { throw "Unknown execution backend(s): $($unknown -join ', '). Choose tensorflow, pytorch, and/or jax." }
-    return @($public | Select-Object -Unique)
+    return @(ConvertTo-BackendExtras -Selection $selection)
 }
 
 function Sync-Dependencies {
@@ -227,8 +295,14 @@ function Sync-Dependencies {
     $python = Get-PortablePython
     Set-LauncherEnvironment
     if (-not $ExplicitBackendSet) { $BackendExtras = Get-InstalledExecutionBackends }
-    $BackendExtras = @($BackendExtras | ForEach-Object { if ($_ -eq 'pytorch') { 'torch' } else { $_ } })
+    $BackendExtras = @(
+        foreach ($extra in @($BackendExtras)) {
+            if ([string]::IsNullOrWhiteSpace($extra)) { continue }
+            if ($extra -eq 'pytorch') { 'torch' } else { $extra }
+        }
+    )
     $uvArguments = @('sync', '--python', $python)
+    if (Test-Path -LiteralPath (Join-Path $script:ServerDir 'uv.lock')) { $uvArguments += '--locked' }
     if ($IncludeTests) { $uvArguments += @('--extra', 'test') }
     foreach ($extra in $BackendExtras) { $uvArguments += @('--extra', $extra) }
     Push-Location $script:ServerDir
@@ -269,13 +343,21 @@ function Invoke-FrontendBuild {
 function Test-DependenciesReady {
     param([switch]$IncludeTests)
 
+    $python = Get-PortablePythonPath
+    $uv = Join-Path $script:UvDir 'uv.exe'
+    $node = Join-Path $script:NodeDir 'node.exe'
+    $npm = Join-Path $script:NodeDir 'npm.cmd'
     $venvPython = Get-VenvPython
     $clientPackage = Join-Path $script:ClientDir 'package.json'
     $clientLock = Join-Path $script:ClientDir 'package-lock.json'
     $clientModules = Join-Path $script:ClientDir 'node_modules'
     $clientInstallState = Join-Path $clientModules '.package-lock.json'
     $vite = Join-Path $clientModules '.bin\vite.cmd'
-    if (-not (Test-Path -LiteralPath $venvPython) -or
+    if (-not (Test-Path -LiteralPath $python) -or
+        -not (Test-Path -LiteralPath $uv) -or
+        -not (Test-Path -LiteralPath $node) -or
+        -not (Test-Path -LiteralPath $npm) -or
+        -not (Test-Path -LiteralPath $venvPython) -or
         -not (Test-Path -LiteralPath (Join-Path $script:ServerDir 'app.py')) -or
         -not (Test-Path -LiteralPath $clientPackage) -or
         -not (Test-Path -LiteralPath $clientLock) -or
@@ -283,6 +365,12 @@ function Test-DependenciesReady {
         -not (Test-Path -LiteralPath $vite)) {
         return $false
     }
+    & $python --version *> $null
+    if ($LASTEXITCODE -ne 0) { return $false }
+    & $uv --version *> $null
+    if ($LASTEXITCODE -ne 0) { return $false }
+    & $node --version *> $null
+    if ($LASTEXITCODE -ne 0) { return $false }
     $imports = "import fastapi, uvicorn, sqlalchemy, psycopg; import importlib.metadata; importlib.metadata.version('keras')"
     if ($IncludeTests) { $imports += "; importlib.metadata.version('pytest'); importlib.metadata.version('ruff'); importlib.metadata.version('pyright')" }
     & $venvPython -c $imports *> $null
@@ -322,17 +410,40 @@ function Assert-PortAvailable {
 function Invoke-HealthCheck {
     param(
         [Parameter(Mandatory = $true)][string]$Url,
-        [int]$Attempts = 60,
+        [ValidateRange(1, 600)][int]$TimeoutSeconds = 60,
         [int]$IntervalSeconds = 1
     )
-    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    do {
         try {
             $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 2
             if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) { return $true }
         } catch { }
-        if ($attempt -lt $Attempts) { Start-Sleep -Seconds $IntervalSeconds }
-    }
+        if ([DateTime]::UtcNow -lt $deadline) { Start-Sleep -Seconds $IntervalSeconds }
+    } while ([DateTime]::UtcNow -lt $deadline)
     return $false
+}
+
+function Get-BrowserHost {
+    param([Parameter(Mandatory = $true)][string]$HostName)
+
+    if ($HostName -in @('0.0.0.0', '::')) { return '127.0.0.1' }
+    return $HostName
+}
+
+function Open-ApplicationBrowser {
+    param([Parameter(Mandatory = $true)][string]$Uri)
+
+    if ($script:NoBrowser) {
+        Write-Info "Browser launch skipped. Open $Uri manually."
+        return
+    }
+    try {
+        Start-Process -FilePath $Uri | Out-Null
+        Write-Status -Level INFO -Message "Opened $Uri in the default browser."
+    } catch {
+        Write-Warn "Could not open the default browser automatically. Open $Uri manually."
+    }
 }
 
 function Start-ManagedProcess {
@@ -352,11 +463,42 @@ function Start-ManagedProcess {
     return $process
 }
 
+function Get-DescendantProcessIds {
+    param([Parameter(Mandatory = $true)][int]$RootProcessId)
+
+    try {
+        $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+    } catch {
+        return @()
+    }
+
+    $pending = [System.Collections.Generic.Queue[int]]::new()
+    $descendants = [System.Collections.Generic.List[int]]::new()
+    $pending.Enqueue($RootProcessId)
+    while ($pending.Count -gt 0) {
+        $parentId = $pending.Dequeue()
+        foreach ($process in $processes | Where-Object { [int]$_.ParentProcessId -eq $parentId }) {
+            $processId = [int]$process.ProcessId
+            if ($processId -ne $RootProcessId -and -not $descendants.Contains($processId)) {
+                $descendants.Add($processId)
+                $pending.Enqueue($processId)
+            }
+        }
+    }
+    return @($descendants)
+}
+
 function Stop-ManagedProcesses {
     for ($index = $script:Children.Count - 1; $index -ge 0; $index--) {
         $child = $script:Children[$index]
+        $rootProcessId = $child.Process.Id
+        $descendantIds = @(Get-DescendantProcessIds -RootProcessId $rootProcessId | Sort-Object -Descending)
+        foreach ($processId in $descendantIds) {
+            Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+        }
+        Stop-Process -Id $rootProcessId -Force -ErrorAction SilentlyContinue
         if (-not $child.Process.HasExited) {
-            & taskkill.exe /PID $child.Process.Id /T /F *> $null
+            & taskkill.exe /PID $rootProcessId /T /F *> $null
         }
     }
     $script:Children.Clear()
@@ -370,12 +512,20 @@ function Invoke-Launch {
     } else {
         Write-Ok 'Application environments are ready; skipped dependency installation.'
     }
-    Invoke-FrontendBuild
+    $alwaysRebuild = Get-BooleanEnvironmentValue -Name 'ALWAYS_REBUILD' -Default $true
+    if ($alwaysRebuild -or -not (Test-Path -LiteralPath $script:FrontendDistIndex)) {
+        if (-not $alwaysRebuild) { Write-Info 'Frontend build output is missing; rebuilding despite ALWAYS_REBUILD=false.' }
+        Invoke-FrontendBuild
+    } else {
+        Write-Ok 'Frontend build output is ready; skipped rebuild because ALWAYS_REBUILD=false.'
+    }
 
     $backendHost = [Environment]::GetEnvironmentVariable('FASTAPI_HOST', 'Process')
     $backendPort = Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'
     $uiHost = [Environment]::GetEnvironmentVariable('UI_HOST', 'Process')
     $uiPort = Get-ConfiguredInt -Name 'UI_PORT' -Default '5173'
+    $browserBackendHost = Get-BrowserHost -HostName $backendHost
+    $browserUiHost = Get-BrowserHost -HostName $uiHost
     Assert-PortAvailable -Port $backendPort
     Assert-PortAvailable -Port $uiPort
 
@@ -384,22 +534,28 @@ function Invoke-Launch {
     $backendArguments = @('-m', 'uvicorn', 'app:create_app', '--factory', '--host', $backendHost, '--port', [string]$backendPort)
     if ([Environment]::GetEnvironmentVariable('RELOAD', 'Process') -ieq 'true') { $backendArguments += '--reload' }
     try {
-        Write-Step "Starting backend at http://$backendHost`:$backendPort"
-        Start-ManagedProcess -Name 'Backend' -FilePath $venvPython -ArgumentList $backendArguments -WorkingDirectory $script:ServerDir | Out-Null
-        $backendHealth = "http://$backendHost`:$backendPort/health"
-        if (-not (Invoke-HealthCheck -Url $backendHealth)) {
+        $backendHealth = "http://${browserBackendHost}:$backendPort/health"
+        $uiUrl = "http://${browserUiHost}:$uiPort/"
+        Write-Status -Level RUN -Message "Launching backend at $backendHealth"
+        $backendProcess = Start-ManagedProcess -Name 'Backend' -FilePath $venvPython -ArgumentList $backendArguments -WorkingDirectory $script:ServerDir
+        Write-Status -Level WAIT -Message "Waiting for backend readiness at $backendHealth"
+        if (-not (Invoke-HealthCheck -Url $backendHealth -TimeoutSeconds 60)) {
             throw "Backend did not become healthy at $backendHealth. See $($script:LogDir)."
         }
         Write-Ok 'Backend is healthy.'
 
-        Write-Step "Starting frontend at http://$uiHost`:$uiPort"
-        Start-ManagedProcess -Name 'Frontend' -FilePath $npm -ArgumentList @('run', 'preview', '--', '--host', $uiHost, '--port', [string]$uiPort, '--strictPort') -WorkingDirectory $script:ClientDir | Out-Null
-        $uiUrl = "http://$uiHost`:$uiPort/"
-        if (-not (Invoke-HealthCheck -Url $uiUrl)) {
+        Write-Status -Level RUN -Message "Launching frontend preview at $uiUrl"
+        $frontendProcess = Start-ManagedProcess -Name 'Frontend' -FilePath $npm -ArgumentList @('run', 'preview', '--', '--host', $uiHost, '--port', [string]$uiPort, '--strictPort') -WorkingDirectory $script:ClientDir
+        Write-Status -Level WAIT -Message "Waiting for frontend readiness at $uiUrl"
+        if (-not (Invoke-HealthCheck -Url $uiUrl -TimeoutSeconds 60)) {
             throw "Frontend did not become ready at $uiUrl. See $($script:LogDir)."
         }
         Write-Ok 'Frontend is ready.'
-        Write-Host "NeuroWeave is running. Backend: $backendHealth | Frontend: $uiUrl" -ForegroundColor Green
+        Open-ApplicationBrowser -Uri $uiUrl
+        Write-Status -Level SUCCESS -Message 'NeuroWeave Studio is running.'
+        Write-Host "  Backend:  $backendHealth (PID $($backendProcess.Id))"
+        Write-Host "  Frontend: $uiUrl (PID $($frontendProcess.Id))"
+        Write-Host "  Logs:     $($script:LogDir)" -ForegroundColor DarkGray
         Write-Host 'Press Ctrl+C to stop both services cleanly.' -ForegroundColor DarkGray
 
         while ($true) {
@@ -415,17 +571,30 @@ function Invoke-Launch {
     }
 }
 
+function Read-InstallationType {
+    Write-Host '  [1] Development - include Ruff, Pyright, and pytest' -ForegroundColor White
+    Write-Host '  [2] Standard    - install runtime dependencies only' -ForegroundColor White
+    $selection = (Read-Host '  Select installation profile [1-2]').Trim()
+    switch ($selection) {
+        '1' { return 'Development' }
+        '2' { return 'Standard' }
+        default { throw 'Select an installation profile from 1 or 2.' }
+    }
+}
+
 function Invoke-Install {
+    param([switch]$PromptForInstallationType)
+
     Ensure-PortableRuntimes
     Import-DotEnv
+    $selectedInstallationType = $InstallationType
+    if ($PromptForInstallationType) { $selectedInstallationType = Read-InstallationType }
     $backendExtras = if ([string]::IsNullOrWhiteSpace($Backends)) { Read-BackendSelection } else {
-        $requested = @($Backends -split ',' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
-        if ($requested -contains 'none') { $requested = @() }
-        $invalid = @($requested | Where-Object { $_ -notin @('tensorflow', 'pytorch', 'jax') })
-        if ($invalid.Count) { throw "Unknown execution backend(s): $($invalid -join ', ')." }
-        @($requested | Select-Object -Unique)
+        @(ConvertTo-BackendExtras -Selection $Backends)
     }
-    Sync-Dependencies -IncludeTests -BackendExtras $backendExtras -ExplicitBackendSet
+    $includeTests = $selectedInstallationType -eq 'Development'
+    Write-Status -Level INFO -Message "Installation profile: $selectedInstallationType"
+    Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $backendExtras -ExplicitBackendSet
     Invoke-FrontendBuild
 }
 
@@ -493,6 +662,92 @@ function Invoke-TestSuite {
     Write-Ok 'Validation suite completed.'
 }
 
+function Invoke-RemoveApplicationLogs {
+    if (-not (Test-Path -LiteralPath $script:LogDir)) {
+        Write-Info "Log directory does not exist: $($script:LogDir)"
+        return
+    }
+    $logs = @(Get-ChildItem -LiteralPath $script:LogDir -Filter '*.log' -File -ErrorAction SilentlyContinue)
+    if ($logs.Count -eq 0) {
+        Write-Info 'No application log files found.'
+        return
+    }
+    Write-Status -Level STEP -Message "Removing $($logs.Count) application log file(s)."
+    $logs | Remove-Item -Force
+    Write-Status -Level SUCCESS -Message "Removed $($logs.Count) application log file(s)."
+}
+
+function Remove-PythonCaches {
+    $roots = @(
+        $script:ServerDir,
+        $script:ScriptsDir,
+        (Join-Path $script:AppDir 'tests')
+    )
+    $cachePaths = @()
+    foreach ($root in $roots) {
+        if (Test-Path -LiteralPath $root) {
+            $cachePaths += @(Get-ChildItem -LiteralPath $root -Directory -Filter '__pycache__' -Recurse -Force -ErrorAction SilentlyContinue)
+        }
+    }
+    $cachePaths = @($cachePaths | Sort-Object FullName -Descending -Unique)
+    foreach ($cachePath in $cachePaths) {
+        Remove-Item -LiteralPath $cachePath.FullName -Recurse -Force
+    }
+    return [int]$cachePaths.Count
+}
+
+function Invoke-ClearApplicationCache {
+    Write-Status -Level STEP -Message 'Removing Python bytecode and the repository-local uv cache.'
+    $pythonCacheCount = Remove-PythonCaches
+    $uvCache = Join-Path $script:RuntimeDir '.uv-cache'
+    $uvCacheRemoved = $false
+    if (Test-Path -LiteralPath $uvCache) {
+        Remove-Item -LiteralPath $uvCache -Recurse -Force
+        $uvCacheRemoved = $true
+    }
+    Write-Status -Level SUCCESS -Message "Caches cleared ($pythonCacheCount Python cache director$(if ($pythonCacheCount -eq 1) { 'y' } else { 'ies' })$(if ($uvCacheRemoved) { ' and uv cache' } else { '' }))."
+}
+
+function Confirm-LauncherAction {
+    param(
+        [Parameter(Mandatory = $true)][string]$Prompt,
+        [Parameter(Mandatory = $true)][string]$Confirmation
+    )
+
+    if ([Console]::IsInputRedirected) {
+        throw "The destructive action requires an interactive console. Type $Confirmation when prompted."
+    }
+    $response = [string](Read-Host $Prompt)
+    return $response.Trim() -ceq $Confirmation
+}
+
+function Invoke-UninstallApplication {
+    if (-not (Confirm-LauncherAction -Prompt 'This removes runtimes, dependencies, and build output. Type UNINSTALL to continue' -Confirmation 'UNINSTALL')) {
+        Write-Warn 'Uninstall cancelled. Settings, lockfiles, database files, and exports were preserved.'
+        return
+    }
+
+    $targets = @(
+        $script:PythonDir,
+        $script:UvDir,
+        $script:NodeDir,
+        (Join-Path $script:RuntimeDir '.uv-cache'),
+        $script:VenvDir,
+        (Join-Path $script:ClientDir 'node_modules'),
+        (Join-Path $script:ClientDir 'dist')
+    )
+    Write-Status -Level STEP -Message 'Removing generated runtimes, dependencies, and frontend build output.'
+    foreach ($target in $targets) {
+        if (Test-Path -LiteralPath $target) {
+            Write-Info "Removing $target"
+            Remove-Item -LiteralPath $target -Recurse -Force
+        }
+    }
+    $pythonCacheCount = Remove-PythonCaches
+    New-Item -ItemType Directory -Path $script:RuntimeDir -Force | Out-Null
+    Write-Status -Level SUCCESS -Message "Application dependencies removed. Settings, lockfiles, database files, exports, and $pythonCacheCount Python cache director$(if ($pythonCacheCount -eq 1) { 'y' } else { 'ies' }) were preserved or cleared."
+}
+
 if ($Action -ne 'Menu') {
     try {
         switch ($Action) {
@@ -500,6 +755,9 @@ if ($Action -ne 'Menu') {
             'Launch' { Invoke-Launch }
             'InitDb' { Invoke-DatabaseInitialization }
             'Test' { Invoke-TestSuite }
+            'CleanLogs' { Invoke-RemoveApplicationLogs }
+            'ClearCache' { Invoke-ClearApplicationCache }
+            'Uninstall' { Invoke-UninstallApplication }
         }
     } catch {
         Write-Fatal $_.Exception.Message
@@ -508,34 +766,92 @@ if ($Action -ne 'Menu') {
     exit 0
 }
 
-function Show-Menu {
+function Wait-ForMenuReturn {
+    if ([Console]::IsInputRedirected) { return }
     Write-Host
-    Write-Host 'NeuroWeave Studio' -ForegroundColor Cyan
-    Write-Host 'Local workspace control center' -ForegroundColor DarkGray
+    Write-Host '  Press any key to return to the menu...' -ForegroundColor DarkGray
+    try { [Console]::ReadKey($true) | Out-Null } catch { }
+}
+
+function Clear-MenuScreen {
+    if ([Console]::IsOutputRedirected) { return }
+    try { Clear-Host } catch { }
+}
+
+function Write-MenuRule {
+    param([string]$Character = '-')
+
+    Write-Host "  $($Character * 61)" -ForegroundColor DarkCyan
+}
+
+function Write-MenuOption {
+    param(
+        [Parameter(Mandatory = $true)][string]$Number,
+        [Parameter(Mandatory = $true)][string]$Label,
+        [Parameter(Mandatory = $true)][string]$Description,
+        [switch]$Destructive,
+        [switch]$Exit
+    )
+
+    $numberColor = if ($Destructive) { 'Yellow' } elseif ($Exit) { 'DarkGray' } else { 'Cyan' }
+    $labelColor = if ($Destructive) { 'Yellow' } elseif ($Exit) { 'Gray' } else { 'White' }
+    Write-Host "  [$Number] " -ForegroundColor $numberColor -NoNewline
+    Write-Host $Label.PadRight(35) -ForegroundColor $labelColor -NoNewline
+    Write-Host $Description -ForegroundColor DarkGray
+}
+
+function Show-LauncherMenu {
+    Clear-MenuScreen
     Write-Host
-    Write-Host '  [1] Launch application' -ForegroundColor White
-    Write-Host '  [2] Install or repair dependencies' -ForegroundColor White
-    Write-Host '  [3] Initialize or recreate database' -ForegroundColor White
-    Write-Host '  [4] Run validation suite' -ForegroundColor White
-    Write-Host '  [5] Exit' -ForegroundColor White
+    Write-MenuRule
+    Write-Host '  NEUROWEAVE STUDIO' -ForegroundColor Cyan -NoNewline
+    Write-Host '  /  LOCAL WORKSPACE' -ForegroundColor White
+    Write-Host '  Visual machine-learning architecture editor' -ForegroundColor DarkGray
+    Write-MenuRule
+    Write-Host
+    Write-Host '  APPLICATION' -ForegroundColor DarkCyan
+    Write-MenuOption -Number '1' -Label 'Launch application' -Description 'Start local backend and frontend services'
+    Write-Host
+    Write-Host '  SETUP & VALIDATION' -ForegroundColor DarkCyan
+    Write-MenuOption -Number '2' -Label 'Install or repair dependencies' -Description 'Choose profile, runtimes, and backend extras'
+    Write-MenuOption -Number '3' -Label 'Initialize or recreate database' -Description 'Create schema or confirm a destructive reset'
+    Write-MenuOption -Number '4' -Label 'Run validation suite' -Description 'Run backend and frontend quality gates'
+    Write-Host
+    Write-Host '  MAINTENANCE' -ForegroundColor DarkCyan
+    Write-MenuOption -Number '5' -Label 'Remove logs' -Description 'Clear generated application logs'
+    Write-MenuOption -Number '6' -Label 'Clear cache' -Description 'Remove Python bytecode and uv cache'
+    Write-MenuOption -Number '7' -Label 'Uninstall application' -Description 'Remove dependencies and build output' -Destructive
+    Write-Host
+    Write-MenuRule
+    Write-MenuOption -Number '8' -Label 'Exit' -Description 'Close this launcher' -Exit
+    Write-MenuRule
+    Write-Host
 }
 
 while ($true) {
-    Show-Menu
-    $rawSelection = Read-Host 'Select an option [1-5]'
+    Show-LauncherMenu
+    $rawSelection = Read-Host '  Select an option (1-8)'
     if ($null -eq $rawSelection) { break }
     $selection = ([string]$rawSelection).Trim()
-    if ($selection -eq '5') { break }
+    if ($selection -notmatch '^[1-8]$') {
+        Write-Warn 'Invalid option. Enter a number from 1 to 8.'
+        Wait-ForMenuReturn
+        continue
+    }
+    if ($selection -eq '8') { break }
     try {
         switch ($selection) {
             '1' { Invoke-Launch }
-            '2' { Invoke-Install }
+            '2' { Invoke-Install -PromptForInstallationType }
             '3' { Invoke-DatabaseInitialization }
             '4' { Invoke-TestSuite }
-            default { throw 'Select a number from 1 through 5.' }
+            '5' { Invoke-RemoveApplicationLogs }
+            '6' { Invoke-ClearApplicationCache }
+            '7' { Invoke-UninstallApplication }
         }
     } catch {
         Write-Fatal $_.Exception.Message
+        if ([Console]::IsInputRedirected) { exit 1 }
     }
-    Write-Host
+    Wait-ForMenuReturn
 }
