@@ -157,7 +157,7 @@ export interface MetadataResponse {
   version: string
   schema_version: number
   code_targets: CodeTarget[]
-  execution_backends: Array<{ id: ExecutionBackend; available: boolean; reason_code?: string | null }>
+  execution_backends: ExecutionBackendStatus[]
   configuration: {
     optimizers: string[]
     losses: string[]
@@ -165,6 +165,39 @@ export interface MetadataResponse {
     initializers: string[]
     regularizers: string[]
   }
+}
+
+export interface ExecutionBackendStatus {
+  id: ExecutionBackend
+  available: boolean
+  reason_code?: string | null
+  accelerator?: string | null
+  device_name?: string | null
+}
+
+export interface TensorExecutionInfo {
+  node_id: string
+  shape: number[]
+  dtype: string
+}
+
+export interface SmokeTestResponse {
+  status: 'succeeded'
+  execution_backend: ExecutionBackend
+  accelerator: string
+  device_name: string
+  inputs: TensorExecutionInfo[]
+  outputs: TensorExecutionInfo[]
+  parameter_count: number
+  duration_ms: number
+}
+
+export interface SmokeTestErrorDetail {
+  code: string
+  message: string
+  backend?: string
+  reason_code?: string
+  diagnostics?: ValidationDiagnostic[]
 }
 
 export interface EditorNodeData extends Record<string, unknown> {

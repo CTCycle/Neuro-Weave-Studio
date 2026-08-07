@@ -38,6 +38,12 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "'Install' { Invoke-Install }" in source
     assert "[string]$Backends" in source
     assert "Get-InstalledExecutionBackends" in source
+    assert "Get-NvidiaCudaInfo" in source
+    assert "torch-cu126" in source
+    assert "[string]$Acceleration" in source
+    assert "Invoke-OptionalBackendSetup" in source
+    assert "backend-installation.json" in source
+    assert "--locked" in source
     assert "Read-InstallationType" in source
     assert "ALWAYS_REBUILD" in source
     assert "'CleanLogs' { Invoke-RemoveApplicationLogs }" in source

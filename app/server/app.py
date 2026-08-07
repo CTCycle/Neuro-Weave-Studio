@@ -10,13 +10,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import catalog, compilation, exports, health, metadata, projects, validation
+from api.routes import (
+    catalog,
+    compilation,
+    execution,
+    exports,
+    health,
+    metadata,
+    projects,
+    validation,
+)
 from common import path as common_path
 from common.catalogs.loader import get_node_catalog
 from common.logging_config import configure_logging
 from configurations.settings import Settings, get_database_settings, get_settings
 from models.keras_backend_runner import KerasBackendRunner
 from repositories.session import create_repository_context
+
 
 ###############################################################################
 @asynccontextmanager
@@ -86,6 +96,7 @@ def create_app() -> FastAPI:
     application.include_router(projects.router)
     application.include_router(validation.router)
     application.include_router(compilation.router)
+    application.include_router(execution.router)
     application.include_router(exports.router)
 
     if _client_build_available():

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import subprocess
@@ -7,6 +8,7 @@ import sys
 import time
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 from domain.enums import ExecutionBackend, keras_backend_value
 from domain.graph import ModelGraph
@@ -35,14 +37,25 @@ class KerasBackendRunner:
             started = time.perf_counter()
             try:
                 result = self._run_worker(backend, ("--probe",), input_text=None)
+                capabilities = self._parse_probe_output(result)
                 expected = keras_backend_value(backend)
-                available = result.returncode == 0 and result.stdout.strip() == expected
-                reason = None if available else self._reason_code(result)
+                available = bool(
+                    result.returncode == 0
+                    and capabilities.get("backend") == expected
+                    and capabilities.get("available", True)
+                )
+                reason = None if available else str(capabilities.get("reason_code") or self._reason_code(result))
             except (OSError, subprocess.SubprocessError):
                 available = False
                 reason = "worker_failed"
+                capabilities = {}
             duration_ms = round((time.perf_counter() - started) * 1000, 1)
-            statuses[backend] = {"available": available, "reason_code": reason}
+            statuses[backend] = {
+                "available": available,
+                "reason_code": reason,
+                "accelerator": capabilities.get("accelerator") if available else None,
+                "device_name": capabilities.get("device_name") if available else None,
+            }
             LOGGER.info(
                 "backend_probe requested=%s worker_backend=%s duration_ms=%s outcome=%s",
                 backend.value,
@@ -80,6 +93,35 @@ class KerasBackendRunner:
         return destination
 
     # -------------------------------------------------------------------------
+    def smoke_test(self, graph: ModelGraph, backend: ExecutionBackend) -> dict[str, object]:
+        started = time.perf_counter()
+        result = self._run_worker(
+            backend,
+            ("--smoke-test",),
+            input_text=graph.model_dump_json(),
+        )
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip()
+            raise RuntimeError(detail or "Keras inference worker failed without a diagnostic")
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Keras inference worker returned invalid metadata") from exc
+        if not isinstance(payload, dict):
+            raise RuntimeError("Keras inference worker did not report a successful smoke test")
+        payload = cast(dict[str, object], payload)
+        if payload.get("status") != "succeeded":
+            raise RuntimeError("Keras inference worker did not report a successful smoke test")
+        payload["duration_ms"] = round((time.perf_counter() - started) * 1000, 1)
+        LOGGER.info(
+            "backend_execution requested=%s worker_backend=%s duration_ms=%s outcome=smoke_test",
+            backend.value,
+            keras_backend_value(backend),
+            payload["duration_ms"],
+        )
+        return payload
+
+    # -------------------------------------------------------------------------
     @staticmethod
     def _reason_code(result: subprocess.CompletedProcess[str]) -> str:
         detail = (result.stderr or "").lower()
@@ -88,6 +130,15 @@ class KerasBackendRunner:
         if "backend" in detail:
             return "backend_import_failed"
         return "probe_failed"
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _parse_probe_output(result: subprocess.CompletedProcess[str]) -> dict[str, object]:
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return {"backend": result.stdout.strip()}
+        return cast(dict[str, object], payload) if isinstance(payload, dict) else {}
 
     # -------------------------------------------------------------------------
     def _run_worker(

@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import json
 import sys
+import time
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -248,25 +252,125 @@ def _build_model(graph: ModelGraph) -> keras.Model:
         elif definition.startswith("output."):
             tensors[node_id] = source
         else:
-            raise RuntimeError(f"Binary export does not support node {definition}")
+            raise RuntimeError(f"Keras worker does not support node {definition}")
 
     inputs = [tensors[node.id] for node in graph.nodes if node.definition_id.startswith("input.")]
     outputs = [tensors[node.id] for node in graph.nodes if node.definition_id.startswith("output.")]
     return keras.Model(inputs=inputs, outputs=outputs, name="neuro_weave_model")
 
 ###############################################################################
+def _backend_capabilities() -> dict[str, object]:
+    backend = str(keras.backend.backend())
+    accelerator = "cpu"
+    device_name = "CPU"
+    if backend == "torch":
+        torch = import_module("torch")
+
+        if bool(torch.cuda.is_available()):
+            accelerator = "cuda"
+            device_name = str(torch.cuda.get_device_name(0))
+    elif backend == "tensorflow":
+        tf = import_module("tensorflow")
+
+        devices = tf.config.list_physical_devices("GPU")
+        if devices:
+            accelerator = "cuda"
+            device_name = str(devices[0].name)
+    elif backend == "jax":
+        jax = import_module("jax")
+
+        devices = list(jax.devices())
+        if devices:
+            platform = str(devices[0].platform)
+            if platform not in {"cpu", ""}:
+                accelerator = platform
+            device_name = str(devices[0])
+    return {
+        "backend": backend,
+        "available": True,
+        "accelerator": accelerator,
+        "device_name": device_name,
+    }
+
+###############################################################################
+def _concrete_shape(tensor: Any) -> list[int]:
+    shape = getattr(tensor, "shape", ())
+    result: list[int] = []
+    for dimension in shape:
+        try:
+            value = int(dimension)
+        except (TypeError, ValueError):
+            value = 1
+        result.append(value if value > 0 else 1)
+    return result
+
+###############################################################################
+def _dtype_name(tensor: Any) -> str:
+    dtype = getattr(tensor, "dtype", "float32")
+    name = str(getattr(dtype, "name", dtype))
+    return name.rsplit(".", 1)[-1]
+
+###############################################################################
+def _smoke_test(graph: ModelGraph) -> dict[str, object]:
+    started = time.perf_counter()
+    capabilities = _backend_capabilities()
+    use_gpu = capabilities.get("accelerator") in {"cuda", "gpu", "rocm"}
+    device_scope = keras.device("gpu:0") if use_gpu else contextlib.nullcontext()
+    with device_scope:
+        model = _build_model(graph)
+        input_values = [
+            keras.ops.zeros(_concrete_shape(tensor), dtype=_dtype_name(tensor))
+            for tensor in model.inputs
+        ]
+        model_input: Any = input_values[0] if len(input_values) == 1 else input_values
+        output_values = model(model_input, training=False)
+
+    actual_outputs = list(output_values) if isinstance(output_values, (list, tuple)) else [output_values]
+    input_nodes = [node for node in graph.nodes if node.definition_id.startswith("input.")]
+    output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
+    inputs = [
+        {
+            "node_id": node.id,
+            "shape": _concrete_shape(tensor),
+            "dtype": _dtype_name(tensor),
+        }
+        for node, tensor in zip(input_nodes, input_values, strict=False)
+    ]
+    outputs = [
+        {
+            "node_id": node.id,
+            "shape": _concrete_shape(tensor),
+            "dtype": _dtype_name(tensor),
+        }
+        for node, tensor in zip(output_nodes, actual_outputs, strict=False)
+    ]
+    return {
+        "status": "succeeded",
+        "accelerator": capabilities["accelerator"],
+        "device_name": capabilities["device_name"],
+        "inputs": inputs,
+        "outputs": outputs,
+        "parameter_count": int(model.count_params()),
+        "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+    }
+
+###############################################################################
 def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--probe", action="store_true")
+    parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--destination", type=Path)
     return parser.parse_args()
 
 ###############################################################################
 def main() -> None:
     arguments = _parse_arguments()
-    backend = keras.backend.backend()
     if arguments.probe:
-        print(backend)
+        print(json.dumps(_backend_capabilities()))
+        return
+    if arguments.smoke_test:
+        graph = ModelGraph.model_validate_json(sys.stdin.read())
+        print(json.dumps(_smoke_test(graph)))
         return
     if arguments.destination is None:
         raise RuntimeError("A destination is required for binary export")

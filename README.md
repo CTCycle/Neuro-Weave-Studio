@@ -10,6 +10,7 @@ The phrase “Django DP” in the original brief was treated as ambiguous and no
 - Drag-and-drop graph editing with typed ports, pan, zoom, minimap, selection, deletion, copy and paste, undo and redo, and automatic layout.
 - Client-side cycle prevention and connection checks.
 - Backend DAG validation, port validation, parameter validation, compatibility diagnostics, and representative tensor-shape propagation.
+- Inference-only model smoke tests with generated dummy tensors, isolated Keras workers, tensor metadata, parameter counts, and actionable runtime errors.
 - SQLite project persistence with immutable revision snapshots.
 - Project create, save, reopen, duplicate, delete, JSON import, and JSON export.
 - Keras, TensorFlow through Keras, and PyTorch source generation for the documented supported subset.
@@ -47,7 +48,7 @@ The launcher menu provides these actions:
 
 The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, opens the frontend in the default browser when possible, and owns both child processes until Ctrl+C. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening. Set `ALWAYS_REBUILD=false` in `settings/.env` to reuse an existing frontend build when `app/client/dist/index.html` is present.
 
-`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/runtime/neuro_weave.db`. Existing databases must contain the canonical schema marker; use the explicit reset action to recreate a local database from scratch when needed. Keras is core; the launcher install menu selects Keras-only, TensorFlow, Torch, or both runtime extras.
+`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/runtime/neuro_weave.db`. Existing databases must contain the canonical schema marker; use the explicit reset action to recreate a local database from scratch when needed. Keras is core; the launcher selects a hardware-aware PyTorch install by default, supports `-Backends all` for TensorFlow, PyTorch, and JAX, and reports native-Windows CPU limitations for TensorFlow/JAX.
 
 ## Manual setup
 
@@ -89,10 +90,12 @@ npm run build
 
 ```bash
 cd app/server
-uv sync --extra test --extra tensorflow  # or --extra torch, or both
+uv sync --extra test --extra tensorflow  # or --extra torch-cpu / --extra torch-cu126
 ```
 
-Keras is the model API layer and TensorFlow/Torch are runtime backends. The editor discovers operational backends, auto-selects the only available backend, and requires a selector choice when several are installed. Binary export creates an initialized but untrained `.keras` model. It is not a trained model, does not contain learned weights, and supports only the explicitly documented subset. With no installed backend, export is disabled and the API returns 501 for a valid unavailable-backend request.
+Keras is the model API layer and TensorFlow/Torch are runtime backends. The editor discovers operational backends, auto-selects the only available backend, and requires a selector choice when several are installed. Binary export creates an initialized but untrained `.keras` model. It is not a trained model, does not contain learned weights, and supports only the explicitly documented subset. With no installed backend, export is disabled and the API returns a structured 409 for a valid unavailable-backend request.
+
+The **Smoke test** button in the model toolbar is a dry run: it validates the current graph, generates compatible zero-filled inputs, runs one inference pass, and reports tensor shapes, dtype, parameter count, device, and status. It never trains or updates weights.
 
 ## Examples
 

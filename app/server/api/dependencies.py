@@ -12,10 +12,12 @@ from repositories.contracts import UnitOfWorkFactory
 from repositories.session import RepositoryContext
 from services.catalog_service import CatalogService
 from services.compilation_service import CompilationService
+from services.execution_service import ExecutionService
 from services.export_service import ExportService
 from services.project_service import ProjectService
 from services.runtime_service import RuntimeService
 from services.validation_service import ValidationService
+
 
 ###############################################################################
 def get_catalog(request: Request) -> NodeCatalog:
@@ -96,3 +98,11 @@ def get_export_service(
         ),
         settings=settings,
     )
+
+###############################################################################
+def get_execution_service(
+    catalog: NodeCatalog = Depends(get_catalog),
+    backend_runner: KerasBackendRunner = Depends(get_backend_runner),
+    backend_statuses: dict[ExecutionBackend, dict[str, object]] = Depends(get_backend_statuses),
+) -> ExecutionService:
+    return ExecutionService(catalog, backend_runner, backend_statuses)

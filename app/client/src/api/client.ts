@@ -9,6 +9,7 @@ import type {
   ProjectSummary,
   CodeTarget,
   ValidationResult,
+  SmokeTestResponse,
 } from '../domain/types'
 
 const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//
@@ -27,10 +28,19 @@ function normalizeApiBase(rawValue: string | undefined): string {
 
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE_URL)
 
-class ApiError extends Error {
-  constructor(public status: number, message: string) {
+export class ApiError extends Error {
+  constructor(public status: number, message: string, public detail: unknown = null) {
     super(message)
+    this.name = 'ApiError'
   }
+}
+
+function errorMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === 'object' && detail !== null && 'message' in detail) {
+    const message = (detail as { message?: unknown }).message
+    if (typeof message === 'string') return message
+  }
+  return typeof detail === 'string' ? detail : fallback
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -40,7 +50,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!response.ok) {
     const payload = await response.json().catch(() => ({ detail: response.statusText }))
-    throw new ApiError(response.status, JSON.stringify(payload.detail ?? payload))
+    const detail = payload.detail ?? payload
+    throw new ApiError(response.status, errorMessage(detail, response.statusText), detail)
   }
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
@@ -50,7 +61,8 @@ async function requestBlob(path: string, init?: RequestInit): Promise<Blob> {
   const response = await fetch(`${API_BASE}${path}`, init)
   if (!response.ok) {
     const payload = await response.json().catch(() => ({ detail: response.statusText }))
-    throw new ApiError(response.status, JSON.stringify(payload.detail ?? payload))
+    const detail = payload.detail ?? payload
+    throw new ApiError(response.status, errorMessage(detail, response.statusText), detail)
   }
   return response.blob()
 }
@@ -109,6 +121,12 @@ export const api = {
     return request('/compilation', {
       method: 'POST',
       body: JSON.stringify({ graph, code_target }),
+    })
+  },
+  smokeTest(graph: ModelGraph, execution_backend: ExecutionBackend): Promise<SmokeTestResponse> {
+    return request('/execution/smoke-test', {
+      method: 'POST',
+      body: JSON.stringify({ graph, execution_backend }),
     })
   },
   metadata(): Promise<MetadataResponse> {

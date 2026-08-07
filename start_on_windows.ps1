@@ -3,6 +3,8 @@ param(
     [ValidateSet('Menu', 'Install', 'Launch', 'InitDb', 'Test', 'CleanLogs', 'ClearCache', 'Uninstall')]
     [string]$Action = 'Menu',
     [string]$Backends = '',
+    [ValidateSet('Auto', 'CPU')]
+    [string]$Acceleration = 'Auto',
     [ValidateSet('Standard', 'Development')]
     [string]$InstallationType = 'Development',
     [switch]$NoBrowser
@@ -24,6 +26,7 @@ $script:NodeDir = Join-Path $RuntimeDir 'node'
 $script:VenvDir = Join-Path $ServerDir '.venv'
 $script:EnvironmentFile = Join-Path (Join-Path $RepoRoot 'settings') '.env'
 $script:LogDir = Join-Path $AppDir 'resources\runtime\logs'
+$script:BackendInstallState = Join-Path $AppDir 'resources\runtime\backend-installation.json'
 $script:FrontendDistIndex = Join-Path $ClientDir 'dist\index.html'
 $script:PythonVersion = '3.12.11'
 $script:UvVersion = '0.12.0'
@@ -258,11 +261,77 @@ function Get-InstalledExecutionBackends {
         } | Where-Object { $_ })
 }
 
+function Get-NvidiaCudaInfo {
+    $nvidiaSmi = Get-Command nvidia-smi -ErrorAction SilentlyContinue
+    if ($null -eq $nvidiaSmi) {
+        return [pscustomobject]@{ Available = $false; CudaVersion = $null; DeviceName = $null }
+    }
+    $rows = @(& $nvidiaSmi.Source --query-gpu=name,driver_version --format=csv,noheader 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $rows.Count -eq 0) {
+        return [pscustomobject]@{ Available = $false; CudaVersion = $null; DeviceName = $null }
+    }
+    $columns = @([string]$rows[0] -split ',') | ForEach-Object { $_.Trim() }
+    $summary = (& $nvidiaSmi.Source 2>$null) -join "`n"
+    $cudaVersion = $null
+    $cudaMatch = [regex]::Match($summary, 'CUDA(?: UMD)? Version:\s*(\d+(?:\.\d+)?)')
+    if ($cudaMatch.Success) {
+        $cudaVersion = [decimal]$cudaMatch.Groups[1].Value
+    }
+    return [pscustomobject]@{
+        Available = $true
+        CudaVersion = $cudaVersion
+        DeviceName = if ($columns.Count) { $columns[0] } else { $null }
+    }
+}
+
+function Get-PytorchBackendExtra {
+    if ($script:Acceleration -eq 'CPU') { return 'torch-cpu' }
+    $nvidia = Get-NvidiaCudaInfo
+    if ($nvidia.Available -and $null -ne $nvidia.CudaVersion -and $nvidia.CudaVersion -ge [decimal]12.6) {
+        return 'torch-cu126'
+    }
+    return 'torch-cpu'
+}
+
+function Get-BackendInstallationState {
+    if (-not (Test-Path -LiteralPath $script:BackendInstallState)) { return $null }
+    try {
+        return Get-Content -LiteralPath $script:BackendInstallState -Raw | ConvertFrom-Json
+    } catch {
+        Write-Warn 'The backend installation record is unreadable; setup will be offered again.'
+        return $null
+    }
+}
+
+function Set-BackendInstallationState {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Backends,
+        [Parameter(Mandatory = $true)][string]$Acceleration,
+        [string[]]$Failures = @()
+    )
+    New-Item -ItemType Directory -Path (Split-Path -Parent $script:BackendInstallState) -Force | Out-Null
+    [ordered]@{
+        schema_version = 1
+        backends = @($Backends)
+        acceleration = $Acceleration
+        failures = @($Failures)
+        recorded_at = [DateTime]::UtcNow.ToString('O')
+    } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $script:BackendInstallState -Encoding UTF8
+}
+
 function ConvertTo-BackendExtras {
     param([AllowEmptyString()][string]$Selection)
 
-    if ([string]::IsNullOrWhiteSpace($Selection)) { return @() }
+    if ([string]::IsNullOrWhiteSpace($Selection)) { return @('auto') }
     $requested = @($Selection -split ',' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
+    if ($requested -contains 'auto') {
+        if ($requested.Count -gt 1) { throw "The backend selection 'auto' cannot be combined with another backend." }
+        return @('auto')
+    }
+    if ($requested -contains 'all') {
+        if ($requested.Count -gt 1) { throw "The backend selection 'all' cannot be combined with another backend." }
+        return @('tensorflow', 'pytorch', 'jax')
+    }
     if ($requested -contains 'none') {
         if ($requested.Count -gt 1) {
             throw "The backend selection 'none' cannot be combined with another backend."
@@ -280,27 +349,78 @@ function ConvertTo-BackendExtras {
 function Read-BackendSelection {
     $installed = @(Get-InstalledExecutionBackends)
     Write-Host "Installed/available execution backends: $($(if ($installed.Count) { $installed -join ', ' } else { 'none' }))" -ForegroundColor DarkCyan
-    $selection = (Read-Host 'Execution backends to install (tensorflow,pytorch,jax or none)').Trim().ToLowerInvariant()
+    $nvidia = Get-NvidiaCudaInfo
+    $recommendation = if ($nvidia.Available) { 'pytorch with CUDA when supported' } else { 'pytorch CPU' }
+    Write-Host "Recommended first setup: $recommendation. Choose 'all' for TensorFlow + PyTorch + JAX, or 'none' for Keras-only." -ForegroundColor DarkGray
+    $selection = (Read-Host 'Execution backends to install (Enter=auto, all, tensorflow,pytorch,jax, or none)').Trim().ToLowerInvariant()
     return @(ConvertTo-BackendExtras -Selection $selection)
+}
+
+function Resolve-BackendExtras {
+    param([string[]]$Backends = @())
+
+    $resolved = [System.Collections.Generic.List[string]]::new()
+    foreach ($backend in @($Backends)) {
+        $normalized = ([string]$backend).Trim().ToLowerInvariant()
+        if (-not $normalized -or $normalized -eq 'none') { continue }
+        if ($normalized -eq 'auto') { $normalized = 'pytorch' }
+        $extra = if ($normalized -eq 'pytorch') { Get-PytorchBackendExtra } else { $normalized }
+        if (-not $resolved.Contains($extra)) { $resolved.Add($extra) }
+    }
+    return @($resolved)
+}
+
+function Get-BackendCapabilityReport {
+    $venvPython = Get-VenvPython
+    if (-not (Test-Path -LiteralPath $venvPython)) { return @() }
+    $backends = @(Get-InstalledExecutionBackends)
+    if ($backends.Count -eq 0) { return @() }
+    $reports = [System.Collections.Generic.List[object]]::new()
+    Push-Location $script:ServerDir
+    try {
+        foreach ($backend in $backends) {
+            $previous = [Environment]::GetEnvironmentVariable('KERAS_BACKEND', 'Process')
+            try {
+                $value = if ($backend -eq 'pytorch') { 'torch' } else { $backend }
+                $env:KERAS_BACKEND = $value
+                $raw = (& $venvPython -m models.keras_worker --probe 2>$null | Select-Object -Last 1)
+                if ($raw) {
+                    try { $reports.Add(($raw | ConvertFrom-Json)) } catch { }
+                }
+            } finally {
+                if ($null -eq $previous) { Remove-Item Env:KERAS_BACKEND -ErrorAction SilentlyContinue } else { $env:KERAS_BACKEND = $previous }
+            }
+        }
+    } finally { Pop-Location }
+    return @($reports.ToArray())
+}
+
+function Write-BackendCapabilitySummary {
+    $nvidia = Get-NvidiaCudaInfo
+    if ($nvidia.Available) {
+        Write-Info "NVIDIA GPU detected: $($nvidia.DeviceName) (CUDA driver $($nvidia.CudaVersion))."
+    } else {
+        Write-Info 'No operational NVIDIA CUDA device was detected; GPU-capable backends will use CPU fallbacks.'
+    }
+    foreach ($report in @(Get-BackendCapabilityReport)) {
+        $label = if ($report.available) { "$($report.backend) / $($report.accelerator) / $($report.device_name)" } else { "$($report.backend) / unavailable" }
+        Write-Status -Level $(if ($report.available) { 'OK' } else { 'WARN' }) -Message "Backend capability: $label"
+    }
 }
 
 function Sync-Dependencies {
     param(
         [switch]$IncludeTests,
         [string[]]$BackendExtras = @(),
-        [switch]$ExplicitBackendSet
+        [switch]$ExplicitBackendSet,
+        [switch]$SkipFrontend
     )
 
     $uv = Get-Uv
     $python = Get-PortablePython
     Set-LauncherEnvironment
     if (-not $ExplicitBackendSet) { $BackendExtras = Get-InstalledExecutionBackends }
-    $BackendExtras = @(
-        foreach ($extra in @($BackendExtras)) {
-            if ([string]::IsNullOrWhiteSpace($extra)) { continue }
-            if ($extra -eq 'pytorch') { 'torch' } else { $extra }
-        }
-    )
+    $BackendExtras = @(Resolve-BackendExtras -Backends $BackendExtras)
     $uvArguments = @('sync', '--python', $python)
     if (Test-Path -LiteralPath (Join-Path $script:ServerDir 'uv.lock')) { $uvArguments += '--locked' }
     if ($IncludeTests) { $uvArguments += @('--extra', 'test') }
@@ -312,21 +432,23 @@ function Sync-Dependencies {
         if ($LASTEXITCODE -ne 0) { throw "Backend dependency synchronization failed with exit code $LASTEXITCODE." }
     } finally { Pop-Location }
 
-    $npm = Get-Npm
-    $clientPackage = Join-Path $script:ClientDir 'package.json'
-    $clientLock = Join-Path $script:ClientDir 'package-lock.json'
-    if (-not (Test-Path -LiteralPath $clientPackage)) {
-        throw "Missing frontend package manifest: $clientPackage"
+    if (-not $SkipFrontend) {
+        $npm = Get-Npm
+        $clientPackage = Join-Path $script:ClientDir 'package.json'
+        $clientLock = Join-Path $script:ClientDir 'package-lock.json'
+        if (-not (Test-Path -LiteralPath $clientPackage)) {
+            throw "Missing frontend package manifest: $clientPackage"
+        }
+        if (-not (Test-Path -LiteralPath $clientLock)) {
+            throw "Missing frontend lockfile: $clientLock"
+        }
+        Push-Location $script:ClientDir
+        try {
+            Write-Step 'Installing frontend dependencies.'
+            & $npm ci
+            if ($LASTEXITCODE -ne 0) { throw "Frontend dependency installation failed with exit code $LASTEXITCODE." }
+        } finally { Pop-Location }
     }
-    if (-not (Test-Path -LiteralPath $clientLock)) {
-        throw "Missing frontend lockfile: $clientLock"
-    }
-    Push-Location $script:ClientDir
-    try {
-        Write-Step 'Installing frontend dependencies.'
-        & $npm ci
-        if ($LASTEXITCODE -ne 0) { throw "Frontend dependency installation failed with exit code $LASTEXITCODE." }
-    } finally { Pop-Location }
     Write-Ok 'Dependencies are ready.'
 }
 
@@ -338,6 +460,58 @@ function Invoke-FrontendBuild {
         & $npm run build
         if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE." }
     } finally { Pop-Location }
+}
+
+function Invoke-OptionalBackendSetup {
+    $state = Get-BackendInstallationState
+    if ($null -ne $state) {
+        Write-Ok 'Backend setup has already been acknowledged; skipped optional dependency installation.'
+        Write-BackendCapabilitySummary
+        return
+    }
+
+    $selection = if ([string]::IsNullOrWhiteSpace($Backends)) { @(Read-BackendSelection) } else {
+        @(ConvertTo-BackendExtras -Selection $Backends)
+    }
+    if ($selection -contains 'auto') { $selection = @('pytorch') }
+    if ($selection.Count -eq 0) {
+        Write-Info 'Keras-only mode selected. Source generation remains available; inference backends can be added later with Install.'
+        Set-BackendInstallationState -Backends @() -Acceleration $script:Acceleration
+        return
+    }
+
+    $failures = [System.Collections.Generic.List[string]]::new()
+    $successful = [System.Collections.Generic.List[string]]::new()
+    Write-Step "Installing selected execution backends independently: $($selection -join ', ')."
+    foreach ($backend in @($selection)) {
+        $candidate = @($successful.ToArray()) + @($backend)
+        try {
+            Sync-Dependencies -BackendExtras $candidate -ExplicitBackendSet -SkipFrontend
+            $successful.Add($backend)
+        } catch {
+            $message = $_.Exception.Message
+            if ($backend -eq 'pytorch' -and (Get-PytorchBackendExtra) -eq 'torch-cu126') {
+                Write-Warn 'PyTorch CUDA installation failed; retrying that backend with the CPU wheel.'
+                try {
+                    $script:Acceleration = 'CPU'
+                    Sync-Dependencies -BackendExtras (@($successful.ToArray()) + @($backend)) -ExplicitBackendSet -SkipFrontend
+                    $successful.Add($backend)
+                    Write-Ok 'PyTorch CPU fallback installed.'
+                    continue
+                } catch {
+                    $message = $_.Exception.Message
+                }
+            }
+            $failures.Add("${backend}: $message")
+            Write-Warn "Optional backend '$backend' was skipped: $message"
+        }
+    }
+    Sync-Dependencies -BackendExtras @($successful.ToArray()) -ExplicitBackendSet
+    if ($failures.Count -gt 0) {
+        Write-Warn "Continuing with the core application. Failed optional backend(s): $($failures -join '; ')"
+    }
+    Set-BackendInstallationState -Backends $selection -Acceleration $script:Acceleration -Failures @($failures.ToArray())
+    Write-BackendCapabilitySummary
 }
 
 function Test-DependenciesReady {
@@ -512,6 +686,7 @@ function Invoke-Launch {
     } else {
         Write-Ok 'Application environments are ready; skipped dependency installation.'
     }
+    Invoke-OptionalBackendSetup
     $alwaysRebuild = Get-BooleanEnvironmentValue -Name 'ALWAYS_REBUILD' -Default $true
     if ($alwaysRebuild -or -not (Test-Path -LiteralPath $script:FrontendDistIndex)) {
         if (-not $alwaysRebuild) { Write-Info 'Frontend build output is missing; rebuilding despite ALWAYS_REBUILD=false.' }
@@ -595,6 +770,9 @@ function Invoke-Install {
     $includeTests = $selectedInstallationType -eq 'Development'
     Write-Status -Level INFO -Message "Installation profile: $selectedInstallationType"
     Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $backendExtras -ExplicitBackendSet
+    $effectiveBackends = if ($backendExtras -contains 'auto') { @('pytorch') } else { @($backendExtras) }
+    Set-BackendInstallationState -Backends $effectiveBackends -Acceleration $script:Acceleration
+    Write-BackendCapabilitySummary
     Invoke-FrontendBuild
 }
 
@@ -734,7 +912,8 @@ function Invoke-UninstallApplication {
         (Join-Path $script:RuntimeDir '.uv-cache'),
         $script:VenvDir,
         (Join-Path $script:ClientDir 'node_modules'),
-        (Join-Path $script:ClientDir 'dist')
+        (Join-Path $script:ClientDir 'dist'),
+        $script:BackendInstallState
     )
     Write-Status -Level STEP -Message 'Removing generated runtimes, dependencies, and frontend build output.'
     foreach ($target in $targets) {

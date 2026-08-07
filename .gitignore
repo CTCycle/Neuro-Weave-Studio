@@ -26,6 +26,7 @@ app/resources/runtime/
 assets/QA/
 runtimes/
 *.lock
+!app/server/uv.lock
 
 # Model binaries and weights
 *.keras
