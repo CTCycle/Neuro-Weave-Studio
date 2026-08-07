@@ -12,6 +12,8 @@ The model catalog is the application home at `/models`. It is a library of persi
 - `/models/:modelId/inference` contains the saved-graph smoke test and retains the explicit no-training/no-weight-updates message.
 - Training remains a disabled planned card only; it has no route, schema, or backend contract.
 
+Workspace management actions are deliberately explicit: JSON export downloads the persisted bundle, duplicate opens the new model workspace, and deletion requires an in-app confirmation dialog. Generated-source copy reports success or clipboard unavailability and includes a document fallback for browser contexts without the Clipboard API.
+
 Catalog/workspace data is separate from the editable Zustand graph store. The store is initialized only for Builder routes, while workspace previews use the existing node visuals and drafting-board styling in a read-only XYFlow canvas. Builder navigation is guarded by a baseline of the last loaded or saved graph and metadata; users can stay or discard changes before leaving.
 
 The application shell keeps Models and Model Builder in the primary navigation and reuses the existing cards, notices, drawers, controls, typography, and responsive conventions. Below 1024px, Builder retains the compact Catalog/Inspector drawer behavior rather than introducing a second visual language.
