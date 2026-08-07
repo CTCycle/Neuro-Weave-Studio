@@ -21,6 +21,8 @@ EXPECTED_SCHEMAS = {
     "CompilationResult",
     "SourceExportResponse",
     "KerasBinaryExportRequest",
+    "SmokeTestRequest",
+    "SmokeTestResponse",
 }
 
 ###############################################################################
@@ -86,4 +88,9 @@ def test_openapi_uses_named_schemas_for_stable_contracts() -> None:
     binary_body = paths["/api/exports/{project_id}/keras-model"]["post"]["requestBody"]
     assert binary_body["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/KerasBinaryExportRequest"
+    }
+    smoke_body = paths["/api/execution/smoke-test"]["post"]
+    assert _response_schema(smoke_body) == {"$ref": "#/components/schemas/SmokeTestResponse"}
+    assert smoke_body["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/SmokeTestRequest"
     }

@@ -22,6 +22,7 @@ function renderToolbar(backendStatuses: Array<{ id: ExecutionBackend; available:
       onOpen={vi.fn()}
       onDuplicate={vi.fn()}
       onValidate={vi.fn()}
+      onSmokeTestOpen={vi.fn()}
       onCode={vi.fn()}
       onExport={vi.fn()}
       onBinaryExport={vi.fn()}
@@ -52,7 +53,7 @@ describe('ProjectToolbar execution backend selector', () => {
       { id: 'jax', available: false, reason_code: 'dependency_missing' },
     ], 'tensorflow')
     expect(screen.getByRole('combobox', { name: 'Execution backend' })).toBeEnabled()
-    expect(screen.getByRole('option', { name: 'tensorflow' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /tensorflow/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Export .keras' })).toBeEnabled()
   })
 
@@ -63,8 +64,8 @@ describe('ProjectToolbar execution backend selector', () => {
       { id: 'jax', available: false, reason_code: 'dependency_missing' },
     ], null)
     expect(screen.getByRole('combobox', { name: 'Execution backend' })).toHaveValue('')
-    expect(screen.getByRole('option', { name: 'tensorflow' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'pytorch' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /tensorflow/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /pytorch/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Export .keras' })).toBeDisabled()
   })
 })

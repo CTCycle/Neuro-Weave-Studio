@@ -12,6 +12,7 @@ from domain.metadata import (
     MetadataResponse,
 )
 
+
 ###############################################################################
 class RuntimeService:
 
@@ -36,6 +37,8 @@ class RuntimeService:
                     id=backend,
                     available=bool(status.get("available")),
                     reason_code=(str(status.get("reason_code")) if status.get("reason_code") else None),
+                    accelerator=(str(status.get("accelerator")) if status.get("accelerator") else None),
+                    device_name=(str(status.get("device_name")) if status.get("device_name") else None),
                 )
                 for backend, status in self._backend_statuses.items()
             ],
