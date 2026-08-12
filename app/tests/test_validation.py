@@ -13,7 +13,7 @@ def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
         nodes=[
             make_node("input", "input.tabular", {"shape": [None, 20], "dtype": "float32"}),
             make_node("dense", "layer.dense", {"units": 3, "activation": "softmax", "use_bias": True}),
-            make_node("output", "output.classification", {"name": "prediction"}),
+            make_node("output", "output.classification"),
         ],
         edges=[
             EdgeInstance(id="e1", source_node_id="input", source_port_id="output", target_node_id="dense", target_port_id="input"),
@@ -52,7 +52,7 @@ def test_unsafe_math_expression_is_rejected() -> None:
         nodes=[
             make_node("input", "input.tensor", {"shape": [None, 4], "dtype": "float32"}),
             make_node("expression", "math.expression", {"expression": "__import__('os')"}),
-            make_node("output", "output.custom", {"name": "result"}),
+            make_node("output", "output.custom"),
         ],
         edges=[
             EdgeInstance(id="e1", source_node_id="input", source_port_id="output", target_node_id="expression", target_port_id="input"),
@@ -69,7 +69,7 @@ def test_pooling_updates_spatial_shape() -> None:
         nodes=[
             make_node("image", "input.image", {"shape": [None, 32, 32, 3], "dtype": "float32"}),
             make_node("pool", "conv.max_pool2d", {"pool_size": [2, 2]}),
-            make_node("output", "output.custom", {"name": "features"}),
+            make_node("output", "output.custom"),
         ],
         edges=[
             EdgeInstance(id="e1", source_node_id="image", source_port_id="output", target_node_id="pool", target_port_id="input"),

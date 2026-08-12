@@ -123,7 +123,7 @@ export function PropertiesInspector({ onClose, isOpen = true }: { onClose?: () =
   }, [selectedNodeId, isOpen])
   const grouped = useMemo(() => {
     const groups = new Map<string, ParameterDefinition[]>()
-    for (const definition of node?.data.manifest.parameters.filter((item) => item.id !== 'name') ?? []) {
+    for (const definition of node?.data.manifest.parameters ?? []) {
       const group = definition.group || 'General'
       groups.set(group, [...(groups.get(group) ?? []), definition])
     }

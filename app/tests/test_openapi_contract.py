@@ -46,9 +46,7 @@ def test_openapi_uses_named_schemas_for_stable_contracts() -> None:
     assert _response_schema(paths["/api/nodes/catalog"]["get"]) == {
         "$ref": "#/components/schemas/NodeCatalogResponse"
     }
-    assert _response_schema(paths["/api/nodes/{definition_id}/{version}"]["get"]) == {
-        "$ref": "#/components/schemas/NodeManifest"
-    }
+    assert "/api/nodes/{definition_id}/{version}" not in paths
     assert _response_schema(paths["/api/projects"]["get"]) == {
         "$ref": "#/components/schemas/ProjectListResponse"
     }

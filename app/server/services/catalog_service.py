@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from common.catalogs.loader import NodeCatalog
-from domain.manifests import NodeCatalogResponse, NodeManifest
+from domain.manifests import NodeCatalogResponse
 
 ###############################################################################
 class CatalogService:
@@ -13,7 +13,3 @@ class CatalogService:
     # -------------------------------------------------------------------------
     def list(self) -> NodeCatalogResponse:
         return NodeCatalogResponse(nodes=self._catalog.manifests)
-
-    # -------------------------------------------------------------------------
-    def get(self, definition_id: str, version: int) -> NodeManifest:
-        return self._catalog.get(definition_id, version)

@@ -7,7 +7,7 @@ from common.catalogs.loader import NodeCatalog
 from compilation.adapters import adapter_supported
 from domain.diagnostics import ValidationDiagnostic, ValidationResult
 from domain.enums import CodeTarget, DiagnosticSeverity
-from domain.graph import ModelGraph
+from domain.graph import ModelGraph, NodeInstance
 from domain.manifests import NodeManifest, ParameterDefinition
 from validation.graph_utils import topological_order
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
@@ -38,10 +38,7 @@ def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     return True
 
 ###############################################################################
-def _output_name(node: Any) -> str:
-    # Layer names are owned by the user-facing node label.  The legacy
-    # ``name`` parameter remains in some checked-in manifests for import
-    # compatibility, but it is intentionally not an independent control.
+def _output_name(node: NodeInstance) -> str:
     return node.label or node.id
 
 ###############################################################################

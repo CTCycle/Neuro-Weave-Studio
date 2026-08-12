@@ -243,7 +243,7 @@ export interface ProjectExportBundle {
 export const emptyModelConfiguration = (): ModelConfiguration => ({
   optimizer: 'adam',
   optimizer_parameters: { learning_rate: 0.001 },
-  losses: {},
+  losses: { __default__: 'categorical_crossentropy' },
   metrics: { __default__: ['accuracy'] },
   default_initializer: 'glorot_uniform',
   default_regularizer: 'none',

@@ -124,6 +124,7 @@ export function ModelBuilderPage() {
       await refreshProjects()
       if (compile) {
         await api.sourceForProject(project.id, project.code_target)
+        await refreshProjects()
         setNotice(`Saved revision ${project.current_revision} and compiled ${project.code_target} source.`)
       } else {
         setNotice(`Saved revision ${project.current_revision}.`)
