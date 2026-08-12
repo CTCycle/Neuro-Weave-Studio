@@ -62,9 +62,7 @@
           "x": 900,
           "y": 100
         },
-        "parameters": {
-          "name": "sequence_class"
-        }
+        "parameters": {}
       }
     ],
     "edges": [

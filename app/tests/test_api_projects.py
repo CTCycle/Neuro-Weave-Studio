@@ -28,7 +28,7 @@ def project_payload() -> dict[str, object]:
             "nodes": [
                 {"id": "input", "definition_id": "input.tabular", "definition_version": 1, "position": {"x": 0, "y": 0}, "parameters": {"shape": [None, 8], "dtype": "float32"}},
                 {"id": "dense", "definition_id": "layer.dense", "definition_version": 1, "position": {"x": 300, "y": 0}, "parameters": {"units": 2, "activation": "softmax", "use_bias": True}},
-                {"id": "output", "definition_id": "output.classification", "definition_version": 1, "position": {"x": 600, "y": 0}, "parameters": {"name": "prediction"}},
+                {"id": "output", "definition_id": "output.classification", "definition_version": 1, "position": {"x": 600, "y": 0}, "parameters": {}},
             ],
             "edges": [
                 {"id": "e1", "source_node_id": "input", "source_port_id": "output", "target_node_id": "dense", "target_port_id": "input"},

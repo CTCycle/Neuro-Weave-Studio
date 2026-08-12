@@ -96,9 +96,7 @@
           "x": 1500,
           "y": 100
         },
-        "parameters": {
-          "name": "class_prediction"
-        }
+        "parameters": {}
       }
     ],
     "edges": [

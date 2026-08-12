@@ -26,17 +26,7 @@
           "rank": null
         }
       ],
-      "parameters": [
-        {
-          "id": "name",
-          "display_name": "Name",
-          "type": "string",
-          "default": "classification",
-          "required": false,
-          "options": [],
-          "constraints": {}
-        }
-      ],
+      "parameters": [],
       "shape_rule": {
         "kind": "output",
         "config": {}
@@ -87,17 +77,7 @@
           "rank": null
         }
       ],
-      "parameters": [
-        {
-          "id": "name",
-          "display_name": "Name",
-          "type": "string",
-          "default": "regression",
-          "required": false,
-          "options": [],
-          "constraints": {}
-        }
-      ],
+      "parameters": [],
       "shape_rule": {
         "kind": "output",
         "config": {}
@@ -148,17 +128,7 @@
           "rank": null
         }
       ],
-      "parameters": [
-        {
-          "id": "name",
-          "display_name": "Name",
-          "type": "string",
-          "default": "segmentation",
-          "required": false,
-          "options": [],
-          "constraints": {}
-        }
-      ],
+      "parameters": [],
       "shape_rule": {
         "kind": "output",
         "config": {}
@@ -209,17 +179,7 @@
           "rank": null
         }
       ],
-      "parameters": [
-        {
-          "id": "name",
-          "display_name": "Name",
-          "type": "string",
-          "default": "sequence",
-          "required": false,
-          "options": [],
-          "constraints": {}
-        }
-      ],
+      "parameters": [],
       "shape_rule": {
         "kind": "output",
         "config": {}
@@ -270,17 +230,7 @@
           "rank": null
         }
       ],
-      "parameters": [
-        {
-          "id": "name",
-          "display_name": "Name",
-          "type": "string",
-          "default": "multi_head",
-          "required": false,
-          "options": [],
-          "constraints": {}
-        }
-      ],
+      "parameters": [],
       "shape_rule": {
         "kind": "output",
         "config": {}
@@ -331,17 +281,7 @@
           "rank": null
         }
       ],
-      "parameters": [
-        {
-          "id": "name",
-          "display_name": "Name",
-          "type": "string",
-          "default": "detection_placeholder",
-          "required": false,
-          "options": [],
-          "constraints": {}
-        }
-      ],
+      "parameters": [],
       "shape_rule": {
         "kind": "output",
         "config": {}
@@ -395,17 +335,7 @@
           "rank": null
         }
       ],
-      "parameters": [
-        {
-          "id": "name",
-          "display_name": "Name",
-          "type": "string",
-          "default": "custom",
-          "required": false,
-          "options": [],
-          "constraints": {}
-        }
-      ],
+      "parameters": [],
       "shape_rule": {
         "kind": "output",
         "config": {}
