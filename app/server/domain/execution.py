@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 
-
 ###############################################################################
 class SmokeTestRequest(BaseModel):
     """A graph and backend for an inference-only model smoke test."""
@@ -15,13 +14,11 @@ class SmokeTestRequest(BaseModel):
     graph: ModelGraph
     execution_backend: ExecutionBackend
 
-
 ###############################################################################
 class TensorExecutionInfo(BaseModel):
     node_id: str
     shape: list[int]
     dtype: str
-
 
 ###############################################################################
 class SmokeTestResponse(BaseModel):

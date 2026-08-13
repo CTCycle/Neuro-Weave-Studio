@@ -32,7 +32,6 @@ _INITIALIZER_OPTIONS = [
 _REGULARIZER_OPTIONS = ["none", "l1", "l2", "l1_l2"]
 _CONSTRAINT_OPTIONS = ["none", "max_norm", "min_max_norm", "non_neg", "unit_norm"]
 
-
 ###############################################################################
 def _parameter(
     identifier: str,
@@ -59,7 +58,6 @@ def _parameter(
         "ui": {"control": "select" if options else parameter_type},
     }
 
-
 ###############################################################################
 def _initializer_parameter(identifier: str, label: str, default: str) -> dict[str, Any]:
     return _parameter(
@@ -70,7 +68,6 @@ def _initializer_parameter(identifier: str, label: str, default: str) -> dict[st
         group="Initializers",
         options=_INITIALIZER_OPTIONS,
     )
-
 
 ###############################################################################
 def _regularizer_parameter(identifier: str, label: str) -> dict[str, Any]:
@@ -83,7 +80,6 @@ def _regularizer_parameter(identifier: str, label: str) -> dict[str, Any]:
         options=_REGULARIZER_OPTIONS,
     )
 
-
 ###############################################################################
 def _constraint_parameter(identifier: str, label: str) -> dict[str, Any]:
     return _parameter(
@@ -94,7 +90,6 @@ def _constraint_parameter(identifier: str, label: str) -> dict[str, Any]:
         group="Constraints",
         options=_CONSTRAINT_OPTIONS,
     )
-
 
 ###############################################################################
 def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
@@ -260,7 +255,6 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
             _parameter("pre_norm", "Pre-normalization", "boolean", True, group="Behavior"),
         ]
     return []
-
 
 ###############################################################################
 def _normalize_manifest(raw: dict[str, Any]) -> dict[str, Any]:

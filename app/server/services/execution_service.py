@@ -12,33 +12,36 @@ from domain.graph import ModelGraph
 from models.keras_backend_runner import KerasBackendRunner
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 class SmokeTestValidationError(ValueError):
+
+    # -------------------------------------------------------------------------
     def __init__(self, diagnostics: list[ValidationDiagnostic]) -> None:
         super().__init__("Model graph is not ready for an inference smoke test")
         self.diagnostics = diagnostics
 
-
 ###############################################################################
 class SmokeTestBackendUnavailableError(RuntimeError):
+
+    # -------------------------------------------------------------------------
     def __init__(self, backend: ExecutionBackend, reason_code: str | None) -> None:
         self.backend = backend.value
         self.reason_code = reason_code or "backend_unavailable"
         super().__init__(f"Execution backend '{self.backend}' is not operational")
 
-
 ###############################################################################
 class SmokeTestExecutionError(RuntimeError):
+
+    # -------------------------------------------------------------------------
     def __init__(self, message: str, *, code: str = "execution_failed") -> None:
         self.code = code
         super().__init__(message)
-
 
 ###############################################################################
 class ExecutionService:
     """Coordinates validation and one isolated, inference-only Keras worker run."""
 
+    # -------------------------------------------------------------------------
     def __init__(
         self,
         catalog: NodeCatalog,
@@ -49,6 +52,7 @@ class ExecutionService:
         self._backend_runner = backend_runner
         self._backend_statuses = backend_statuses
 
+    # -------------------------------------------------------------------------
     def smoke_test(
         self, graph: ModelGraph, execution_backend: ExecutionBackend
     ) -> SmokeTestResponse:

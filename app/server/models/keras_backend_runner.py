@@ -15,7 +15,6 @@ from domain.graph import ModelGraph
 
 LOGGER = logging.getLogger(__name__)
 
-
 ###############################################################################
 class KerasBackendRunner:
     """Probe and execute Keras in isolated workers with explicit provenance."""

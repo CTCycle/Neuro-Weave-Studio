@@ -17,7 +17,6 @@ class ExecutionBackend(StrEnum):
     PYTORCH = "pytorch"
     JAX = "jax"
 
-
 ###############################################################################
 def keras_backend_value(backend: ExecutionBackend) -> str:
     """Map the public PyTorch id to the Keras worker value ``torch``."""

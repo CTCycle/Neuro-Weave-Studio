@@ -16,13 +16,11 @@ KERAS_EXTENSIONS = frozenset(
     {"attention.multi_head", "attention.self", "transformer.encoder_block", "transformer.positional_encoding"}
 )
 
-
 ###############################################################################
 def adapter_supported(code_target: CodeTarget, definition_id: str) -> bool:
     if code_target is CodeTarget.KERAS:
         return definition_id in PORTABLE_CORE or definition_id in KERAS_EXTENSIONS
     return definition_id in PORTABLE_CORE
-
 
 ###############################################################################
 def adapter_name(code_target: CodeTarget, definition_id: str) -> str:

@@ -8,7 +8,6 @@ from domain.enums import ExecutionBackend
 from repositories.graphs import GraphRepository
 from repositories.models import ProjectRecord, ProjectRevisionRecord
 
-
 ###############################################################################
 def fail_create_graph_replace(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("graph write failed")

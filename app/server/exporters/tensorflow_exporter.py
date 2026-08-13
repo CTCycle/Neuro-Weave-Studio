@@ -4,7 +4,6 @@ from domain.compilation import CanonicalModelIR
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
-
 ###############################################################################
 class TensorFlowSourceExporter(SourceExporter):
     """Generate a dependency-light TensorFlow ``tf.Module``."""

@@ -18,7 +18,6 @@ from services.project_service import ProjectService
 from services.runtime_service import RuntimeService
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def get_catalog(request: Request) -> NodeCatalog:
     return cast(NodeCatalog, request.app.state.catalog)

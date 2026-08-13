@@ -9,7 +9,6 @@ from common.catalogs.loader import get_node_catalog
 from compilation.adapters import adapter_supported
 from domain.enums import CodeTarget, ExecutionBackend
 
-
 ###############################################################################
 def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
     catalog = get_node_catalog()
@@ -24,7 +23,6 @@ def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
             assert isinstance(parameter.constraints, dict)
             assert isinstance(parameter.options, list)
 
-
 ###############################################################################
 def test_native_adapter_registry_has_no_identity_fallback() -> None:
     catalog = get_node_catalog()
@@ -32,7 +30,6 @@ def test_native_adapter_registry_has_no_identity_fallback() -> None:
         mapping = manifest.frameworks[CodeTarget.PYTORCH]
         if mapping.supported:
             assert adapter_supported(CodeTarget.PYTORCH, manifest.id)
-
 
 ###############################################################################
 def test_high_parameter_keras_layers_expose_safe_constructor_controls() -> None:
@@ -63,7 +60,6 @@ def test_high_parameter_keras_layers_expose_safe_constructor_controls() -> None:
             if parameter.type == "enum":
                 assert parameter.options
 
-
 ###############################################################################
 def test_metadata_reports_v2_targets_and_backend_states(client: httpx.Client) -> None:
     response: httpx.Response = client.get("/api/metadata")
@@ -73,7 +69,6 @@ def test_metadata_reports_v2_targets_and_backend_states(client: httpx.Client) ->
     assert payload["code_targets"] == [item.value for item in CodeTarget]
     backend_items = cast(list[dict[str, Any]], payload["execution_backends"])
     assert [item["id"] for item in backend_items] == [item.value for item in ExecutionBackend]
-
 
 ###############################################################################
 def test_project_and_binary_contract_v2(client: httpx.Client) -> None:
@@ -96,7 +91,6 @@ def test_project_and_binary_contract_v2(client: httpx.Client) -> None:
         json={"execution_backend": "other"},
     )
     assert unknown.status_code == 422
-
 
 ###############################################################################
 def test_all_code_targets_generate_parseable_source(client: httpx.Client) -> None:

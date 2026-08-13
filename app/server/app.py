@@ -27,7 +27,6 @@ from configurations.settings import Settings, get_database_settings, get_setting
 from models.keras_backend_runner import KerasBackendRunner
 from repositories.session import create_repository_context
 
-
 ###############################################################################
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:

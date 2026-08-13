@@ -6,7 +6,6 @@ from domain.diagnostics import ValidationDiagnostic
 from domain.enums import CodeTarget
 from domain.graph import ModelGraph
 
-
 ###############################################################################
 class CompiledNode(BaseModel):
     node_id: str
@@ -14,7 +13,6 @@ class CompiledNode(BaseModel):
     variable_name: str
     input_node_ids: list[str]
     parameters: dict[str, object] = Field(default_factory=dict)
-
 
 ###############################################################################
 class CanonicalModelIR(BaseModel):
@@ -24,7 +22,6 @@ class CanonicalModelIR(BaseModel):
     input_node_ids: list[str]
     output_node_ids: list[str]
 
-
 ###############################################################################
 class CompilationResult(BaseModel):
     valid: bool
@@ -32,7 +29,6 @@ class CompilationResult(BaseModel):
     diagnostics: list[ValidationDiagnostic]
     code: str | None = None
     ir: CanonicalModelIR | None = None
-
 
 ###############################################################################
 class CompilationRequest(BaseModel):
