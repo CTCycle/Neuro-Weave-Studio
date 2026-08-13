@@ -103,6 +103,7 @@ class ProjectDocument(BaseModel):
     validation_status: ValidationStatus
     generated_code_snapshots: dict[str, str] = Field(default_factory=dict)
 
+###############################################################################
 def _empty_code_targets() -> list[CodeTarget]:
     return []
 

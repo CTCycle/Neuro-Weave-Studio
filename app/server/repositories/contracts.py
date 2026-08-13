@@ -9,7 +9,6 @@ from uuid import UUID
 from domain.enums import CodeTarget, ValidationStatus
 from domain.graph import ModelGraph
 
-
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class ProjectMetadata:
@@ -23,13 +22,11 @@ class ProjectMetadata:
     current_revision: int
     validation_status: ValidationStatus
 
-
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class GraphSummary:
     node_count: int
     edge_count: int
-
 
 ###############################################################################
 class RepositoryRevisionConflictError(RuntimeError):
@@ -39,7 +36,6 @@ class RepositoryRevisionConflictError(RuntimeError):
         super().__init__(f"Revision conflict: expected {expected_revision}, current {current_revision}")
         self.expected_revision = expected_revision
         self.current_revision = current_revision
-
 
 ###############################################################################
 class ProjectRepositoryProtocol(Protocol):
@@ -64,7 +60,6 @@ class ProjectRepositoryProtocol(Protocol):
     # -------------------------------------------------------------------------
     def delete(self, project_id: UUID) -> bool: ...
 
-
 ###############################################################################
 class GraphRepositoryProtocol(Protocol):
 
@@ -77,14 +72,12 @@ class GraphRepositoryProtocol(Protocol):
     # -------------------------------------------------------------------------
     def summaries(self, project_ids: Sequence[UUID]) -> dict[UUID, GraphSummary]: ...
 
-
 ###############################################################################
 class RevisionRepositoryProtocol(Protocol):
 
     # -------------------------------------------------------------------------
     def append(self, project_id: UUID, *, revision: int, graph: ModelGraph,
                code_target: CodeTarget, timestamp: datetime) -> None: ...
-
 
 ###############################################################################
 class CodeSnapshotRepositoryProtocol(Protocol):
@@ -100,7 +93,6 @@ class CodeSnapshotRepositoryProtocol(Protocol):
     # -------------------------------------------------------------------------
     def upsert(self, project_id: UUID, *, revision: int, code_target: CodeTarget,
                source_code: str, timestamp: datetime) -> None: ...
-
 
 ###############################################################################
 class UnitOfWorkProtocol(Protocol):
@@ -129,7 +121,6 @@ class UnitOfWorkProtocol(Protocol):
 
     # -------------------------------------------------------------------------
     def commit(self) -> None: ...
-
 
 ###############################################################################
 class UnitOfWorkFactory(Protocol):

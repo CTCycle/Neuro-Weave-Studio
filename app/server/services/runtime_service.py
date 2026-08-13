@@ -12,7 +12,6 @@ from domain.metadata import (
     MetadataResponse,
 )
 
-
 ###############################################################################
 class RuntimeService:
 

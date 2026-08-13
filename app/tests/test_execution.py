@@ -10,7 +10,6 @@ from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from models.keras_backend_runner import KerasBackendRunner
 
-
 ###############################################################################
 def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
     shape = input_shape or [None, 4]
@@ -60,7 +59,6 @@ def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
         "future_training_configuration": {},
     }
 
-
 ###############################################################################
 def test_smoke_test_returns_tensor_metadata_without_training(
     client: httpx.Client, monkeypatch: pytest.MonkeyPatch
@@ -101,7 +99,6 @@ def test_smoke_test_returns_tensor_metadata_without_training(
         "duration_ms": 2.5,
     }
 
-
 ###############################################################################
 def test_smoke_test_rejects_incompatible_shape_with_actionable_diagnostics(
     client: httpx.Client, monkeypatch: pytest.MonkeyPatch
@@ -132,7 +129,6 @@ def test_smoke_test_rejects_incompatible_shape_with_actionable_diagnostics(
     )
     assert worker_called is False
 
-
 ###############################################################################
 def test_smoke_test_reports_missing_backend_without_crashing(client: httpx.Client) -> None:
     cast(Any, client).app.state.backend_statuses = {
@@ -153,7 +149,6 @@ def test_smoke_test_reports_missing_backend_without_crashing(client: httpx.Clien
         "reason_code": "dependency_missing",
         "message": "Execution backend 'tensorflow' is not operational",
     }
-
 
 ###############################################################################
 def test_smoke_test_reports_worker_timeout_without_crashing(
@@ -177,7 +172,6 @@ def test_smoke_test_reports_worker_timeout_without_crashing(
         "code": "worker_failed",
         "message": "Command 'keras_worker' timed out after 300 seconds",
     }
-
 
 ###############################################################################
 def test_worker_smoke_test_builds_and_executes_minimal_model() -> None:

@@ -17,7 +17,6 @@ from keras import layers
 from domain.graph import ModelGraph
 from validation.graph_utils import incoming_edges, topological_order
 
-
 ###############################################################################
 def _option(value: Any) -> Any:
     return None if value in (None, "", "none") else value

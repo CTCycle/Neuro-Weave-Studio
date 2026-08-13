@@ -4,7 +4,6 @@ from domain.compilation import CanonicalModelIR
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
-
 ###############################################################################
 class JaxSourceExporter(SourceExporter):
     """Generate a Flax Linen module for the JAX code target."""
