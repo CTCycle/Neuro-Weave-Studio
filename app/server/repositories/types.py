@@ -6,9 +6,10 @@ from sqlalchemy import DateTime
 from sqlalchemy.engine import Dialect
 from sqlalchemy.types import TypeDecorator
 
+
 ###############################################################################
 class UTCDateTime(TypeDecorator[datetime]):
-    """Store UTC consistently while supporting SQLite and PostgreSQL."""
+    """Store UTC consistently in SQLite."""
 
     impl = DateTime(timezone=True)
     cache_ok = True
@@ -24,12 +25,11 @@ class UTCDateTime(TypeDecorator[datetime]):
     def process_bind_param(
         self, value: datetime | None, dialect: Dialect
     ) -> datetime | None:
+        del dialect
         if value is None:
             return None
         normalized = self._as_utc(value)
-        if dialect.name == "sqlite":
-            return normalized.replace(tzinfo=None)
-        return normalized
+        return normalized.replace(tzinfo=None)
 
     # -------------------------------------------------------------------------
     def process_result_value(  # pyright: ignore[reportIncompatibleMethodOverride]

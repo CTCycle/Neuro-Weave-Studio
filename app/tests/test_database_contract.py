@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
 import pytest
 from sqlalchemy import inspect, select, text
-from sqlalchemy.dialects import postgresql, sqlite
+from sqlalchemy.dialects import sqlite
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.schema import CreateTable
@@ -21,9 +20,6 @@ from domain.enums import CodeTarget, ValidationStatus
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from repositories import initializer
 from repositories.backend import (
-    build_database_backend,
-    build_postgres_connect_args,
-    build_postgres_url,
     build_session_factory,
 )
 from repositories.base import Base
@@ -39,9 +35,10 @@ from repositories.models import (
 )
 from repositories.session import RepositoryContext
 
+
 ###############################################################################
 def _settings(path: Path) -> DatabaseSettings:
-    return DatabaseSettings(embedded_database=True, sqlite_path=path)
+    return DatabaseSettings(sqlite_path=path)
 
 ###############################################################################
 def _context(path: Path) -> RepositoryContext:
@@ -57,110 +54,25 @@ def fail_schema_recreation(_engine: object) -> None:
     pytest.fail("ordinary startup must not recreate the schema")
 
 ###############################################################################
-def test_embedded_database_settings_resolve_relative_path(
+def test_sqlite_database_settings_resolve_relative_path(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("DATABASE_EMBEDDED", "true")
     monkeypatch.setenv("DATABASE_SQLITE_PATH", "assets/QA/contract.db")
     settings = get_database_settings()
 
-    assert settings.embedded_database is True
     assert settings.sqlite_path == (REPOSITORY_ROOT / "assets/QA/contract.db").resolve()
 
 ###############################################################################
-def test_embedded_database_rejects_invalid_boolean(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DATABASE_EMBEDDED", "sometimes")
+def test_database_timeout_is_positive(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_CONNECT_TIMEOUT", "0")
 
-    with pytest.raises(ValueError, match="must be boolean"):
+    with pytest.raises(ValueError):
         get_database_settings()
 
 ###############################################################################
-def test_ssl_rejects_invalid_boolean(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DATABASE_EMBEDDED", "true")
-    monkeypatch.setenv("DATABASE_SSL", "maybe")
-
-    with pytest.raises(ValueError, match="must be boolean"):
-        get_database_settings()
-
-###############################################################################
-def test_external_database_url_is_overridden_by_explicit_values(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("DATABASE_EMBEDDED", "false")
-    monkeypatch.setenv(
-        "DATABASE_URL",
-        "postgresql://url_user:url%20password@url.example:6543/url_db?sslmode=require&connect_timeout=17",
-    )
-    monkeypatch.setenv("DATABASE_HOST", "explicit.example")
-    monkeypatch.setenv("DATABASE_NAME", "explicit_db")
-    monkeypatch.setenv("DATABASE_USERNAME", "explicit_user")
-    settings = get_database_settings()
-
-    assert settings.embedded_database is False
-    assert settings.engine == "postgresql"
-    assert settings.host == "explicit.example"
-    assert settings.port == 6543
-    assert settings.database_name == "explicit_db"
-    assert settings.username == "explicit_user"
-    assert settings.password == "url password"
-    assert settings.ssl is True
-    assert settings.connect_timeout == 17
-
-###############################################################################
-def test_external_database_requires_connection_identity(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DATABASE_EMBEDDED", "false")
-    for key in ("DATABASE_URL", "DATABASE_HOST", "DATABASE_NAME", "DATABASE_USERNAME"):
-        monkeypatch.delenv(key, raising=False)
-    with pytest.raises(ValueError, match="requires DATABASE_HOST"):
-        get_database_settings()
-
-###############################################################################
-def test_postgres_url_and_connect_args_escape_credentials() -> None:
-    settings = DatabaseSettings(
-        embedded_database=False,
-        engine="postgresql+psycopg",
-        host="db.example",
-        port=5432,
-        database_name="neuro_weave",
-        username="user@example",
-        password="p@ss word",
-        ssl=True,
-        ssl_ca="C:/certs/root.pem",
-        connect_timeout=19,
-    )
-
-    assert build_postgres_url(settings) == (
-        "postgresql+psycopg://user%40example:p%40ss+word@db.example:5432/neuro_weave"
-    )
-    assert build_postgres_connect_args(settings) == {
-        "connect_timeout": 19,
-        "client_encoding": "utf8",
-        "sslmode": "require",
-        "sslrootcert": "C:/certs/root.pem",
-    }
-
-###############################################################################
-def test_external_database_rejects_uninstalled_driver() -> None:
-    settings = DatabaseSettings(
-        embedded_database=False,
-        engine="postgresql+psycopg2",
-        host="db.example",
-        port=5432,
-        database_name="neuro_weave",
-        username="postgres",
-    )
-
-    with pytest.raises(ValueError, match="Unsupported database engine"):
-        build_database_backend(settings)
-
-###############################################################################
-def test_schema_is_canonical_on_both_dialects() -> None:
+def test_schema_is_canonical_for_sqlite() -> None:
     sqlite_sql = "\n".join(
         str(CreateTable(table).compile(dialect=sqlite.dialect()))
-        for table in Base.metadata.sorted_tables
-    )
-    postgres_sql = "\n".join(
-        str(CreateTable(table).compile(dialect=postgresql.dialect()))
         for table in Base.metadata.sorted_tables
     )
 
@@ -174,10 +86,8 @@ def test_schema_is_canonical_on_both_dialects() -> None:
         "generated_code_snapshots",
     }
     assert {table.name for table in Base.metadata.sorted_tables} == expected
-    assert "JSONB" not in sqlite_sql + postgres_sql
-    assert "UUID" not in sqlite_sql + postgres_sql
     assert "FOREIGN KEY(project_id, source_node_id)" in sqlite_sql
-    assert "uq_project_revisions_revision" in postgres_sql
+    assert "uq_project_revisions_revision" in sqlite_sql
 
 ###############################################################################
 def test_explicit_sqlite_reset_creates_schema_and_marker(tmp_path: Path) -> None:
@@ -574,35 +484,3 @@ def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> Non
             session.commit()
     finally:
         context.dispose()
-
-###############################################################################
-def test_unavailable_postgres_startup_fails_without_initializing() -> None:
-    settings = DatabaseSettings(
-        embedded_database=False,
-        engine="postgresql+psycopg",
-        host="127.0.0.1",
-        port=1,
-        database_name="not_initialized",
-        username="postgres",
-        connect_timeout=1,
-    )
-
-    with pytest.raises(RuntimeError, match="canonical NeuroWeave schema"):
-        ensure_database_ready(settings)
-
-###############################################################################
-@pytest.mark.skipif(not os.getenv("TEST_DATABASE_URL"), reason="TEST_DATABASE_URL is not configured")
-def test_postgres_schema_can_be_recreated_when_configured(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("DATABASE_EMBEDDED", "false")
-    monkeypatch.setenv("DATABASE_URL", os.environ["TEST_DATABASE_URL"])
-    settings = get_database_settings()
-    backend = initialize_database(settings, reset=True)
-    try:
-        with backend.engine.connect() as connection:
-            assert connection.execute(
-                text("SELECT schema_version FROM schema_metadata WHERE id = 1")
-            ).scalar_one() == 1
-    finally:
-        backend.engine.dispose()
