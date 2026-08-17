@@ -59,9 +59,8 @@ def test_environment_contract_is_canonical_and_secret_safe() -> None:
     ignored = GITIGNORE.read_text(encoding="utf-8")
     launcher = LAUNCHER.read_text(encoding="utf-8")
 
-    assert "DATABASE_EMBEDDED=true" in template
     assert "DATABASE_SQLITE_PATH=" in template
-    assert "DATABASE_URL=" in template
+    assert "DATABASE_CONNECT_TIMEOUT=30" in template
     assert "VITE_API_BASE_URL=/api" in template
     assert "ALWAYS_REBUILD=true" in template
     assert not (REPOSITORY_ROOT / ".env.example").exists()

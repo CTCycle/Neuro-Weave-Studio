@@ -545,7 +545,7 @@ function Test-DependenciesReady {
     if ($LASTEXITCODE -ne 0) { return $false }
     & $node --version *> $null
     if ($LASTEXITCODE -ne 0) { return $false }
-    $imports = "import fastapi, uvicorn, sqlalchemy, psycopg; import importlib.metadata; importlib.metadata.version('keras')"
+    $imports = "import fastapi, uvicorn, sqlalchemy; import importlib.metadata; importlib.metadata.version('keras')"
     if ($IncludeTests) { $imports += "; importlib.metadata.version('pytest'); importlib.metadata.version('ruff'); importlib.metadata.version('pyright')" }
     & $venvPython -c $imports *> $null
     return $LASTEXITCODE -eq 0

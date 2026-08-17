@@ -68,7 +68,7 @@ npm run dev
 
 ## Database configuration
 
-SQLite is the default. Select **Initialize or recreate database** in the launcher. Type `RESET` when prompted to drop and recreate the managed schema. For PostgreSQL, set `DATABASE_EMBEDDED=false` and provide the connection fields in `settings/.env` before running the action. Normal startup only checks the canonical schema marker; it does not repair or migrate databases.
+SQLite is the only supported database. Select **Initialize or recreate database** in the launcher. Type `RESET` when prompted to drop and recreate the managed schema. Normal startup only checks the canonical schema marker; it does not repair or migrate databases.
 
 ## Validation
 

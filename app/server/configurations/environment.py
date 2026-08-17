@@ -3,10 +3,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-SETTINGS_ROOT = REPOSITORY_ROOT / "settings"
-ENV_FILE = SETTINGS_ROOT / ".env"
-ENV_EXAMPLE_FILE = SETTINGS_ROOT / ".env.example"
+from common.path import ENV_EXAMPLE_FILE, ENV_FILE
+
 
 ###############################################################################
 def ensure_environment_file(

@@ -1,10 +1,10 @@
 # Startup
 
-Last updated: 2026-08-06
+Last updated: 2026-08-17
 
 On Windows run `start_on_windows.ps1` and select **Launch application**. On the first launch, after core dependencies are ready, the launcher offers one backend choice: Enter accepts the hardware-aware PyTorch recommendation, `all` installs TensorFlow, PyTorch, and JAX, and `none` keeps a Keras-only setup. It detects NVIDIA CUDA with `nvidia-smi`, falls back to the CPU wheel when a CUDA install fails, records the choice, and reports each backend's actual accelerator/device. The launcher validates local runtimes and dependencies, builds `app/client/dist` unless `ALWAYS_REBUILD=false` and an existing build is available, checks both configured ports, starts Uvicorn and the Vite preview server from `app/client`, waits for `/health` and the frontend root, and keeps the child processes attached to the launcher lifecycle. Once both services are ready it opens the frontend in the default browser when possible; pass `-NoBrowser` to skip that step. Press Ctrl+C to stop both services.
 
-The **Initialize or recreate database** action is the only explicit schema workflow. Without confirmation it initializes a missing SQLite file or checks an existing canonical schema. Typing `RESET` passes `--reset` to `app/scripts/initialize_database.py`, drops the managed local schema, and recreates it from scratch. PostgreSQL database creation and schema reset are also explicit; ordinary startup only checks the canonical `schema_metadata` marker.
+The **Initialize or recreate database** action is the only explicit schema workflow. Without confirmation it initializes a missing SQLite file or checks an existing canonical schema. Typing `RESET` passes `--reset` to `app/scripts/initialize_database.py`, drops the managed local schema, and recreates it from scratch. Ordinary startup only checks the canonical `schema_metadata` marker for an existing SQLite file.
 
 Manual development startup is available when separate process control is required:
 

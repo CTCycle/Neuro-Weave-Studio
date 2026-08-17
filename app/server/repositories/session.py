@@ -6,16 +6,17 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from configurations.settings import DatabaseSettings
-from repositories.backend import DatabaseBackend, build_session_factory
+from repositories.backend import SQLiteBackend, build_session_factory
 from repositories.initializer import ensure_database_ready
 from repositories.unit_of_work import UnitOfWork
+
 
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class RepositoryContext:
     """Immutable database handles shared by the application composition root."""
 
-    backend: DatabaseBackend
+    backend: SQLiteBackend
     engine: Engine
     session_factory: sessionmaker[Session]
 
