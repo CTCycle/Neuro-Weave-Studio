@@ -7,7 +7,8 @@ from common.catalogs.loader import NodeCatalog
 from domain.compilation import CanonicalModelIR, CompiledNode
 from domain.enums import CodeTarget
 from domain.graph import ModelGraph
-from validation.graph_utils import incoming_edges, topological_order
+from validation.graph_utils import ordered_incoming_edges, topological_order
+
 
 ###############################################################################
 def _variable_name(node_id: str) -> str:
@@ -23,13 +24,15 @@ def compile_to_ir(
     catalog: NodeCatalog,
 ) -> CanonicalModelIR:
     nodes = {node.id: node for node in graph.nodes}
-    inbound = incoming_edges(graph)
     ordered_nodes: list[CompiledNode] = []
     used_variable_names: set[str] = set()
     for node_id in topological_order(graph):
         node = nodes[node_id]
-        catalog.get(node.definition_id, node.definition_version)
-        input_node_ids = [edge.source_node_id for edge in inbound.get(node_id, [])]
+        manifest = catalog.get(node.definition_id, node.definition_version)
+        input_node_ids = [
+            edge.source_node_id
+            for edge in ordered_incoming_edges(graph, node_id, manifest)
+        ]
         variable_name = _variable_name(node.label or node.id)
         base_name = variable_name
         suffix = 2

@@ -7,7 +7,8 @@ from common.catalogs.loader import NodeCatalog
 from domain.enums import DataType
 from domain.graph import ModelGraph, ShapeSummary
 from domain.tensor import TensorSpec
-from validation.graph_utils import incoming_edges, topological_order
+from validation.graph_utils import ordered_incoming_edges, topological_order
+
 
 ###############################################################################
 class ShapeInferenceError(ValueError):
@@ -28,6 +29,8 @@ def _spatial_parameter(
     default: list[int],
 ) -> list[int]:
     value = parameters.get(key, default)
+    if value is None:
+        value = default
     items = cast(list[Any], value) if isinstance(value, list) else []
     if not isinstance(value, list) or len(items) != dimensions:
         raise ShapeInferenceError(
@@ -62,9 +65,68 @@ def _convolution_size(
     return result
 
 ###############################################################################
+def _optional_positive_int(
+    parameters: dict[str, Any],
+    key: str,
+    default: int,
+) -> int:
+    value = parameters.get(key, default)
+    if value is None:
+        value = default
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ShapeInferenceError(f"Parameter '{key}' must be a positive integer")
+    return value
+
+###############################################################################
+def _attention_output_dimensions(
+    parameters: dict[str, Any], query_dimension: int | None
+) -> tuple[list[int | None], int | None]:
+    raw_output_shape = parameters.get("output_shape")
+    if raw_output_shape is None:
+        if query_dimension is None:
+            return [None], None
+        return [query_dimension], query_dimension
+    if isinstance(raw_output_shape, int) and not isinstance(raw_output_shape, bool):
+        dimensions = [raw_output_shape]
+    elif isinstance(raw_output_shape, list):
+        dimensions = raw_output_shape
+    else:
+        raise ShapeInferenceError("Attention output_shape must be a positive integer list")
+    if not dimensions or any(
+        not isinstance(dimension, int)
+        or isinstance(dimension, bool)
+        or dimension <= 0
+        for dimension in dimensions
+    ):
+        raise ShapeInferenceError("Attention output_shape must contain positive integers")
+    return [int(dimension) for dimension in dimensions], prod(dimensions)
+
+###############################################################################
+def _attention_parameter_count(
+    *,
+    query_dimension: int | None,
+    context_dimension: int | None,
+    heads: int,
+    key_dimension: int,
+    value_dimension: int,
+    output_dimension: int | None,
+    use_bias: bool,
+) -> int | None:
+    if query_dimension is None or context_dimension is None or output_dimension is None:
+        return None
+    projection_bias = heads * key_dimension + heads * key_dimension + heads * value_dimension
+    output_bias = output_dimension
+    return (
+        query_dimension * heads * key_dimension
+        + context_dimension * heads * key_dimension
+        + context_dimension * heads * value_dimension
+        + heads * value_dimension * output_dimension
+        + (projection_bias + output_bias if use_bias else 0)
+    )
+
+###############################################################################
 def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
     nodes = {node.id: node for node in graph.nodes}
-    inbound = incoming_edges(graph)
     outputs_by_node: dict[str, dict[str, TensorSpec]] = {}
     summaries: list[ShapeSummary] = []
 
@@ -72,11 +134,13 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
         node = nodes[node_id]
         manifest = catalog.get(node.definition_id, node.definition_version)
         input_specs: list[TensorSpec] = []
-        for edge in inbound.get(node_id, []):
+        input_specs_by_port: dict[str, TensorSpec] = {}
+        for edge in ordered_incoming_edges(graph, node_id, manifest):
             source_outputs = outputs_by_node.get(edge.source_node_id, {})
             source_spec = source_outputs.get(edge.source_port_id)
             if source_spec is not None:
                 input_specs.append(source_spec)
+                input_specs_by_port[edge.target_port_id] = source_spec
 
         rule = manifest.shape_rule.kind
         parameters = node.parameters
@@ -88,12 +152,23 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             if not isinstance(shape, list):
                 raise ShapeInferenceError("Input shape must be a list")
             input_shape = cast(list[Any], shape)
+            if not input_shape or input_shape[0] is not None:
+                raise ShapeInferenceError(
+                    "Input shape must include an unknown leading batch dimension"
+                )
             output = TensorSpec(
                 shape=input_shape, dtype=parameters.get("dtype", DataType.FLOAT32)
             )
         elif rule == "identity":
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")
+            if (
+                node.definition_id == "transformer.positional_encoding"
+                and parameters.get("mode", "sinusoidal") != "sinusoidal"
+            ):
+                raise ShapeInferenceError(
+                    "Only sinusoidal positional encoding is supported by the Keras runtime"
+                )
             output = input_specs[0]
         elif rule == "dense":
             if not input_specs:
@@ -200,6 +275,16 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 else list(range(2, dimensions + 2))
             )
             input_channels = shape[channel_index]
+            groups = _optional_positive_int(parameters, "groups", 1)
+            if isinstance(input_channels, int):
+                if input_channels % groups != 0:
+                    raise ShapeInferenceError(
+                        "Input channels must be divisible by groups"
+                    )
+                if filters % groups != 0:
+                    raise ShapeInferenceError(
+                        "Filters must be divisible by groups"
+                    )
             for index, kernel_size, stride, dilation_rate in zip(
                 spatial_indices, kernel, strides, dilation, strict=True
             ):
@@ -215,7 +300,7 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             output = TensorSpec(shape=shape, dtype=source.dtype)
             kernel_elements = prod(kernel)
             parameter_count = (
-                kernel_elements * input_channels * filters
+                kernel_elements * (input_channels // groups) * filters
                 + (filters if parameters.get("use_bias", True) else 0)
                 if isinstance(input_channels, int)
                 else None
@@ -240,6 +325,8 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             if padding not in {"same", "valid"}:
                 raise ShapeInferenceError("padding must be 'same' or 'valid'")
             data_format = str(parameters.get("data_format", "channels_last"))
+            if data_format not in {"channels_last", "channels_first"}:
+                raise ShapeInferenceError("data_format must be channels_last or channels_first")
             spatial_indices = (
                 list(range(1, dimensions + 1))
                 if data_format == "channels_last"
@@ -270,6 +357,8 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                     f"{manifest.display_name} expects rank {expected_rank}"
                 )
             data_format = str(parameters.get("data_format", "channels_last"))
+            if data_format not in {"channels_last", "channels_first"}:
+                raise ShapeInferenceError("data_format must be channels_last or channels_first")
             channel_index = dimensions + 1 if data_format == "channels_last" else 1
             output = TensorSpec(
                 shape=[source.shape[0], source.shape[channel_index]],
@@ -282,6 +371,10 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             source = input_specs[0]
             if source.rank != 3:
                 raise ShapeInferenceError("Recurrent layers require rank 3: batch, time, features")
+            if parameters.get("return_state", False):
+                raise ShapeInferenceError(
+                    "return_state is not supported because this graph node has one output port"
+                )
             units = _int_parameter(parameters, "units", 64)
             return_sequences = bool(parameters.get("return_sequences", False))
             output_shape = [source.shape[0], source.shape[1], units] if return_sequences else [source.shape[0], units]
@@ -298,6 +391,8 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 raise ShapeInferenceError(f"{node_id} requires an input")
             dim = _int_parameter(parameters, "embedding_dim", 128)
             vocab = _int_parameter(parameters, "vocabulary_size", 10000)
+            if input_specs[0].dtype not in {DataType.INT32, DataType.INT64}:
+                raise ShapeInferenceError("Embedding inputs must use int32 or int64 dtype")
             output = TensorSpec(shape=[*input_specs[0].shape, dim], dtype=DataType.FLOAT32)
             parameter_count = vocab * dim
         elif rule == "merge_same":
@@ -314,6 +409,8 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 raise ShapeInferenceError("Concatenate inputs must have equal rank")
             axis = _int_parameter(parameters, "axis", -1)
             normalized_axis = axis if axis >= 0 else rank + axis
+            if normalized_axis < 0 or normalized_axis >= rank:
+                raise ShapeInferenceError(f"Concatenate axis {axis} is outside rank {rank}")
             shape = list(input_specs[0].shape)
             sizes = [spec.shape[normalized_axis] for spec in input_specs]
             integer_sizes = [size for size in sizes if isinstance(size, int)]
@@ -324,15 +421,90 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
         elif rule == "attention":
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires at least one input")
-            source = input_specs[0]
-            if source.rank != 3:
+            query = input_specs_by_port.get("query", input_specs[0])
+            context = input_specs_by_port.get("context", query)
+            if query.rank != 3 or context.rank != 3:
                 raise ShapeInferenceError("Attention requires rank 3: batch, sequence, embedding")
-            output = source
-            model_dim = source.shape[-1]
-            heads = _int_parameter(parameters, "num_heads", 8)
-            if isinstance(model_dim, int) and model_dim % heads != 0:
-                raise ShapeInferenceError("Embedding dimension must be divisible by num_heads")
-            parameter_count = 4 * model_dim * model_dim if isinstance(model_dim, int) else None
+            if (
+                isinstance(query.shape[0], int)
+                and isinstance(context.shape[0], int)
+                and query.shape[0] != context.shape[0]
+            ):
+                raise ShapeInferenceError("Attention query and context batch dimensions must match")
+            if node.definition_id == "transformer.encoder_block":
+                source_dimension = query.shape[-1]
+                if not isinstance(source_dimension, int):
+                    raise ShapeInferenceError(
+                        "Transformer encoder requires a known embedding dimension"
+                    )
+                heads = _optional_positive_int(parameters, "num_heads", 8)
+                key_dimension = _optional_positive_int(parameters, "key_dim", 64)
+                layer_count = _optional_positive_int(parameters, "layers", 1)
+                multiplier = _optional_positive_int(parameters, "ffn_multiplier", 4)
+                hidden_dimension = source_dimension * multiplier
+                mha_count = _attention_parameter_count(
+                    query_dimension=source_dimension,
+                    context_dimension=source_dimension,
+                    heads=heads,
+                    key_dimension=key_dimension,
+                    value_dimension=key_dimension,
+                    output_dimension=source_dimension,
+                    use_bias=True,
+                )
+                if mha_count is None:
+                    parameter_count = None
+                else:
+                    feed_forward_count = (
+                        source_dimension * hidden_dimension
+                        + hidden_dimension
+                        + hidden_dimension * source_dimension
+                        + source_dimension
+                    )
+                    normalization_count = 4 * source_dimension
+                    parameter_count = layer_count * (
+                        mha_count + feed_forward_count + normalization_count
+                    )
+                output = query
+                output_ports = manifest.outputs or []
+                outputs = {port.id: output for port in output_ports}
+                outputs_by_node[node_id] = outputs
+                summaries.append(
+                    ShapeSummary(
+                        node_id=node_id,
+                        outputs=outputs,
+                        parameter_count=parameter_count,
+                    )
+                )
+                continue
+            if node.definition_id in {"attention.multi_head", "attention.self"}:
+                layers = _optional_positive_int(parameters, "layers", 1)
+                if layers != 1:
+                    raise ShapeInferenceError(
+                        "The supported multi-head attention node accepts layers=1"
+                    )
+            heads = _optional_positive_int(parameters, "num_heads", 8)
+            key_dimension = _optional_positive_int(parameters, "key_dim", 64)
+            value_dimension = _optional_positive_int(
+                parameters,
+                "value_dim",
+                key_dimension,
+            )
+            output_dimensions, output_dimension = _attention_output_dimensions(
+                parameters, query.shape[-1] if isinstance(query.shape[-1], int) else None
+            )
+            output = TensorSpec(
+                shape=[query.shape[0], query.shape[1], *output_dimensions],
+                dtype=query.dtype,
+            )
+            parameter_count = _attention_parameter_count(
+                query_dimension=query.shape[-1] if isinstance(query.shape[-1], int) else None,
+                context_dimension=context.shape[-1] if isinstance(context.shape[-1], int) else None,
+                heads=heads,
+                key_dimension=key_dimension,
+                value_dimension=value_dimension,
+                output_dimension=output_dimension,
+                use_bias=bool(parameters.get("use_bias", True)),
+            )
         elif rule in {"output", "math", "slice", "transpose", "normalization", "dropout"} or rule == "split":
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")

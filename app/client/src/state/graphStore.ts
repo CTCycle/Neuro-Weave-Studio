@@ -23,6 +23,8 @@ interface Snapshot {
   nodes: EditorNode[]
   edges: EditorEdge[]
   modelConfiguration: ModelConfiguration
+  exportSettings: ModelGraph['export_settings']
+  futureTrainingConfiguration: ModelGraph['future_training_configuration']
 }
 
 interface GraphState {
@@ -30,6 +32,8 @@ interface GraphState {
   edges: EditorEdge[]
   manifests: NodeManifest[]
   modelConfiguration: ModelConfiguration
+  exportSettings: ModelGraph['export_settings']
+  futureTrainingConfiguration: ModelGraph['future_training_configuration']
   selectedNodeId: string | null
   selectedEdgeId: string | null
   copiedNodeIds: string[]
@@ -61,10 +65,18 @@ interface GraphState {
 const newId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`
 const cloneNodes = (nodes: EditorNode[]) => nodes.map((node) => ({ ...node, position: { ...node.position }, data: { ...node.data, parameters: { ...node.data.parameters }, diagnostics: [...node.data.diagnostics] } }))
 const cloneEdges = (edges: EditorEdge[]) => edges.map((edge) => ({ ...edge }))
-const snapshot = (state: Pick<GraphState, 'nodes' | 'edges' | 'modelConfiguration'>): Snapshot => ({
+const defaultExportSettings = (): ModelGraph['export_settings'] => ({
+  include_comments: true,
+  include_shape_assertions: true,
+  preferred_binary_format: 'keras',
+})
+
+const snapshot = (state: Pick<GraphState, 'nodes' | 'edges' | 'modelConfiguration' | 'exportSettings' | 'futureTrainingConfiguration'>): Snapshot => ({
   nodes: cloneNodes(state.nodes),
   edges: cloneEdges(state.edges),
   modelConfiguration: structuredClone(state.modelConfiguration),
+  exportSettings: structuredClone(state.exportSettings),
+  futureTrainingConfiguration: structuredClone(state.futureTrainingConfiguration),
 })
 
 function wouldCreateCycle(nodes: EditorNode[], edges: EditorEdge[], source: string, target: string): boolean {
@@ -89,6 +101,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   edges: [],
   manifests: [],
   modelConfiguration: emptyModelConfiguration(),
+  exportSettings: defaultExportSettings(),
+  futureTrainingConfiguration: {},
   selectedNodeId: null,
   selectedEdgeId: null,
   copiedNodeIds: [],
@@ -200,9 +214,19 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       targetHandle: edge.target_port_id,
       type: 'smoothstep',
     }))
-    return { nodes, edges, modelConfiguration: project.graph.model_configuration, selectedNodeId: null, selectedEdgeId: null, past: [], future: [] }
+    return {
+      nodes,
+      edges,
+      modelConfiguration: project.graph.model_configuration,
+      exportSettings: structuredClone(project.graph.export_settings),
+      futureTrainingConfiguration: structuredClone(project.graph.future_training_configuration),
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      past: [],
+      future: [],
+    }
   }),
-  reset: () => set({ nodes: [], edges: [], modelConfiguration: emptyModelConfiguration(), selectedNodeId: null, selectedEdgeId: null, past: [], future: [] }),
+  reset: () => set({ nodes: [], edges: [], modelConfiguration: emptyModelConfiguration(), exportSettings: defaultExportSettings(), futureTrainingConfiguration: {}, selectedNodeId: null, selectedEdgeId: null, past: [], future: [] }),
   toGraph: () => {
     const state = get()
     return {
@@ -223,8 +247,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         target_port_id: edge.targetHandle ?? 'input',
       })),
       model_configuration: state.modelConfiguration,
-      export_settings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
-      future_training_configuration: {},
+      export_settings: structuredClone(state.exportSettings),
+      future_training_configuration: structuredClone(state.futureTrainingConfiguration),
     }
   },
   applyDiagnostics: (diagnostics, summaries) => set((state) => {
