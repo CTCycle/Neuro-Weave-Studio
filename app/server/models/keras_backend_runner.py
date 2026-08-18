@@ -9,6 +9,7 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
+from uuid import uuid4
 
 from domain.enums import ExecutionBackend, keras_backend_value
 from domain.graph import ModelGraph
@@ -71,17 +72,25 @@ class KerasBackendRunner:
     # -------------------------------------------------------------------------
     def export(self, graph: ModelGraph, destination: Path, backend: ExecutionBackend) -> Path:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        started = time.perf_counter()
-        result = self._run_worker(
-            backend,
-            ("--destination", str(destination)),
-            input_text=graph.model_dump_json(),
+        temporary_destination = destination.with_name(
+            f".{destination.stem}.{uuid4().hex}.tmp.keras"
         )
-        if result.returncode != 0:
-            detail = result.stderr.strip() or "Keras worker failed without a diagnostic"
-            raise RuntimeError(detail)
-        if not destination.is_file():
-            raise RuntimeError("Keras worker completed without creating the model artifact")
+        started = time.perf_counter()
+        try:
+            result = self._run_worker(
+                backend,
+                ("--destination", str(temporary_destination)),
+                input_text=graph.model_dump_json(),
+            )
+            if result.returncode != 0:
+                detail = result.stderr.strip() or "Keras worker failed without a diagnostic"
+                raise RuntimeError(detail)
+            if not temporary_destination.is_file():
+                raise RuntimeError("Keras worker completed without creating the model artifact")
+            temporary_destination.replace(destination)
+        finally:
+            if temporary_destination.exists():
+                temporary_destination.unlink()
         duration_ms = round((time.perf_counter() - started) * 1000, 1)
         LOGGER.info(
             "backend_execution requested=%s worker_backend=%s duration_ms=%s outcome=exported",

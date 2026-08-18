@@ -9,9 +9,11 @@ from domain.diagnostics import ValidationDiagnostic, ValidationResult
 from domain.enums import CodeTarget, DiagnosticSeverity
 from domain.graph import ModelGraph, NodeInstance
 from domain.manifests import NodeManifest, ParameterDefinition
-from validation.graph_utils import topological_order
+from validation.compile_configuration import validate_model_configuration
+from validation.graph_utils import nodes_reaching, reachable_nodes, topological_order
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
+
 
 ###############################################################################
 def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
@@ -54,6 +56,7 @@ class ValidationService:
         diagnostics: list[ValidationDiagnostic] = []
         nodes = {node.id: node for node in graph.nodes}
         manifests: dict[str, NodeManifest] = {}
+        diagnostics.extend(validate_model_configuration(graph, code_target))
 
         for node in graph.nodes:
             try:
@@ -364,6 +367,32 @@ class ValidationService:
                         node_id=output.id,
                     )
                 )
+
+        input_ids = {node.id for node in input_nodes}
+        output_ids = {node.id for node in output_nodes}
+        input_reachable = reachable_nodes(graph, input_ids)
+        output_reachable = nodes_reaching(graph, output_ids)
+        active_node_ids = input_reachable & output_reachable
+        for node in graph.nodes:
+            if node.id in active_node_ids:
+                continue
+            if node.id in input_ids:
+                code = "unreachable_model_input"
+                message = "Model input does not contribute to any model output"
+            elif node.id in output_ids:
+                code = "unreachable_model_output"
+                message = "Model output cannot be reached from a model input"
+            else:
+                code = "unreachable_graph_component"
+                message = "Graph node is not on a path from a model input to a model output"
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code=code,
+                    severity=DiagnosticSeverity.ERROR,
+                    message=message,
+                    node_id=node.id,
+                )
+            )
 
         try:
             topological_order(graph)
