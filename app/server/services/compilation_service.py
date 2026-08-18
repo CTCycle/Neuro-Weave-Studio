@@ -11,6 +11,7 @@ from exporters.pytorch_exporter import PyTorchSourceExporter
 from exporters.tensorflow_exporter import TensorFlowSourceExporter
 from services.validation_service import ValidationService
 
+
 ###############################################################################
 class CompilationService:
 
@@ -34,7 +35,12 @@ class CompilationService:
                 code_target=code_target,
                 diagnostics=validation.diagnostics,
             )
-        ir = compile_to_ir(graph, code_target, self._catalog)
+        ir = compile_to_ir(
+            graph,
+            code_target,
+            self._catalog,
+            shape_summaries=validation.shape_summaries,
+        )
         code = self._exporters[code_target].generate(graph, ir)
         return CompilationResult(
             valid=True,

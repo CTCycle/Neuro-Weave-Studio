@@ -26,7 +26,8 @@ def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
 ###############################################################################
 def test_manifest_capabilities_are_not_inflated_by_runtime_registry() -> None:
     catalog = get_node_catalog()
-    assert not catalog.get("layer.batch_norm").frameworks[CodeTarget.PYTORCH].supported
+    assert catalog.get("layer.batch_norm").frameworks[CodeTarget.PYTORCH].supported
+    assert catalog.get("conv.conv2d").frameworks[CodeTarget.PYTORCH].supported
     assert not catalog.get("attention.multi_head").frameworks[CodeTarget.PYTORCH].supported
     assert not catalog.get("layer.dense").frameworks[CodeTarget.JAX].supported
 

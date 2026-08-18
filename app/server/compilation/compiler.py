@@ -6,8 +6,9 @@ import re
 from common.catalogs.loader import NodeCatalog
 from domain.compilation import CanonicalModelIR, CompiledNode
 from domain.enums import CodeTarget
-from domain.graph import ModelGraph
+from domain.graph import ModelGraph, ShapeSummary
 from validation.graph_utils import ordered_incoming_edges, topological_order
+from validation.shape_inference import infer_shapes
 
 
 ###############################################################################
@@ -22,6 +23,7 @@ def compile_to_ir(
     graph: ModelGraph,
     code_target: CodeTarget,
     catalog: NodeCatalog,
+    shape_summaries: list[ShapeSummary] | None = None,
 ) -> CanonicalModelIR:
     nodes = {node.id: node for node in graph.nodes}
     ordered_nodes: list[CompiledNode] = []
@@ -54,4 +56,5 @@ def compile_to_ir(
         ordered_nodes=ordered_nodes,
         input_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("input.")],
         output_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("output.")],
+        shape_summaries=(shape_summaries if shape_summaries is not None else infer_shapes(graph, catalog)),
     )

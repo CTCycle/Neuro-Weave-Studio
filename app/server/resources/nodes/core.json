@@ -278,8 +278,8 @@
           "supported": true
         },
         "pytorch": {
-          "supported": false,
-          "notes": "PyTorch source export requires rank-aware normalization selection and is not implemented in the MVP."
+          "supported": true,
+          "notes": "Exported with rank-aware PyTorch BatchNorm modules."
         }
       },
       "ui": {
@@ -340,8 +340,8 @@
           "supported": true
         },
         "pytorch": {
-          "supported": false,
-          "notes": "PyTorch source export requires rank-aware normalization selection and is not implemented in the MVP."
+          "supported": true,
+          "notes": "Exported with PyTorch LayerNorm for trailing normalized axes."
         }
       },
       "ui": {

@@ -34,8 +34,7 @@
         },
         "parameters": {
           "units": 32,
-          "return_sequences": false,
-          "input_size": 16
+          "return_sequences": false
         }
       },
       {
