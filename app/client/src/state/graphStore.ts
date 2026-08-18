@@ -131,7 +131,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     const sourcePort = sourceNode?.data.manifest.outputs.find((port) => port.id === connection.sourceHandle)
     const targetPort = targetNode?.data.manifest.inputs.find((port) => port.id === connection.targetHandle)
     if (!sourcePort || !targetPort) return false
-    if (sourcePort.kind !== targetPort.kind && targetPort.kind !== 'tensor_list') return false
+    const expectedKind = targetPort.kind === 'tensor_list' ? targetPort.element_kind ?? 'tensor' : targetPort.kind
+    if (sourcePort.kind !== expectedKind) return false
     if (!targetPort.accepts_multiple && state.edges.some((edge) => edge.target === connection.target && edge.targetHandle === connection.targetHandle)) return false
     return true
   },

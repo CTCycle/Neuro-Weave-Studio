@@ -347,7 +347,12 @@ class ValidationService:
                     )
                 )
                 continue
-            if source_port.kind != target_port.kind and target_port.kind.value != "tensor_list":
+            expected_kind = (
+                target_port.element_kind
+                if target_port.kind.value == "tensor_list"
+                else target_port.kind
+            )
+            if source_port.kind != expected_kind:
                 diagnostics.append(
                     ValidationDiagnostic(
                         code="incompatible_port_kind",
@@ -481,6 +486,42 @@ class ValidationService:
         if not any(item.severity == DiagnosticSeverity.ERROR for item in diagnostics):
             try:
                 shape_summaries = infer_shapes(graph, self._catalog)
+                shape_by_port = {
+                    (summary.node_id, port_id): spec
+                    for summary in shape_summaries
+                    for port_id, spec in summary.outputs.items()
+                }
+                for edge in graph.edges:
+                    source = nodes.get(edge.source_node_id)
+                    target = nodes.get(edge.target_node_id)
+                    source_manifest = manifests.get(edge.source_node_id)
+                    target_manifest = manifests.get(edge.target_node_id)
+                    if source is None or target is None or source_manifest is None or target_manifest is None:
+                        continue
+                    source_port = next(
+                        (port for port in source_manifest.outputs if port.id == edge.source_port_id),
+                        None,
+                    )
+                    target_port = next(
+                        (port for port in target_manifest.inputs if port.id == edge.target_port_id),
+                        None,
+                    )
+                    source_spec = shape_by_port.get((edge.source_node_id, edge.source_port_id))
+                    if source_port is None or target_port is None or source_spec is None:
+                        continue
+                    for port, label in ((source_port, "source"), (target_port, "target")):
+                        if port.rank is not None and source_spec.rank != port.rank:
+                            diagnostics.append(
+                                ValidationDiagnostic(
+                                    code="port_rank_mismatch",
+                                    severity=DiagnosticSeverity.ERROR,
+                                    message=(
+                                        f"{label.title()} port '{port.display_name}' expects rank "
+                                        f"{port.rank}, received rank {source_spec.rank}"
+                                    ),
+                                    edge_id=edge.id,
+                                )
+                            )
                 known_counts = [item.parameter_count for item in shape_summaries]
                 total_parameters = (
                     sum(count for count in known_counts if count is not None)
