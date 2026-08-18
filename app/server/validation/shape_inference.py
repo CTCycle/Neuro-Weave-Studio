@@ -86,6 +86,16 @@ def _normalize_axis(axis: int, rank: int, *, allow_endpoint: bool = False) -> in
     return normalized
 
 ###############################################################################
+def _valid_spatial_pair(item: Any) -> bool:
+    if not isinstance(item, list):
+        return False
+    pair_values = cast(list[Any], item)
+    return len(pair_values) == 2 and all(
+        isinstance(value, int) and not isinstance(value, bool) and value >= 0
+        for value in pair_values
+    )
+
+###############################################################################
 def _spatial_transform(
     source: TensorSpec,
     parameters: dict[str, Any],
@@ -96,16 +106,7 @@ def _spatial_transform(
     if not isinstance(raw, list) or not raw:
         raise ShapeInferenceError(f"Parameter '{key}' must contain non-negative [before, after] pairs")
     raw_items = cast(list[Any], raw)
-    def valid_pair(item: Any) -> bool:
-        if not isinstance(item, list):
-            return False
-        pair_values = cast(list[Any], item)
-        return len(pair_values) == 2 and all(
-            isinstance(value, int) and not isinstance(value, bool) and value >= 0
-            for value in pair_values
-        )
-
-    if any(not valid_pair(item) for item in raw_items):
+    if any(not _valid_spatial_pair(item) for item in raw_items):
         raise ShapeInferenceError(f"Parameter '{key}' must contain non-negative [before, after] pairs")
     raw_pairs = cast(list[list[Any]], raw_items)
     spatial_rank = source.rank - 2
