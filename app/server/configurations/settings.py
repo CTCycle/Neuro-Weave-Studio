@@ -6,11 +6,11 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from common.path import (
+    DATABASE_PATH,
     ENV_FILE,
     REPOSITORY_ROOT,
     RUNTIME_EXPORT_ROOT,
     RUNTIME_LOG_ROOT,
-    RUNTIME_ROOT,
 )
 from configurations.environment import ensure_environment_file
 
@@ -102,7 +102,7 @@ def get_database_settings() -> DatabaseSettings:
     return DatabaseSettings(
         sqlite_path=_resolve_path(
             environment.sqlite_path,
-            RUNTIME_ROOT / "neuro_weave.db",
+            DATABASE_PATH,
         ),
         connect_timeout=environment.connect_timeout,
     )

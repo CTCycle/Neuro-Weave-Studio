@@ -48,7 +48,7 @@ The launcher menu provides these actions:
 
 The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, opens the frontend in the default browser when possible, and owns both child processes until Ctrl+C. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening. Set `ALWAYS_REBUILD=false` in `settings/.env` to reuse an existing frontend build when `app/client/dist/index.html` is present.
 
-`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/runtime/neuro_weave.db`. Existing databases must contain the canonical schema marker; use the explicit reset action to recreate a local database from scratch when needed. Keras is core; the launcher selects a hardware-aware PyTorch install by default, supports `-Backends all` for TensorFlow, PyTorch, and JAX, and reports native-Windows CPU limitations for TensorFlow/JAX.
+`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/database.db`. Existing databases must contain the canonical schema marker; use the explicit reset action to recreate a local database from scratch when needed. Keras is core; the launcher selects a hardware-aware PyTorch install by default, supports `-Backends all` for TensorFlow, PyTorch, and JAX, and reports native-Windows CPU limitations for TensorFlow/JAX.
 
 ## Manual setup
 
