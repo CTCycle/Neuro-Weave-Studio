@@ -1,5 +1,6 @@
 import { BrainCircuit, Box, Hammer, X } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { BackendStatusPanel } from './BackendStatusPanel'
 import { useAppResources } from '../state/useAppResources'
 
 export function AppShell() {
@@ -16,6 +17,7 @@ export function AppShell() {
           <NavLink to="/builder" className={({ isActive }) => isActive ? 'active' : ''}><Hammer size={16} />Model Builder</NavLink>
         </nav>
       </header>
+      <BackendStatusPanel />
       <main className="app-content"><Outlet /></main>
       {error && <button className="notice app-notice" onClick={clearError} aria-label="Dismiss application notice"><span>{error}</span><X size={14} /></button>}
     </div>

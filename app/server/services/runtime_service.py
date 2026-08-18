@@ -12,6 +12,7 @@ from domain.metadata import (
     MetadataResponse,
 )
 
+
 ###############################################################################
 class RuntimeService:
 
@@ -34,6 +35,8 @@ class RuntimeService:
             execution_backends=[
                 ExecutionBackendStatus(
                     id=backend,
+                    installed=bool(status.get("installed")),
+                    version=(str(status.get("version")) if status.get("version") else None),
                     available=bool(status.get("available")),
                     reason_code=(str(status.get("reason_code")) if status.get("reason_code") else None),
                     accelerator=(str(status.get("accelerator")) if status.get("accelerator") else None),

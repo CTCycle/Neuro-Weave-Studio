@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from domain.enums import CodeTarget, ExecutionBackend
 
+
 ###############################################################################
 class HealthResponse(BaseModel):
     status: str
@@ -40,6 +41,8 @@ class MetadataResponse(BaseModel):
 ###############################################################################
 class ExecutionBackendStatus(BaseModel):
     id: ExecutionBackend
+    installed: bool = False
+    version: str | None = None
     available: bool
     reason_code: str | None = None
     accelerator: str | None = None

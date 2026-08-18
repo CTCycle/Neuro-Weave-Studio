@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from common.catalogs.loader import get_node_catalog
-from domain.enums import CodeTarget, ExecutionBackend
+from domain.enums import CodeTarget, ExecutionBackend, keras_backend_value
 from domain.graph import EdgeInstance, ModelConfiguration, ModelGraph, NodeInstance, Position
 from exporters.keras_exporter import KerasSourceExporter
 from models.keras_backend_runner import KerasBackendRunner
@@ -232,6 +232,10 @@ def test_invalid_state_and_unreachable_components_are_blocked() -> None:
 
 
 def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
+    runner = KerasBackendRunner()
+    backend = next(iter(runner.available_backends()), None)
+    if backend is None:
+        pytest.skip("No operational Keras backend is installed")
     graph = ModelGraph(
         nodes=[
             node("input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
@@ -255,7 +259,7 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
     source_path = tmp_path / "generated_model.py"
     source_path.write_text(source, encoding="utf-8")
     environment = os.environ.copy()
-    environment["KERAS_BACKEND"] = "torch"
+    environment["KERAS_BACKEND"] = keras_backend_value(backend)
     command = [
         sys.executable,
         "-c",
@@ -324,6 +328,10 @@ def test_mixed_precision_policy_is_applied_before_cpu_model_build() -> None:
 
 
 def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -> None:
+    runner = KerasBackendRunner()
+    backend = next(iter(runner.available_backends()), None)
+    if backend is None:
+        pytest.skip("No operational Keras backend is installed")
     graph = ModelGraph(
         nodes=[
             node("input", "input.sequence", {"shape": [None, 5, 128], "dtype": "float32"}),
@@ -357,7 +365,7 @@ def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -
     source_path = tmp_path / "generated_transformer.py"
     source_path.write_text(source, encoding="utf-8")
     environment = os.environ.copy()
-    environment["KERAS_BACKEND"] = "torch"
+    environment["KERAS_BACKEND"] = keras_backend_value(backend)
     command = [
         sys.executable,
         "-c",

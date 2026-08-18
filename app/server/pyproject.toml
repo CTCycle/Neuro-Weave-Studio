@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "neuro-weave-backend"
 version = "0.1.0"
 description = "FastAPI backend for a visual machine-learning architecture editor"
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
   "fastapi>=0.116,<1",
   "uvicorn[standard]>=0.52.3,<1",
@@ -69,7 +69,7 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
@@ -79,6 +79,6 @@ ignore = ["B008", "E501"]
 include = [".", "../scripts", "../tests"]
 exclude = [".venv", "__pycache__", ".pytest_cache", ".ruff_cache"]
 typeCheckingMode = "strict"
-pythonVersion = "3.12"
+pythonVersion = "3.13"
 venvPath = "."
 venv = ".venv"

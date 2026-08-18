@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib.metadata
+import importlib.util
 import json
 import logging
 import os
@@ -34,6 +36,7 @@ class KerasBackendRunner:
     def probe_statuses(self) -> dict[ExecutionBackend, dict[str, object]]:
         statuses: dict[ExecutionBackend, dict[str, object]] = {}
         for backend in ExecutionBackend:
+            installed, version = self._installed_package(backend)
             started = time.perf_counter()
             try:
                 result = self._run_worker(backend, ("--probe",), input_text=None)
@@ -51,6 +54,8 @@ class KerasBackendRunner:
                 capabilities = {}
             duration_ms = round((time.perf_counter() - started) * 1000, 1)
             statuses[backend] = {
+                "installed": installed,
+                "version": version,
                 "available": available,
                 "reason_code": reason,
                 "accelerator": capabilities.get("accelerator") if available else None,
@@ -64,6 +69,25 @@ class KerasBackendRunner:
                 "available" if available else reason,
             )
         return statuses
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _installed_package(backend: ExecutionBackend) -> tuple[bool, str | None]:
+        package_name = {
+            ExecutionBackend.TENSORFLOW: "tensorflow",
+            ExecutionBackend.PYTORCH: "torch",
+            ExecutionBackend.JAX: "jax",
+        }[backend]
+        try:
+            installed = importlib.util.find_spec(package_name) is not None
+        except (ImportError, ModuleNotFoundError, ValueError):
+            installed = False
+        if not installed:
+            return False, None
+        try:
+            return True, importlib.metadata.version(package_name)
+        except importlib.metadata.PackageNotFoundError:
+            return True, None
 
     # -------------------------------------------------------------------------
     def probe(self, backend: ExecutionBackend) -> bool:

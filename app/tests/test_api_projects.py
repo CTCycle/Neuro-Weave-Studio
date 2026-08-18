@@ -8,6 +8,7 @@ from domain.enums import ExecutionBackend
 from repositories.graphs import GraphRepository
 from repositories.models import ProjectRecord, ProjectRevisionRecord
 
+
 ###############################################################################
 def fail_create_graph_replace(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("graph write failed")
@@ -98,9 +99,12 @@ def test_health_and_metadata_are_typed_contracts(client: httpx.Client) -> None:
     assert health.json() == {"status": "ok"}
     assert metadata.status_code == 200
     assert metadata.json()["code_targets"] == ["keras", "tensorflow", "pytorch", "jax"]
-    assert {item["id"] for item in metadata.json()["execution_backends"]} == {
+    backend_items = metadata.json()["execution_backends"]
+    assert {item["id"] for item in backend_items} == {
         "tensorflow", "pytorch", "jax"
     }
+    assert all(isinstance(item["installed"], bool) for item in backend_items)
+    assert all("version" in item for item in backend_items)
 
 ###############################################################################
 def test_binary_export_requires_backend_and_reports_unavailable_backend(
