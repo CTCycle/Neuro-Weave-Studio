@@ -12,6 +12,7 @@ export interface PortDefinition {
   required: boolean
   accepts_multiple: boolean
   rank?: number | null
+  element_kind?: PortKind | null
   description: string
 }
 

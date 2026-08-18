@@ -18,7 +18,16 @@ class PortDefinition(BaseModel):
     required: bool = True
     accepts_multiple: bool = False
     rank: int | None = Field(default=None, ge=0)
+    element_kind: PortKind | None = None
     description: str = ""
+
+    @model_validator(mode="after")
+    def validate_element_kind(self) -> PortDefinition:
+        if self.kind is PortKind.TENSOR_LIST and self.element_kind is None:
+            return self.model_copy(update={"element_kind": PortKind.TENSOR})
+        if self.kind is not PortKind.TENSOR_LIST and self.element_kind is not None:
+            raise ValueError("Only tensor_list ports may declare element_kind")
+        return self
 
 ###############################################################################
 class ParameterDefinition(BaseModel):
