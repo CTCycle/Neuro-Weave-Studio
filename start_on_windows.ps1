@@ -222,7 +222,6 @@ function Import-DotEnv {
         UI_PORT = '5173'
         VITE_API_BASE_URL = '/api'
         RELOAD = 'true'
-        ALWAYS_REBUILD = 'true'
         BACKEND_LOGS_VISIBLE = 'true'
     }
     foreach ($key in $defaults.Keys) {
@@ -907,13 +906,12 @@ function Invoke-Launch {
         Write-Ok 'Application environments are ready; skipped dependency installation.'
     }
     Invoke-OptionalBackendSetup
-    $alwaysRebuild = Get-BooleanEnvironmentValue -Name 'ALWAYS_REBUILD' -Default $true
     $backendLogsVisible = Get-BooleanEnvironmentValue -Name 'BACKEND_LOGS_VISIBLE' -Default $true
-    if ($alwaysRebuild -or -not (Test-Path -LiteralPath $script:FrontendDistIndex)) {
-        if (-not $alwaysRebuild) { Write-Info 'Frontend build output is missing; rebuilding despite ALWAYS_REBUILD=false.' }
+    if (-not (Test-Path -LiteralPath $script:FrontendDistIndex)) {
+        Write-Info 'Frontend build output is missing after dependency recovery; rebuilding before launch.'
         Invoke-FrontendBuild
     } else {
-        Write-Ok 'Frontend build output is ready; skipped rebuild because ALWAYS_REBUILD=false.'
+        Write-Ok 'Frontend build output is ready; reused the existing build.'
     }
 
     $backendHost = [Environment]::GetEnvironmentVariable('FASTAPI_HOST', 'Process')

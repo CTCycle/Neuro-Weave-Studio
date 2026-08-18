@@ -48,7 +48,7 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "backend-installation.json" in source
     assert "--locked" in source
     assert "Read-InstallationType" in source
-    assert "ALWAYS_REBUILD" in source
+    assert "ALWAYS_REBUILD" not in source
     assert "BACKEND_LOGS_VISIBLE" in source
     assert "BACKEND_LOGS_VISIBLE = 'true'" in source
     assert "-WindowStyle Normal" in source
@@ -76,7 +76,7 @@ def test_environment_contract_is_canonical_and_secret_safe() -> None:
     assert "DATABASE_SQLITE_PATH=" in template
     assert "DATABASE_CONNECT_TIMEOUT=" in template
     assert "VITE_API_BASE_URL=/api" in template
-    assert "ALWAYS_REBUILD=" in template
+    assert "ALWAYS_REBUILD=" not in template
     assert "BACKEND_LOGS_VISIBLE=true" in template
     assert not (REPOSITORY_ROOT / ".env.example").exists()
     assert "ensure_environment.py" in launcher
