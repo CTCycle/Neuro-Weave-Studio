@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModelSmokeTestDrawer } from './ModelSmokeTestDrawer'
 
-const status = { id: 'pytorch' as const, available: true, accelerator: 'cuda', device_name: 'Test GPU' }
+const status = { id: 'pytorch' as const, installed: true, version: '2.13.0', available: true, accelerator: 'cuda', device_name: 'Test GPU' }
 
 describe('ModelSmokeTestDrawer', () => {
   afterEach(cleanup)

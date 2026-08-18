@@ -172,6 +172,8 @@ export interface MetadataResponse {
 
 export interface ExecutionBackendStatus {
   id: ExecutionBackend
+  installed: boolean
+  version?: string | null
   available: boolean
   reason_code?: string | null
   accelerator?: string | null

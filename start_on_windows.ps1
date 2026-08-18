@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'Install', 'Launch', 'InitDb', 'Test', 'CleanLogs', 'ClearCache', 'Uninstall')]
+    [ValidateSet('Menu', 'Install', 'ManageBackends', 'Launch', 'InitDb', 'Test', 'CleanLogs', 'ClearCache', 'Uninstall')]
     [string]$Action = 'Menu',
     [string]$Backends = '',
     [ValidateSet('Auto', 'CPU')]
@@ -28,10 +28,11 @@ $script:EnvironmentFile = Join-Path (Join-Path $RepoRoot 'settings') '.env'
 $script:LogDir = Join-Path $AppDir 'resources\runtime\logs'
 $script:BackendInstallState = Join-Path $AppDir 'resources\runtime\backend-installation.json'
 $script:FrontendDistIndex = Join-Path $ClientDir 'dist\index.html'
-$script:PythonVersion = '3.12.11'
+$script:PythonVersion = '3.13.14'
 $script:UvVersion = '0.12.0'
 $script:NodeVersion = '22.23.1'
 $script:Children = [System.Collections.Generic.List[object]]::new()
+$script:LaunchHandedOff = $false
 $script:NoBrowser = $NoBrowser
 
 function Write-Status {
@@ -71,6 +72,15 @@ function Get-PortablePython {
         throw "Portable Python $($script:PythonVersion) is missing. Use the install/repair action."
     }
     return $python
+}
+
+function Assert-PythonRuntimeVersion {
+    param([Parameter(Mandatory = $true)][string]$PythonPath)
+
+    $pythonVersion = (& $PythonPath --version).Trim()
+    if ($LASTEXITCODE -ne 0 -or $pythonVersion -ne "Python $($script:PythonVersion)") {
+        throw "Expected Python $($script:PythonVersion), found '$pythonVersion'."
+    }
 }
 
 function Get-VenvPython {
@@ -159,10 +169,7 @@ function Ensure-PortableRuntimes {
     if (-not (Test-Path -LiteralPath $python)) {
         throw "Portable Python was not found at $python after installation."
     }
-    $pythonVersion = (& $python --version).Trim()
-    if ($LASTEXITCODE -ne 0 -or $pythonVersion -ne "Python $($script:PythonVersion)") {
-        throw "Expected Python $($script:PythonVersion), found '$pythonVersion'."
-    }
+    Assert-PythonRuntimeVersion -PythonPath $python
 
     $node = Join-Path $script:NodeDir 'node.exe'
     $npm = Join-Path $script:NodeDir 'npm.cmd'
@@ -216,6 +223,7 @@ function Import-DotEnv {
         VITE_API_BASE_URL = '/api'
         RELOAD = 'true'
         ALWAYS_REBUILD = 'true'
+        BACKEND_LOGS_VISIBLE = 'true'
     }
     foreach ($key in $defaults.Keys) {
         if (-not $inheritedEnvironmentKeys.ContainsKey($key)) {
@@ -249,16 +257,42 @@ function Get-BooleanEnvironmentValue {
     throw "$Name must be either 'true' or 'false'."
 }
 
-function Get-InstalledExecutionBackends {
+function Get-InstalledExecutionBackendDetails {
     $venvPython = Get-VenvPython
     if (-not (Test-Path -LiteralPath $venvPython)) { return @() }
-    $probe = "import importlib.util; print(','.join(name for name in ('tensorflow', 'torch', 'jax') if importlib.util.find_spec(name)))"
-    $installed = (& $venvPython -c $probe 2>$null).Trim()
-    if ([string]::IsNullOrWhiteSpace($installed)) { return @() }
-    return @($installed -split ',' | ForEach-Object {
-            $name = $_.Trim()
-            if ($name -eq 'torch') { 'pytorch' } else { $name }
-        } | Where-Object { $_ })
+    $probe = @'
+import importlib.metadata as metadata
+import importlib.util
+import json
+
+frameworks = (
+    {"id": "tensorflow", "package": "tensorflow", "module": "tensorflow"},
+    {"id": "pytorch", "package": "torch", "module": "torch"},
+    {"id": "jax", "package": "jax", "module": "jax"},
+)
+items = []
+for framework in frameworks:
+    installed = importlib.util.find_spec(framework["module"]) is not None
+    version = None
+    if installed:
+        try:
+            version = metadata.version(framework["package"])
+        except metadata.PackageNotFoundError:
+            pass
+    items.append({**framework, "installed": installed, "version": version})
+print(json.dumps(items))
+'@
+    $raw = (& $venvPython -c $probe 2>$null | Select-Object -Last 1)
+    if ([string]::IsNullOrWhiteSpace($raw)) { return @() }
+    try { return @($raw | ConvertFrom-Json) } catch { return @() }
+}
+
+function Get-InstalledExecutionBackends {
+    return @(
+        Get-InstalledExecutionBackendDetails |
+            Where-Object { $_.installed } |
+            Select-Object -ExpandProperty id
+    )
 }
 
 function Get-NvidiaCudaInfo {
@@ -305,28 +339,46 @@ function Get-BackendInstallationState {
 
 function Set-BackendInstallationState {
     param(
-        [Parameter(Mandatory = $true)][string[]]$Backends,
+        [AllowNull()][AllowEmptyCollection()][string[]]$Backends = @(),
         [Parameter(Mandatory = $true)][string]$Acceleration,
-        [string[]]$Failures = @()
+        [string[]]$ResolvedExtras = @(),
+        [string[]]$Failures = @(),
+        [bool]$SetupCompleted = $true,
+        [bool]$RestartRequired = $false
     )
     New-Item -ItemType Directory -Path (Split-Path -Parent $script:BackendInstallState) -Force | Out-Null
+    $pythonVersion = $null
+    $venvPython = Get-VenvPython
+    if (Test-Path -LiteralPath $venvPython) { $pythonVersion = (& $venvPython --version 2>$null).Trim() }
     [ordered]@{
-        schema_version = 1
-        backends = @($Backends)
+        schema_version = 2
+        setup_completed = $SetupCompleted
+        requested_backends = @($Backends)
+        resolved_extras = @($ResolvedExtras)
         acceleration = $Acceleration
+        python_version = $pythonVersion
+        platform = "$env:OS/$env:PROCESSOR_ARCHITECTURE"
+        installed = @(Get-BackendStatusSnapshot)
         failures = @($Failures)
+        restart_required = $RestartRequired
         recorded_at = [DateTime]::UtcNow.ToString('O')
-    } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $script:BackendInstallState -Encoding UTF8
+    } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $script:BackendInstallState -Encoding UTF8
+}
+
+function Clear-BackendRestartRequired {
+    $state = Get-BackendInstallationState
+    if ($null -eq $state -or $state.schema_version -lt 2 -or -not $state.restart_required) { return }
+    $state.restart_required = $false
+    $state | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $script:BackendInstallState -Encoding UTF8
 }
 
 function ConvertTo-BackendExtras {
     param([AllowEmptyString()][string]$Selection)
 
-    if ([string]::IsNullOrWhiteSpace($Selection)) { return @('auto') }
+    if ([string]::IsNullOrWhiteSpace($Selection)) { return @() }
     $requested = @($Selection -split ',' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
     if ($requested -contains 'auto') {
-        if ($requested.Count -gt 1) { throw "The backend selection 'auto' cannot be combined with another backend." }
-        return @('auto')
+        throw "The backend selection 'auto' no longer installs a framework implicitly. Choose 'none', 'pytorch', 'tensorflow', 'jax', or 'all'."
     }
     if ($requested -contains 'all') {
         if ($requested.Count -gt 1) { throw "The backend selection 'all' cannot be combined with another backend." }
@@ -341,18 +393,29 @@ function ConvertTo-BackendExtras {
 
     $invalid = @($requested | Where-Object { $_ -notin @('tensorflow', 'pytorch', 'jax') })
     if ($invalid.Count) {
-        throw "Unknown execution backend(s): $($invalid -join ', '). Choose tensorflow, pytorch, and/or jax."
+        throw "Unknown execution backend(s): $($invalid -join ', '). Keras is core and is not an execution backend. Choose tensorflow, pytorch, and/or jax."
     }
     return @($requested | Select-Object -Unique)
 }
 
 function Read-BackendSelection {
-    $installed = @(Get-InstalledExecutionBackends)
-    Write-Host "Installed/available execution backends: $($(if ($installed.Count) { $installed -join ', ' } else { 'none' }))" -ForegroundColor DarkCyan
+    Write-Host 'Keras 3: core model API, installed with the base application (not an execution backend).' -ForegroundColor DarkGray
+    Write-Host '  pytorch   - general-purpose execution; CPU or hardware-aware CUDA wheel' -ForegroundColor White
+    Write-Host '  tensorflow - native Windows CPU execution; GPU requires WSL2 or Linux' -ForegroundColor White
+    Write-Host '  jax       - native Windows CPU execution; Windows support is experimental' -ForegroundColor White
+    Write-Host '  all       - install all three execution backends; review the CPU/GPU limitations above' -ForegroundColor White
+    $details = @(Get-InstalledExecutionBackendDetails | Where-Object { $_.installed })
+    $installed = if ($details.Count) {
+        @($details | ForEach-Object { "$($_.id) $($_.version)" }) -join ', '
+    } else { 'none' }
+    Write-Host "Currently installed execution backends: $installed" -ForegroundColor DarkCyan
     $nvidia = Get-NvidiaCudaInfo
-    $recommendation = if ($nvidia.Available) { 'pytorch with CUDA when supported' } else { 'pytorch CPU' }
-    Write-Host "Recommended first setup: $recommendation. Choose 'all' for TensorFlow + PyTorch + JAX, or 'none' for Keras-only." -ForegroundColor DarkGray
-    $selection = (Read-Host 'Execution backends to install (Enter=auto, all, tensorflow,pytorch,jax, or none)').Trim().ToLowerInvariant()
+    if ($nvidia.Available) {
+        Write-Host "NVIDIA device detected: $($nvidia.DeviceName), CUDA driver $($nvidia.CudaVersion). PyTorch Auto will try the cu126 wheel." -ForegroundColor DarkGray
+    } else {
+        Write-Host 'No NVIDIA CUDA device detected. PyTorch Auto will use the CPU wheel.' -ForegroundColor DarkGray
+    }
+    $selection = (Read-Host 'Execution backends to install (Enter=none; all, tensorflow,pytorch,jax, or none)').Trim().ToLowerInvariant()
     return @(ConvertTo-BackendExtras -Selection $selection)
 }
 
@@ -363,7 +426,6 @@ function Resolve-BackendExtras {
     foreach ($backend in @($Backends)) {
         $normalized = ([string]$backend).Trim().ToLowerInvariant()
         if (-not $normalized -or $normalized -eq 'none') { continue }
-        if ($normalized -eq 'auto') { $normalized = 'pytorch' }
         $extra = if ($normalized -eq 'pytorch') { Get-PytorchBackendExtra } else { $normalized }
         if (-not $resolved.Contains($extra)) { $resolved.Add($extra) }
     }
@@ -395,6 +457,39 @@ function Get-BackendCapabilityReport {
     return @($reports.ToArray())
 }
 
+function Get-BackendStatusSnapshot {
+    $details = @(Get-InstalledExecutionBackendDetails)
+    $detailById = @{}
+    foreach ($detail in $details) { $detailById[[string]$detail.id] = $detail }
+    $reports = @(Get-BackendCapabilityReport)
+    $reportById = @{}
+    foreach ($report in $reports) {
+        $id = if ([string]$report.backend -eq 'torch') { 'pytorch' } else { [string]$report.backend }
+        $reportById[$id] = $report
+    }
+
+    $snapshot = [System.Collections.Generic.List[object]]::new()
+    foreach ($id in @('tensorflow', 'pytorch', 'jax')) {
+        $detail = $detailById[$id]
+        $report = $reportById[$id]
+        $installed = $null -ne $detail -and [bool]$detail.installed
+        $available = $null -ne $report -and [bool]$report.available
+        $reason = if ($available) { $null } elseif ($null -ne $report -and $report.reason_code) {
+            [string]$report.reason_code
+        } elseif ($installed) { 'probe_failed' } else { 'dependency_missing' }
+        $snapshot.Add([ordered]@{
+                id = $id
+                installed = $installed
+                version = if ($null -ne $detail) { $detail.version } else { $null }
+                available = $available
+                reason_code = $reason
+                accelerator = if ($available) { $report.accelerator } else { $null }
+                device_name = if ($available) { $report.device_name } else { $null }
+            })
+    }
+    return @($snapshot.ToArray())
+}
+
 function Write-BackendCapabilitySummary {
     $nvidia = Get-NvidiaCudaInfo
     if ($nvidia.Available) {
@@ -402,9 +497,16 @@ function Write-BackendCapabilitySummary {
     } else {
         Write-Info 'No operational NVIDIA CUDA device was detected; GPU-capable backends will use CPU fallbacks.'
     }
-    foreach ($report in @(Get-BackendCapabilityReport)) {
-        $label = if ($report.available) { "$($report.backend) / $($report.accelerator) / $($report.device_name)" } else { "$($report.backend) / unavailable" }
-        Write-Status -Level $(if ($report.available) { 'OK' } else { 'WARN' }) -Message "Backend capability: $label"
+    Write-Info 'Native Windows limitation: TensorFlow and JAX are CPU-only; JAX CPU support is experimental.'
+    foreach ($status in @(Get-BackendStatusSnapshot)) {
+        $version = if ($status.version) { " v$($status.version)" } else { '' }
+        if (-not $status.installed) {
+            Write-Status -Level WARN -Message "$($status.id): not installed."
+        } elseif ($status.available) {
+            Write-Status -Level OK -Message "$($status.id)$($version): usable on $($status.accelerator) / $($status.device_name)."
+        } else {
+            Write-Status -Level WARN -Message "$($status.id)$($version): installed but unavailable ($($status.reason_code))."
+        }
     }
 }
 
@@ -462,56 +564,117 @@ function Invoke-FrontendBuild {
     } finally { Pop-Location }
 }
 
+function Assert-BackendManagementEnvironmentStopped {
+    $ports = @(
+        (Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'),
+        (Get-ConfiguredInt -Name 'UI_PORT' -Default '5173')
+    ) | Select-Object -Unique
+    foreach ($port in $ports) {
+        $pids = @(Get-ListenerPids -Port $port)
+        if ($pids.Count -gt 0) {
+            throw "Cannot change compute dependencies while port $port is in use by PID(s) $($pids -join ', '). Close NeuroWeave and retry."
+        }
+    }
+}
+
+function Invoke-BackendReconciliation {
+    param([AllowNull()][AllowEmptyCollection()][string[]]$RequestedBackends = @())
+
+    $RequestedBackends = @($RequestedBackends | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $previousState = Get-BackendInstallationState
+    $previousExtras = @()
+    if ($null -ne $previousState -and $previousState.schema_version -ge 2 -and $null -ne $previousState.resolved_extras) {
+        $previousExtras = @($previousState.resolved_extras)
+    } else {
+        $previousExtras = @(Resolve-BackendExtras -Backends @(Get-InstalledExecutionBackends))
+    }
+    $targetExtras = @(Resolve-BackendExtras -Backends $RequestedBackends)
+    $failures = [System.Collections.Generic.List[string]]::new()
+    $succeeded = $false
+    $failureMessage = $null
+    $includeTests = Test-DevelopmentDependenciesInstalled
+
+    Write-Step "Synchronizing the requested execution environment: $(if ($RequestedBackends.Count) { $RequestedBackends -join ', ' } else { 'none (core/Keras only)' })."
+    try {
+        Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $targetExtras -ExplicitBackendSet -SkipFrontend
+        $succeeded = $true
+    } catch {
+        $failureMessage = $_.Exception.Message
+        if ($targetExtras -contains 'torch-cu126') {
+            Write-Warn 'PyTorch CUDA installation failed; retrying the complete requested set with the CPU wheel.'
+            try {
+                $script:Acceleration = 'CPU'
+                $targetExtras = @(Resolve-BackendExtras -Backends $RequestedBackends)
+                Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $targetExtras -ExplicitBackendSet -SkipFrontend
+                $failures.Add("PyTorch CUDA was unavailable; installed the CPU wheel instead.")
+                $succeeded = $true
+                Write-Ok 'PyTorch CPU fallback installed.'
+            } catch {
+                $failureMessage = $_.Exception.Message
+            }
+        }
+    }
+
+    if (-not $succeeded) {
+        $restoreMessage = 'No previous backend set was available.'
+        try {
+            Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $previousExtras -ExplicitBackendSet -SkipFrontend
+            $restoreMessage = 'The previous environment was restored.'
+        } catch {
+            $restoreMessage = "Automatic restoration also failed: $($_.Exception.Message)"
+        }
+        $failures.Add($failureMessage)
+        Set-BackendInstallationState -Backends $RequestedBackends -Acceleration $script:Acceleration `
+            -ResolvedExtras $targetExtras -Failures @($failures.ToArray()) -SetupCompleted:$false -RestartRequired:$true
+        throw "Backend update failed: $failureMessage $restoreMessage"
+    }
+
+    Set-BackendInstallationState -Backends $RequestedBackends -Acceleration $script:Acceleration `
+        -ResolvedExtras $targetExtras -Failures @($failures.ToArray()) -SetupCompleted:$true -RestartRequired:$true
+    Write-BackendCapabilitySummary
+}
+
+function Invoke-BackendManagement {
+    Ensure-PortableRuntimes
+    Import-DotEnv
+    Assert-BackendManagementEnvironmentStopped
+    if (-not (Test-DependenciesReady)) {
+        Write-Info 'Core dependencies are missing or use another Python version; installing the base environment first.'
+        Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras @() -ExplicitBackendSet -SkipFrontend
+    }
+    $selection = if ([string]::IsNullOrWhiteSpace($Backends)) { @(Read-BackendSelection) } else {
+        @(ConvertTo-BackendExtras -Selection $Backends)
+    }
+    Invoke-BackendReconciliation -RequestedBackends $selection
+    Write-Ok 'Compute backend configuration saved. Relaunch NeuroWeave to use the updated environment.'
+}
+
 function Invoke-OptionalBackendSetup {
     $state = Get-BackendInstallationState
-    if ($null -ne $state) {
-        Write-Ok 'Backend setup has already been acknowledged; skipped optional dependency installation.'
+    if ([string]::IsNullOrWhiteSpace($Backends) -and $null -ne $state -and $state.schema_version -ge 2 -and $state.setup_completed -and @($state.failures).Count -eq 0) {
+        Write-Ok 'Backend setup is already complete; verified the live environment instead of reinstalling packages.'
         Write-BackendCapabilitySummary
         return
+    }
+    if ($null -ne $state -and $state.schema_version -lt 2) {
+        Write-Warn 'The backend installation record uses an older format; live backend status will be refreshed.'
+    } elseif ($null -ne $state -and @($state.failures).Count -gt 0) {
+        Write-Warn 'The previous backend setup was incomplete. Choose a corrected backend set or none to retry.'
     }
 
     $selection = if ([string]::IsNullOrWhiteSpace($Backends)) { @(Read-BackendSelection) } else {
         @(ConvertTo-BackendExtras -Selection $Backends)
     }
-    if ($selection -contains 'auto') { $selection = @('pytorch') }
-    if ($selection.Count -eq 0) {
-        Write-Info 'Keras-only mode selected. Source generation remains available; inference backends can be added later with Install.'
-        Set-BackendInstallationState -Backends @() -Acceleration $script:Acceleration
-        return
-    }
+    Assert-BackendManagementEnvironmentStopped
+    Invoke-BackendReconciliation -RequestedBackends $selection
+}
 
-    $failures = [System.Collections.Generic.List[string]]::new()
-    $successful = [System.Collections.Generic.List[string]]::new()
-    Write-Step "Installing selected execution backends independently: $($selection -join ', ')."
-    foreach ($backend in @($selection)) {
-        $candidate = @($successful.ToArray()) + @($backend)
-        try {
-            Sync-Dependencies -BackendExtras $candidate -ExplicitBackendSet -SkipFrontend
-            $successful.Add($backend)
-        } catch {
-            $message = $_.Exception.Message
-            if ($backend -eq 'pytorch' -and (Get-PytorchBackendExtra) -eq 'torch-cu126') {
-                Write-Warn 'PyTorch CUDA installation failed; retrying that backend with the CPU wheel.'
-                try {
-                    $script:Acceleration = 'CPU'
-                    Sync-Dependencies -BackendExtras (@($successful.ToArray()) + @($backend)) -ExplicitBackendSet -SkipFrontend
-                    $successful.Add($backend)
-                    Write-Ok 'PyTorch CPU fallback installed.'
-                    continue
-                } catch {
-                    $message = $_.Exception.Message
-                }
-            }
-            $failures.Add("${backend}: $message")
-            Write-Warn "Optional backend '$backend' was skipped: $message"
-        }
-    }
-    Sync-Dependencies -BackendExtras @($successful.ToArray()) -ExplicitBackendSet
-    if ($failures.Count -gt 0) {
-        Write-Warn "Continuing with the core application. Failed optional backend(s): $($failures -join '; ')"
-    }
-    Set-BackendInstallationState -Backends $selection -Acceleration $script:Acceleration -Failures @($failures.ToArray())
-    Write-BackendCapabilitySummary
+function Test-DevelopmentDependenciesInstalled {
+    $venvPython = Get-VenvPython
+    if (-not (Test-Path -LiteralPath $venvPython)) { return $false }
+    $probe = "import importlib.metadata as m; [m.version(name) for name in ('pytest', 'ruff', 'pyright')]"
+    & $venvPython -c $probe *> $null
+    return $LASTEXITCODE -eq 0
 }
 
 function Test-DependenciesReady {
@@ -541,6 +704,7 @@ function Test-DependenciesReady {
     }
     & $python --version *> $null
     if ($LASTEXITCODE -ne 0) { return $false }
+    try { Assert-PythonRuntimeVersion -PythonPath $python } catch { return $false }
     & $uv --version *> $null
     if ($LASTEXITCODE -ne 0) { return $false }
     & $node --version *> $null
@@ -620,20 +784,56 @@ function Open-ApplicationBrowser {
     }
 }
 
+function ConvertTo-CommandLineArgument {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    if ($Value -notmatch '[\s"]') { return $Value }
+    return '"{0}"' -f ($Value -replace '"', '\\"')
+}
+
+function ConvertTo-CommandLine {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$ArgumentList
+    )
+
+    $parts = @($FilePath) + @($ArgumentList) | ForEach-Object {
+        ConvertTo-CommandLineArgument -Value ([string]$_)
+    }
+    return '"{0}"' -f ($parts -join ' ')
+}
+
 function Start-ManagedProcess {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][string]$FilePath,
         [Parameter(Mandatory = $true)][string[]]$ArgumentList,
-        [Parameter(Mandatory = $true)][string]$WorkingDirectory
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [switch]$Visible
     )
     New-Item -ItemType Directory -Path $script:LogDir -Force | Out-Null
     $safeName = $Name.ToLowerInvariant()
     $stdout = Join-Path $script:LogDir "$safeName.out.log"
     $stderr = Join-Path $script:LogDir "$safeName.err.log"
     Remove-Item -LiteralPath $stdout, $stderr -Force -ErrorAction SilentlyContinue
-    $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
-    $script:Children.Add([pscustomobject]@{ Name = $Name; Process = $process; Stdout = $stdout; Stderr = $stderr })
+    $command = ConvertTo-CommandLine -FilePath $FilePath -ArgumentList $ArgumentList
+    $mode = if ($Visible) { '/k' } else { '/c' }
+    $startArguments = @('/d', $mode, $command)
+    if ($Visible) {
+        $process = Start-Process -FilePath 'cmd.exe' -ArgumentList $startArguments `
+            -WorkingDirectory $WorkingDirectory -WindowStyle Normal -PassThru
+        $script:Children.Add([pscustomobject]@{
+                Name = $Name
+                Process = $process
+                Stdout = $null
+                Stderr = 'the dedicated backend log terminal'
+            })
+    } else {
+        $process = Start-Process -FilePath 'cmd.exe' -ArgumentList $startArguments `
+            -WorkingDirectory $WorkingDirectory -WindowStyle Hidden `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+        $script:Children.Add([pscustomobject]@{ Name = $Name; Process = $process; Stdout = $stdout; Stderr = $stderr })
+    }
     return $process
 }
 
@@ -678,16 +878,37 @@ function Stop-ManagedProcesses {
     $script:Children.Clear()
 }
 
+function Detach-ManagedProcesses {
+    if ($script:Children.Count -gt 0) {
+        Write-Info "Launcher handoff complete; detached $($script:Children.Count) application process root(s)."
+    }
+    $script:Children.Clear()
+}
+
+function Assert-ManagedProcessesAlive {
+    foreach ($child in @($script:Children)) {
+        if ($child.Process.HasExited) {
+            throw "$($child.Name) exited with code $($child.Process.ExitCode). See $($child.Stderr)."
+        }
+    }
+}
+
 function Invoke-Launch {
+    $script:LaunchHandedOff = $false
     Ensure-PortableRuntimes
     Import-DotEnv
     if (-not (Test-DependenciesReady)) {
-        Sync-Dependencies
+        $state = Get-BackendInstallationState
+        $backendExtras = if ($null -ne $state -and $state.schema_version -ge 2 -and $state.setup_completed) {
+            @($state.resolved_extras)
+        } else { @() }
+        Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras $backendExtras -ExplicitBackendSet
     } else {
         Write-Ok 'Application environments are ready; skipped dependency installation.'
     }
     Invoke-OptionalBackendSetup
     $alwaysRebuild = Get-BooleanEnvironmentValue -Name 'ALWAYS_REBUILD' -Default $true
+    $backendLogsVisible = Get-BooleanEnvironmentValue -Name 'BACKEND_LOGS_VISIBLE' -Default $true
     if ($alwaysRebuild -or -not (Test-Path -LiteralPath $script:FrontendDistIndex)) {
         if (-not $alwaysRebuild) { Write-Info 'Frontend build output is missing; rebuilding despite ALWAYS_REBUILD=false.' }
         Invoke-FrontendBuild
@@ -712,7 +933,8 @@ function Invoke-Launch {
         $backendHealth = "http://${browserBackendHost}:$backendPort/health"
         $uiUrl = "http://${browserUiHost}:$uiPort/"
         Write-Status -Level RUN -Message "Launching backend at $backendHealth"
-        $backendProcess = Start-ManagedProcess -Name 'Backend' -FilePath $venvPython -ArgumentList $backendArguments -WorkingDirectory $script:ServerDir
+        $backendProcess = Start-ManagedProcess -Name 'Backend' -FilePath $venvPython -ArgumentList $backendArguments `
+            -WorkingDirectory $script:ServerDir -Visible:$backendLogsVisible
         Write-Status -Level WAIT -Message "Waiting for backend readiness at $backendHealth"
         if (-not (Invoke-HealthCheck -Url $backendHealth -TimeoutSeconds 60)) {
             throw "Backend did not become healthy at $backendHealth. See $($script:LogDir)."
@@ -726,23 +948,18 @@ function Invoke-Launch {
             throw "Frontend did not become ready at $uiUrl. See $($script:LogDir)."
         }
         Write-Ok 'Frontend is ready.'
+        Assert-ManagedProcessesAlive
         Open-ApplicationBrowser -Uri $uiUrl
         Write-Status -Level SUCCESS -Message 'NeuroWeave Studio is running.'
         Write-Host "  Backend:  $backendHealth (PID $($backendProcess.Id))"
         Write-Host "  Frontend: $uiUrl (PID $($frontendProcess.Id))"
         Write-Host "  Logs:     $($script:LogDir)" -ForegroundColor DarkGray
-        Write-Host 'Press Ctrl+C to stop both services cleanly.' -ForegroundColor DarkGray
-
-        while ($true) {
-            foreach ($child in @($script:Children)) {
-                if ($child.Process.HasExited) {
-                    throw "$($child.Name) exited with code $($child.Process.ExitCode). See $($child.Stderr)."
-                }
-            }
-            Start-Sleep -Milliseconds 500
-        }
+        Write-Host 'The launcher will now close; the application services remain running independently.' -ForegroundColor DarkGray
+        Clear-BackendRestartRequired
+        Detach-ManagedProcesses
+        $script:LaunchHandedOff = $true
     } finally {
-        Stop-ManagedProcesses
+        if (-not $script:LaunchHandedOff) { Stop-ManagedProcesses }
     }
 }
 
@@ -762,16 +979,23 @@ function Invoke-Install {
 
     Ensure-PortableRuntimes
     Import-DotEnv
+    Assert-BackendManagementEnvironmentStopped
     $selectedInstallationType = $InstallationType
     if ($PromptForInstallationType) { $selectedInstallationType = Read-InstallationType }
-    $backendExtras = if ([string]::IsNullOrWhiteSpace($Backends)) { Read-BackendSelection } else {
+    $state = Get-BackendInstallationState
+    $backendSelection = if (-not [string]::IsNullOrWhiteSpace($Backends)) {
         @(ConvertTo-BackendExtras -Selection $Backends)
+    } elseif ($null -ne $state -and $state.schema_version -ge 2 -and $state.setup_completed) {
+        @($state.requested_backends)
+    } else {
+        @()
     }
     $includeTests = $selectedInstallationType -eq 'Development'
     Write-Status -Level INFO -Message "Installation profile: $selectedInstallationType"
-    Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $backendExtras -ExplicitBackendSet
-    $effectiveBackends = if ($backendExtras -contains 'auto') { @('pytorch') } else { @($backendExtras) }
-    Set-BackendInstallationState -Backends $effectiveBackends -Acceleration $script:Acceleration
+    Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $backendSelection -ExplicitBackendSet
+    $resolvedExtras = @(Resolve-BackendExtras -Backends $backendSelection)
+    Set-BackendInstallationState -Backends $backendSelection -Acceleration $script:Acceleration `
+        -ResolvedExtras $resolvedExtras -RestartRequired:$true
     Write-BackendCapabilitySummary
     Invoke-FrontendBuild
 }
@@ -931,6 +1155,7 @@ if ($Action -ne 'Menu') {
     try {
         switch ($Action) {
             'Install' { Invoke-Install }
+            'ManageBackends' { Invoke-BackendManagement }
             'Launch' { Invoke-Launch }
             'InitDb' { Invoke-DatabaseInitialization }
             'Test' { Invoke-TestSuite }
@@ -992,41 +1217,43 @@ function Show-LauncherMenu {
     Write-MenuOption -Number '1' -Label 'Launch application' -Description 'Start local backend and frontend services'
     Write-Host
     Write-Host '  SETUP & VALIDATION' -ForegroundColor DarkCyan
-    Write-MenuOption -Number '2' -Label 'Install or repair dependencies' -Description 'Choose profile, runtimes, and backend extras'
-    Write-MenuOption -Number '3' -Label 'Initialize or recreate database' -Description 'Create schema or confirm a destructive reset'
-    Write-MenuOption -Number '4' -Label 'Run validation suite' -Description 'Run backend and frontend quality gates'
+    Write-MenuOption -Number '2' -Label 'Install or repair base dependencies' -Description 'Prepare runtimes and core packages'
+    Write-MenuOption -Number '3' -Label 'Manage compute backends' -Description 'Install, inspect, or remove optional ML frameworks'
+    Write-MenuOption -Number '4' -Label 'Initialize or recreate database' -Description 'Create schema or confirm a destructive reset'
+    Write-MenuOption -Number '5' -Label 'Run validation suite' -Description 'Run backend and frontend quality gates'
     Write-Host
     Write-Host '  MAINTENANCE' -ForegroundColor DarkCyan
-    Write-MenuOption -Number '5' -Label 'Remove logs' -Description 'Clear generated application logs'
-    Write-MenuOption -Number '6' -Label 'Clear cache' -Description 'Remove Python bytecode and uv cache'
-    Write-MenuOption -Number '7' -Label 'Uninstall application' -Description 'Remove dependencies and build output' -Destructive
+    Write-MenuOption -Number '6' -Label 'Remove logs' -Description 'Clear generated application logs'
+    Write-MenuOption -Number '7' -Label 'Clear cache' -Description 'Remove Python bytecode and uv cache'
+    Write-MenuOption -Number '8' -Label 'Uninstall application' -Description 'Remove dependencies and build output' -Destructive
     Write-Host
     Write-MenuRule
-    Write-MenuOption -Number '8' -Label 'Exit' -Description 'Close this launcher' -Exit
+    Write-MenuOption -Number '9' -Label 'Exit' -Description 'Close this launcher' -Exit
     Write-MenuRule
     Write-Host
 }
 
 while ($true) {
     Show-LauncherMenu
-    $rawSelection = Read-Host '  Select an option (1-8)'
+    $rawSelection = Read-Host '  Select an option (1-9)'
     if ($null -eq $rawSelection) { break }
     $selection = ([string]$rawSelection).Trim()
-    if ($selection -notmatch '^[1-8]$') {
-        Write-Warn 'Invalid option. Enter a number from 1 to 8.'
+    if ($selection -notmatch '^[1-9]$') {
+        Write-Warn 'Invalid option. Enter a number from 1 to 9.'
         Wait-ForMenuReturn
         continue
     }
-    if ($selection -eq '8') { break }
+    if ($selection -eq '9') { break }
     try {
         switch ($selection) {
-            '1' { Invoke-Launch }
+            '1' { Invoke-Launch; exit 0 }
             '2' { Invoke-Install -PromptForInstallationType }
-            '3' { Invoke-DatabaseInitialization }
-            '4' { Invoke-TestSuite }
-            '5' { Invoke-RemoveApplicationLogs }
-            '6' { Invoke-ClearApplicationCache }
-            '7' { Invoke-UninstallApplication }
+            '3' { Invoke-BackendManagement }
+            '4' { Invoke-DatabaseInitialization }
+            '5' { Invoke-TestSuite }
+            '6' { Invoke-RemoveApplicationLogs }
+            '7' { Invoke-ClearApplicationCache }
+            '8' { Invoke-UninstallApplication }
         }
     } catch {
         Write-Fatal $_.Exception.Message
