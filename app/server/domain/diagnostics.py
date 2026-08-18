@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from domain.enums import CodeTarget, DiagnosticSeverity
 from domain.graph import ModelGraph, ShapeSummary
 
+
 ###############################################################################
 class ValidationDiagnostic(BaseModel):
     code: str
@@ -12,6 +13,7 @@ class ValidationDiagnostic(BaseModel):
     message: str
     node_id: str | None = None
     edge_id: str | None = None
+    parameter_id: str | None = None
     code_target: CodeTarget | None = None
     details: dict[str, object] = Field(default_factory=dict)
 

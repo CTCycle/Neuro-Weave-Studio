@@ -4,7 +4,6 @@ from collections import Counter
 from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog
-from compilation.adapters import adapter_supported
 from domain.diagnostics import ValidationDiagnostic, ValidationResult
 from domain.enums import CodeTarget, DiagnosticSeverity
 from domain.graph import ModelGraph, NodeInstance
@@ -18,7 +17,7 @@ from validation.shape_inference import ShapeInferenceError, infer_shapes
 ###############################################################################
 def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     if value is None:
-        return not parameter.required
+        return parameter.nullable
     if parameter.type == "boolean":
         return isinstance(value, bool)
     if parameter.type == "integer" or parameter.type == "axis":
@@ -73,7 +72,7 @@ class ValidationService:
                 )
                 continue
             mapping = manifest.frameworks.get(code_target)
-            if mapping is None or not mapping.supported or not adapter_supported(code_target, node.definition_id):
+            if mapping is None or not mapping.supported:
                 diagnostics.append(
                     ValidationDiagnostic(
                         code="unsupported_code_target_feature",
@@ -85,25 +84,44 @@ class ValidationService:
                 )
             known_parameter_ids = {parameter.id for parameter in manifest.parameters}
             unknown_parameters = sorted(set(node.parameters) - known_parameter_ids)
-            if unknown_parameters:
+            for parameter_id in unknown_parameters:
                 diagnostics.append(
                     ValidationDiagnostic(
-                        code="unknown_parameters",
-                        severity=DiagnosticSeverity.WARNING,
-                        message="Node contains parameters not declared by its manifest",
+                        code="unknown_parameter",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=f"Parameter '{parameter_id}' is not declared by the node manifest",
                         node_id=node.id,
-                        details={"parameters": unknown_parameters},
+                        parameter_id=parameter_id,
+                        code_target=code_target,
                     )
                 )
             for parameter in manifest.parameters:
-                value = node.parameters.get(parameter.id, parameter.default)
-                if parameter.required and value is None:
+                supplied = parameter.id in node.parameters
+                value = node.parameters[parameter.id] if supplied else parameter.default
+                capability = mapping.parameters.get(parameter.id) if mapping is not None else None
+                if parameter.required and not supplied:
                     diagnostics.append(
                         ValidationDiagnostic(
                             code="missing_parameter",
                             severity=DiagnosticSeverity.ERROR,
                             message=f"Parameter '{parameter.display_name}' is required",
                             node_id=node.id,
+                            parameter_id=parameter.id,
+                            code_target=code_target,
+                        )
+                    )
+                    continue
+                if value is None and not supplied:
+                    continue
+                if value is None and not parameter.nullable:
+                    diagnostics.append(
+                        ValidationDiagnostic(
+                            code="non_nullable_parameter",
+                            severity=DiagnosticSeverity.ERROR,
+                            message=f"Parameter '{parameter.display_name}' cannot be null",
+                            node_id=node.id,
+                            parameter_id=parameter.id,
+                            code_target=code_target,
                         )
                     )
                     continue
@@ -117,9 +135,39 @@ class ValidationService:
                                 f"of type {parameter.type}"
                             ),
                             node_id=node.id,
+                            parameter_id=parameter.id,
+                            code_target=code_target,
                         )
                     )
                     continue
+                if capability is not None and not capability.supported and value != parameter.default:
+                    diagnostics.append(
+                        ValidationDiagnostic(
+                            code="unsupported_parameter_value",
+                            severity=DiagnosticSeverity.ERROR,
+                            message=f"Parameter '{parameter.display_name}' is not supported for {code_target.value}",
+                            node_id=node.id,
+                            parameter_id=parameter.id,
+                            code_target=code_target,
+                            details={"value": value, "notes": capability.notes},
+                        )
+                    )
+                if (
+                    capability is not None
+                    and capability.allowed_values is not None
+                    and value not in capability.allowed_values
+                ):
+                    diagnostics.append(
+                        ValidationDiagnostic(
+                            code="unsupported_parameter_option",
+                            severity=DiagnosticSeverity.ERROR,
+                            message=f"{parameter.display_name} has no supported {code_target.value} mapping for this value",
+                            node_id=node.id,
+                            parameter_id=parameter.id,
+                            code_target=code_target,
+                            details={"allowed": capability.allowed_values, "value": value},
+                        )
+                    )
                 if parameter.type == "enum" and parameter.options and value not in parameter.options:
                     diagnostics.append(
                         ValidationDiagnostic(
@@ -127,6 +175,8 @@ class ValidationService:
                             severity=DiagnosticSeverity.ERROR,
                             message=f"{parameter.display_name} has an unsupported value",
                             node_id=node.id,
+                            parameter_id=parameter.id,
+                            code_target=code_target,
                             details={"allowed": parameter.options, "value": value},
                         )
                     )
@@ -144,6 +194,8 @@ class ValidationService:
                                 severity=DiagnosticSeverity.ERROR,
                                 message="Shape dimensions cannot be zero",
                                 node_id=node.id,
+                                parameter_id=parameter.id,
+                                code_target=code_target,
                             )
                         )
                 if parameter.type == "expression" and isinstance(value, str):
@@ -156,10 +208,15 @@ class ValidationService:
                                 severity=DiagnosticSeverity.ERROR,
                                 message=str(exc),
                                 node_id=node.id,
+                                parameter_id=parameter.id,
+                                code_target=code_target,
                             )
                         )
-                minimum = parameter.constraints.get("min")
-                maximum = parameter.constraints.get("max")
+                constraints = parameter.constraints
+                if capability is not None:
+                    constraints = {**constraints, **capability.constraints}
+                minimum = constraints.get("min")
+                maximum = constraints.get("max")
                 if (
                     isinstance(value, int | float)
                     and not isinstance(value, bool)
@@ -172,6 +229,8 @@ class ValidationService:
                             severity=DiagnosticSeverity.ERROR,
                             message=f"{parameter.display_name} must be at least {minimum}",
                             node_id=node.id,
+                            parameter_id=parameter.id,
+                            code_target=code_target,
                         )
                     )
                 if (
@@ -186,13 +245,15 @@ class ValidationService:
                             severity=DiagnosticSeverity.ERROR,
                             message=f"{parameter.display_name} must be at most {maximum}",
                             node_id=node.id,
+                            parameter_id=parameter.id,
+                            code_target=code_target,
                         )
                     )
                 if isinstance(value, list):
                     items = cast(list[Any], value)
-                    expected_length = parameter.constraints.get("length")
-                    minimum_length = parameter.constraints.get("min_length")
-                    maximum_length = parameter.constraints.get("max_length")
+                    expected_length = constraints.get("length")
+                    minimum_length = constraints.get("min_length")
+                    maximum_length = constraints.get("max_length")
                     if isinstance(expected_length, int) and len(items) != expected_length:
                         diagnostics.append(
                             ValidationDiagnostic(
@@ -200,6 +261,8 @@ class ValidationService:
                                 severity=DiagnosticSeverity.ERROR,
                                 message=f"{parameter.display_name} must contain exactly {expected_length} values",
                                 node_id=node.id,
+                                parameter_id=parameter.id,
+                                code_target=code_target,
                             )
                         )
                     if isinstance(minimum_length, int) and len(items) < minimum_length:
@@ -209,6 +272,8 @@ class ValidationService:
                                 severity=DiagnosticSeverity.ERROR,
                                 message=f"{parameter.display_name} must contain at least {minimum_length} values",
                                 node_id=node.id,
+                                parameter_id=parameter.id,
+                                code_target=code_target,
                             )
                         )
                     if isinstance(maximum_length, int) and len(items) > maximum_length:
@@ -218,10 +283,12 @@ class ValidationService:
                                 severity=DiagnosticSeverity.ERROR,
                                 message=f"{parameter.display_name} must contain at most {maximum_length} values",
                                 node_id=node.id,
+                                parameter_id=parameter.id,
+                                code_target=code_target,
                             )
                         )
-                    item_minimum = parameter.constraints.get("item_min")
-                    item_maximum = parameter.constraints.get("item_max")
+                    item_minimum = constraints.get("item_min")
+                    item_maximum = constraints.get("item_max")
                     for item in items:
                         if isinstance(item, int | float) and not isinstance(item, bool):
                             if isinstance(item_minimum, int | float) and item < item_minimum:
@@ -231,6 +298,8 @@ class ValidationService:
                                         severity=DiagnosticSeverity.ERROR,
                                         message=f"Values in {parameter.display_name} must be at least {item_minimum}",
                                         node_id=node.id,
+                                        parameter_id=parameter.id,
+                                        code_target=code_target,
                                     )
                                 )
                                 break
@@ -241,6 +310,8 @@ class ValidationService:
                                         severity=DiagnosticSeverity.ERROR,
                                         message=f"Values in {parameter.display_name} must be at most {item_maximum}",
                                         node_id=node.id,
+                                        parameter_id=parameter.id,
+                                        code_target=code_target,
                                     )
                                 )
                                 break

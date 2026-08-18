@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from domain.enums import CodeTarget, PortKind
+from domain.enums import CodeTarget, ExecutionBackend, PortKind
 
 ParameterType = Literal[
     "string", "integer", "number", "boolean", "enum", "shape", "axis", "list", "tuple", "expression"
@@ -35,10 +35,22 @@ class ParameterDefinition(BaseModel):
     ui: dict[str, Any] = Field(default_factory=dict)
 
 ###############################################################################
+class ParameterCapability(BaseModel):
+    """Declarative target-specific support for one canonical parameter."""
+
+    supported: bool = True
+    allowed_values: list[Any] | None = None
+    constraints: dict[str, Any] = Field(default_factory=dict)
+    mapping: str | None = None
+    notes: str | None = None
+
+###############################################################################
 class FrameworkMapping(BaseModel):
     supported: bool = True
     symbol: str | None = None
     notes: str | None = None
+    parameters: dict[str, ParameterCapability] = Field(default_factory=dict)
+    execution_backends: dict[ExecutionBackend, bool] = Field(default_factory=dict)  # pyright: ignore[reportUnknownVariableType]
 
 ###############################################################################
 class UiMetadata(BaseModel):
@@ -82,6 +94,14 @@ class NodeManifest(BaseModel):
             ids = [definition.id for definition in definitions]
             if len(ids) != len(set(ids)):
                 raise ValueError(f"Duplicate {label} identifiers in manifest {self.id}")
+        known_parameter_ids = {parameter.id for parameter in parameters}
+        for target, mapping in self.frameworks.items():
+            unknown_capabilities = sorted(set(mapping.parameters) - known_parameter_ids)
+            if unknown_capabilities:
+                raise ValueError(
+                    f"Framework mapping {target.value} for {self.id} references unknown "
+                    f"parameters: {', '.join(unknown_capabilities)}"
+                )
         return self
 
 ###############################################################################

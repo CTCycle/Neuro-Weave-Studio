@@ -8,15 +8,6 @@ from domain.manifests import NodeManifest
 
 RESOURCE_ROOT = Path(__file__).resolve().parents[2] / "resources" / "nodes"
 
-_PORTABLE_CORE = {
-    "input.image", "input.mask", "input.sequence", "input.tabular", "input.tensor", "input.token",
-    "layer.activation", "layer.batch_norm", "layer.dense", "layer.dropout", "layer.embedding",
-    "layer.flatten", "layer.layer_norm", "conv.conv2d", "conv.max_pool2d", "recurrent.gru",
-    "recurrent.lstm", "merge.add", "merge.concatenate", "merge.residual", "merge.skip",
-    "output.classification", "output.custom", "output.multi_head", "output.regression",
-    "output.segmentation", "output.sequence",
-}
-
 _INITIALIZER_OPTIONS = [
     "uniform",
     "glorot_uniform",
@@ -258,7 +249,7 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
 
 ###############################################################################
 def _normalize_manifest(raw: dict[str, Any]) -> dict[str, Any]:
-    """Normalize the checked-in catalog into the v2 four-target contract."""
+    """Complete omitted target entries without changing declared support."""
 
     item = dict(raw)
     original = dict(item.get("frameworks", {}))
@@ -273,12 +264,7 @@ def _normalize_manifest(raw: dict[str, Any]) -> dict[str, Any]:
     mappings.setdefault("keras", keras_mapping)
     mappings.setdefault("tensorflow", mappings.get("tensorflow", {"supported": False, "notes": "Target-limited"}))
     mappings.setdefault("pytorch", mappings.get("pytorch", {"supported": False, "notes": "Target-limited"}))
-    if node_id in _PORTABLE_CORE and bool(keras_mapping.get("supported", False)):
-        mappings["tensorflow"] = {"supported": True, "symbol": mappings["tensorflow"].get("symbol")}
-        mappings["pytorch"] = {"supported": True, "symbol": mappings["pytorch"].get("symbol")}
-        mappings["jax"] = {"supported": True, "symbol": "flax.linen"}
-    else:
-        mappings.setdefault("jax", {"supported": False, "notes": "Target-limited or design-only node"})
+    mappings.setdefault("jax", {"supported": False, "notes": "Target-limited or design-only node"})
     item["frameworks"] = mappings
     parameters: list[dict[str, Any]] = []
     for parameter in [*item.get("parameters", []), *_safe_layer_parameters(node_id)]:

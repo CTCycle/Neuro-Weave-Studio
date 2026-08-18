@@ -3,6 +3,7 @@ from domain.enums import CodeTarget, DiagnosticSeverity
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from services.validation_service import ValidationService
 
+
 ###############################################################################
 def make_node(node_id: str, definition_id: str, parameters: dict[str, object] | None = None) -> NodeInstance:
     return NodeInstance(id=node_id, definition_id=definition_id, position=Position(x=0, y=0), parameters=parameters or {})
@@ -80,3 +81,56 @@ def test_pooling_updates_spatial_shape() -> None:
     assert result.valid
     pool = next(item for item in result.shape_summaries if item.node_id == "pool")
     assert pool.outputs["output"].shape == [None, 16, 16, 3]
+
+###############################################################################
+def test_optional_non_nullable_parameter_may_be_omitted() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
+            make_node("dense", "layer.dense", {"units": 2}),
+            make_node("output", "output.regression"),
+        ],
+        edges=[
+            EdgeInstance(id="e1", source_node_id="input", source_port_id="output", target_node_id="dense", target_port_id="input"),
+            EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
+        ],
+    )
+    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    assert result.valid
+
+###############################################################################
+def test_explicit_null_for_non_nullable_parameter_is_rejected() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
+            make_node("dense", "layer.dense", {"units": 2, "use_bias": None}),
+            make_node("output", "output.regression"),
+        ],
+        edges=[
+            EdgeInstance(id="e1", source_node_id="input", source_port_id="output", target_node_id="dense", target_port_id="input"),
+            EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
+        ],
+    )
+    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    assert not result.valid
+    diagnostic = next(item for item in result.diagnostics if item.code == "non_nullable_parameter")
+    assert diagnostic.parameter_id == "use_bias"
+    assert diagnostic.code_target is CodeTarget.KERAS
+
+###############################################################################
+def test_unknown_v2_parameter_is_rejected() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
+            make_node("dense", "layer.dense", {"units": 2, "strieds": 2}),
+            make_node("output", "output.regression"),
+        ],
+        edges=[
+            EdgeInstance(id="e1", source_node_id="input", source_port_id="output", target_node_id="dense", target_port_id="input"),
+            EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
+        ],
+    )
+    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    assert not result.valid
+    diagnostic = next(item for item in result.diagnostics if item.code == "unknown_parameter")
+    assert diagnostic.parameter_id == "strieds"
