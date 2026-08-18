@@ -441,8 +441,8 @@
           "supported": true
         },
         "pytorch": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "notes": "Exported with explicit canonical layout conversion and SAME padding."
         }
       },
       "ui": {
@@ -508,8 +508,8 @@
           "supported": true
         },
         "pytorch": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "notes": "Exported with explicit canonical layout conversion and SAME padding."
         }
       },
       "ui": {

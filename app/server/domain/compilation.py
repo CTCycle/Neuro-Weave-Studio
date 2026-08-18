@@ -4,7 +4,8 @@ from pydantic import BaseModel, Field
 
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import CodeTarget
-from domain.graph import ModelGraph
+from domain.graph import ModelGraph, ShapeSummary
+
 
 ###############################################################################
 class CompiledNode(BaseModel):
@@ -21,6 +22,7 @@ class CanonicalModelIR(BaseModel):
     ordered_nodes: list[CompiledNode]
     input_node_ids: list[str]
     output_node_ids: list[str]
+    shape_summaries: list[ShapeSummary] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
 ###############################################################################
 class CompilationResult(BaseModel):

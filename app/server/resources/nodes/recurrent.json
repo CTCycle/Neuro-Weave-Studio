@@ -46,17 +46,6 @@
           "required": false,
           "options": [],
           "constraints": {}
-        },
-        {
-          "id": "input_size",
-          "display_name": "Input Size",
-          "type": "integer",
-          "default": 1,
-          "required": false,
-          "options": [],
-          "constraints": {
-            "min": 1
-          }
         }
       ],
       "shape_rule": {
@@ -132,17 +121,6 @@
           "required": false,
           "options": [],
           "constraints": {}
-        },
-        {
-          "id": "input_size",
-          "display_name": "Input Size",
-          "type": "integer",
-          "default": 1,
-          "required": false,
-          "options": [],
-          "constraints": {
-            "min": 1
-          }
         }
       ],
       "shape_rule": {
@@ -215,17 +193,6 @@
           "required": false,
           "options": [],
           "constraints": {}
-        },
-        {
-          "id": "input_size",
-          "display_name": "Input Size",
-          "type": "integer",
-          "default": 1,
-          "required": false,
-          "options": [],
-          "constraints": {
-            "min": 1
-          }
         }
       ],
       "shape_rule": {
