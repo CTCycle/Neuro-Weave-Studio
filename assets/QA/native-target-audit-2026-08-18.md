@@ -57,7 +57,97 @@ The Keras-disabled list above, plus `attention.multi_head`, `transformer.positio
 
 ### Native-TensorFlow and native-JAX-disabled node IDs
 
-All 85 manifest IDs are disabled. This includes every input, output, core, convolutional, recurrent, attention, transformer, merge, and mathematical node; the zero-support state is intentional until dependency-backed runtime tests pass.
+All 85 manifest IDs are disabled. The exact live inventory is:
+
+~~~text
+attention.cross
+attention.multi_head
+attention.self
+conv.average_pool1d
+conv.average_pool2d
+conv.average_pool3d
+conv.conv1d
+conv.conv2d
+conv.conv3d
+conv.cropping
+conv.depthwise
+conv.global_pool1d
+conv.global_pool2d
+conv.global_pool3d
+conv.max_pool1d
+conv.max_pool2d
+conv.max_pool3d
+conv.padding
+conv.separable
+conv.transposed
+conv.upsampling
+input.constant
+input.image
+input.mask
+input.parameter
+input.sequence
+input.tabular
+input.tensor
+input.token
+layer.activation
+layer.batch_norm
+layer.dense
+layer.dropout
+layer.embedding
+layer.flatten
+layer.group_norm
+layer.layer_norm
+layer.permute
+layer.repeat
+layer.reshape
+math.abs
+math.argmax
+math.exp
+math.expression
+math.index
+math.log
+math.power
+math.reduce
+math.slice
+math.softmax
+math.sqrt
+math.transpose
+merge.add
+merge.average
+merge.concatenate
+merge.divide
+merge.dot
+merge.matmul
+merge.maximum
+merge.minimum
+merge.multiply
+merge.residual
+merge.skip
+merge.split
+merge.stack
+merge.subtract
+output.classification
+output.custom
+output.detection_placeholder
+output.multi_head
+output.regression
+output.segmentation
+output.sequence
+recurrent.bidirectional
+recurrent.gru
+recurrent.lstm
+recurrent.simple_rnn
+recurrent.stack
+transformer.attention_mask
+transformer.decoder_block
+transformer.encoder_block
+transformer.feed_forward
+transformer.positional_encoding
+transformer.residual
+transformer.stack
+~~~
+
+The zero-support state is intentional until dependency-backed runtime tests pass.
 
 ## Explicitly disabled PyTorch parameters
 
