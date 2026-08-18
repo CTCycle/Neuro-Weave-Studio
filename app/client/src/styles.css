@@ -219,7 +219,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 }
 @media (max-width: 1023px) {
   body { overflow: hidden; }
-  .app-shell { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .app-shell { grid-template-rows: auto auto minmax(0, 1fr); }
   .project-toolbar { min-height: 112px; padding: 8px 10px; gap: 6px 8px; }
   .brand-mark div, .project-description { display: none; }
   .brand-mark { margin-right: 0; }
@@ -282,7 +282,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
 
 /* Model catalog, workspace, and focused builder surfaces */
-.app-shell { grid-template-rows: auto minmax(0, 1fr); }
+.app-shell { grid-template-rows: auto auto minmax(0, 1fr); }
 .app-header { min-height: 66px; display: flex; align-items: center; gap: 28px; padding: 10px 18px; border-bottom: 1px solid var(--border); background: rgba(11,17,23,.94); backdrop-filter: blur(18px); z-index: 20; }
 .app-header .brand-mark { color: var(--text); text-decoration: none; margin-right: 8px; }
 .app-header .brand-icon { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--accent); color: var(--accent-bright); transform: rotate(45deg); }

@@ -34,6 +34,14 @@ def test_manifest_capabilities_are_not_inflated_by_runtime_registry() -> None:
     assert not catalog.get("layer.dense").frameworks[CodeTarget.JAX].supported
 
 
+###############################################################################
+def test_unproven_native_targets_remain_disabled() -> None:
+    catalog = get_node_catalog()
+    for target in (CodeTarget.TENSORFLOW, CodeTarget.JAX):
+        assert all(not manifest.frameworks[target].supported for manifest in catalog.manifests)
+
+
+###############################################################################
 def test_target_parameter_capabilities_block_unmapped_values() -> None:
     from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
     from services.validation_service import ValidationService
