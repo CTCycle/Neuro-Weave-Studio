@@ -36,7 +36,8 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
           "supported": true
@@ -519,7 +520,8 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
           "supported": true
@@ -570,7 +572,8 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
           "supported": true
@@ -631,7 +634,8 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
           "supported": true

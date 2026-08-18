@@ -438,11 +438,42 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
           "supported": true,
-          "notes": "Exported with explicit canonical layout conversion and SAME padding."
+          "notes": "Exported with explicit canonical layout conversion and SAME padding.",
+          "parameters": {
+            "kernel_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "bias_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "kernel_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "kernel_constraint": {
+              "supported": false,
+              "notes": "Constraints are not part of generated inference modules."
+            },
+            "bias_constraint": {
+              "supported": false,
+              "notes": "Constraints are not part of generated inference modules."
+            }
+          }
         }
       },
       "ui": {
@@ -505,7 +536,8 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
           "supported": true,

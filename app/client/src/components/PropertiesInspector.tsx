@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CodeTarget, ParameterDefinition } from '../domain/types'
+import type { CodeTarget, ParameterCapability, ParameterDefinition } from '../domain/types'
 import { useGraphStore } from '../state/graphStore'
 
 type DraftValue = string | boolean
@@ -45,16 +45,21 @@ function parseSequence(text: string): unknown[] | undefined {
   return parsed
 }
 
-function sequenceItemsValid(value: unknown, definition: ParameterDefinition): boolean {
+function sequenceItemsValid(
+  value: unknown,
+  definition: ParameterDefinition,
+  capability?: ParameterCapability,
+): boolean {
   if (!Array.isArray(value)) return false
-  const length = definition.constraints.length
-  const minLength = definition.constraints.min_length
-  const maxLength = definition.constraints.max_length
+  const constraints = { ...definition.constraints, ...(capability?.constraints ?? {}) }
+  const length = constraints.length
+  const minLength = constraints.min_length
+  const maxLength = constraints.max_length
   if ((typeof length === 'number' && value.length !== length)
     || (typeof minLength === 'number' && value.length < minLength)
     || (typeof maxLength === 'number' && value.length > maxLength)) return false
-  const itemMin = definition.constraints.item_min
-  const itemMax = definition.constraints.item_max
+  const itemMin = constraints.item_min
+  const itemMax = constraints.item_max
   const valid = (item: unknown): boolean => {
     if (item === null) return true
     if (Array.isArray(item)) return item.every(valid)
@@ -65,34 +70,51 @@ function sequenceItemsValid(value: unknown, definition: ParameterDefinition): bo
   return value.every(valid)
 }
 
-function parseValue(definition: ParameterDefinition, raw: DraftValue): { valid: boolean; value?: unknown } {
-  if (definition.type === 'boolean') return { valid: true, value: Boolean(raw) }
+function parseValue(
+  definition: ParameterDefinition,
+  raw: DraftValue,
+  capability?: ParameterCapability,
+): { valid: boolean; value?: unknown } {
+  if (definition.type === 'boolean') {
+    const value = Boolean(raw)
+    return { valid: capabilityAllowsValue(capability, value), value }
+  }
   const text = String(raw).trim()
   if (!text) {
-    if (definition.nullable) return { valid: true, value: null }
+    if (definition.nullable) return { valid: capabilityAllowsValue(capability, null), value: null }
     if (!definition.required) return { valid: true }
     return { valid: false }
   }
   if (definition.type === 'integer' || definition.type === 'axis') {
     if (!/^-?\d+$/.test(text)) return { valid: false }
     const value = Number(text)
-    return { valid: Number.isSafeInteger(value) && withinConstraints(definition, value), value }
+    return { valid: Number.isSafeInteger(value) && withinConstraints(definition, value, capability) && capabilityAllowsValue(capability, value), value }
   }
   if (definition.type === 'number') {
     const value = Number(text)
-    return { valid: Number.isFinite(value) && withinConstraints(definition, value), value }
+    return { valid: Number.isFinite(value) && withinConstraints(definition, value, capability) && capabilityAllowsValue(capability, value), value }
   }
   if (definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple') {
     const parsed = parseSequence(text)
-    return { valid: parsed !== undefined && sequenceItemsValid(parsed, definition), value: parsed }
+    return { valid: parsed !== undefined && sequenceItemsValid(parsed, definition, capability) && capabilityAllowsValue(capability, parsed), value: parsed }
   }
   if (definition.type === 'enum' && definition.options.length > 0 && !definition.options.some((item) => String(item) === text)) return { valid: false }
+  if (!capabilityAllowsValue(capability, raw)) return { valid: false }
   return { valid: true, value: raw }
 }
 
-function withinConstraints(definition: ParameterDefinition, value: number): boolean {
-  const minimum = definition.constraints.min
-  const maximum = definition.constraints.max
+function capabilityAllowsValue(capability: ParameterCapability | undefined, value: unknown): boolean {
+  return !capability?.allowed_values || capability.allowed_values.some((item) => JSON.stringify(item) === JSON.stringify(value))
+}
+
+function withinConstraints(
+  definition: ParameterDefinition,
+  value: number,
+  capability?: ParameterCapability,
+): boolean {
+  const constraints = { ...definition.constraints, ...(capability?.constraints ?? {}) }
+  const minimum = constraints.min
+  const maximum = constraints.max
   return (typeof minimum !== 'number' || value >= minimum) && (typeof maximum !== 'number' || value <= maximum)
 }
 
@@ -139,7 +161,8 @@ export function PropertiesInspector({ onClose, isOpen = true, codeTarget = 'kera
   const targetMapping = node.data.manifest.frameworks[codeTarget]
   const updateParameter = (definition: ParameterDefinition, raw: DraftValue) => {
     setDrafts((state) => ({ ...state, [definition.id]: raw }))
-    const parsed = parseValue(definition, raw)
+    const capability = targetMapping?.parameters?.[definition.id]
+    const parsed = parseValue(definition, raw, capability)
     setInvalid((state) => ({ ...state, [definition.id]: !parsed.valid }))
     if (!parsed.valid) return
     const parameters = { ...node.data.parameters }
@@ -157,10 +180,12 @@ export function PropertiesInspector({ onClose, isOpen = true, codeTarget = 'kera
           const value = drafts[definition.id] ?? displayValue(node.data.parameters[definition.id] ?? definition.default)
           const help = helpfulDescription(definition)
           const capability = targetMapping?.parameters?.[definition.id]
-          const disabled = targetMapping?.supported === false || capability?.supported === false
+          const restrictedToSingleValue = capability?.allowed_values?.length === 1
+          const disabled = targetMapping?.supported === false || capability?.supported === false || restrictedToSingleValue
+          const options = definition.options.filter((option) => !capability?.allowed_values || capability.allowed_values.some((allowed) => String(allowed) === String(option)))
           const bounds = { min: typeof definition.constraints.min === 'number' ? definition.constraints.min : undefined, max: typeof definition.constraints.max === 'number' ? definition.constraints.max : undefined, step: typeof definition.constraints.step === 'number' ? definition.constraints.step : definition.type === 'integer' || definition.type === 'axis' ? 1 : undefined }
           if (definition.type === 'boolean') return <label key={definition.id} className="toggle-field"><span>{definition.display_name}{help && <small>{help}</small>}</span><input type="checkbox" checked={Boolean(node.data.parameters[definition.id] ?? definition.default)} disabled={disabled} onChange={(event) => updateParameter(definition, event.target.checked)} /></label>
-          if (definition.type === 'enum') return <label key={definition.id} className="field"><span>{definition.display_name}{help && <small>{help}</small>}</span><select value={String(value)} disabled={disabled} onChange={(event) => updateParameter(definition, event.target.value)} aria-invalid={invalid[definition.id]}>{definition.nullable && <option value="">None</option>}{definition.options.map((option) => <option key={String(option)} value={String(option)}>{String(option)}</option>)}</select>{invalid[definition.id] && <em className="field-error">Choose a supported option.</em>}</label>
+          if (definition.type === 'enum') return <label key={definition.id} className="field"><span>{definition.display_name}{help && <small>{help}</small>}</span><select value={String(value)} disabled={disabled} onChange={(event) => updateParameter(definition, event.target.value)} aria-invalid={invalid[definition.id]}>{definition.nullable && <option value="">None</option>}{options.map((option) => <option key={String(option)} value={String(option)}>{String(option)}</option>)}</select>{invalid[definition.id] && <em className="field-error">Choose a supported option.</em>}</label>
           return <label key={definition.id} className="field"><span>{definition.display_name}{help && <small>{help}</small>}</span><input type={definition.type === 'number' || definition.type === 'integer' || definition.type === 'axis' ? 'number' : 'text'} value={String(value)} disabled={disabled} min={bounds.min} max={bounds.max} step={bounds.step} onChange={(event) => updateParameter(definition, event.target.value)} aria-invalid={invalid[definition.id]} />{invalid[definition.id] && <em className="field-error">Enter a complete value within the supported range.</em>}</label>
         })}</details>)}
       </div>

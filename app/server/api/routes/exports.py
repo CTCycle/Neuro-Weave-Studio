@@ -9,6 +9,7 @@ from api.dependencies import get_export_service
 from domain.enums import CodeTarget
 from domain.exports import KerasBinaryExportRequest, SourceExportResponse
 from services.errors import (
+    BinaryExportFailedError,
     BinaryExportUnavailableError,
     CompilationRejectedError,
     ProjectNotFoundError,
@@ -64,6 +65,15 @@ def export_keras_model(
             status_code=409,
             detail={
                 "code": "backend_unavailable",
+                "backend": exc.backend,
+                "message": str(exc),
+            },
+        ) from exc
+    except BinaryExportFailedError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "binary_export_failed",
                 "backend": exc.backend,
                 "message": str(exc),
             },
