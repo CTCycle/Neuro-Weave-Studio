@@ -63,6 +63,18 @@ def test_sqlite_database_settings_resolve_relative_path(
     assert settings.sqlite_path == (REPOSITORY_ROOT / "assets/QA/contract.db").resolve()
 
 ###############################################################################
+def test_sqlite_database_settings_use_the_canonical_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_SQLITE_PATH", "")
+
+    settings = get_database_settings()
+
+    assert settings.sqlite_path == (
+        REPOSITORY_ROOT / "app/resources/database.db"
+    ).resolve()
+
+###############################################################################
 def test_database_timeout_is_positive(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_CONNECT_TIMEOUT", "0")
 
