@@ -16,6 +16,7 @@ from models.keras_backend_runner import KerasBackendRunner
 from services.validation_service import ValidationService
 
 
+###############################################################################
 def node(
     node_id: str,
     definition_id: str,
@@ -32,6 +33,7 @@ def node(
     )
 
 
+###############################################################################
 def edge(
     edge_id: str,
     source: str,
@@ -47,10 +49,12 @@ def edge(
     )
 
 
+###############################################################################
 def validate(graph: ModelGraph):
     return ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
 
 
+###############################################################################
 def test_pool_defaults_and_grouped_convolution_follow_keras_contract() -> None:
     pool_graph = ModelGraph(
         nodes=[
@@ -100,6 +104,7 @@ def test_pool_defaults_and_grouped_convolution_follow_keras_contract() -> None:
         ]
 
 
+###############################################################################
 def test_validation_rejects_invalid_shape_and_dtype_contracts() -> None:
     invalid_axis_graph = ModelGraph(
         nodes=[
@@ -146,6 +151,7 @@ def test_validation_rejects_invalid_shape_and_dtype_contracts() -> None:
     assert not validate(learned_position_graph).valid
 
 
+###############################################################################
 def test_attention_shape_and_port_order_match_runtime() -> None:
     graph = ModelGraph(
         nodes=[
@@ -178,6 +184,7 @@ def test_attention_shape_and_port_order_match_runtime() -> None:
     assert runtime["parameter_count"] == 522
 
 
+###############################################################################
 def test_transformer_encoder_preserves_residual_width() -> None:
     graph = ModelGraph(
         nodes=[
@@ -204,6 +211,7 @@ def test_transformer_encoder_preserves_residual_width() -> None:
     assert runtime["outputs"] == [{"node_id": "output", "shape": [1, 5, 128], "dtype": "float32"}]
 
 
+###############################################################################
 def test_invalid_state_and_unreachable_components_are_blocked() -> None:
     state_graph = ModelGraph(
         nodes=[
@@ -231,6 +239,7 @@ def test_invalid_state_and_unreachable_components_are_blocked() -> None:
     assert any(item.code == "unreachable_model_input" for item in unreachable_result.diagnostics)
 
 
+###############################################################################
 def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
     runner = KerasBackendRunner()
     backend = next(iter(runner.available_backends()), None)
@@ -275,6 +284,7 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stderr
 
 
+###############################################################################
 @pytest.mark.parametrize("optimizer", ["adam", "adamw", "sgd", "rmsprop"])
 def test_supported_optimizers_compile_on_cpu_backend(optimizer: str) -> None:
     graph = ModelGraph(
@@ -303,6 +313,7 @@ def test_supported_optimizers_compile_on_cpu_backend(optimizer: str) -> None:
     ]
 
 
+###############################################################################
 def test_mixed_precision_policy_is_applied_before_cpu_model_build() -> None:
     graph = ModelGraph(
         nodes=[
@@ -327,6 +338,7 @@ def test_mixed_precision_policy_is_applied_before_cpu_model_build() -> None:
     ]
 
 
+###############################################################################
 def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -> None:
     runner = KerasBackendRunner()
     backend = next(iter(runner.available_backends()), None)
@@ -389,6 +401,7 @@ def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -
         ]
 
 
+###############################################################################
 def test_binary_artifact_reloads_in_a_clean_process(tmp_path: Path) -> None:
     graph = ModelGraph(
         nodes=[

@@ -7,12 +7,14 @@ import keras
 from domain.graph import ModelGraph
 
 
+###############################################################################
 def option(value: Any) -> Any:
     """Convert the catalog's explicit ``none`` option into Keras ``None``."""
 
     return None if value in (None, "", "none") else value
 
 
+###############################################################################
 def layer_option(
     parameters: dict[str, Any],
     key: str,
@@ -33,6 +35,7 @@ def layer_option(
     return option(fallback)
 
 
+###############################################################################
 def prepare_runtime(graph: ModelGraph) -> None:
     if graph.model_configuration.random_seed is not None:
         keras.utils.set_random_seed(graph.model_configuration.random_seed)
@@ -41,6 +44,7 @@ def prepare_runtime(graph: ModelGraph) -> None:
     )
 
 
+###############################################################################
 def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
     return [
         (
@@ -52,6 +56,7 @@ def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
     ]
 
 
+###############################################################################
 def _configured_values(
     graph: ModelGraph,
     configuration: dict[str, Any],
@@ -72,6 +77,7 @@ def _configured_values(
     return resolved
 
 
+###############################################################################
 def _compile_value(values: dict[str, Any], output_count: int) -> Any:
     if not values:
         return None
@@ -80,6 +86,7 @@ def _compile_value(values: dict[str, Any], output_count: int) -> Any:
     return values
 
 
+###############################################################################
 def _optimizer(name: str, learning_rate: float) -> keras.optimizers.Optimizer:
     optimizer_types = {
         "adam": keras.optimizers.Adam,
@@ -90,6 +97,7 @@ def _optimizer(name: str, learning_rate: float) -> keras.optimizers.Optimizer:
     return optimizer_types[name](learning_rate=learning_rate)
 
 
+###############################################################################
 def compile_model(model: keras.Model, graph: ModelGraph) -> keras.Model:
     configuration = graph.model_configuration
     learning_rate = float(configuration.optimizer_parameters.get("learning_rate", 0.001))

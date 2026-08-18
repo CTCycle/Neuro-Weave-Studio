@@ -20,7 +20,6 @@ from models.keras_layers import SinusoidalPositionalEncoding
 from models.keras_runtime import compile_model, layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
 
-
 ###############################################################################
 def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, Any]) -> Any:
     source_dimension = source.shape[-1]

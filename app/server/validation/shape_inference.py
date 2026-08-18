@@ -9,7 +9,6 @@ from domain.graph import ModelGraph, ShapeSummary
 from domain.tensor import TensorSpec
 from validation.graph_utils import ordered_incoming_edges, topological_order
 
-
 ###############################################################################
 class ShapeInferenceError(ValueError):
     pass

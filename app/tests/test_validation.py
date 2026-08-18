@@ -5,7 +5,6 @@ from domain.tensor import TensorSpec
 from services.validation_service import ValidationService
 from validation.shape_inference import infer_shapes
 
-
 ###############################################################################
 def make_node(node_id: str, definition_id: str, parameters: dict[str, object] | None = None) -> NodeInstance:
     return NodeInstance(id=node_id, definition_id=definition_id, position=Position(x=0, y=0), parameters=parameters or {})

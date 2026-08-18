@@ -7,7 +7,6 @@ from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 
-
 ###############################################################################
 class PyTorchSourceExporter(SourceExporter):
 

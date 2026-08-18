@@ -10,7 +10,6 @@ from domain.graph import ModelGraph, ShapeSummary
 from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.shape_inference import infer_shapes
 
-
 ###############################################################################
 def _variable_name(node_id: str) -> str:
     value = re.sub(r"[^a-zA-Z0-9_]", "_", node_id)

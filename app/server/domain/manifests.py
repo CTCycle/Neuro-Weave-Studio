@@ -21,6 +21,7 @@ class PortDefinition(BaseModel):
     element_kind: PortKind | None = None
     description: str = ""
 
+    # -------------------------------------------------------------------------
     @model_validator(mode="after")
     def validate_element_kind(self) -> PortDefinition:
         if self.kind is PortKind.TENSOR_LIST and self.element_kind is None:

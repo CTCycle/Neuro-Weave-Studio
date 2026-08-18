@@ -5,7 +5,6 @@ from collections import defaultdict, deque
 from domain.graph import EdgeInstance, ModelGraph
 from domain.manifests import NodeManifest
 
-
 ###############################################################################
 def adjacency(graph: ModelGraph) -> dict[str, list[str]]:
     result: dict[str, list[str]] = defaultdict(list)

@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field
 
 from domain.enums import CodeTarget, ExecutionBackend
 
-
 ###############################################################################
 class HealthResponse(BaseModel):
     status: str
