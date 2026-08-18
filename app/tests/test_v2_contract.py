@@ -29,7 +29,50 @@ def test_manifest_capabilities_are_not_inflated_by_runtime_registry() -> None:
     assert catalog.get("layer.batch_norm").frameworks[CodeTarget.PYTORCH].supported
     assert catalog.get("conv.conv2d").frameworks[CodeTarget.PYTORCH].supported
     assert not catalog.get("attention.multi_head").frameworks[CodeTarget.PYTORCH].supported
+    assert not catalog.get("attention.multi_head").frameworks[CodeTarget.TENSORFLOW].supported
+    assert not catalog.get("transformer.encoder_block").frameworks[CodeTarget.TENSORFLOW].supported
     assert not catalog.get("layer.dense").frameworks[CodeTarget.JAX].supported
+
+
+def test_target_parameter_capabilities_block_unmapped_values() -> None:
+    from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+    from services.validation_service import ValidationService
+
+    catalog = get_node_catalog()
+
+    def node(node_id: str, definition_id: str, parameters: dict[str, object]) -> NodeInstance:
+        return NodeInstance(
+            id=node_id,
+            definition_id=definition_id,
+            position=Position(x=0, y=0),
+            parameters=parameters,
+        )
+
+    def edge(edge_id: str, source: str, target: str) -> EdgeInstance:
+        return EdgeInstance(
+            id=edge_id,
+            source_node_id=source,
+            source_port_id="output",
+            target_node_id=target,
+            target_port_id="input",
+        )
+
+    graph = ModelGraph(
+        nodes=[
+            node("input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
+            node("dense", "layer.dense", {"units": 2, "kernel_initializer": "he_normal"}),
+            node("output", "output.regression", {}),
+        ],
+        edges=[edge("e1", "input", "dense"), edge("e2", "dense", "output")],
+    )
+    result = ValidationService(catalog).validate(graph, CodeTarget.PYTORCH)
+    assert not result.valid
+    assert any(item.code == "unsupported_parameter_value" and item.parameter_id == "kernel_initializer" for item in result.diagnostics)
+
+    graph.nodes[1].parameters = {"units": 2, "input_size": 4}
+    result = ValidationService(catalog).validate(graph, CodeTarget.PYTORCH)
+    assert not result.valid
+    assert any(item.code == "unknown_parameter" and item.parameter_id == "input_size" for item in result.diagnostics)
 
 ###############################################################################
 def test_high_parameter_keras_layers_expose_safe_constructor_controls() -> None:

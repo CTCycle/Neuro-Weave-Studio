@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 from uuid import UUID
@@ -14,6 +15,7 @@ from models.keras_backend_runner import KerasBackendRunner
 from repositories.contracts import UnitOfWorkFactory
 from services.compilation_service import CompilationService
 from services.errors import (
+    BinaryExportFailedError,
     BinaryExportUnavailableError,
     CompilationRejectedError,
     ProjectNotFoundError,
@@ -21,6 +23,7 @@ from services.errors import (
 )
 from services.project_service import ProjectService
 from services.validation_service import ValidationService
+
 
 ###############################################################################
 class ExportService:
@@ -89,8 +92,8 @@ class ExportService:
         )
         try:
             self._backend_runner.export(project.graph, destination, execution_backend)
-        except RuntimeError as exc:
-            raise BinaryExportUnavailableError(execution_backend) from exc
+        except (OSError, RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
+            raise BinaryExportFailedError(execution_backend, str(exc)) from exc
         return destination, destination.name
 
     # -------------------------------------------------------------------------

@@ -73,10 +73,41 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
-          "supported": true
+          "supported": true,
+          "parameters": {
+            "kernel_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "bias_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "kernel_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "kernel_constraint": {
+              "supported": false,
+              "notes": "Constraints are not part of generated inference modules."
+            },
+            "bias_constraint": {
+              "supported": false,
+              "notes": "Constraints are not part of generated inference modules."
+            }
+          }
         }
       },
       "ui": {
@@ -141,7 +172,8 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
           "supported": true
@@ -205,10 +237,17 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
-          "supported": true
+          "supported": true,
+          "parameters": {
+            "seed": {
+              "supported": false,
+              "notes": "Per-layer deterministic seeds are not mapped by native PyTorch export."
+            }
+          }
         }
       },
       "ui": {
@@ -275,11 +314,62 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
           "supported": true,
-          "notes": "Exported with rank-aware PyTorch BatchNorm modules."
+          "notes": "Exported with rank-aware PyTorch BatchNorm modules.",
+          "parameters": {
+            "axis": {
+              "allowed_values": [-1, 1],
+              "notes": "Native PyTorch BatchNorm accepts channel axis 1 or the trailing axis."
+            },
+            "center": {
+              "allowed_values": [true],
+              "notes": "Generated BatchNorm uses affine scale and center together."
+            },
+            "scale": {
+              "allowed_values": [true],
+              "notes": "Generated BatchNorm uses affine scale and center together."
+            },
+            "synchronized": {
+              "allowed_values": [false],
+              "notes": "Synchronized statistics are not mapped by native PyTorch export."
+            },
+            "beta_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "gamma_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "moving_mean_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "moving_variance_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "beta_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "gamma_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "beta_constraint": {
+              "supported": false,
+              "notes": "Constraints are not part of generated inference modules."
+            },
+            "gamma_constraint": {
+              "supported": false,
+              "notes": "Constraints are not part of generated inference modules."
+            }
+          }
         }
       },
       "ui": {
@@ -337,11 +427,50 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
           "supported": true,
-          "notes": "Exported with PyTorch LayerNorm for trailing normalized axes."
+          "notes": "Exported with PyTorch LayerNorm for trailing normalized axes.",
+          "parameters": {
+            "axis": {
+              "allowed_values": [[-1]],
+              "notes": "Native PyTorch LayerNorm normalizes the trailing feature axis."
+            },
+            "center": {
+              "allowed_values": [true],
+              "notes": "Generated LayerNorm uses affine scale and center together."
+            },
+            "scale": {
+              "allowed_values": [true],
+              "notes": "Generated LayerNorm uses affine scale and center together."
+            },
+            "beta_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "gamma_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "beta_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "gamma_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "beta_constraint": {
+              "supported": false,
+              "notes": "Constraints are not part of generated inference modules."
+            },
+            "gamma_constraint": {
+              "supported": false,
+              "notes": "Constraints are not part of generated inference modules."
+            }
+          }
         }
       },
       "ui": {
@@ -464,7 +593,8 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
           "supported": true
@@ -746,10 +876,37 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity."
         },
         "pytorch": {
-          "supported": true
+          "supported": true,
+          "parameters": {
+            "embeddings_initializer": {
+              "supported": false,
+              "notes": "Native PyTorch initializer mapping is not exposed yet."
+            },
+            "embeddings_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "notes": "Regularizers are not part of generated inference modules."
+            },
+            "embeddings_constraint": {
+              "supported": false,
+              "notes": "Constraints are not part of generated inference modules."
+            },
+            "mask_zero": {
+              "allowed_values": [false],
+              "notes": "Mask propagation is not represented in the native PyTorch graph."
+            },
+            "lora_rank": {
+              "supported": false,
+              "notes": "LoRA parameters are not part of generated inference modules."
+            }
+          }
         }
       },
       "ui": {

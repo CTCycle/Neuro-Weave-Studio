@@ -134,6 +134,30 @@ def test_binary_export_requires_backend_and_reports_unavailable_backend(
     assert unavailable.json()["detail"]["code"] == "backend_unavailable"
 
 ###############################################################################
+def test_binary_export_distinguishes_worker_failure_from_backend_unavailable(
+    client: httpx.Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = client.post("/api/projects", json=project_payload()).json()
+    app = cast(Any, client).app
+    app.state.backend_statuses = {ExecutionBackend.PYTORCH: {"available": True}}
+
+    def fail_export(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("worker could not reload the generated artifact")
+
+    monkeypatch.setattr(app.state.backend_runner, "export", fail_export)
+    response = client.post(
+        f"/api/exports/{project['id']}/keras-model",
+        json={"execution_backend": "pytorch"},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == {
+        "code": "binary_export_failed",
+        "backend": "pytorch",
+        "message": "worker could not reload the generated artifact",
+    }
+
+###############################################################################
 def test_binary_export_rejects_incompatible_graph_before_backend_check(
     client: httpx.Client,
 ) -> None:

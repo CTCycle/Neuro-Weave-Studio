@@ -90,7 +90,8 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow attention export is not implemented."
         },
         "pytorch": {
           "supported": false,
@@ -188,7 +189,8 @@
           "supported": true
         },
         "tensorflow": {
-          "supported": true
+          "supported": false,
+          "notes": "Native TensorFlow attention export is not implemented."
         },
         "pytorch": {
           "supported": false,
@@ -395,8 +397,8 @@
           "notes": "Supported by the MVP Keras source and uninitialized model exporter."
         },
         "tensorflow": {
-          "supported": true,
-          "notes": "Supported by the MVP Keras source and uninitialized model exporter."
+          "supported": false,
+          "notes": "Native TensorFlow transformer export is not implemented."
         },
         "pytorch": {
           "supported": false,
@@ -770,8 +772,8 @@
           "notes": "Supported by the MVP Keras source and uninitialized model exporter."
         },
         "tensorflow": {
-          "supported": true,
-          "notes": "Supported by the MVP Keras source and uninitialized model exporter."
+          "supported": false,
+          "notes": "Native TensorFlow positional encoding export is not implemented."
         },
         "pytorch": {
           "supported": false,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from domain.diagnostics import ValidationDiagnostic
 
+
 ###############################################################################
 class ProjectNotFoundError(LookupError):
 
@@ -32,3 +33,12 @@ class BinaryExportUnavailableError(RuntimeError):
     def __init__(self, backend: object) -> None:
         self.backend = str(getattr(backend, "value", backend))
         super().__init__(f"Execution backend '{self.backend}' is not operational")
+
+###############################################################################
+class BinaryExportFailedError(RuntimeError):
+
+    # -------------------------------------------------------------------------
+    def __init__(self, backend: object, message: str) -> None:
+        self.backend = str(getattr(backend, "value", backend))
+        self.message = message or "The binary export worker failed without a diagnostic"
+        super().__init__(self.message)
