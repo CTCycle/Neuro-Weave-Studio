@@ -29,6 +29,22 @@ export interface ParameterDefinition {
   ui?: Record<string, unknown>
 }
 
+export interface ParameterCapability {
+  supported: boolean
+  allowed_values?: unknown[] | null
+  constraints: Record<string, unknown>
+  mapping?: string | null
+  notes?: string | null
+}
+
+export interface FrameworkMapping {
+  supported: boolean
+  symbol?: string
+  notes?: string
+  parameters?: Record<string, ParameterCapability>
+  execution_backends?: Record<string, boolean>
+}
+
 export interface NodeManifest {
   id: string
   version: number
@@ -39,7 +55,7 @@ export interface NodeManifest {
   outputs: PortDefinition[]
   parameters: ParameterDefinition[]
   shape_rule: { kind: string; config: Record<string, unknown> }
-  frameworks: Record<string, { supported: boolean; symbol?: string; notes?: string }>
+  frameworks: Record<string, FrameworkMapping>
   ui: { icon: string; accent: string; width: number; height: number }
   deprecated: boolean
   documentation_ref: string
@@ -125,6 +141,7 @@ export interface ValidationDiagnostic {
   message: string
   node_id?: string | null
   edge_id?: string | null
+  parameter_id?: string | null
   code_target?: CodeTarget | null
   details: Record<string, unknown>
 }
