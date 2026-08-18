@@ -5,7 +5,6 @@ from pathlib import Path
 
 from common.path import ENV_EXAMPLE_FILE, ENV_FILE
 
-
 ###############################################################################
 def ensure_environment_file(
     environment_file: Path = ENV_FILE,

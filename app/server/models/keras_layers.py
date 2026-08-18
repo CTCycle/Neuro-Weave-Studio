@@ -6,10 +6,12 @@ import keras
 from keras import layers
 
 
+###############################################################################
 @keras.saving.register_keras_serializable(package="NeuroWeave")
 class SinusoidalPositionalEncoding(layers.Layer):
     """Backend-neutral sinusoidal positional encoding."""
 
+    # -------------------------------------------------------------------------
     def call(self, inputs: Any) -> Any:
         length = keras.ops.shape(inputs)[1]
         depth = keras.ops.shape(inputs)[2]
@@ -28,5 +30,6 @@ class SinusoidalPositionalEncoding(layers.Layer):
         encoding = keras.ops.sin(angles) * even + keras.ops.cos(angles) * (1.0 - even)
         return inputs + encoding[None, :, :]
 
+    # -------------------------------------------------------------------------
     def get_config(self) -> dict[str, Any]:
         return super().get_config()

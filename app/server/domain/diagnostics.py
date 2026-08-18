@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 from domain.enums import CodeTarget, DiagnosticSeverity
 from domain.graph import ModelGraph, ShapeSummary
 
-
 ###############################################################################
 class ValidationDiagnostic(BaseModel):
     code: str

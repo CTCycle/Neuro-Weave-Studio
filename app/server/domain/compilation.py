@@ -6,7 +6,6 @@ from domain.diagnostics import ValidationDiagnostic
 from domain.enums import CodeTarget
 from domain.graph import ModelGraph, ShapeSummary
 
-
 ###############################################################################
 class CompiledNode(BaseModel):
     node_id: str

@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 
 from app import create_app
 
-
 ###############################################################################
 @pytest.fixture()
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:

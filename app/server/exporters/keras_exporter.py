@@ -7,12 +7,15 @@ from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
 
+###############################################################################
 class KerasSourceExporter(SourceExporter):
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _option(value: object) -> object:
         return None if value in (None, "", "none") else value
 
+    # -------------------------------------------------------------------------
     @classmethod
     def _layer_option(
         cls,
@@ -32,6 +35,7 @@ class KerasSourceExporter(SourceExporter):
             return cls._option(configuration.default_constraint)
         return cls._option(fallback)
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _compile_mapping(
         graph: ModelGraph,
@@ -51,10 +55,12 @@ class KerasSourceExporter(SourceExporter):
             values[node.id] = value
         return next(iter(values.values())) if len(values) == 1 else values
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _optimizer_name(name: str) -> str:
         return {"adam": "Adam", "adamw": "AdamW", "sgd": "SGD", "rmsprop": "RMSprop"}[name]
 
+    # -------------------------------------------------------------------------
     def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
         nodes = {node.id: node for node in graph.nodes}
         lines = [
