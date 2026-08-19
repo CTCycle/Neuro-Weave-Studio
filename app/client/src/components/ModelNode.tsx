@@ -1,13 +1,10 @@
 import { memo } from 'react'
 import { Handle, Position } from '@xyflow/react'
-import { AlertCircle, CircleAlert } from 'lucide-react'
 import type { EditorNodeData } from '../domain/types'
 
 const portTop = (index: number, total: number) => `${((index + 1) / (total + 1)) * 100}%`
 
 export const ModelNode = memo(({ data, selected }: { data: EditorNodeData; selected?: boolean }) => {
-  const errors = data.diagnostics.filter((item) => item.severity === 'error')
-  const warnings = data.diagnostics.filter((item) => item.severity !== 'error')
   const firstOutput = data.shapeSummary ? Object.values(data.shapeSummary.outputs)[0] : undefined
   const shape = firstOutput?.shape.map((value) => value === null ? '?' : typeof value === 'object' ? value.name : value).join(' × ')
   return (
@@ -28,8 +25,6 @@ export const ModelNode = memo(({ data, selected }: { data: EditorNodeData; selec
       <div className="model-node__id">{data.manifest.id}</div>
       <div className="model-node__footer">
         <span>{shape || 'Shape pending'}</span>
-        {errors.length > 0 && <span className="node-diagnostic error"><AlertCircle size={14} />{errors.length}</span>}
-        {warnings.length > 0 && <span className="node-diagnostic warning"><CircleAlert size={14} />{warnings.length}</span>}
       </div>
       {data.manifest.outputs.map((port, index) => (
         <Handle

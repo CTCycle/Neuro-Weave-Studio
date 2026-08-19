@@ -241,7 +241,6 @@ export interface EditorNodeData extends Record<string, unknown> {
   manifest: NodeManifest
   parameters: Record<string, unknown>
   label: string
-  diagnostics: ValidationDiagnostic[]
   shapeSummary?: ShapeSummary
 }
 
@@ -280,6 +279,5 @@ export const editorNodeFromGraph = (node: GraphNodeInstance, manifest: NodeManif
     manifest,
     parameters: node.parameters,
     label: node.label ?? manifest.display_name,
-    diagnostics: [],
   },
 })

@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { NodeCatalog } from './NodeCatalog'
 import type { NodeManifest } from '../domain/types'
 
@@ -10,10 +10,30 @@ const manifests: NodeManifest[] = [
 ]
 
 describe('NodeCatalog', () => {
+  afterEach(cleanup)
+
   it('filters nodes by text', async () => {
     render(<NodeCatalog manifests={manifests} codeTarget="keras" />)
     await userEvent.type(screen.getByLabelText('Search nodes'), 'dense')
     expect(screen.getByText('Dense')).toBeInTheDocument()
     expect(screen.queryByText('Conv2D')).not.toBeInTheDocument()
+  })
+
+  it('groups nodes into collapsible categories', async () => {
+    render(<NodeCatalog manifests={manifests} codeTarget="keras" />)
+    expect(screen.getByText('Dense')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Core/ }))
+    expect(screen.queryByText('Dense')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Core/ }))
+    expect(screen.getByText('Dense')).toBeInTheDocument()
+  })
+
+  it('keeps the node drag payload stable', () => {
+    render(<NodeCatalog manifests={manifests} codeTarget="keras" />)
+    const data = new Map<string, string>()
+    const item = screen.getByText('Dense').closest('[draggable="true"]')
+    expect(item).not.toBeNull()
+    fireEvent.dragStart(item!, { dataTransfer: { setData: (type: string, value: string) => data.set(type, value), effectAllowed: '' } })
+    expect(data.get('application/neuro-weave-node')).toBe('layer.dense')
   })
 })

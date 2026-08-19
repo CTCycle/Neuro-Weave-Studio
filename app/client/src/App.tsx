@@ -5,6 +5,7 @@ import { ModelCatalogPage } from './pages/ModelCatalogPage'
 import { ModelCompilationPage } from './pages/ModelCompilationPage'
 import { ModelInferencePage } from './pages/ModelInferencePage'
 import { ModelOverviewPage, ModelWorkspacePage } from './pages/ModelWorkspacePage'
+import { EnvironmentPage } from './pages/EnvironmentPage'
 import { AppResourcesProvider } from './state/appContext'
 
 const router = createBrowserRouter([
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
       },
       { path: 'builder', element: <ModelBuilderPage /> },
       { path: 'builder/:modelId', element: <ModelBuilderPage /> },
+      { path: 'environment', element: <EnvironmentPage /> },
       { path: '*', element: <Navigate to="/models" replace /> },
     ],
   },

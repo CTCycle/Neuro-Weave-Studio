@@ -9,7 +9,7 @@ const labels: Record<ExecutionBackendStatus['id'], string> = {
 }
 
 export function BackendStatusPanel() {
-  const { backendStatuses, loading } = useAppResources()
+  const { backendStatuses, loading, selectedExecutionBackend, setSelectedExecutionBackend } = useAppResources()
 
   if (loading || backendStatuses.length === 0) return null
 
@@ -23,18 +23,19 @@ export function BackendStatusPanel() {
           <p>
             {operationalCount ? `${operationalCount} operational backend${operationalCount === 1 ? '' : 's'}` : 'No operational backend'}
             {' · '}Keras 3 is the core model API.
+            {selectedExecutionBackend ? ` · Selected: ${labels[selectedExecutionBackend]}` : ''}
           </p>
         </div>
         <span className="backend-status-command"><Terminal size={13} />start_on_windows.ps1 -Action ManageBackends</span>
       </div>
       <div className="backend-status-grid">
-        {backendStatuses.map((status) => <BackendStatusCard key={status.id} status={status} />)}
+        {backendStatuses.map((status) => <BackendStatusCard key={status.id} status={status} selected={selectedExecutionBackend === status.id} onSelect={setSelectedExecutionBackend} />)}
       </div>
     </section>
   )
 }
 
-function BackendStatusCard({ status }: { status: ExecutionBackendStatus }) {
+function BackendStatusCard({ status, selected, onSelect }: { status: ExecutionBackendStatus; selected: boolean; onSelect: (backend: ExecutionBackendStatus['id']) => void }) {
   const state = status.available ? 'usable' : status.installed ? 'unavailable' : 'missing'
   const StateIcon = status.available ? CheckCircle2 : status.installed ? AlertTriangle : PackageX
   const detail = status.available
@@ -44,14 +45,14 @@ function BackendStatusCard({ status }: { status: ExecutionBackendStatus }) {
       : 'Not installed'
 
   return (
-    <article className={`backend-status-card ${state}`}>
+    <button type="button" className={`backend-status-card ${state} ${selected ? 'selected' : ''}`} disabled={!status.available} aria-pressed={selected} onClick={() => onSelect(status.id)}>
       <div className="backend-status-card-top">
         <span className="backend-status-name"><Cpu size={14} />{labels[status.id]}</span>
         <span className="backend-status-state"><StateIcon size={13} />{status.available ? 'Usable' : status.installed ? 'Installed' : 'Missing'}</span>
       </div>
       <strong>{status.version ? `v${status.version}` : 'Optional framework'}</strong>
       <span>{detail}</span>
-    </article>
+    </button>
   )
 }
 
