@@ -1,6 +1,6 @@
 # Startup
 
-Last updated: 2026-08-19
+Last updated: 2026-08-20
 
 On Windows run `start_on_windows.ps1` and select **Launch application**. On the first launch, after core dependencies are ready, the launcher offers an explicit backend choice: Enter keeps the base Keras-only environment, `all` installs TensorFlow, PyTorch, and JAX, and a comma-separated selection installs only the requested frameworks. It detects NVIDIA CUDA with `nvidia-smi`, falls back to the CPU wheel when a PyTorch CUDA install fails, records the requested and resolved extras, and reports each backend's actual installed version and worker capability. The separate **Manage compute backends** action can be revisited later and refuses to mutate the environment while the application is running.
 
@@ -27,4 +27,8 @@ Backend and frontend output from the launcher is written to `app/resources/runti
 
 The launcher menu also provides **Remove logs**, **Clear cache**, and **Uninstall application** maintenance actions. Uninstall requires typing `UNINSTALL`; it removes repository-local runtimes, the server virtual environment, frontend dependencies, and build output while preserving settings, lockfiles, database files, and exports.
 
-The editor reads `/api/metadata` to discover installed and operational execution backends. The compute-environment panel distinguishes missing, installed-but-unavailable, and usable frameworks and points to the launcher management action. With zero backends binary export and the smoke test remain disabled with an explanation; with multiple operational backends the user chooses TensorFlow, PyTorch, or JAX. The **Smoke test** control validates the current graph, creates compatible zero-filled dummy tensors, and performs exactly one `training=False` forward pass without compiling, fitting, or updating weights. Results show input/output shapes, output dtype, parameter count, accelerator/device, and status. The choice is per request and is not persisted in project data. Backend logs include sanitized requested/public id, worker-reported Keras backend, duration, and outcome.
+The editor reads `/api/metadata` to discover live API capabilities, installed/operational backends, devices, normalized lease keys, and supported memory policies. The Environment page exposes separate API, backend, device, and policy controls. Keras is operational; native inference is visibly deferred. If a selection is used by an active job, the page offers **Stop and switch** (cancel, reap, then apply) or **Keep running** (preserve the immutable job and use the new selection for later jobs).
+
+Inference and Compilation submit asynchronous jobs. The UI polls lifecycle/progress and diagnostics, exposes Stop while active, and retrieves a `.keras` artifact only after reload/inference verification and revision-safe publication. Navigation and component unmounting do not cancel server work. Source generation remains synchronous. A fresh worker is used for each smoke or export operation, so ordinary selection changes do not require an application restart; installing/removing optional packages does.
+
+Native Windows support is constrained by the official TensorFlow and JAX platform matrices. Unsupported GPU combinations are reported as unavailable rather than offered. The current machine may expose only PyTorch CPU; GPU and multi-GPU paths remain conditional until a supported runtime and device are installed.

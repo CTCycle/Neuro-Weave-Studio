@@ -245,6 +245,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .backend-status-heading p { margin: 0; color: var(--muted); font-size: 10px; }
 .backend-status-command { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font: 500 9px 'IBM Plex Mono', Consolas, monospace; white-space: nowrap; }
 .backend-status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.runtime-api-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.runtime-api-option { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 7px; background: rgba(17,26,34,.85); color: var(--text); text-align: left; cursor: pointer; }
+.runtime-api-option:hover:not(:disabled), .runtime-api-option.selected { border-color: var(--cyan); background: rgba(23,43,49,.76); }
+.runtime-api-option:disabled { cursor: not-allowed; opacity: .58; }
+.runtime-api-option strong { font: 600 10px 'IBM Plex Mono', Consolas, monospace; }
+.runtime-api-option span { color: var(--muted); font-size: 9px; }
+.backend-status-card-container { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .backend-status-card { display: flex; min-width: 0; flex-direction: column; gap: 4px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 7px; background: rgba(17,26,34,.85); color: var(--text); text-align: left; cursor: pointer; }
 .backend-status-card:hover:not(:disabled), .backend-status-card.selected { border-color: var(--cyan); background: rgba(23,43,49,.76); }
 .backend-status-card:disabled { cursor: not-allowed; }
@@ -260,6 +267,24 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .backend-status-card.missing .backend-status-state { color: var(--muted); }
 .backend-status-card strong { overflow: hidden; color: var(--text); font: 500 9px 'IBM Plex Mono', Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .backend-status-card > span:last-child { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.runtime-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.runtime-fields label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font: 500 8px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; }
+.runtime-fields select { min-width: 0; min-height: 30px; padding: 0 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); font: 500 9px 'IBM Plex Mono', Consolas, monospace; }
+.selection-prompt { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; padding: 11px 12px; border-color: rgba(229,183,95,.45); }
+.selection-prompt strong { color: var(--warning); font-size: 11px; }
+.selection-prompt > span { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.selection-prompt .dialog-actions { display: flex; gap: 7px; justify-content: flex-end; margin-top: 2px; }
+.selection-prompt .dialog-actions button { min-height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--text); cursor: pointer; font-size: 10px; }
+.selection-prompt .dialog-actions .danger-action { border-color: var(--error); background: var(--error); color: #1b0d0f; }
+.active-jobs { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding: 11px 12px; }
+.active-jobs > div:first-child:not(.section-heading) { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.active-jobs > div:first-child strong { font-size: 11px; }
+.active-job-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+.active-job-row > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.active-job-row strong, .active-job-row span, .active-job-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.active-job-row strong { color: var(--text); font: 600 10px 'IBM Plex Mono', Consolas, monospace; }
+.active-job-row span, .active-job-row small { color: var(--muted); font-size: 9px; }
+.active-job-row .icon-button { width: 28px; height: 28px; }
 .environment-page { width: min(1080px, 100%); margin: 0 auto; }
 .environment-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
 .environment-header h1 { margin: 6px 0 4px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.03em; }
@@ -360,6 +385,10 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .backend-selection-summary { display: flex; flex-direction: column; gap: 4px; min-height: 48px; margin: 16px 0; padding: 10px 11px; border: 1px solid var(--border); border-radius: 6px; background: #0d151c; }
 .backend-selection-summary span { color: var(--muted); font: 500 9px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; letter-spacing: .08em; }
 .backend-selection-summary strong { color: var(--text); font: 500 11px 'IBM Plex Mono', Consolas, monospace; }
+.job-summary { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; background: #0d151c; }
+.job-summary span { color: var(--cyan); font: 500 9px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; }
+.job-summary strong { color: var(--text); font-size: 10px; }
+.job-summary small { color: var(--muted); font: 400 9px 'IBM Plex Mono', Consolas, monospace; }
 .backend-selection-summary a, .environment-link { color: var(--cyan); font-size: 10px; }
 .workflow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .workflow-card { min-height: 246px; padding: 16px; }
@@ -465,6 +494,7 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
   .primary-nav a { padding-inline: 7px; }
   .primary-nav a svg { display: none; }
   .backend-status-grid { grid-template-columns: 1fr; }
+  .runtime-api-controls, .runtime-fields { grid-template-columns: 1fr; }
   .catalog-header-actions { width: 100%; }
   .catalog-header-actions a, .catalog-header-actions button { flex: 1; }
   .model-card-grid { grid-template-columns: 1fr; }

@@ -20,9 +20,21 @@ EXPECTED_SCHEMAS = {
     "CompilationRequest",
     "CompilationResult",
     "SourceExportResponse",
-    "KerasBinaryExportRequest",
-    "SmokeTestRequest",
-    "SmokeTestResponse",
+    "JobSubmitRequest",
+    "JobResponse",
+    "JobState",
+    "JobOperation",
+    "SmokeInferenceOperation",
+    "KerasExportOperation",
+    "RuntimeApi",
+    "RuntimeApiStatus",
+    "RuntimeDevice",
+    "MemoryPolicy",
+    "MemoryPolicyKind",
+    "DeviceLeaseStatus",
+    "JobProgress",
+    "JobDiagnostics",
+    "JobError",
 }
 
 ###############################################################################
@@ -83,12 +95,17 @@ def test_openapi_uses_named_schemas_for_stable_contracts() -> None:
     assert compilation_body["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/CompilationRequest"
     }
-    binary_body = paths["/api/exports/{project_id}/keras-model"]["post"]["requestBody"]
-    assert binary_body["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/KerasBinaryExportRequest"
+    assert "/api/exports/{project_id}/keras-model" not in paths
+    jobs_body = paths["/api/execution/jobs"]["post"]
+    assert jobs_body["responses"]["202"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/JobResponse"
     }
-    smoke_body = paths["/api/execution/smoke-test"]["post"]
-    assert _response_schema(smoke_body) == {"$ref": "#/components/schemas/SmokeTestResponse"}
-    assert smoke_body["requestBody"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/SmokeTestRequest"
+    assert jobs_body["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/JobSubmitRequest"
+    }
+    assert _response_schema(paths["/api/execution/jobs/{job_id}"]["get"]) == {
+        "$ref": "#/components/schemas/JobResponse"
+    }
+    assert _response_schema(paths["/api/execution/jobs/{job_id}/stop"]["post"]) == {
+        "$ref": "#/components/schemas/JobResponse"
     }

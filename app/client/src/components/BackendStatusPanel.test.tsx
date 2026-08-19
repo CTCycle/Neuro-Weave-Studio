@@ -22,8 +22,8 @@ describe('BackendStatusPanel', () => {
   it('shows every detected backend and lets the user select only an operational one', async () => {
     const setSelectedExecutionBackend = vi.fn()
     vi.mocked(useAppResources).mockReturnValue({
-      manifests: [], projects: [], backendStatuses: statuses, selectedExecutionBackend: null,
-      loading: false, error: null, refreshProjects: vi.fn(), clearError: vi.fn(), setSelectedExecutionBackend,
+      manifests: [], projects: [], backendStatuses: statuses, runtimeApis: [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'not_implemented' }], runtimeSelection: null, selectedExecutionBackend: null,
+      loading: false, error: null, refreshProjects: vi.fn(), clearError: vi.fn(), setSelectedExecutionBackend, setRuntimeSelection: vi.fn(),
     })
     render(<BackendStatusPanel />)
     expect(screen.getByRole('button', { name: /TensorFlow/ })).toBeEnabled()

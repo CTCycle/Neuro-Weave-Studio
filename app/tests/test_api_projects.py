@@ -1,10 +1,10 @@
+import time
 from typing import Any, cast
 
 import httpx
 import pytest
 from sqlalchemy import select
 
-from domain.enums import ExecutionBackend
 from repositories.graphs import GraphRepository
 from repositories.models import ProjectRecord, ProjectRevisionRecord
 
@@ -106,73 +106,53 @@ def test_health_and_metadata_are_typed_contracts(client: httpx.Client) -> None:
     assert all("version" in item for item in backend_items)
 
 ###############################################################################
-def test_binary_export_requires_backend_and_reports_unavailable_backend(
-    client: httpx.Client,
-) -> None:
-    project = client.post("/api/projects", json=project_payload()).json()
-    missing_body = client.post(f"/api/exports/{project['id']}/keras-model")
-    assert missing_body.status_code == 422
-
-    invalid_backend = client.post(
-        f"/api/exports/{project['id']}/keras-model", json={"execution_backend": "cuda"}
-    )
-    assert invalid_backend.status_code == 422
-
-    missing_project = client.post(
-        "/api/exports/00000000-0000-0000-0000-000000000000/keras-model",
-        json={"execution_backend": "tensorflow"},
-    )
-    assert missing_project.status_code == 404
-
-    cast(Any, client).app.state.backend_statuses = {}
-    unavailable = client.post(
-        f"/api/exports/{project['id']}/keras-model",
-        json={"execution_backend": "tensorflow"},
-    )
-    assert unavailable.status_code == 409
-    assert unavailable.json()["detail"]["code"] == "backend_unavailable"
-
-###############################################################################
-def test_binary_export_distinguishes_worker_failure_from_backend_unavailable(
-    client: httpx.Client, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    project = client.post("/api/projects", json=project_payload()).json()
-    app = cast(Any, client).app
-    app.state.backend_statuses = {ExecutionBackend.PYTORCH: {"available": True}}
-
-    def fail_export(*_args: object, **_kwargs: object) -> None:
-        raise RuntimeError("worker could not reload the generated artifact")
-
-    monkeypatch.setattr(app.state.backend_runner, "export", fail_export)
-    response = client.post(
-        f"/api/exports/{project['id']}/keras-model",
-        json={"execution_backend": "pytorch"},
-    )
-
-    assert response.status_code == 500
-    assert response.json()["detail"] == {
-        "code": "binary_export_failed",
+def _execution_worker(client: httpx.Client) -> dict[str, object]:
+    metadata = client.get("/api/metadata").json()
+    status = next(item for item in metadata["execution_backends"] if item["id"] == "pytorch")
+    device_id = (status.get("devices") or [{"device_id": "cpu"}])[0]["device_id"]
+    return {
+        "api": "keras",
         "backend": "pytorch",
-        "message": "worker could not reload the generated artifact",
+        "device_id": device_id,
+        "memory_policy": {"kind": "default"},
+        "precision": "float32",
     }
 
 ###############################################################################
-def test_binary_export_rejects_incompatible_graph_before_backend_check(
-    client: httpx.Client,
-) -> None:
+def test_keras_export_is_an_accepted_job_and_publishes_only_after_verification(client: httpx.Client) -> None:
+    project = client.post("/api/projects", json=project_payload()).json()
+    response = client.post(
+        "/api/execution/jobs",
+        json={"operation": {"type": "keras_export", "project_id": project["id"]}, "worker": _execution_worker(client)},
+    )
+    assert response.status_code == 202, response.text
+    job_id = response.json()["id"]
+    job: dict[str, Any] | None = None
+    for _ in range(240):
+        job = cast(dict[str, Any], client.get(f"/api/execution/jobs/{job_id}").json())
+        if job["state"] in {"succeeded", "terminated", "failed"}:
+            break
+        time.sleep(0.05)
+    assert job is not None
+    assert job["state"] == "succeeded", job
+    assert job["artifact_available"] is True
+    artifact = client.get(f"/api/execution/jobs/{job_id}/artifact")
+    assert artifact.status_code == 200
+    assert artifact.content.startswith(b"PK")
+
+###############################################################################
+def test_keras_export_rejects_incompatible_graph_before_worker_start(client: httpx.Client) -> None:
     payload = project_payload()
     graph = cast(dict[str, Any], payload["graph"])
     nodes = cast(list[dict[str, Any]], graph["nodes"])
     nodes[1]["definition_id"] = "unknown.node"
     project = client.post("/api/projects", json=payload).json()
-
-    cast(Any, client).app.state.backend_statuses = {
-        ExecutionBackend.TENSORFLOW: {"available": False, "reason_code": "dependency_missing"}
-    }
     response = client.post(
-        f"/api/exports/{project['id']}/keras-model", json={"execution_backend": "tensorflow"}
+        "/api/execution/jobs",
+        json={"operation": {"type": "keras_export", "project_id": project["id"]}, "worker": _execution_worker(client)},
     )
     assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "model_validation_failed"
 
 ###############################################################################
 def test_source_export_is_revision_specific(client: httpx.Client) -> None:

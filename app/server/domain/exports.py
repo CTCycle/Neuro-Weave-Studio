@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from domain.enums import CodeTarget, ExecutionBackend
+from domain.enums import CodeTarget
 
 ###############################################################################
 class SourceExportResponse(BaseModel):
@@ -10,5 +10,3 @@ class SourceExportResponse(BaseModel):
     code: str
 
 ###############################################################################
-class KerasBinaryExportRequest(BaseModel):
-    execution_backend: ExecutionBackend

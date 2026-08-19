@@ -8,6 +8,7 @@ import httpx
 from common.catalogs.loader import get_node_catalog
 from domain.enums import CodeTarget, ExecutionBackend
 
+
 ###############################################################################
 def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
     catalog = get_node_catalog()
@@ -113,6 +114,7 @@ def test_metadata_reports_v2_targets_and_backend_states(client: httpx.Client) ->
     response: httpx.Response = client.get("/api/metadata")
     assert response.status_code == 200
     payload: dict[str, Any] = response.json()
+    assert payload["version"] == "1.0.0"
     assert payload["schema_version"] == 2
     assert payload["code_targets"] == [item.value for item in CodeTarget]
     backend_items = cast(list[dict[str, Any]], payload["execution_backends"])
@@ -135,10 +137,20 @@ def test_project_and_binary_contract_v2(client: httpx.Client) -> None:
     created_payload: dict[str, Any] = created.json()
     assert created_payload["code_target"] == "jax"
     unknown: httpx.Response = client.post(
-        f"/api/exports/{created_payload['id']}/keras-model",
-        json={"execution_backend": "other"},
+        "/api/execution/jobs",
+        json={
+            "operation": {"type": "keras_export", "project_id": created_payload["id"]},
+            "worker": {
+                "api": "native",
+                "backend": "pytorch",
+                "device_id": "cpu",
+                "memory_policy": {"kind": "default"},
+                "precision": "float32",
+            },
+        },
     )
     assert unknown.status_code == 422
+    assert unknown.json()["detail"]["code"] == "model_validation_failed"
 
 ###############################################################################
 def test_all_code_targets_generate_parseable_source(client: httpx.Client) -> None:

@@ -1,15 +1,23 @@
 # Backend Architecture
 
-Last updated: 2026-08-18
+Last updated: 2026-08-20
 
-The flat `app/server` layout exposes `app.py` as a FastAPI application factory, with `api`, `common`, `configurations`, `domain`, `repositories`, and `services` as the primary layers. NeuroWeave-specific `catalog`, `compilation`, `exporters`, and `validation` packages remain direct server packages so graph behavior stays unchanged.
+`app/server/app.py` is the FastAPI application factory. Routers translate HTTP contracts, services own validation and repository transactions, and the domain models define the graph, runtime, and job contracts. Lifespan creates the catalog, repository context, and one application-scoped `RuntimeController`; the controller is shut down and joined before repositories are disposed.
 
-The request path is strictly endpoint → service → repository. Routers parse Pydantic contracts and map errors; catalog, runtime metadata, validation, compilation, project, and export services own application logic. Pure graph algorithms stay in `validation`. SQLAlchemy repositories persist the canonical relational project graph and revisions through a shared unit of work; services own transaction boundaries.
+## Process-isolated runtime
 
-`create_app()` is the only application construction entry point. Lifespan setup loads the catalog, repository context, and the isolated `KerasBackendRunner` into typed `app.state` dependencies and disposes the SQLAlchemy engine on shutdown. There is no process-global settings, catalog, repository, or compatibility cache.
+The server process never imports Keras, TensorFlow, JAX, or PyTorch. `RuntimeController` discovers capabilities with short-lived probe workers and starts a new `models.ml_worker` interpreter for every smoke-inference or Keras-export job. The worker sets `KERAS_BACKEND` and allocator/device environment variables before importing Keras-dependent modules. This boundary avoids inherited accelerator state and unsafe framework reuse.
 
-Keras 3 is the fixed model API layer. The public code targets are `keras`, native `tensorflow`, native `pytorch`, and native `jax`/Flax. Execution backends are independently probed as `tensorflow`, `pytorch`, and `jax`; the public PyTorch id is mapped to Keras' required `KERAS_BACKEND=torch` only inside the worker. Probes, binary construction, and provenance logging run in isolated workers with `KERAS_BACKEND` set before Keras imports.
+`WorkerConfiguration` is frozen and contains `api` (`keras` or `native`), backend, normalized physical `device_id`, backend-specific memory policy, and graph-derived precision. Keras is operational. Native inference is deliberately represented as unavailable with `reason_code=not_implemented`; no native adapter or capability claim is emitted.
 
-The API is schema v2: project persistence uses `code_target`, metadata exposes `code_targets` and per-backend `execution_backends`, and unavailable binary export requests return a structured `409 backend_unavailable` response.
+The controller owns one lease per normalized physical device (`cpu`, `cuda:0`, `rocm:0`, `mps:0`, or `xpu:0`). Jobs on different leases may run concurrently. States are `starting`, `running`, `stop_requested`, `stopping`, `succeeded`, `terminated`, and `failed`. A lease is released only after the worker PID has been waited on and any termination escalation has completed.
 
-The base runtime is pinned to Python 3.13.14 (`>=3.13,<3.14`) because the locked Windows environment contains compatible TensorFlow, PyTorch, and JAX CPython 3.13 wheels. TensorFlow and JAX remain CPU-only on native Windows; PyTorch may use the selected CUDA wheel. Optional framework installation is launcher-managed through locked uv extras, not performed by the running GUI. The launcher records requested/resolved extras and live package/probe status, while `/api/metadata` exposes installed version and operational capability to the frontend.
+Each job has a bounded workspace under `app/resources/runtime/ml-jobs` containing immutable input/configuration, atomic status/result publication, a cancellation marker, and bounded diagnostics. Graph input is removed after worker startup; terminal workspaces are removed. At most 100 terminal records remain in controller memory. Cancellation checks surround import, initialization, construction/loading, inference, save/reload, and publication. Cooperative cancellation receives five seconds, then the worker process tree is terminated and, after another five seconds, force-terminated.
+
+Keras export writes a temporary `.keras` file in the job workspace. Reload/inference verification and a final project-revision check must pass before atomic replacement of the canonical export under `app/resources/runtime/exports`; failures and revision conflicts never overwrite a prior artifact.
+
+## Runtime diagnostics and limits
+
+Metadata is live probe output: API capability, installed/operational backend, discovered devices, supported memory policies, and normalized lease keys. Workers report PID, immutable configuration, lifecycle phase, exit code, cancellation/escalation state, restart reason, process RSS, and nullable framework/device metrics. Cleanup (`clear_session`, JAX cache clearing, PyTorch synchronization/cache cleanup, and garbage collection) is best effort and does not replace process teardown. PyTorch allocated versus reserved/cached memory and framework/device metrics are intentionally shown separately.
+
+Training, checkpoints, datasets, and native-framework inference are outside this runtime boundary. Installing or removing optional packages still requires an application restart. Normal backend/device/policy changes only affect the next fresh worker; an operating-system restart is exceptional recovery for driver/runtime faults.
