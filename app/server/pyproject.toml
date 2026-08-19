@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "neuro-weave-backend"
-version = "0.1.0"
+version = "1.0.0"
 description = "FastAPI backend for a visual machine-learning architecture editor"
 requires-python = ">=3.13,<3.14"
 dependencies = [
