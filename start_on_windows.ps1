@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'Install', 'ManageBackends', 'Launch', 'InitDb', 'Test', 'CleanLogs', 'ClearCache', 'Uninstall')]
+    [ValidateSet('Menu', 'Install', 'RebuildFrontend', 'ManageBackends', 'Launch', 'InitDb', 'Test', 'CleanLogs', 'ClearCache', 'Uninstall')]
     [string]$Action = 'Menu',
     [string]$Backends = '',
     [ValidateSet('Auto', 'CPU')]
@@ -561,6 +561,12 @@ function Invoke-FrontendBuild {
         & $npm run build
         if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE." }
     } finally { Pop-Location }
+}
+
+function Invoke-FrontendRebuild {
+    Ensure-PortableRuntimes
+    Import-DotEnv
+    Invoke-FrontendBuild
 }
 
 function Assert-BackendManagementEnvironmentStopped {
@@ -1153,6 +1159,7 @@ if ($Action -ne 'Menu') {
     try {
         switch ($Action) {
             'Install' { Invoke-Install }
+            'RebuildFrontend' { Invoke-FrontendRebuild }
             'ManageBackends' { Invoke-BackendManagement }
             'Launch' { Invoke-Launch }
             'InitDb' { Invoke-DatabaseInitialization }
@@ -1216,42 +1223,44 @@ function Show-LauncherMenu {
     Write-Host
     Write-Host '  SETUP & VALIDATION' -ForegroundColor DarkCyan
     Write-MenuOption -Number '2' -Label 'Install or repair base dependencies' -Description 'Prepare runtimes and core packages'
-    Write-MenuOption -Number '3' -Label 'Manage compute backends' -Description 'Install, inspect, or remove optional ML frameworks'
-    Write-MenuOption -Number '4' -Label 'Initialize or recreate database' -Description 'Create schema or confirm a destructive reset'
-    Write-MenuOption -Number '5' -Label 'Run validation suite' -Description 'Run backend and frontend quality gates'
+    Write-MenuOption -Number '3' -Label 'Rebuild frontend' -Description 'Rebuild the frontend from current source'
+    Write-MenuOption -Number '4' -Label 'Manage compute backends' -Description 'Install, inspect, or remove optional ML frameworks'
+    Write-MenuOption -Number '5' -Label 'Initialize or recreate database' -Description 'Create schema or confirm a destructive reset'
+    Write-MenuOption -Number '6' -Label 'Run validation suite' -Description 'Run backend and frontend quality gates'
     Write-Host
     Write-Host '  MAINTENANCE' -ForegroundColor DarkCyan
-    Write-MenuOption -Number '6' -Label 'Remove logs' -Description 'Clear generated application logs'
-    Write-MenuOption -Number '7' -Label 'Clear cache' -Description 'Remove Python bytecode and uv cache'
-    Write-MenuOption -Number '8' -Label 'Uninstall application' -Description 'Remove dependencies and build output' -Destructive
+    Write-MenuOption -Number '7' -Label 'Remove logs' -Description 'Clear generated application logs'
+    Write-MenuOption -Number '8' -Label 'Clear cache' -Description 'Remove Python bytecode and uv cache'
+    Write-MenuOption -Number '9' -Label 'Uninstall application' -Description 'Remove dependencies and build output' -Destructive
     Write-Host
     Write-MenuRule
-    Write-MenuOption -Number '9' -Label 'Exit' -Description 'Close this launcher' -Exit
+    Write-MenuOption -Number '10' -Label 'Exit' -Description 'Close this launcher' -Exit
     Write-MenuRule
     Write-Host
 }
 
 while ($true) {
     Show-LauncherMenu
-    $rawSelection = Read-Host '  Select an option (1-9)'
+    $rawSelection = Read-Host '  Select an option (1-10)'
     if ($null -eq $rawSelection) { break }
     $selection = ([string]$rawSelection).Trim()
-    if ($selection -notmatch '^[1-9]$') {
-        Write-Warn 'Invalid option. Enter a number from 1 to 9.'
+    if ($selection -notmatch '^(10|[1-9])$') {
+        Write-Warn 'Invalid option. Enter a number from 1 to 10.'
         Wait-ForMenuReturn
         continue
     }
-    if ($selection -eq '9') { break }
+    if ($selection -eq '10') { break }
     try {
         switch ($selection) {
             '1' { Invoke-Launch; exit 0 }
             '2' { Invoke-Install -PromptForInstallationType }
-            '3' { Invoke-BackendManagement }
-            '4' { Invoke-DatabaseInitialization }
-            '5' { Invoke-TestSuite }
-            '6' { Invoke-RemoveApplicationLogs }
-            '7' { Invoke-ClearApplicationCache }
-            '8' { Invoke-UninstallApplication }
+            '3' { Invoke-FrontendRebuild }
+            '4' { Invoke-BackendManagement }
+            '5' { Invoke-DatabaseInitialization }
+            '6' { Invoke-TestSuite }
+            '7' { Invoke-RemoveApplicationLogs }
+            '8' { Invoke-ClearApplicationCache }
+            '9' { Invoke-UninstallApplication }
         }
     } catch {
         Write-Fatal $_.Exception.Message
