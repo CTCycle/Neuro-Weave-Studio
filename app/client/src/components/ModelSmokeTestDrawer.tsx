@@ -46,7 +46,7 @@ export function ModelSmokeTestDrawer({ backend, backendStatus, state, onRun, onC
 }
 
 function ReadyState({ backend, onRun }: { backend: ExecutionBackend | null; onRun: () => void }) {
-  return <div className="smoke-test-state ready"><div><strong>Ready for a safe dry run</strong><span>The current graph will be validated before it is executed.</span></div><button className="primary" onClick={onRun} disabled={!backend}><Play size={16} />Run dummy inference</button>{!backend && <small>Select an operational backend in the toolbar first.</small>}</div>
+  return <div className="smoke-test-state ready"><div><strong>Ready for a safe dry run</strong><span>The current graph will be validated before it is executed.</span></div><button className="primary" onClick={onRun} disabled={!backend}><Play size={16} />Run dummy inference</button>{!backend && <small>Select an operational backend on the Environment page first.</small>}</div>
 }
 
 function SuccessState({ result }: { result: SmokeTestResponse }) {

@@ -190,7 +190,6 @@ export function PropertiesInspector({ onClose, isOpen = true, codeTarget = 'kera
         })}</details>)}
       </div>
       {node.data.shapeSummary && <div className="summary-card"><strong>Inferred output</strong>{Object.entries(node.data.shapeSummary.outputs).map(([port, spec]) => <div key={port}><span>{port}</span><code>{spec.shape.map((value) => value === null ? '?' : typeof value === 'object' ? value.name : value).join(' × ')}</code></div>)}<div><span>Parameters</span><code>{node.data.shapeSummary.parameter_count?.toLocaleString() ?? 'unknown'}</code></div></div>}
-      {node.data.diagnostics.length > 0 && <div className="node-diagnostics">{node.data.diagnostics.map((item, index) => <div key={`${item.code}-${index}`} className={`diagnostic ${item.severity}`}><strong>{item.severity}</strong><span>{item.message}</span></div>)}</div>}
     </aside>
   )
 }

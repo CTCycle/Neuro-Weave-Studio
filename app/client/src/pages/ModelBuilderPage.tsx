@@ -23,7 +23,7 @@ export function ModelBuilderPage() {
   const replaceGraph = useGraphStore((state) => state.replaceGraph)
   const reset = useGraphStore((state) => state.reset)
   const toGraph = useGraphStore((state) => state.toGraph)
-  const applyDiagnostics = useGraphStore((state) => state.applyDiagnostics)
+  const applyShapeSummaries = useGraphStore((state) => state.applyShapeSummaries)
   const addNode = useGraphStore((state) => state.addNode)
   const nodes = useGraphStore((state) => state.nodes)
   const edges = useGraphStore((state) => state.edges)
@@ -102,7 +102,7 @@ export function ModelBuilderPage() {
     try {
       const result = await api.validate(toGraph(), codeTarget)
       setValidation(result)
-      applyDiagnostics(result.diagnostics, result.shape_summaries)
+      applyShapeSummaries(result.shape_summaries)
       setNotice(result.valid ? `Model is valid for ${codeTarget} code.` : 'Model has blocking findings.')
     } catch (error) {
       setNotice(`Validation failed: ${messageFor(error)}`)

@@ -15,7 +15,6 @@ import type {
   NodeManifest,
   ProjectDocument,
   ShapeSummary,
-  ValidationDiagnostic,
 } from '../domain/types'
 import { editorNodeFromGraph, emptyModelConfiguration } from '../domain/types'
 
@@ -57,13 +56,13 @@ interface GraphState {
   replaceGraph: (project: ProjectDocument) => void
   reset: () => void
   toGraph: () => ModelGraph
-  applyDiagnostics: (diagnostics: ValidationDiagnostic[], summaries: ShapeSummary[]) => void
+  applyShapeSummaries: (summaries: ShapeSummary[]) => void
   updateConfiguration: (configuration: Partial<ModelConfiguration>) => void
   autoLayout: (nodes: EditorNode[], edges: EditorEdge[]) => void
 }
 
 const newId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`
-const cloneNodes = (nodes: EditorNode[]) => nodes.map((node) => ({ ...node, position: { ...node.position }, data: { ...node.data, parameters: { ...node.data.parameters }, diagnostics: [...node.data.diagnostics] } }))
+const cloneNodes = (nodes: EditorNode[]) => nodes.map((node) => ({ ...node, position: { ...node.position }, data: { ...node.data, parameters: { ...node.data.parameters } } }))
 const cloneEdges = (edges: EditorEdge[]) => edges.map((edge) => ({ ...edge }))
 const defaultExportSettings = (): ModelGraph['export_settings'] => ({
   include_comments: true,
@@ -118,7 +117,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       id: newId(manifest.id.replaceAll('.', '-')),
       type: 'modelNode',
       position,
-      data: { manifest, parameters, label: manifest.display_name, diagnostics: [] },
+      data: { manifest, parameters, label: manifest.display_name },
     }
     return { past: [...state.past, snapshot(state)].slice(-50), future: [], nodes: [...state.nodes, node], selectedNodeId: node.id, selectedEdgeId: null }
   }),
@@ -252,16 +251,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       future_training_configuration: structuredClone(state.futureTrainingConfiguration),
     }
   },
-  applyDiagnostics: (diagnostics, summaries) => set((state) => {
-    const byNode = new Map<string, ValidationDiagnostic[]>()
-    diagnostics.forEach((diagnostic) => {
-      if (diagnostic.node_id) byNode.set(diagnostic.node_id, [...(byNode.get(diagnostic.node_id) ?? []), diagnostic])
-    })
+  applyShapeSummaries: (summaries) => set((state) => {
     const shapeByNode = new Map(summaries.map((summary) => [summary.node_id, summary]))
     return {
       nodes: state.nodes.map((node) => ({
         ...node,
-        data: { ...node.data, diagnostics: byNode.get(node.id) ?? [], shapeSummary: shapeByNode.get(node.id) },
+        data: { ...node.data, shapeSummary: shapeByNode.get(node.id) },
       })),
     }
   }),
