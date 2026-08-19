@@ -35,7 +35,6 @@ SUPPORTED_INITIALIZERS = frozenset(
 SUPPORTED_REGULARIZERS = frozenset({"none", "l1", "l2", "l1_l2"})
 SUPPORTED_CONSTRAINTS = frozenset({"none", "max_norm", "min_max_norm", "non_neg", "unit_norm"})
 
-
 ###############################################################################
 def _error(code: str, message: str) -> ValidationDiagnostic:
     return ValidationDiagnostic(
@@ -43,7 +42,6 @@ def _error(code: str, message: str) -> ValidationDiagnostic:
         severity=DiagnosticSeverity.ERROR,
         message=message,
     )
-
 
 ###############################################################################
 def _output_selectors(graph: ModelGraph) -> set[str]:
@@ -53,7 +51,6 @@ def _output_selectors(graph: ModelGraph) -> set[str]:
         if node.definition_id.startswith("output.")
         for selector in (node.id, node.label or node.id)
     }
-
 
 ###############################################################################
 def validate_model_configuration(

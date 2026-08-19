@@ -6,13 +6,11 @@ import keras
 
 from domain.graph import ModelGraph
 
-
 ###############################################################################
 def option(value: Any) -> Any:
     """Convert the catalog's explicit ``none`` option into Keras ``None``."""
 
     return None if value in (None, "", "none") else value
-
 
 ###############################################################################
 def layer_option(
@@ -34,7 +32,6 @@ def layer_option(
         return option(configuration.default_constraint)
     return option(fallback)
 
-
 ###############################################################################
 def prepare_runtime(graph: ModelGraph) -> None:
     if graph.model_configuration.random_seed is not None:
@@ -42,7 +39,6 @@ def prepare_runtime(graph: ModelGraph) -> None:
     keras.mixed_precision.set_global_policy(
         "mixed_float16" if graph.model_configuration.mixed_precision else "float32"
     )
-
 
 ###############################################################################
 def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
@@ -54,7 +50,6 @@ def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
         for node in graph.nodes
         if node.definition_id.startswith("output.")
     ]
-
 
 ###############################################################################
 def _configured_values(
@@ -76,7 +71,6 @@ def _configured_values(
         resolved[output_name] = value
     return resolved
 
-
 ###############################################################################
 def _compile_value(values: dict[str, Any], output_count: int) -> Any:
     if not values:
@@ -84,7 +78,6 @@ def _compile_value(values: dict[str, Any], output_count: int) -> Any:
     if output_count == 1:
         return next(iter(values.values()))
     return values
-
 
 ###############################################################################
 def _optimizer(name: str, learning_rate: float) -> keras.optimizers.Optimizer:
@@ -95,7 +88,6 @@ def _optimizer(name: str, learning_rate: float) -> keras.optimizers.Optimizer:
         "rmsprop": keras.optimizers.RMSprop,
     }
     return optimizer_types[name](learning_rate=learning_rate)
-
 
 ###############################################################################
 def compile_model(model: keras.Model, graph: ModelGraph) -> keras.Model:
