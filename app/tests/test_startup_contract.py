@@ -13,13 +13,14 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     for menu_entry in (
         "'1' -Label 'Launch application'",
         "'2' -Label 'Install or repair base dependencies'",
-        "'3' -Label 'Manage compute backends'",
-        "'4' -Label 'Initialize or recreate database'",
-        "'5' -Label 'Run validation suite'",
-        "'6' -Label 'Remove logs'",
-        "'7' -Label 'Clear cache'",
-        "'8' -Label 'Uninstall application'",
-        "'9' -Label 'Exit'",
+        "'3' -Label 'Rebuild frontend'",
+        "'4' -Label 'Manage compute backends'",
+        "'5' -Label 'Initialize or recreate database'",
+        "'6' -Label 'Run validation suite'",
+        "'7' -Label 'Remove logs'",
+        "'8' -Label 'Clear cache'",
+        "'9' -Label 'Uninstall application'",
+        "'10' -Label 'Exit'",
     ):
         assert menu_entry in source
     assert "Assert-PortAvailable" in source
@@ -37,8 +38,10 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "Execution backends to install" in source
     assert "tensorflow,pytorch,jax" in source
     assert "'Install' { Invoke-Install }" in source
+    assert "'RebuildFrontend' { Invoke-FrontendRebuild }" in source
+    assert "function Invoke-FrontendRebuild" in source
     assert "'ManageBackends' { Invoke-BackendManagement }" in source
-    assert "'3' -Label 'Manage compute backends'" in source
+    assert "'4' -Label 'Manage compute backends'" in source
     assert "[string]$Backends" in source
     assert "Get-InstalledExecutionBackends" in source
     assert "Get-NvidiaCudaInfo" in source

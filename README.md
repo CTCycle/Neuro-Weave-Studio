@@ -39,6 +39,7 @@ The launcher menu provides these actions:
 
 - Launch application
 - Install or repair base dependencies
+- Rebuild frontend
 - Manage compute backends
 - Initialize or recreate database
 - Run the validation suite
@@ -47,7 +48,7 @@ The launcher menu provides these actions:
 - Uninstall application
 - Exit
 
-The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. Option 2 installs or repairs dependencies and rebuilds the frontend; option 1 reuses that build and only performs a recovery build when `app/client/dist/index.html` is missing. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, waits for both readiness checks, opens the frontend in the default browser when possible, and then closes the initial PowerShell menu while leaving the independent application process roots running. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening.
+The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. Option 2 installs or repairs dependencies and rebuilds the frontend; option 3 rebuilds only the frontend from current source using the existing frontend dependencies; option 1 reuses that build and only performs a recovery build when `app/client/dist/index.html` is missing. Use `.\start_on_windows.ps1 -Action RebuildFrontend` to run the standalone rebuild directly. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, waits for both readiness checks, opens the frontend in the default browser when possible, and then closes the initial PowerShell menu while leaving the independent application process roots running. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening.
 
 `settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/database.db`. Existing databases must contain the canonical schema marker; use the explicit reset action to recreate a local database from scratch when needed. Keras is core and is installed with the base application. Optional TensorFlow, PyTorch, and JAX installation is explicit through `.\start_on_windows.ps1 -Action ManageBackends`; choose `none`, one backend, a comma-separated combination, or `all`. The launcher reports native-Windows CPU limitations for TensorFlow/JAX and verifies actual worker capability after installation.
 

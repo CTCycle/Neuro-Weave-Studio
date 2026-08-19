@@ -1,8 +1,8 @@
 # Installation
 
-Last updated: 2026-08-18
+Last updated: 2026-08-19
 
-Run `start_on_windows.ps1` from the repository root and select **Install or repair base dependencies** when local runtimes or dependencies are missing. The launcher asks for a **Development** profile (including Ruff, Pyright, and pytest) or a **Standard** profile (runtime dependencies only). It uses pinned repository-local Python 3.13.14, uv 0.12.0, and Node.js 22.23.1 under `runtimes/`; subsequent launches validate the exact interpreter and installed environment.
+Run `start_on_windows.ps1` from the repository root and select **Install or repair base dependencies** when local runtimes or dependencies are missing. After the frontend dependencies are installed, select **Rebuild frontend** whenever a standalone production frontend build is needed; this does not synchronize backend packages. The launcher asks for a **Development** profile (including Ruff, Pyright, and pytest) or a **Standard** profile (runtime dependencies only). It uses pinned repository-local Python 3.13.14, uv 0.12.0, and Node.js 22.23.1 under `runtimes/`; subsequent launches validate the exact interpreter and installed environment.
 
 Keras 3 is a required core dependency and is not an execution-backend choice. Use **Manage compute backends** or `start_on_windows.ps1 -Action ManageBackends` to choose `none`, `tensorflow`, `pytorch`, `jax`, a comma-separated combination, or `all`. Blank input means `none`; there is no implicit PyTorch installation. PyTorch `Auto` selects the pinned CUDA 12.6 wheel only when the detected NVIDIA driver supports it, otherwise it uses the CPU wheel. Use `-Acceleration CPU` to force CPU. TensorFlow and JAX are CPU-only on native Windows; JAX CPU support is experimental, and GPU execution requires a separate WSL2/Linux environment. The JAX extra installs bounded `jax` and `flax` packages. Backend management uses the locked uv extras, records installation output, probes actual worker capability, and attempts to restore the previous extra set after a failed update. Core-only mode supports source generation but exposes no operational inference backend until a probe succeeds.
 
