@@ -15,7 +15,6 @@ from exporters.keras_exporter import KerasSourceExporter
 from models.keras_backend_runner import KerasBackendRunner
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def node(
     node_id: str,
@@ -32,7 +31,6 @@ def node(
         parameters=parameters or {},
     )
 
-
 ###############################################################################
 def edge(
     edge_id: str,
@@ -48,11 +46,9 @@ def edge(
         target_port_id=target_port,
     )
 
-
 ###############################################################################
 def validate(graph: ModelGraph):
     return ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
-
 
 ###############################################################################
 def test_pool_defaults_and_grouped_convolution_follow_keras_contract() -> None:
@@ -103,7 +99,6 @@ def test_pool_defaults_and_grouped_convolution_follow_keras_contract() -> None:
             {"node_id": "output", "shape": [1, 16, 16, 3], "dtype": "float32"}
         ]
 
-
 ###############################################################################
 def test_validation_rejects_invalid_shape_and_dtype_contracts() -> None:
     invalid_axis_graph = ModelGraph(
@@ -150,7 +145,6 @@ def test_validation_rejects_invalid_shape_and_dtype_contracts() -> None:
     )
     assert not validate(learned_position_graph).valid
 
-
 ###############################################################################
 def test_attention_shape_and_port_order_match_runtime() -> None:
     graph = ModelGraph(
@@ -183,7 +177,6 @@ def test_attention_shape_and_port_order_match_runtime() -> None:
     assert runtime["outputs"] == [{"node_id": "output", "shape": [1, 5, 6], "dtype": "float32"}]
     assert runtime["parameter_count"] == 522
 
-
 ###############################################################################
 def test_transformer_encoder_preserves_residual_width() -> None:
     graph = ModelGraph(
@@ -209,7 +202,6 @@ def test_transformer_encoder_preserves_residual_width() -> None:
         pytest.skip("CPU PyTorch backend is unavailable")
     runtime = runner.smoke_test(graph, ExecutionBackend.PYTORCH)
     assert runtime["outputs"] == [{"node_id": "output", "shape": [1, 5, 128], "dtype": "float32"}]
-
 
 ###############################################################################
 def test_invalid_state_and_unreachable_components_are_blocked() -> None:
@@ -237,7 +229,6 @@ def test_invalid_state_and_unreachable_components_are_blocked() -> None:
     unreachable_result = validate(unreachable_graph)
     assert not unreachable_result.valid
     assert any(item.code == "unreachable_model_input" for item in unreachable_result.diagnostics)
-
 
 ###############################################################################
 def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
@@ -283,7 +274,6 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
     completed = subprocess.run(command, env=environment, capture_output=True, text=True, check=False)
     assert completed.returncode == 0, completed.stderr
 
-
 ###############################################################################
 @pytest.mark.parametrize("optimizer", ["adam", "adamw", "sgd", "rmsprop"])
 def test_supported_optimizers_compile_on_cpu_backend(optimizer: str) -> None:
@@ -312,7 +302,6 @@ def test_supported_optimizers_compile_on_cpu_backend(optimizer: str) -> None:
         {"node_id": "output", "shape": [1, 2], "dtype": "float32"}
     ]
 
-
 ###############################################################################
 def test_mixed_precision_policy_is_applied_before_cpu_model_build() -> None:
     graph = ModelGraph(
@@ -336,7 +325,6 @@ def test_mixed_precision_policy_is_applied_before_cpu_model_build() -> None:
     assert runtime["outputs"] == [
         {"node_id": "output", "shape": [1, 2], "dtype": "float16"}
     ]
-
 
 ###############################################################################
 def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -> None:
@@ -399,7 +387,6 @@ def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -
             {"node_id": "output_a", "shape": [1, 5, 128], "dtype": "float32"},
             {"node_id": "output_b", "shape": [1, 5, 128], "dtype": "float32"},
         ]
-
 
 ###############################################################################
 def test_binary_artifact_reloads_in_a_clean_process(tmp_path: Path) -> None:

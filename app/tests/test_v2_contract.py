@@ -8,7 +8,6 @@ import httpx
 from common.catalogs.loader import get_node_catalog
 from domain.enums import CodeTarget, ExecutionBackend
 
-
 ###############################################################################
 def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
     catalog = get_node_catalog()
@@ -33,13 +32,11 @@ def test_manifest_capabilities_are_not_inflated_by_runtime_registry() -> None:
     assert not catalog.get("transformer.encoder_block").frameworks[CodeTarget.TENSORFLOW].supported
     assert not catalog.get("layer.dense").frameworks[CodeTarget.JAX].supported
 
-
 ###############################################################################
 def test_unproven_native_targets_remain_disabled() -> None:
     catalog = get_node_catalog()
     for target in (CodeTarget.TENSORFLOW, CodeTarget.JAX):
         assert all(not manifest.frameworks[target].supported for manifest in catalog.manifests)
-
 
 ###############################################################################
 def test_target_parameter_capabilities_block_unmapped_values() -> None:

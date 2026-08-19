@@ -11,7 +11,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.pytorch_exporter import PyTorchSourceExporter
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def node(
     node_id: str,
@@ -25,7 +24,6 @@ def node(
         parameters=parameters or {},
     )
 
-
 ###############################################################################
 def edge(edge_id: str, source: str, target: str, target_port: str = "input") -> EdgeInstance:
     return EdgeInstance(
@@ -35,7 +33,6 @@ def edge(edge_id: str, source: str, target: str, target_port: str = "input") -> 
         target_node_id=target,
         target_port_id=target_port,
     )
-
 
 ###############################################################################
 def build_model(graph: ModelGraph) -> Any:
@@ -53,7 +50,6 @@ def build_model(graph: ModelGraph) -> Any:
     model = namespace["GeneratedModel"]()
     model.eval()
     return torch, model
-
 
 ###############################################################################
 def test_generated_pytorch_dense_and_dropout_execute() -> None:
@@ -73,7 +69,6 @@ def test_generated_pytorch_dense_and_dropout_execute() -> None:
     torch, model = build_model(graph)
     result = model(torch.randn(2, 4))
     assert tuple(result.shape) == (2, 3)
-
 
 ###############################################################################
 def test_generated_pytorch_conv_pool_preserves_canonical_channels_last_shape() -> None:
@@ -113,7 +108,6 @@ def test_generated_pytorch_conv_pool_preserves_canonical_channels_last_shape() -
     result = model(torch.randn(2, 7, 9, 3))
     assert tuple(result.shape) == (2, 2, 3, 4)
 
-
 ###############################################################################
 @pytest.mark.parametrize("definition_id", ["recurrent.lstm", "recurrent.gru"])
 def test_generated_pytorch_recurrent_layers_derive_input_size_from_shape(
@@ -130,7 +124,6 @@ def test_generated_pytorch_recurrent_layers_derive_input_size_from_shape(
     torch, model = build_model(graph)
     result = model(torch.randn(2, 5, 6))
     assert tuple(result.shape) == (2, 3)
-
 
 ###############################################################################
 def test_generated_pytorch_embedding_and_normalization_execute() -> None:
@@ -162,7 +155,6 @@ def test_generated_pytorch_embedding_and_normalization_execute() -> None:
     _, normalization_model = build_model(normalization_graph)
     normalization_result = normalization_model(torch.randn(2, 4, 4, 3))
     assert tuple(normalization_result.shape) == (2, 4, 4, 3)
-
 
 ###############################################################################
 def test_generated_pytorch_common_merges_execute() -> None:
