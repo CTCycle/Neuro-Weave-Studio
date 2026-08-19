@@ -1,22 +1,15 @@
 from __future__ import annotations
 
-import re
-import subprocess
-from collections.abc import Sequence
-from pathlib import Path
 from uuid import UUID
 
 from common.timestamps import utc_now
 from configurations.settings import Settings
 from domain.compilation import CompilationResult
-from domain.enums import CodeTarget, ExecutionBackend
+from domain.enums import CodeTarget
 from domain.exports import SourceExportResponse
-from models.keras_backend_runner import KerasBackendRunner
 from repositories.contracts import UnitOfWorkFactory
 from services.compilation_service import CompilationService
 from services.errors import (
-    BinaryExportFailedError,
-    BinaryExportUnavailableError,
     CompilationRejectedError,
     ProjectNotFoundError,
     RevisionConflictError,
@@ -35,16 +28,12 @@ class ExportService:
         compilation_service: CompilationService,
         validator: ValidationService,
         uow_factory: UnitOfWorkFactory,
-        backend_runner: KerasBackendRunner,
-        available_execution_backends: Sequence[ExecutionBackend],
         settings: Settings,
     ) -> None:
         self._projects = project_service
         self._compilation = compilation_service
         self._validator = validator
         self._uow_factory = uow_factory
-        self._backend_runner = backend_runner
-        self._available_execution_backends = tuple(available_execution_backends)
         self._settings = settings
 
     # -------------------------------------------------------------------------
@@ -73,30 +62,3 @@ class ExportService:
             )
             uow.commit()
         return SourceExportResponse(code_target=code_target, code=result.code)
-
-    # -------------------------------------------------------------------------
-    def keras_model(self, project_id: UUID, execution_backend: ExecutionBackend) -> tuple[Path, str]:
-        project = self._projects.get(project_id)
-        if project is None:
-            raise ProjectNotFoundError(project_id)
-        validation = self._validator.validate(project.graph, CodeTarget.KERAS)
-        if not validation.valid:
-            raise CompilationRejectedError(validation.diagnostics)
-        if execution_backend not in self._available_execution_backends:
-            raise BinaryExportUnavailableError(execution_backend)
-        destination = (
-            self._settings.export_root
-            / str(project_id)
-            / f"{self._safe_filename_stem(project.name)}.keras"
-        )
-        try:
-            self._backend_runner.export(project.graph, destination, execution_backend)
-        except (OSError, RuntimeError, subprocess.SubprocessError, TimeoutError) as exc:
-            raise BinaryExportFailedError(execution_backend, str(exc)) from exc
-        return destination, destination.name
-
-    # -------------------------------------------------------------------------
-    @staticmethod
-    def _safe_filename_stem(value: str) -> str:
-        sanitized = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
-        return (sanitized or "model")[:120]

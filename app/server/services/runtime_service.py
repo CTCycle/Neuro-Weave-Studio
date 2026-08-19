@@ -11,14 +11,20 @@ from domain.metadata import (
     MetadataConfiguration,
     MetadataResponse,
 )
+from domain.runtime import RuntimeApi, RuntimeApiStatus
 
 ###############################################################################
 class RuntimeService:
 
     # -------------------------------------------------------------------------
-    def __init__(self, settings: Settings, backend_statuses: Mapping[ExecutionBackend, Mapping[str, object]]) -> None:
+    def __init__(self, settings: Settings, backend_statuses: Mapping[ExecutionBackend, ExecutionBackendStatus | Mapping[str, object]]) -> None:
         self._settings = settings
-        self._backend_statuses = backend_statuses
+        self._backend_statuses = {
+            backend: status
+            if isinstance(status, ExecutionBackendStatus)
+            else ExecutionBackendStatus.model_validate({"id": backend, **dict(status)})
+            for backend, status in backend_statuses.items()
+        }
 
     # -------------------------------------------------------------------------
     def health(self) -> HealthResponse:
@@ -31,15 +37,24 @@ class RuntimeService:
             version=self._settings.app_version,
             schema_version=GRAPH_SCHEMA_VERSION,
             code_targets=list(CodeTarget),
+            runtime_apis=[
+                RuntimeApiStatus(id=RuntimeApi.KERAS, available=True),
+                RuntimeApiStatus(
+                    id=RuntimeApi.NATIVE,
+                    available=False,
+                    reason_code="not_implemented",
+                ),
+            ],
             execution_backends=[
                 ExecutionBackendStatus(
                     id=backend,
-                    installed=bool(status.get("installed")),
-                    version=(str(status.get("version")) if status.get("version") else None),
-                    available=bool(status.get("available")),
-                    reason_code=(str(status.get("reason_code")) if status.get("reason_code") else None),
-                    accelerator=(str(status.get("accelerator")) if status.get("accelerator") else None),
-                    device_name=(str(status.get("device_name")) if status.get("device_name") else None),
+                    installed=status.installed,
+                    version=status.version,
+                    available=status.available,
+                    reason_code=status.reason_code,
+                    accelerator=status.accelerator,
+                    device_name=status.device_name,
+                    devices=status.devices,
                 )
                 for backend, status in self._backend_statuses.items()
             ],

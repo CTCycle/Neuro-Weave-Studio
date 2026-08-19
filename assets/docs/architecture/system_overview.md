@@ -1,7 +1,11 @@
 # System Overview
 
-Last updated: 2026-08-05
+Last updated: 2026-08-20
 
-The repository contains a flat FastAPI backend in `app/server`, a database initializer in `app/scripts`, a single React TypeScript frontend in `app/client/src`, manifest resources in `app/server/resources/nodes`, example projects in `examples`, and focused documentation under `assets/docs`. The frontend build output is generated under `app/client/dist`; when present, the backend serves its assets and SPA fallback. The backend owns graph contracts, validation, compilation, persistence, and exports. The frontend owns editing state and interaction, but backend validation remains authoritative.
+NeuroWeave Studio contains a flat FastAPI backend in `app/server`, a React TypeScript frontend in `app/client/src`, manifest resources, example projects, and focused documentation under `assets/docs`. The backend owns graph contracts, validation, compilation, persistence, source export, and process-isolated Keras execution. The frontend owns editing state and interaction; backend validation remains authoritative.
 
-The backend is launched through `app:create_app --factory`. Lifespan composition creates the catalog, repository context, and isolated Keras backend runner; no application singleton or mutable process-wide runtime cache is used. Keras is the API layer over independently selectable TensorFlow, PyTorch, and JAX runtimes.
+The backend is launched through `app:create_app --factory`. Lifespan probes optional runtimes through fresh interpreters, creates the application-scoped job controller, and reaps every active worker before disposing repositories. The server itself stays framework-neutral: Keras/TensorFlow/JAX/PyTorch imports occur only inside a worker process after startup configuration.
+
+Execution is asynchronous. `POST /api/execution/jobs` accepts a discriminated `smoke_inference` or `keras_export` operation and returns `202`; clients list/poll jobs, request an idempotent stop, and retrieve a verified export artifact only after success. Source generation remains synchronous because it does not initialize an ML runtime. Runtime selection is session-scoped and never persisted in project data.
+
+Keras is the operational model API. The `native` API is an explicit deferred capability (`not_implemented`) so the UI and contracts can prepare for future adapters without claiming unsupported inference. Training is outside the current system boundary.

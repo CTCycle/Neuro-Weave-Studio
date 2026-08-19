@@ -7,12 +7,13 @@ from fastapi import Depends, Request
 from common.catalogs.loader import NodeCatalog
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
-from models.keras_backend_runner import KerasBackendRunner
+from domain.metadata import ExecutionBackendStatus
+from models.runtime_controller import RuntimeController
 from repositories.contracts import UnitOfWorkFactory
 from repositories.session import RepositoryContext
 from services.catalog_service import CatalogService
 from services.compilation_service import CompilationService
-from services.execution_service import ExecutionService
+from services.job_service import JobService
 from services.export_service import ExportService
 from services.project_service import ProjectService
 from services.runtime_service import RuntimeService
@@ -37,12 +38,12 @@ def get_uow_factory(
     return repository_context.new_unit_of_work
 
 ###############################################################################
-def get_backend_runner(request: Request) -> KerasBackendRunner:
-    return cast(KerasBackendRunner, request.app.state.backend_runner)
+def get_runtime_controller(request: Request) -> RuntimeController:
+    return cast(RuntimeController, request.app.state.runtime_controller)
 
 ###############################################################################
-def get_backend_statuses(request: Request) -> dict[ExecutionBackend, dict[str, object]]:
-    return cast(dict[ExecutionBackend, dict[str, object]], request.app.state.backend_statuses)
+def get_backend_statuses(request: Request) -> dict[ExecutionBackend, ExecutionBackendStatus]:
+    return cast(dict[ExecutionBackend, ExecutionBackendStatus], request.app.state.backend_statuses)
 
 ###############################################################################
 def get_validation_service(
@@ -59,7 +60,7 @@ def get_runtime_service(
     request: Request,
     settings: Settings = Depends(get_settings),
 ) -> RuntimeService:
-    statuses = cast(dict[ExecutionBackend, dict[str, object]], request.app.state.backend_statuses)
+    statuses = cast(dict[ExecutionBackend, ExecutionBackendStatus], request.app.state.backend_statuses)
     return RuntimeService(settings, statuses)
 
 ###############################################################################
@@ -82,8 +83,6 @@ def get_export_service(
     compilation_service: CompilationService = Depends(get_compilation_service),
     validator: ValidationService = Depends(get_validation_service),
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
-    backend_runner: KerasBackendRunner = Depends(get_backend_runner),
-    backend_statuses: dict[ExecutionBackend, dict[str, object]] = Depends(get_backend_statuses),
     settings: Settings = Depends(get_settings),
 ) -> ExportService:
     return ExportService(
@@ -91,17 +90,16 @@ def get_export_service(
         compilation_service=compilation_service,
         validator=validator,
         uow_factory=uow_factory,
-        backend_runner=backend_runner,
-        available_execution_backends=tuple(
-            backend for backend, status in backend_statuses.items() if status.get("available")
-        ),
         settings=settings,
     )
 
 ###############################################################################
-def get_execution_service(
+def get_job_service(
     catalog: NodeCatalog = Depends(get_catalog),
-    backend_runner: KerasBackendRunner = Depends(get_backend_runner),
-    backend_statuses: dict[ExecutionBackend, dict[str, object]] = Depends(get_backend_statuses),
-) -> ExecutionService:
-    return ExecutionService(catalog, backend_runner, backend_statuses)
+    project_service: ProjectService = Depends(get_project_service),
+    controller: RuntimeController = Depends(get_runtime_controller),
+    settings: Settings = Depends(get_settings),
+) -> JobService:
+    return JobService(catalog, project_service, controller, settings)
+
+###############################################################################

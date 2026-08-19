@@ -24,25 +24,27 @@ from common import path as common_path
 from common.catalogs.loader import get_node_catalog
 from common.logging_config import configure_logging
 from configurations.settings import Settings, get_database_settings, get_settings
-from models.keras_backend_runner import KerasBackendRunner
+from models.runtime_controller import RuntimeController
 from repositories.session import create_repository_context
 
 ###############################################################################
 @asynccontextmanager
-async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     settings = cast(Settings, application.state.settings)
     configure_logging(settings.log_level)
     settings.export_root.mkdir(parents=True, exist_ok=True)
     catalog = get_node_catalog()
     repository_context = create_repository_context(get_database_settings())
-    backend_runner = KerasBackendRunner()
+    runtime_controller = RuntimeController(settings)
     application.state.catalog = catalog
     application.state.repository_context = repository_context
-    application.state.backend_runner = backend_runner
-    application.state.backend_statuses = backend_runner.probe_statuses()
+    application.state.runtime_controller = runtime_controller
+    runtime_controller.probe_statuses()
+    application.state.backend_statuses = runtime_controller.backend_statuses
     try:
         yield
     finally:
+        runtime_controller.shutdown()
         repository_context.dispose()
 
 ###############################################################################

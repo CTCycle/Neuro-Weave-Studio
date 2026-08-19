@@ -1,6 +1,5 @@
 import type {
   CompilationResult,
-  ExecutionBackend,
   MetadataResponse,
   ModelGraph,
   NodeManifest,
@@ -9,7 +8,8 @@ import type {
   ProjectSummary,
   CodeTarget,
   ValidationResult,
-  SmokeTestResponse,
+  JobResponse,
+  WorkerConfiguration,
 } from '../domain/types'
 
 const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//
@@ -123,23 +123,34 @@ export const api = {
       body: JSON.stringify({ graph, code_target }),
     })
   },
-  smokeTest(graph: ModelGraph, execution_backend: ExecutionBackend): Promise<SmokeTestResponse> {
-    return request('/execution/smoke-test', {
+  submitSmokeInference(graph: ModelGraph, worker: WorkerConfiguration): Promise<JobResponse> {
+    return request('/execution/jobs', {
       method: 'POST',
-      body: JSON.stringify({ graph, execution_backend }),
+      body: JSON.stringify({ operation: { type: 'smoke_inference', graph }, worker }),
     })
+  },
+  submitKerasExport(project_id: string, worker: WorkerConfiguration): Promise<JobResponse> {
+    return request('/execution/jobs', {
+      method: 'POST',
+      body: JSON.stringify({ operation: { type: 'keras_export', project_id }, worker }),
+    })
+  },
+  listJobs(active_only = false): Promise<JobResponse[]> {
+    return request(`/execution/jobs?active_only=${active_only ? 'true' : 'false'}`)
+  },
+  getJob(jobId: string): Promise<JobResponse> {
+    return request(`/execution/jobs/${jobId}`)
+  },
+  stopJob(jobId: string): Promise<JobResponse> {
+    return request(`/execution/jobs/${jobId}/stop`, { method: 'POST' })
+  },
+  jobArtifact(jobId: string): Promise<Blob> {
+    return requestBlob(`/execution/jobs/${jobId}/artifact`)
   },
   metadata(): Promise<MetadataResponse> {
     return request('/metadata')
   },
   sourceForProject(id: string, code_target: CodeTarget): Promise<{ code: string }> {
     return request(`/exports/${id}/source/${code_target}`)
-  },
-  exportKerasModel(id: string, execution_backend: ExecutionBackend): Promise<Blob> {
-    return requestBlob(`/exports/${id}/keras-model`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ execution_backend }),
-    })
   },
 }

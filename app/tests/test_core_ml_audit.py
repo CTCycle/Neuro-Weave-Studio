@@ -3,16 +3,21 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
 from common.catalogs.loader import get_node_catalog
+from configurations.settings import get_settings
 from domain.enums import CodeTarget, ExecutionBackend, keras_backend_value
 from domain.graph import EdgeInstance, ModelConfiguration, ModelGraph, NodeInstance, Position
+from domain.jobs import KerasExportOperation, JobResponse, JobSubmitRequest, SmokeInferenceOperation
+from domain.runtime import WorkerConfiguration
 from exporters.keras_exporter import KerasSourceExporter
-from models.keras_backend_runner import KerasBackendRunner
+from models.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 
 ###############################################################################
@@ -49,6 +54,86 @@ def edge(
 ###############################################################################
 def validate(graph: ModelGraph):
     return ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+
+###############################################################################
+def _runtime_controller() -> RuntimeController:
+    controller = RuntimeController(get_settings())
+    controller.probe_statuses()
+    return controller
+
+###############################################################################
+def _runtime_worker(controller: RuntimeController, backend: ExecutionBackend) -> WorkerConfiguration | None:
+    status = controller.backend_statuses.get(backend)
+    if status is None or not status.available or not status.devices:
+        return None
+    device = next((item for item in status.devices if item.available), None)
+    if device is None:
+        return None
+    return WorkerConfiguration(
+        backend=backend,
+        device_id=device.device_id,
+        precision="mixed_float16" if False else "float32",
+    )
+
+###############################################################################
+def _run_smoke(graph: ModelGraph, backend: ExecutionBackend = ExecutionBackend.PYTORCH) -> dict[str, Any] | None:
+    controller = _runtime_controller()
+    try:
+        worker = _runtime_worker(controller, backend)
+        if worker is None:
+            return None
+        if graph.model_configuration.mixed_precision:
+            worker = worker.model_copy(update={"precision": "mixed_float16"})
+        job = controller.submit(
+            JobSubmitRequest(
+                operation=SmokeInferenceOperation(graph=graph),
+                worker=worker,
+            ),
+            graph=graph,
+        )
+        result = _wait_for_runtime_job(controller, job.id)
+        assert result.state.value == "succeeded", result
+        return result.result or {}
+    finally:
+        controller.shutdown()
+
+###############################################################################
+def _export_job(
+    graph: ModelGraph,
+    destination: Path,
+    backend: ExecutionBackend = ExecutionBackend.PYTORCH,
+) -> Path | None:
+    controller = _runtime_controller()
+    try:
+        worker = _runtime_worker(controller, backend)
+        if worker is None:
+            return None
+        job = controller.submit(
+            JobSubmitRequest(
+                operation=KerasExportOperation(project_id=uuid4()),
+                worker=worker,
+            ),
+            graph=graph,
+            artifact_destination=destination,
+            artifact_filename=destination.name,
+        )
+        result = _wait_for_runtime_job(controller, job.id)
+        assert result.state.value == "succeeded", result
+        assert result.artifact_available
+        return destination
+    finally:
+        controller.shutdown()
+
+###############################################################################
+def _wait_for_runtime_job(controller: RuntimeController, job_id: str) -> JobResponse:
+    deadline = time.monotonic() + 300
+    while time.monotonic() < deadline:
+        result = controller.get(job_id)
+        if result.state.value in {"succeeded", "terminated", "failed"}:
+            return result
+        time.sleep(0.05)
+    controller.stop(job_id)
+    raise TimeoutError(f"ML worker job {job_id} timed out")
 
 ###############################################################################
 def test_pool_defaults_and_grouped_convolution_follow_keras_contract() -> None:

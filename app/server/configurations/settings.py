@@ -11,6 +11,7 @@ from common.path import (
     REPOSITORY_ROOT,
     RUNTIME_EXPORT_ROOT,
     RUNTIME_LOG_ROOT,
+    RUNTIME_ROOT,
 )
 from configurations.environment import ensure_environment_file
 
@@ -23,11 +24,16 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "NeuroWeave Studio"
-    app_version: str = "0.1.0"
+    app_version: str = "1.0.0"
     cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
     log_level: str = "INFO"
     log_file: Path = RUNTIME_LOG_ROOT / "backend.log"
     export_root: Path = RUNTIME_EXPORT_ROOT
+    ml_job_root: Path = RUNTIME_ROOT / "ml-jobs"
+    ml_worker_timeout_seconds: int = Field(default=300, ge=1, le=86_400)
+    ml_cancel_grace_seconds: int = Field(default=5, ge=1, le=300)
+    ml_terminate_grace_seconds: int = Field(default=5, ge=1, le=300)
+    ml_job_history_limit: int = Field(default=100, ge=10, le=1_000)
 
     # -------------------------------------------------------------------------
     @field_validator("export_root", mode="before")
@@ -42,6 +48,15 @@ class Settings(BaseSettings):
     @field_validator("log_file", mode="before")
     @classmethod
     def resolve_relative_log_file(cls, value: object) -> object:
+        if value is None:
+            return value
+        path = Path(str(value))
+        return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
+
+    # -------------------------------------------------------------------------
+    @field_validator("ml_job_root", mode="before")
+    @classmethod
+    def resolve_relative_ml_job_root(cls, value: object) -> object:
         if value is None:
             return value
         path = Path(str(value))

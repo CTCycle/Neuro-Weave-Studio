@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from domain.enums import CodeTarget, ExecutionBackend
+from domain.runtime import RuntimeApiStatus, RuntimeDevice
 
 ###############################################################################
 class HealthResponse(BaseModel):
@@ -34,6 +35,7 @@ class MetadataResponse(BaseModel):
     version: str
     schema_version: int
     code_targets: list[CodeTarget]
+    runtime_apis: list[RuntimeApiStatus] = Field(default_factory=list)
     execution_backends: list[ExecutionBackendStatus]
     configuration: MetadataConfiguration
 
@@ -46,3 +48,4 @@ class ExecutionBackendStatus(BaseModel):
     reason_code: str | None = None
     accelerator: str | None = None
     device_name: str | None = None
+    devices: list[RuntimeDevice] = Field(default_factory=list)

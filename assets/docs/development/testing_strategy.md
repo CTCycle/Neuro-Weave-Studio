@@ -1,5 +1,9 @@
 # Testing Strategy
 
-Last updated: 2026-08-07
+Last updated: 2026-08-20
 
-Backend unit tests cover manifest loading, DAG validation, shape propagation, parameter counts, serialization, typed OpenAPI schemas, enriched catalog summaries, revision-specific compiled targets, required revisions, service-only dependencies, code-target compatibility, backend availability contracts, and Keras error contracts. Ruff and strict Pyright run over server, scripts, and backend tests. Keras binary artifact tests run for each installed operational TensorFlow, PyTorch, or JAX backend and are explicitly skipped when no optional runtime is installed. Frontend tests cover graph-cycle logic, focused Builder commands, catalog filtering, route-level workspace states, and zero/one/multiple backend selector states; the local UI route and responsive states are verified through the in-app Browser.
+Backend unit and contract tests cover frozen worker configuration, strict backend-policy validation, framework-free server imports, live metadata, OpenAPI job schemas, per-device lease contention/concurrency, lifecycle transitions, idempotent stop, escalation, crash recovery, shutdown, bounded history, artifact revision conflicts, and temporary-workspace cleanup. Deterministic fake workers exercise pause/crash/cancel paths without optional frameworks. The existing Keras smoke/export checks run through fresh workers and skip only when no operational backend is installed.
+
+Frontend tests cover runtime API/backend/device/policy controls, active-worker diagnostics, stop/switch decisions, job polling, artifact gating, graph validation, and existing Builder/catalog behavior. UI workflows are verified with the in-app Browser at desktop and mobile sizes; captures and lifecycle logs belong under `assets/QA/`.
+
+The real-runtime matrix is conditional: repeat smoke/export cycles and backend/device switching only when the corresponding installed runtime and hardware are available. Native inference, training, datasets, checkpoints, and unsupported TensorFlow/JAX GPU combinations remain explicit skips/deferred outcomes, never passing capability claims. Before handoff run affected backend tests, frontend test/lint/build, focused Ruff/type checks, and a process/port cleanup check.

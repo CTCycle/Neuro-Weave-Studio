@@ -1,194 +1,105 @@
+"""Small one-shot test helper backed by :class:`RuntimeController`.
+
+The application never uses this synchronous convenience surface.  It remains
+for focused backend/export tests while all public API work goes through the
+observable job controller.
+"""
+
 from __future__ import annotations
 
-import importlib.metadata
-import importlib.util
-import json
-import logging
-import os
-import subprocess
-import sys
 import time
-from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
-from domain.enums import ExecutionBackend, keras_backend_value
+from configurations.settings import get_settings
+from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
-
-LOGGER = logging.getLogger(__name__)
+from domain.jobs import (
+    JobResponse,
+    JobSubmitRequest,
+    KerasExportOperation,
+    SmokeInferenceOperation,
+)
+from domain.runtime import WorkerConfiguration
+from models.runtime_controller import RuntimeController
 
 ###############################################################################
 class KerasBackendRunner:
-    """Probe and execute Keras in isolated workers with explicit provenance."""
+    """Test-only adapter that waits on the new process-isolated job controller."""
 
-    # -------------------------------------------------------------------------
     def __init__(self) -> None:
-        self._server_root = Path(__file__).resolve().parents[1]
+        self._controller = RuntimeController(get_settings())
+        self._controller.probe_statuses()
 
     # -------------------------------------------------------------------------
     def available_backends(self) -> tuple[ExecutionBackend, ...]:
         return tuple(
-            backend for backend, status in self.probe_statuses().items() if status["available"]
+            backend
+            for backend, status in self._controller.backend_statuses.items()
+            if status.available
         )
-
-    # -------------------------------------------------------------------------
-    def probe_statuses(self) -> dict[ExecutionBackend, dict[str, object]]:
-        statuses: dict[ExecutionBackend, dict[str, object]] = {}
-        for backend in ExecutionBackend:
-            installed, version = self._installed_package(backend)
-            started = time.perf_counter()
-            try:
-                result = self._run_worker(backend, ("--probe",), input_text=None)
-                capabilities = self._parse_probe_output(result)
-                expected = keras_backend_value(backend)
-                available = bool(
-                    result.returncode == 0
-                    and capabilities.get("backend") == expected
-                    and capabilities.get("available", True)
-                )
-                reason = None if available else str(capabilities.get("reason_code") or self._reason_code(result))
-            except (OSError, subprocess.SubprocessError):
-                available = False
-                reason = "worker_failed"
-                capabilities = {}
-            duration_ms = round((time.perf_counter() - started) * 1000, 1)
-            statuses[backend] = {
-                "installed": installed,
-                "version": version,
-                "available": available,
-                "reason_code": reason,
-                "accelerator": capabilities.get("accelerator") if available else None,
-                "device_name": capabilities.get("device_name") if available else None,
-            }
-            LOGGER.info(
-                "backend_probe requested=%s worker_backend=%s duration_ms=%s outcome=%s",
-                backend.value,
-                keras_backend_value(backend),
-                duration_ms,
-                "available" if available else reason,
-            )
-        return statuses
-
-    # -------------------------------------------------------------------------
-    @staticmethod
-    def _installed_package(backend: ExecutionBackend) -> tuple[bool, str | None]:
-        package_name = {
-            ExecutionBackend.TENSORFLOW: "tensorflow",
-            ExecutionBackend.PYTORCH: "torch",
-            ExecutionBackend.JAX: "jax",
-        }[backend]
-        try:
-            installed = importlib.util.find_spec(package_name) is not None
-        except (ImportError, ModuleNotFoundError, ValueError):
-            installed = False
-        if not installed:
-            return False, None
-        try:
-            return True, importlib.metadata.version(package_name)
-        except importlib.metadata.PackageNotFoundError:
-            return True, None
 
     # -------------------------------------------------------------------------
     def probe(self, backend: ExecutionBackend) -> bool:
-        return bool(self.probe_statuses()[backend]["available"])
-
-    # -------------------------------------------------------------------------
-    def export(self, graph: ModelGraph, destination: Path, backend: ExecutionBackend) -> Path:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        temporary_destination = destination.with_name(
-            f".{destination.stem}.{uuid4().hex}.tmp.keras"
-        )
-        started = time.perf_counter()
-        try:
-            result = self._run_worker(
-                backend,
-                ("--destination", str(temporary_destination)),
-                input_text=graph.model_dump_json(),
-            )
-            if result.returncode != 0:
-                detail = result.stderr.strip() or "Keras worker failed without a diagnostic"
-                raise RuntimeError(detail)
-            if not temporary_destination.is_file():
-                raise RuntimeError("Keras worker completed without creating the model artifact")
-            temporary_destination.replace(destination)
-        finally:
-            if temporary_destination.exists():
-                temporary_destination.unlink()
-        duration_ms = round((time.perf_counter() - started) * 1000, 1)
-        LOGGER.info(
-            "backend_execution requested=%s worker_backend=%s duration_ms=%s outcome=exported",
-            backend.value,
-            keras_backend_value(backend),
-            duration_ms,
-        )
-        return destination
+        status = self._controller.backend_statuses.get(backend)
+        return bool(status and status.available)
 
     # -------------------------------------------------------------------------
     def smoke_test(self, graph: ModelGraph, backend: ExecutionBackend) -> dict[str, object]:
-        started = time.perf_counter()
-        result = self._run_worker(
-            backend,
-            ("--smoke-test",),
-            input_text=graph.model_dump_json(),
-        )
-        if result.returncode != 0:
-            detail = result.stderr.strip() or result.stdout.strip()
-            raise RuntimeError(detail or "Keras inference worker failed without a diagnostic")
-        try:
-            payload = json.loads(result.stdout)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError("Keras inference worker returned invalid metadata") from exc
-        if not isinstance(payload, dict):
-            raise RuntimeError("Keras inference worker did not report a successful smoke test")
-        payload = cast(dict[str, object], payload)
-        if payload.get("status") != "succeeded":
-            raise RuntimeError("Keras inference worker did not report a successful smoke test")
-        payload["duration_ms"] = round((time.perf_counter() - started) * 1000, 1)
-        LOGGER.info(
-            "backend_execution requested=%s worker_backend=%s duration_ms=%s outcome=smoke_test",
-            backend.value,
-            keras_backend_value(backend),
-            payload["duration_ms"],
-        )
-        return payload
+        job = self._submit_smoke(graph, backend)
+        result = self._wait(job.id)
+        if result.state.value != "succeeded":
+            raise RuntimeError(result.error.message if result.error else "Keras inference worker failed")
+        return cast(dict[str, object], result.result or {})
 
     # -------------------------------------------------------------------------
-    @staticmethod
-    def _reason_code(result: subprocess.CompletedProcess[str]) -> str:
-        detail = (result.stderr or "").lower()
-        if "no module named" in detail or "not found" in detail:
-            return "dependency_missing"
-        if "backend" in detail:
-            return "backend_import_failed"
-        return "probe_failed"
-
-    # -------------------------------------------------------------------------
-    @staticmethod
-    def _parse_probe_output(result: subprocess.CompletedProcess[str]) -> dict[str, object]:
-        try:
-            payload = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            return {"backend": result.stdout.strip()}
-        return cast(dict[str, object], payload) if isinstance(payload, dict) else {}
-
-    # -------------------------------------------------------------------------
-    def _run_worker(
-        self,
-        backend: ExecutionBackend,
-        arguments: Sequence[str],
-        *,
-        input_text: str | None,
-    ) -> subprocess.CompletedProcess[str]:
-        environment = os.environ.copy()
-        environment["KERAS_BACKEND"] = keras_backend_value(backend)
-        return subprocess.run(
-            [sys.executable, "-m", "models.keras_worker", *arguments],
-            cwd=self._server_root,
-            env=environment,
-            input=input_text,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=300,
+    def export(self, graph: ModelGraph, destination: Path, backend: ExecutionBackend) -> Path:
+        job = self._controller.submit(
+            JobSubmitRequest(
+                operation=KerasExportOperation(project_id=uuid4()),
+                worker=self._worker(backend),
+            ),
+            graph=graph,
+            artifact_destination=destination,
+            artifact_filename=destination.name,
         )
+        result = self._wait(job.id)
+        if result.state.value != "succeeded":
+            raise RuntimeError(result.error.message if result.error else "Keras export worker failed")
+        return destination
+
+    # -------------------------------------------------------------------------
+    def close(self) -> None:
+        self._controller.shutdown()
+
+    # -------------------------------------------------------------------------
+    def _submit_smoke(self, graph: ModelGraph, backend: ExecutionBackend) -> JobResponse:
+        return self._controller.submit(
+            JobSubmitRequest(
+                operation=SmokeInferenceOperation(graph=graph),
+                worker=self._worker(backend),
+            ),
+            graph=graph,
+        )
+
+    # -------------------------------------------------------------------------
+    def _worker(self, backend: ExecutionBackend) -> WorkerConfiguration:
+        status = self._controller.backend_statuses.get(backend)
+        if status is None or not status.devices:
+            raise RuntimeError(f"Execution backend '{backend.value}' is unavailable")
+        return WorkerConfiguration(
+            backend=backend,
+            device_id=status.devices[0].device_id,
+        )
+
+    # -------------------------------------------------------------------------
+    def _wait(self, job_id: str) -> JobResponse:
+        deadline = time.monotonic() + 300
+        while time.monotonic() < deadline:
+            result = self._controller.get(job_id)
+            if result.state.value in {"succeeded", "terminated", "failed"}:
+                return result
+            time.sleep(0.05)
+        self._controller.stop(job_id)
+        raise TimeoutError("Keras worker job timed out")

@@ -2,6 +2,8 @@ import type { Edge, Node, XYPosition } from '@xyflow/react'
 
 export type CodeTarget = 'keras' | 'tensorflow' | 'pytorch' | 'jax'
 export type ExecutionBackend = 'tensorflow' | 'pytorch' | 'jax'
+export type RuntimeApi = 'keras' | 'native'
+export type MemoryPolicyKind = 'default' | 'tensorflow_growth' | 'tensorflow_limit_mb' | 'jax_no_preallocation' | 'jax_preallocate_fraction' | 'jax_platform_allocator' | 'pytorch_fraction'
 export type DiagnosticSeverity = 'error' | 'warning' | 'compatibility' | 'info'
 export type PortKind = 'tensor' | 'tensor_list' | 'scalar' | 'mask'
 
@@ -178,6 +180,7 @@ export interface MetadataResponse {
   version: string
   schema_version: number
   code_targets: CodeTarget[]
+  runtime_apis?: RuntimeApiStatus[]
   execution_backends: ExecutionBackendStatus[]
   configuration: {
     optimizers: string[]
@@ -196,6 +199,90 @@ export interface ExecutionBackendStatus {
   reason_code?: string | null
   accelerator?: string | null
   device_name?: string | null
+  devices?: RuntimeDevice[]
+}
+
+export interface RuntimeApiStatus {
+  id: RuntimeApi
+  available: boolean
+  reason_code?: string | null
+}
+
+export interface RuntimeDevice {
+  device_id: string
+  lease_key: string
+  kind: string
+  index?: number | null
+  name: string
+  accelerator: string
+  available: boolean
+  total_memory_bytes?: number | null
+  supported_memory_policies: MemoryPolicyKind[]
+}
+
+export interface MemoryPolicy {
+  kind: MemoryPolicyKind
+  limit_mb?: number | null
+  fraction?: number | null
+}
+
+export interface WorkerConfiguration {
+  api: RuntimeApi
+  backend: ExecutionBackend
+  device_id: string
+  memory_policy: MemoryPolicy
+  precision: 'float32' | 'mixed_float16' | 'mixed_bfloat16'
+}
+
+export type JobOperation = 'smoke_inference' | 'keras_export'
+export type JobState = 'starting' | 'running' | 'stop_requested' | 'stopping' | 'succeeded' | 'terminated' | 'failed'
+
+export interface JobProgress {
+  phase: string
+  message: string
+  percent?: number | null
+}
+
+export interface JobDiagnostics {
+  process_rss_bytes?: number | null
+  framework_allocated_bytes?: number | null
+  framework_reserved_bytes?: number | null
+  framework_peak_bytes?: number | null
+  device_used_bytes?: number | null
+  device_total_bytes?: number | null
+}
+
+export interface JobError {
+  code: string
+  message: string
+  details?: Record<string, unknown>
+}
+
+export interface JobResponse {
+  id: string
+  operation: JobOperation
+  state: JobState
+  worker: WorkerConfiguration
+  device_lease: {
+    device_id: string
+    state: 'idle' | 'starting' | 'running' | 'stop_requested' | 'stopping' | 'failed'
+    job_id?: string | null
+    pid?: number | null
+  }
+  pid?: number | null
+  created_at: string
+  started_at?: string | null
+  updated_at: string
+  finished_at?: string | null
+  exit_code?: number | null
+  cancellation_requested: boolean
+  forced_termination: boolean
+  restart_reason: string
+  progress: JobProgress
+  diagnostics: JobDiagnostics
+  result?: Record<string, unknown> | null
+  artifact_available: boolean
+  error?: JobError | null
 }
 
 export interface TensorExecutionInfo {

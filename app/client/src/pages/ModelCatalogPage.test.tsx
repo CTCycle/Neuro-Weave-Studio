@@ -46,12 +46,15 @@ describe('ModelCatalogPage', () => {
       projects,
       manifests: [],
       backendStatuses: [],
+      runtimeApis: [],
+      runtimeSelection: null,
       selectedExecutionBackend: null,
       loading: false,
       error: null,
       refreshProjects: vi.fn(),
       clearError: vi.fn(),
       setSelectedExecutionBackend: vi.fn(),
+      setRuntimeSelection: vi.fn(),
     })
 
     render(<MemoryRouter><ModelCatalogPage /></MemoryRouter>)

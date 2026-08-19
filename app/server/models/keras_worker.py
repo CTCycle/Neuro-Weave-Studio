@@ -9,6 +9,7 @@ import sys
 import time
 from importlib import import_module
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any
 
 import keras
@@ -19,6 +20,18 @@ from domain.graph import ModelGraph
 from models.keras_layers import SinusoidalPositionalEncoding
 from models.keras_runtime import compile_model, layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
+
+_CHECKPOINT: Callable[[], None] | None = None
+
+###############################################################################
+def set_checkpoint(callback: Callable[[], None] | None) -> None:
+    global _CHECKPOINT
+    _CHECKPOINT = callback
+
+###############################################################################
+def checkpoint() -> None:
+    if _CHECKPOINT is not None:
+        _CHECKPOINT()
 
 ###############################################################################
 def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, Any]) -> Any:
@@ -83,11 +96,13 @@ def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, 
 
 ###############################################################################
 def _build_model(graph: ModelGraph, catalog: NodeCatalog | None = None) -> keras.Model:
+    checkpoint()
     prepare_runtime(graph)
     catalog = catalog or get_node_catalog()
     nodes = {node.id: node for node in graph.nodes}
     tensors: dict[str, Any] = {}
     for node_id in topological_order(graph):
+        checkpoint()
         node = nodes[node_id]
         manifest = catalog.get(node.definition_id, node.definition_version)
         inputs = [
@@ -357,25 +372,51 @@ def _forward(model: keras.Model) -> list[Any]:
     return list(output_values) if isinstance(output_values, (list, tuple)) else [output_values]
 
 ###############################################################################
+def _synchronize(values: list[Any]) -> None:
+    """Wait for asynchronous accelerator work before observing or finishing."""
+
+    for value in values:
+        block_until_ready = getattr(value, "block_until_ready", None)
+        if callable(block_until_ready):
+            block_until_ready()
+    if keras.backend.backend() == "torch":
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+        except (ImportError, RuntimeError):
+            pass
+
+###############################################################################
 def _verify_saved_model(destination: Path, expected_output_count: int) -> None:
+    checkpoint()
     loaded = keras.saving.load_model(destination, compile=True)
+    checkpoint()
     actual_outputs = _forward(loaded)
+    _synchronize(actual_outputs)
+    checkpoint()
     if len(actual_outputs) != expected_output_count:
         raise RuntimeError("Reloaded Keras model returned an unexpected output count")
 
 ###############################################################################
 def _smoke_test(graph: ModelGraph) -> dict[str, object]:
     started = time.perf_counter()
+    checkpoint()
     capabilities = _backend_capabilities()
     device_scope = _device_scope(capabilities)
     with device_scope:
+        checkpoint()
         model = _build_model(graph)
+        checkpoint()
         compile_model(model, graph)
         input_values = _dummy_inputs(model)
         model_input: Any = input_values[0] if len(input_values) == 1 else input_values
         output_values = model(model_input, training=False)
+        checkpoint()
 
     actual_outputs = list(output_values) if isinstance(output_values, (list, tuple)) else [output_values]
+    _synchronize(actual_outputs)
     input_nodes = [node for node in graph.nodes if node.definition_id.startswith("input.")]
     output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
     inputs = [
