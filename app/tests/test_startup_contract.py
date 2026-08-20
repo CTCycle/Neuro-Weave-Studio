@@ -66,6 +66,10 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "'CleanLogs' { Invoke-RemoveApplicationLogs }" in source
     assert "'ClearCache' { Invoke-ClearApplicationCache }" in source
     assert "'Uninstall' { Invoke-UninstallApplication }" in source
+    assert "$script:RuntimeCacheDir = Join-Path $script:RuntimeDir 'cache'" in source
+    assert "$script:CacheDir = Join-Path $AppDir 'tests\\cache'" in source
+    assert "function Remove-PathBestEffort" in source
+    assert "locked or inaccessible item" in source
     assert "Type UNINSTALL to continue" in source
     assert "-m pyright" in source
     assert "app:app" not in source

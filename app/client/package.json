@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint . --max-warnings 0 --cache --cache-location ../../assets/cache/eslint/",
+    "lint": "eslint . --max-warnings 0 --cache --cache-location ../tests/cache/eslint/",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview"

@@ -18,7 +18,7 @@ function normalizeApiBase(rawValue: string | undefined): string {
 }
 
 export default defineConfig(({ mode }) => {
-  const cacheRoot = path.resolve(__dirname, '../../assets/cache')
+  const cacheRoot = path.resolve(__dirname, '../tests/cache')
   const settingsDir = path.resolve(__dirname, '../../settings')
   const clientEnv = loadEnv(mode, __dirname, '')
   const settingsEnv = loadEnv(mode, settingsDir, '')

@@ -20,9 +20,12 @@ $script:ClientDir = Join-Path $AppDir 'client'
 $script:ScriptsDir = Join-Path $AppDir 'scripts'
 $script:EnvironmentBootstrap = Join-Path $ScriptsDir 'ensure_environment.py'
 $script:RuntimeDir = Join-Path $RepoRoot 'runtimes'
-$script:CacheDir = Join-Path $RepoRoot 'assets\cache'
-$script:UvCacheDir = Join-Path $script:CacheDir 'uv'
-$script:NpmCacheDir = Join-Path $script:CacheDir 'npm'
+$script:RuntimeCacheDir = Join-Path $script:RuntimeDir 'cache'
+$script:CacheDir = Join-Path $AppDir 'tests\cache'
+$script:UvCacheDir = Join-Path $script:RuntimeCacheDir 'uv'
+$script:NpmCacheDir = Join-Path $script:RuntimeCacheDir 'npm'
+$script:PipCacheDir = Join-Path $script:RuntimeCacheDir 'pip'
+$script:PythonEggCacheDir = Join-Path $script:RuntimeCacheDir 'python-eggs'
 $script:PythonBytecodeCacheDir = Join-Path $script:CacheDir 'python-bytecode'
 $script:CoverageCacheDir = Join-Path $script:CacheDir 'coverage'
 $script:PytestBaseTempDir = Join-Path $script:CacheDir 'pytest-tmp'
@@ -116,13 +119,14 @@ function Clear-PythonEnvironment {
 }
 
 function Set-LauncherEnvironment {
-    New-Item -ItemType Directory -Path $script:CacheDir, $script:UvCacheDir, $script:NpmCacheDir, `
-        $script:PythonBytecodeCacheDir, $script:CoverageCacheDir, $script:PytestBaseTempDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $script:RuntimeCacheDir, $script:CacheDir, $script:UvCacheDir, `
+        $script:NpmCacheDir, $script:PipCacheDir, $script:PythonEggCacheDir, $script:PythonBytecodeCacheDir, `
+        $script:CoverageCacheDir, $script:PytestBaseTempDir -Force | Out-Null
     $env:UV_CACHE_DIR = $script:UvCacheDir
-    $env:PIP_CACHE_DIR = Join-Path $script:CacheDir 'pip'
+    $env:PIP_CACHE_DIR = $script:PipCacheDir
     $env:npm_config_cache = $script:NpmCacheDir
     $env:PYTHONPYCACHEPREFIX = $script:PythonBytecodeCacheDir
-    $env:PYTHON_EGG_CACHE = Join-Path $script:CacheDir 'python-eggs'
+    $env:PYTHON_EGG_CACHE = $script:PythonEggCacheDir
     $env:COVERAGE_FILE = Join-Path $script:CoverageCacheDir '.coverage'
     $env:UV_PROJECT_ENVIRONMENT = $script:VenvDir
     $env:UV_LINK_MODE = 'copy'
@@ -1094,8 +1098,14 @@ function Invoke-RemoveApplicationLogs {
         return
     }
     Write-Status -Level STEP -Message "Removing $($logs.Count) application log file(s)."
-    $logs | Remove-Item -Force
-    Write-Status -Level SUCCESS -Message "Removed $($logs.Count) application log file(s)."
+    $removedCount = 0
+    $skippedCount = 0
+    foreach ($log in $logs) {
+        $result = Remove-PathBestEffort -Path $log.FullName
+        $removedCount += $result.Removed
+        $skippedCount += $result.Skipped
+    }
+    Write-Status -Level SUCCESS -Message "Removed $removedCount application log file(s); skipped $skippedCount locked or inaccessible file(s)."
 }
 
 function Remove-PythonCaches {
@@ -1111,19 +1121,72 @@ function Remove-PythonCaches {
         }
     }
     $cachePaths = @($cachePaths | Sort-Object FullName -Descending -Unique)
+    $removedCount = 0
+    $skippedCount = 0
     foreach ($cachePath in $cachePaths) {
-        Remove-Item -LiteralPath $cachePath.FullName -Recurse -Force
+        $result = Remove-PathBestEffort -Path $cachePath.FullName
+        $removedCount += $result.Removed
+        $skippedCount += $result.Skipped
     }
-    return [int]$cachePaths.Count
+    return [pscustomobject]@{
+        Removed = $removedCount
+        Skipped = $skippedCount
+    }
+}
+
+function Remove-PathBestEffort {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $removedCount = 0
+    $skippedCount = 0
+    $entryRemovalFailed = $false
+    if (-not (Test-Path -LiteralPath $Path -ErrorAction SilentlyContinue)) {
+        return [pscustomobject]@{ Removed = 0; Skipped = 0 }
+    }
+
+    $entries = @(Get-ChildItem -LiteralPath $Path -Force -Recurse -ErrorAction SilentlyContinue |
+        Sort-Object @{ Expression = { $_.FullName.Length }; Descending = $true })
+    foreach ($entry in $entries) {
+        try {
+            Remove-Item -LiteralPath $entry.FullName -Force -ErrorAction Stop
+            $removedCount++
+        } catch {
+            $skippedCount++
+            $entryRemovalFailed = $true
+            Write-Warn "Skipped removal of '$($entry.FullName)': $($_.Exception.Message)"
+        }
+    }
+
+    if (-not $entryRemovalFailed -and (Test-Path -LiteralPath $Path -ErrorAction SilentlyContinue)) {
+        try {
+            Remove-Item -LiteralPath $Path -Force -ErrorAction Stop
+            $removedCount++
+        } catch {
+            $skippedCount++
+            Write-Warn "Skipped removal of '$Path': $($_.Exception.Message)"
+        }
+    }
+
+    return [pscustomobject]@{
+        Removed = $removedCount
+        Skipped = $skippedCount
+    }
 }
 
 function Invoke-ClearApplicationCache {
-    Write-Status -Level STEP -Message 'Removing centralized development caches and generated artifacts.'
-    $pythonCacheCount = Remove-PythonCaches
+    Write-Status -Level STEP -Message 'Removing runtime, test, and tool caches plus generated artifacts.'
+    $pythonCacheResult = Remove-PythonCaches
     $legacyPaths = @(
+        (Join-Path $RepoRoot 'assets\cache'),
         (Join-Path $script:RuntimeDir '.uv-cache'),
+        (Join-Path $RepoRoot '.pytest_cache'),
+        (Join-Path $RepoRoot '.ruff_cache'),
+        (Join-Path $RepoRoot '.mypy_cache'),
         (Join-Path $script:AppDir '.pytest_cache'),
         (Join-Path $script:AppDir '.ruff_cache'),
+        (Join-Path $script:AppDir 'tests\.pytest_cache'),
+        (Join-Path $script:AppDir 'tests\.ruff_cache'),
+        (Join-Path $script:AppDir 'tests\.mypy_cache'),
         (Join-Path $script:ServerDir '.pytest_cache'),
         (Join-Path $script:ServerDir '.ruff_cache'),
         (Join-Path $script:ServerDir '.mypy_cache'),
@@ -1132,19 +1195,15 @@ function Invoke-ClearApplicationCache {
         (Join-Path $script:ClientDir 'coverage'),
         (Join-Path $script:ClientDir 'node_modules\.vite')
     )
-    $removedPathCount = 0
-    foreach ($target in @($script:CacheDir) + $legacyPaths) {
-        if (Test-Path -LiteralPath $target) {
-            try {
-                Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction Stop
-                $removedPathCount++
-            } catch {
-                Write-Warn "Could not remove legacy cache/artifact path '$target': $($_.Exception.Message)"
-            }
-        }
+    $removedCount = [int]$pythonCacheResult.Removed
+    $skippedCount = [int]$pythonCacheResult.Skipped
+    foreach ($target in @($script:RuntimeCacheDir, $script:CacheDir) + $legacyPaths) {
+        $result = Remove-PathBestEffort -Path $target
+        $removedCount += $result.Removed
+        $skippedCount += $result.Skipped
     }
-    New-Item -ItemType Directory -Path $script:CacheDir -Force | Out-Null
-    Write-Status -Level SUCCESS -Message "Caches cleared ($pythonCacheCount Python cache director$(if ($pythonCacheCount -eq 1) { 'y' } else { 'ies' }), $removedPathCount cache/artifact path$(if ($removedPathCount -eq 1) { '' } else { 's' }))."
+    New-Item -ItemType Directory -Path $script:RuntimeCacheDir, $script:CacheDir -Force | Out-Null
+    Write-Status -Level SUCCESS -Message "Caches cleared ($removedCount item$(if ($removedCount -eq 1) { '' } else { 's' }) removed; $skippedCount locked or inaccessible item$(if ($skippedCount -eq 1) { '' } else { 's' }) skipped)."
 }
 
 function Confirm-LauncherAction {
@@ -1170,22 +1229,29 @@ function Invoke-UninstallApplication {
         $script:PythonDir,
         $script:UvDir,
         $script:NodeDir,
+        $script:RuntimeCacheDir,
         $script:CacheDir,
+        (Join-Path $RepoRoot 'assets\cache'),
         $script:VenvDir,
         (Join-Path $script:ClientDir 'node_modules'),
         (Join-Path $script:ClientDir 'dist'),
         $script:BackendInstallState
     )
     Write-Status -Level STEP -Message 'Removing generated runtimes, dependencies, and frontend build output.'
+    $removedCount = 0
+    $skippedCount = 0
     foreach ($target in $targets) {
-        if (Test-Path -LiteralPath $target) {
-            Write-Info "Removing $target"
-            Remove-Item -LiteralPath $target -Recurse -Force
-        }
+        if (-not (Test-Path -LiteralPath $target -ErrorAction SilentlyContinue)) { continue }
+        Write-Info "Removing $target"
+        $result = Remove-PathBestEffort -Path $target
+        $removedCount += $result.Removed
+        $skippedCount += $result.Skipped
     }
-    $pythonCacheCount = Remove-PythonCaches
-    New-Item -ItemType Directory -Path $script:RuntimeDir -Force | Out-Null
-    Write-Status -Level SUCCESS -Message "Application dependencies removed. Settings, lockfiles, database files, exports, and $pythonCacheCount Python cache director$(if ($pythonCacheCount -eq 1) { 'y' } else { 'ies' }) were preserved or cleared."
+    $pythonCacheResult = Remove-PythonCaches
+    $removedCount += $pythonCacheResult.Removed
+    $skippedCount += $pythonCacheResult.Skipped
+    New-Item -ItemType Directory -Path $script:RuntimeDir, $script:RuntimeCacheDir, $script:CacheDir -Force | Out-Null
+    Write-Status -Level SUCCESS -Message "Application dependencies removed ($removedCount item$(if ($removedCount -eq 1) { '' } else { 's' }) removed; $skippedCount locked or inaccessible item$(if ($skippedCount -eq 1) { '' } else { 's' }) skipped). Settings, lockfiles, database files, and exports were preserved."
 }
 
 if ($Action -ne 'Menu') {
@@ -1263,7 +1329,7 @@ function Show-LauncherMenu {
     Write-Host
     Write-Host '  MAINTENANCE' -ForegroundColor DarkCyan
     Write-MenuOption -Number '7' -Label 'Remove logs' -Description 'Clear generated application logs'
-    Write-MenuOption -Number '8' -Label 'Clear cache' -Description 'Remove Python bytecode and uv cache'
+    Write-MenuOption -Number '8' -Label 'Clear cache' -Description 'Remove runtime and test/tool caches'
     Write-MenuOption -Number '9' -Label 'Uninstall application' -Description 'Remove dependencies and build output' -Destructive
     Write-Host
     Write-MenuRule
