@@ -8,8 +8,9 @@ __pycache__/
 .venv/
 venv/
 
-# Development caches and generated artifacts are centralized here.
-assets/cache/
+# Runtime/download caches and test/tool caches are kept in their owning areas.
+runtimes/cache/
+app/tests/cache/
 
 # Frontend
 node_modules/

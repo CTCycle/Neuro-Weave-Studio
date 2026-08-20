@@ -50,9 +50,9 @@ The launcher menu provides these actions:
 - Uninstall application
 - Exit
 
-The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. Option 2 installs or repairs dependencies and rebuilds the frontend; option 3 rebuilds only the frontend from current source using the existing frontend dependencies; option 1 reuses that build and only performs a recovery build when `app/client/dist/index.html` is missing. Use `.\start_on_windows.ps1 -Action RebuildFrontend` to run the standalone rebuild directly. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, waits for both readiness checks, opens the frontend in the default browser when possible, and then closes the initial PowerShell menu while leaving the independent application process roots running. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening.
+The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. Option 2 installs or repairs dependencies and rebuilds the frontend; option 3 rebuilds only the frontend from current source using the existing frontend dependencies; option 1 reuses that build and only performs a recovery build when `app/tests/cache/frontend-dist/index.html` is missing. Use `.\start_on_windows.ps1 -Action RebuildFrontend` to run the standalone rebuild directly. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, waits for both readiness checks, opens the frontend in the default browser when possible, and then closes the initial PowerShell menu while leaving the independent application process roots running. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening.
 
-`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/database.db`. Alembic owns schema creation and evolution: installation, explicit initialization, and every backend startup migrate the database to the current head. Existing normalized version-2 databases without an Alembic version table are adopted after an exact schema check; unsupported or partial schemas are rejected without mutation. Keras is core and is installed with the base application. Optional TensorFlow, PyTorch, and JAX installation is explicit through `.\start_on_windows.ps1 -Action ManageBackends`; choose `none`, one backend, a comma-separated combination, or `all`. The launcher reports native-Windows CPU limitations for TensorFlow/JAX and verifies actual worker capability after installation. Development caches and generated artifacts are centralized under `assets/cache` (uv, npm, pytest, Ruff, Vite, frontend build output, TypeScript metadata, Python bytecode, coverage, and lint cache).
+`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/database.db`. Alembic owns schema creation and evolution: installation, explicit initialization, and every backend startup migrate the database to the current head. Existing normalized version-2 databases without an Alembic version table are adopted after an exact schema check; unsupported or partial schemas are rejected without mutation. Keras is core and is installed with the base application. Optional TensorFlow, PyTorch, and JAX installation is explicit through `.\start_on_windows.ps1 -Action ManageBackends`; choose `none`, one backend, a comma-separated combination, or `all`. The launcher reports native-Windows CPU limitations for TensorFlow/JAX and verifies actual worker capability after installation. Runtime/download caches are under `runtimes/cache`; pytest, Ruff, Vite, frontend build output, TypeScript metadata, Python bytecode, coverage, and lint caches are under `app/tests/cache`.
 
 Set `BACKEND_LOGS_VISIBLE=false` in `settings/.env` to keep backend output in the runtime log files instead of opening a dedicated terminal; the default is `true`.
 
@@ -60,9 +60,12 @@ Set `BACKEND_LOGS_VISIBLE=false` in `settings/.env` to keep backend output in th
 
 ```powershell
 cd app/server
-$cacheRoot = (Resolve-Path ../..).Path + '\\assets\\cache'
-$env:PYTHONPYCACHEPREFIX = $cacheRoot + '\\python-bytecode'
-$env:COVERAGE_FILE = $cacheRoot + '\\coverage\\.coverage'
+$runtimeCacheRoot = (Resolve-Path ../..).Path + '\\runtimes\\cache'
+$toolCacheRoot = (Resolve-Path ../..).Path + '\\app\\tests\\cache'
+$env:UV_CACHE_DIR = $runtimeCacheRoot + '\\uv'
+$env:PIP_CACHE_DIR = $runtimeCacheRoot + '\\pip'
+$env:PYTHONPYCACHEPREFIX = $toolCacheRoot + '\\python-bytecode'
+$env:COVERAGE_FILE = $toolCacheRoot + '\\coverage\\.coverage'
 $env:PYTHONPATH = (Get-Location).Path
 uv sync --extra test
 uv run uvicorn app:create_app --factory --reload --port 8000
