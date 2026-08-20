@@ -22,7 +22,7 @@ Observed package state:
 | `jax` | not importable: `ModuleNotFoundError: No module named 'jax'` |
 | `flax` | not importable: `ModuleNotFoundError: No module named 'flax'` |
 
-Live `KerasBackendRunner().probe_statuses()` result:
+Live process-isolated runtime controller probe result:
 
 ```json
 {

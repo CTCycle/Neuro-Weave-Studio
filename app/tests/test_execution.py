@@ -6,8 +6,6 @@ from typing import Any, cast
 import httpx
 import pytest
 
-from domain.graph import ModelGraph
-from models.keras_backend_runner import KerasBackendRunner
 
 ###############################################################################
 def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
@@ -116,20 +114,6 @@ def test_job_stop_is_idempotent_and_releases_device_lease(client: httpx.Client) 
     assert replacement.status_code == 202, replacement.text
     client.post(f"/api/execution/jobs/{replacement.json()['id']}/stop")
     wait_for_job(client, replacement.json()["id"])
-
-###############################################################################
-def test_worker_smoke_test_builds_and_executes_minimal_model() -> None:
-    runner = KerasBackendRunner()
-    backend = next(iter(runner.available_backends()), None)
-    if backend is None:
-        pytest.skip("No operational Keras backend is installed")
-
-    result = runner.smoke_test(ModelGraph.model_validate(smoke_graph()), backend)
-
-    assert result["status"] == "succeeded"
-    assert result["inputs"] == [{"node_id": "input", "shape": [1, 4], "dtype": "float32"}]
-    assert result["outputs"] == [{"node_id": "output", "shape": [1, 1], "dtype": "float32"}]
-    assert result["parameter_count"] == 5
 
 ###############################################################################
 def test_health_and_metadata_are_typed_contracts(client: httpx.Client) -> None:

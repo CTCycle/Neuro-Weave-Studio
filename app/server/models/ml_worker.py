@@ -1,3 +1,5 @@
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportPrivateUsage=false, reportConstantRedefinition=false
+
 """Fresh-interpreter ML worker.
 
 This module deliberately imports no ML framework at module import time.  The
@@ -291,7 +293,7 @@ def _memory_metrics(backend: ExecutionBackend, keras: Any) -> dict[str, int | No
             jax = importlib.import_module("jax")
             devices = list(jax.devices())
             if devices and hasattr(devices[0], "memory_stats"):
-                stats = devices[0].memory_stats() or {}
+                stats = cast(dict[str, Any], devices[0].memory_stats() or {})
                 metrics["framework_allocated_bytes"] = int(
                     stats.get("bytes_in_use", 0) or 0
                 )
@@ -323,18 +325,18 @@ def _cleanup(backend: ExecutionBackend, keras: Any) -> None:
 
 ###############################################################################
 def _run_job(context: WorkerContext, payload: dict[str, Any]) -> dict[str, object]:
-    global _IMPORTED_KERAS
-    _IMPORTED_KERAS = None
+    global _imported_keras
+    _imported_keras = None
     try:
         return _run_job_inner(context, payload)
     finally:
-        if _IMPORTED_KERAS is not None:
-            _cleanup(context.config.backend, _IMPORTED_KERAS)
-        _IMPORTED_KERAS = None
+        if _imported_keras is not None:
+            _cleanup(context.config.backend, _imported_keras)
+        _imported_keras = None
 
 ###############################################################################
 def _run_job_inner(context: WorkerContext, payload: dict[str, Any]) -> dict[str, object]:
-    global _IMPORTED_KERAS
+    global _imported_keras
     context.checkpoint("importing", "Configuring the selected backend", 5)
     _set_startup_environment(context.config)
     context.checkpoint("importing", "Importing Keras and the selected backend", 15)
@@ -343,8 +345,8 @@ def _run_job_inner(context: WorkerContext, payload: dict[str, Any]) -> dict[str,
     _configure_startup_backend(context.config)
     from models import keras_worker
 
-    import keras  # pyright: ignore[reportMissingImports]
-    _IMPORTED_KERAS = keras
+    import keras  # pyright: ignore[reportMissingImports,reportMissingTypeStubs]
+    _imported_keras = keras
 
     keras_worker.set_checkpoint(
         lambda: context.checkpoint("model_loading", "Building the model", 35)
@@ -355,18 +357,18 @@ def _run_job_inner(context: WorkerContext, payload: dict[str, Any]) -> dict[str,
     operation_type = str(operation.get("type"))
     graph = ModelGraph.model_validate(operation.get("graph")) if operation_type == "smoke_inference" else ModelGraph.model_validate(operation["graph"])
     context.checkpoint("model_loading", "Constructing the configured model", 40)
-    capabilities = keras_worker._backend_capabilities()
+    capabilities = keras_worker.backend_capabilities()
 
     if operation_type == "smoke_inference":
-        result = keras_worker._smoke_test(graph)
+        result = keras_worker.smoke_test(graph)
         context.checkpoint("publishing", "Forward pass completed", 90)
         result.update(_memory_metrics(context.config.backend, keras))
         return result
 
     if operation_type == "keras_export":
         destination = context.job_dir / "artifact.keras"
-        with keras_worker._device_scope(capabilities):
-            model = keras_worker._build_model(graph)
+        with keras_worker.device_scope(capabilities):
+            model = keras_worker.build_model(graph)
             context.checkpoint("compiling", "Compiling the Keras artifact", 55)
             from models.keras_runtime import compile_model
 
@@ -374,7 +376,7 @@ def _run_job_inner(context: WorkerContext, payload: dict[str, Any]) -> dict[str,
             context.checkpoint("saving", "Saving the temporary Keras artifact", 75)
             destination.parent.mkdir(parents=True, exist_ok=True)
             model.save(destination)
-            keras_worker._verify_saved_model(destination, len(model.outputs))
+            keras_worker.verify_saved_model(destination, len(model.outputs))
         context.checkpoint("publishing", "Artifact verification completed", 95)
         result = {
             "artifact_name": destination.name,
@@ -387,14 +389,14 @@ def _run_job_inner(context: WorkerContext, payload: dict[str, Any]) -> dict[str,
     raise RuntimeError(f"Unsupported operation '{operation_type}'")
 
 
-_IMPORTED_KERAS: Any | None = None
+_imported_keras: Any | None = None
 
 ###############################################################################
 def _probe(backend: ExecutionBackend) -> None:
     config = WorkerConfiguration(backend=backend, device_id="auto")
     _set_startup_environment(config)
     _configure_startup_backend(config)
-    import keras  # pyright: ignore[reportMissingImports]
+    import keras  # pyright: ignore[reportMissingImports,reportMissingTypeStubs]
 
     _configure_imported_backend(config, keras)
     payload = {
@@ -404,7 +406,7 @@ def _probe(backend: ExecutionBackend) -> None:
         "accelerator": "cpu",
         "device_name": "CPU",
     }
-    for device in payload["devices"]:
+    for device in cast(list[object], payload["devices"]):
         if isinstance(device, dict) and device.get("accelerator") != "cpu":
             payload["accelerator"] = device.get("accelerator")
             payload["device_name"] = device.get("name")

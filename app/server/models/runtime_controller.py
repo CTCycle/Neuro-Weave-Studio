@@ -48,6 +48,10 @@ from domain.runtime import (
 LOGGER = logging.getLogger(__name__)
 
 ###############################################################################
+def _empty_diagnostics() -> dict[str, int | None]:
+    return {}
+
+###############################################################################
 class RuntimeControllerError(RuntimeError):
     def __init__(self, code: str, message: str, *, details: dict[str, Any] | None = None) -> None:
         self.code = code
@@ -77,7 +81,7 @@ class _JobRecord:
     progress_phase: str = "queued"
     progress_message: str = "Worker is starting"
     progress_percent: int | None = None
-    diagnostics: dict[str, int | None] = field(default_factory=dict)
+    diagnostics: dict[str, int | None] = field(default_factory=_empty_diagnostics)
     result: dict[str, Any] | None = None
     error: JobError | None = None
     artifact_destination: Path | None = None
@@ -134,7 +138,7 @@ class RuntimeController:
                 reason = "worker_failed"
                 capabilities = {"message": str(exc)}
             raw_devices = capabilities.get("devices", [])
-            device_items = raw_devices if isinstance(raw_devices, list) else []
+            device_items = cast(list[object], raw_devices) if isinstance(raw_devices, list) else []
             devices = [
                 RuntimeDevice.model_validate(item)
                 for item in device_items
@@ -504,10 +508,11 @@ class RuntimeController:
             record.result = cast(dict[str, Any], result)
         error = status.get("error")
         if isinstance(error, dict):
+            error_payload = cast(dict[str, Any], error)
             try:
-                record.error = JobError.model_validate(error)
+                record.error = JobError.model_validate(error_payload)
             except ValueError:
-                record.error = JobError(code="worker_failed", message=str(error))
+                record.error = JobError(code="worker_failed", message=str(error_payload))
 
     # -------------------------------------------------------------------------
     def _publish_artifact(self, record: _JobRecord) -> bool:

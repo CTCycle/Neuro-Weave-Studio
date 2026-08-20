@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import argparse
 import contextlib
-import json
-import sys
 import time
 from importlib import import_module
 from pathlib import Path
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import keras
 from keras import layers
@@ -21,17 +18,17 @@ from models.keras_layers import SinusoidalPositionalEncoding
 from models.keras_runtime import compile_model, layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
 
-_CHECKPOINT: Callable[[], None] | None = None
+_checkpoint_callback: Callable[[], None] | None = None
 
 ###############################################################################
 def set_checkpoint(callback: Callable[[], None] | None) -> None:
-    global _CHECKPOINT
-    _CHECKPOINT = callback
+    global _checkpoint_callback
+    _checkpoint_callback = callback
 
 ###############################################################################
 def checkpoint() -> None:
-    if _CHECKPOINT is not None:
-        _CHECKPOINT()
+    if _checkpoint_callback is not None:
+        _checkpoint_callback()
 
 ###############################################################################
 def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, Any]) -> Any:
@@ -95,7 +92,7 @@ def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, 
     return current
 
 ###############################################################################
-def _build_model(graph: ModelGraph, catalog: NodeCatalog | None = None) -> keras.Model:
+def build_model(graph: ModelGraph, catalog: NodeCatalog | None = None) -> keras.Model:
     checkpoint()
     prepare_runtime(graph)
     catalog = catalog or get_node_catalog()
@@ -294,7 +291,7 @@ def _build_model(graph: ModelGraph, catalog: NodeCatalog | None = None) -> keras
     return keras.Model(inputs=inputs, outputs=outputs, name="neuro_weave_model")
 
 ###############################################################################
-def _backend_capabilities() -> dict[str, object]:
+def backend_capabilities() -> dict[str, object]:
     backend = str(keras.backend.backend())
     accelerator = "cpu"
     device_name = "CPU"
@@ -352,7 +349,7 @@ def _dtype_name(tensor: Any) -> str:
     return name.rsplit(".", 1)[-1]
 
 ###############################################################################
-def _device_scope(capabilities: dict[str, object]) -> Any:
+def device_scope(capabilities: dict[str, object]) -> Any:
     if capabilities.get("accelerator") in {"cuda", "gpu", "rocm", "xpu", "mps"}:
         return keras.device("gpu:0")
     return contextlib.nullcontext()
@@ -381,7 +378,7 @@ def _synchronize(values: list[Any]) -> None:
             block_until_ready()
     if keras.backend.backend() == "torch":
         try:
-            import torch
+            import torch  # pyright: ignore[reportMissingImports,reportMissingTypeStubs]
 
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
@@ -389,25 +386,25 @@ def _synchronize(values: list[Any]) -> None:
             pass
 
 ###############################################################################
-def _verify_saved_model(destination: Path, expected_output_count: int) -> None:
+def verify_saved_model(destination: Path, expected_output_count: int) -> None:
     checkpoint()
     loaded = keras.saving.load_model(destination, compile=True)
     checkpoint()
-    actual_outputs = _forward(loaded)
+    actual_outputs = _forward(cast(keras.Model, loaded))
     _synchronize(actual_outputs)
     checkpoint()
     if len(actual_outputs) != expected_output_count:
         raise RuntimeError("Reloaded Keras model returned an unexpected output count")
 
 ###############################################################################
-def _smoke_test(graph: ModelGraph) -> dict[str, object]:
+def smoke_test(graph: ModelGraph) -> dict[str, object]:
     started = time.perf_counter()
     checkpoint()
-    capabilities = _backend_capabilities()
-    device_scope = _device_scope(capabilities)
-    with device_scope:
+    capabilities = backend_capabilities()
+    scope = device_scope(capabilities)
+    with scope:
         checkpoint()
-        model = _build_model(graph)
+        model = build_model(graph)
         checkpoint()
         compile_model(model, graph)
         input_values = _dummy_inputs(model)
@@ -444,36 +441,3 @@ def _smoke_test(graph: ModelGraph) -> dict[str, object]:
         "parameter_count": int(model.count_params()),
         "duration_ms": round((time.perf_counter() - started) * 1000, 1),
     }
-
-###############################################################################
-def _parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--probe", action="store_true")
-    parser.add_argument("--smoke-test", action="store_true")
-    parser.add_argument("--destination", type=Path)
-    return parser.parse_args()
-
-###############################################################################
-def main() -> None:
-    arguments = _parse_arguments()
-    if arguments.probe:
-        print(json.dumps(_backend_capabilities()))
-        return
-    if arguments.smoke_test:
-        graph = ModelGraph.model_validate_json(sys.stdin.read())
-        print(json.dumps(_smoke_test(graph)))
-        return
-    if arguments.destination is None:
-        raise RuntimeError("A destination is required for binary export")
-    graph = ModelGraph.model_validate_json(sys.stdin.read())
-    capabilities = _backend_capabilities()
-    with _device_scope(capabilities):
-        model = _build_model(graph)
-        compile_model(model, graph)
-        arguments.destination.parent.mkdir(parents=True, exist_ok=True)
-        model.save(arguments.destination)
-        _verify_saved_model(arguments.destination, len(model.outputs))
-
-
-if __name__ == "__main__":
-    main()
