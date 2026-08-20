@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from configurations.settings import DatabaseSettings
 from repositories.backend import SQLiteBackend, build_session_factory
-from repositories.initializer import ensure_database_ready
+from repositories.initializer import initialize_database
 from repositories.unit_of_work import UnitOfWork
+
 
 ###############################################################################
 @dataclass(frozen=True, slots=True)
@@ -29,7 +30,7 @@ class RepositoryContext:
 
 ###############################################################################
 def create_repository_context(settings: DatabaseSettings) -> RepositoryContext:
-    backend = ensure_database_ready(settings)
+    backend = initialize_database(settings)
     return RepositoryContext(
         backend=backend,
         engine=backend.engine,

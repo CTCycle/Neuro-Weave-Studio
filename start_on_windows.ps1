@@ -584,6 +584,10 @@ function Invoke-FrontendRebuild {
 }
 
 function Assert-BackendManagementEnvironmentStopped {
+    Assert-ApplicationStopped
+}
+
+function Assert-ApplicationStopped {
     $ports = @(
         (Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'),
         (Get-ConfiguredInt -Name 'UI_PORT' -Default '5173')
@@ -591,7 +595,7 @@ function Assert-BackendManagementEnvironmentStopped {
     foreach ($port in $ports) {
         $pids = @(Get-ListenerPids -Port $port)
         if ($pids.Count -gt 0) {
-            throw "Cannot change compute dependencies while port $port is in use by PID(s) $($pids -join ', '). Close NeuroWeave and retry."
+            throw "Cannot change the database or dependency environment while port $port is in use by PID(s) $($pids -join ', '). Close NeuroWeave and retry."
         }
     }
 }
@@ -728,7 +732,7 @@ function Test-DependenciesReady {
     if ($LASTEXITCODE -ne 0) { return $false }
     & $node --version *> $null
     if ($LASTEXITCODE -ne 0) { return $false }
-    $imports = "import fastapi, uvicorn, sqlalchemy; import importlib.metadata; importlib.metadata.version('keras')"
+    $imports = "import fastapi, uvicorn, sqlalchemy, alembic, filelock; import importlib.metadata; importlib.metadata.version('keras')"
     if ($IncludeTests) { $imports += "; importlib.metadata.version('pytest'); importlib.metadata.version('ruff'); importlib.metadata.version('pyright')" }
     & $venvPython -c $imports *> $null
     return $LASTEXITCODE -eq 0
@@ -1012,6 +1016,7 @@ function Invoke-Install {
     $includeTests = $selectedInstallationType -eq 'Development'
     Write-Status -Level INFO -Message "Installation profile: $selectedInstallationType"
     Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $backendSelection -ExplicitBackendSet
+    Invoke-DatabaseInitialization
     $resolvedExtras = @(Resolve-BackendExtras -Backends $backendSelection)
     Set-BackendInstallationState -Backends $backendSelection -Acceleration $script:Acceleration `
         -ResolvedExtras $resolvedExtras -RestartRequired:$true
@@ -1022,29 +1027,23 @@ function Invoke-Install {
 function Invoke-DatabaseInitialization {
     Ensure-PortableRuntimes
     Import-DotEnv
+    Assert-ApplicationStopped
     if (-not (Test-DependenciesReady)) { Sync-Dependencies }
     $venvPython = Get-VenvPython
     $initializer = Join-Path $script:ScriptsDir 'initialize_database.py'
     $previousPythonPath = $env:PYTHONPATH
     try {
         $env:PYTHONPATH = $script:ServerDir
-        $reset = Read-Host 'This recreates the managed database and deletes its data. Type RESET to continue'
-        $arguments = @()
-        if ($reset -ceq 'RESET') {
-            $arguments = @('--reset')
-            Write-Step 'Recreating the managed database schema from scratch.'
-        } else {
-            Write-Step 'Checking or initializing the canonical database schema without reset.'
-        }
+        Write-Step 'Initializing or upgrading the canonical database to the Alembic head.'
         Push-Location $script:ServerDir
         try {
-            & $venvPython $initializer @arguments
+            & $venvPython $initializer
             if ($LASTEXITCODE -ne 0) { throw "Database initialization failed with exit code $LASTEXITCODE." }
         } finally { Pop-Location }
     } finally {
         if ($null -eq $previousPythonPath) { Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue } else { $env:PYTHONPATH = $previousPythonPath }
     }
-    Write-Ok 'Database initialization completed.'
+    Write-Ok 'Database initialization or upgrade completed.'
 }
 
 function Invoke-TestSuite {
@@ -1259,7 +1258,7 @@ function Show-LauncherMenu {
     Write-MenuOption -Number '2' -Label 'Install or repair base dependencies' -Description 'Prepare runtimes and core packages'
     Write-MenuOption -Number '3' -Label 'Rebuild frontend' -Description 'Rebuild the frontend from current source'
     Write-MenuOption -Number '4' -Label 'Manage compute backends' -Description 'Install, inspect, or remove optional ML frameworks'
-    Write-MenuOption -Number '5' -Label 'Initialize or recreate database' -Description 'Create schema or confirm a destructive reset'
+    Write-MenuOption -Number '5' -Label 'Initialize or upgrade database' -Description 'Create or migrate the schema to the Alembic head'
     Write-MenuOption -Number '6' -Label 'Run validation suite' -Description 'Run backend and frontend quality gates'
     Write-Host
     Write-Host '  MAINTENANCE' -ForegroundColor DarkCyan

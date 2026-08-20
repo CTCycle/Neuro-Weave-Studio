@@ -13,6 +13,8 @@ dependencies = [
   "pydantic>=2.11,<3",
   "pydantic-settings>=2.15,<3",
   "SQLAlchemy>=2.0.52,<3",
+  "alembic>=1.19,<2",
+  "filelock>=3.20,<4",
   "keras>=3.10,<4",
 ]
 
@@ -36,6 +38,8 @@ only-include = [
   "compilation",
   "configurations",
   "domain",
+  "alembic.ini",
+  "migrations",
   "exporters",
   "repositories",
   "resources",
