@@ -6,7 +6,8 @@
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "strict": true
+    "strict": true,
+    "tsBuildInfoFile": "../../assets/cache/typescript/tsconfig.node.tsbuildinfo"
   },
   "include": ["vite.config.ts", "eslint.config.js"]
 }

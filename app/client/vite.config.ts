@@ -18,6 +18,7 @@ function normalizeApiBase(rawValue: string | undefined): string {
 }
 
 export default defineConfig(({ mode }) => {
+  const cacheRoot = path.resolve(__dirname, '../../assets/cache')
   const settingsDir = path.resolve(__dirname, '../../settings')
   const clientEnv = loadEnv(mode, __dirname, '')
   const settingsEnv = loadEnv(mode, settingsDir, '')
@@ -35,6 +36,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    cacheDir: path.join(cacheRoot, 'vite'),
+    build: {
+      outDir: path.join(cacheRoot, 'frontend-dist'),
+      emptyOutDir: true,
+    },
     server: {
       host: uiHost,
       port: uiPort,

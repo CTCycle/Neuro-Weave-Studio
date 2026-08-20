@@ -45,6 +45,7 @@ only-include = [
 ]
 
 [tool.uv]
+cache-dir = "../../assets/cache/uv"
 conflicts = [
   [
     { extra = "torch-cpu" },
@@ -62,14 +63,10 @@ name = "pytorch-cu126"
 url = "https://download.pytorch.org/whl/cu126"
 explicit = true
 
-[tool.pytest.ini_options]
-testpaths = ["../tests"]
-pythonpath = ["."]
-addopts = "-q"
-
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+cache-dir = "../../assets/cache/ruff"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

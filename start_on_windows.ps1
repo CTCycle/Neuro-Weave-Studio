@@ -20,6 +20,12 @@ $script:ClientDir = Join-Path $AppDir 'client'
 $script:ScriptsDir = Join-Path $AppDir 'scripts'
 $script:EnvironmentBootstrap = Join-Path $ScriptsDir 'ensure_environment.py'
 $script:RuntimeDir = Join-Path $RepoRoot 'runtimes'
+$script:CacheDir = Join-Path $RepoRoot 'assets\cache'
+$script:UvCacheDir = Join-Path $script:CacheDir 'uv'
+$script:NpmCacheDir = Join-Path $script:CacheDir 'npm'
+$script:PythonBytecodeCacheDir = Join-Path $script:CacheDir 'python-bytecode'
+$script:CoverageCacheDir = Join-Path $script:CacheDir 'coverage'
+$script:PytestBaseTempDir = Join-Path $script:CacheDir 'pytest-tmp'
 $script:PythonDir = Join-Path $RuntimeDir 'python'
 $script:UvDir = Join-Path $RuntimeDir 'uv'
 $script:NodeDir = Join-Path $RuntimeDir 'node'
@@ -27,7 +33,7 @@ $script:VenvDir = Join-Path $ServerDir '.venv'
 $script:EnvironmentFile = Join-Path (Join-Path $RepoRoot 'settings') '.env'
 $script:LogDir = Join-Path $AppDir 'resources\runtime\logs'
 $script:BackendInstallState = Join-Path $AppDir 'resources\runtime\backend-installation.json'
-$script:FrontendDistIndex = Join-Path $ClientDir 'dist\index.html'
+$script:FrontendDistIndex = Join-Path $script:CacheDir 'frontend-dist\index.html'
 $script:PythonVersion = '3.13.14'
 $script:UvVersion = '0.12.0'
 $script:NodeVersion = '22.23.1'
@@ -110,7 +116,14 @@ function Clear-PythonEnvironment {
 }
 
 function Set-LauncherEnvironment {
-    $env:UV_CACHE_DIR = Join-Path $script:RuntimeDir '.uv-cache'
+    New-Item -ItemType Directory -Path $script:CacheDir, $script:UvCacheDir, $script:NpmCacheDir, `
+        $script:PythonBytecodeCacheDir, $script:CoverageCacheDir, $script:PytestBaseTempDir -Force | Out-Null
+    $env:UV_CACHE_DIR = $script:UvCacheDir
+    $env:PIP_CACHE_DIR = Join-Path $script:CacheDir 'pip'
+    $env:npm_config_cache = $script:NpmCacheDir
+    $env:PYTHONPYCACHEPREFIX = $script:PythonBytecodeCacheDir
+    $env:PYTHON_EGG_CACHE = Join-Path $script:CacheDir 'python-eggs'
+    $env:COVERAGE_FILE = Join-Path $script:CoverageCacheDir '.coverage'
     $env:UV_PROJECT_ENVIRONMENT = $script:VenvDir
     $env:UV_LINK_MODE = 'copy'
     $nodePath = [IO.Path]::GetFullPath($script:NodeDir).TrimEnd('\')
@@ -555,6 +568,7 @@ function Sync-Dependencies {
 
 function Invoke-FrontendBuild {
     $npm = Get-Npm
+    Set-LauncherEnvironment
     Push-Location $script:ClientDir
     try {
         Write-Step 'Building frontend.'
@@ -902,6 +916,7 @@ function Invoke-Launch {
     $script:LaunchHandedOff = $false
     Ensure-PortableRuntimes
     Import-DotEnv
+    Set-LauncherEnvironment
     if (-not (Test-DependenciesReady)) {
         $state = Get-BackendInstallationState
         $backendExtras = if ($null -ne $state -and $state.schema_version -ge 2 -and $state.setup_completed) {
@@ -1035,6 +1050,7 @@ function Invoke-DatabaseInitialization {
 function Invoke-TestSuite {
     Ensure-PortableRuntimes
     Import-DotEnv
+    Set-LauncherEnvironment
     if (-not (Test-DependenciesReady -IncludeTests)) { Sync-Dependencies -IncludeTests }
     $venvPython = Get-VenvPython
     $previousPythonPath = $env:PYTHONPATH
@@ -1047,7 +1063,7 @@ function Invoke-TestSuite {
             if ($LASTEXITCODE -ne 0) { throw "Backend Ruff failed with exit code $LASTEXITCODE." }
             & $venvPython -m pyright
             if ($LASTEXITCODE -ne 0) { throw "Backend Pyright failed with exit code $LASTEXITCODE." }
-            & $venvPython -m pytest ..\tests --basetemp (Join-Path $script:RepoRoot 'assets\QA\pytest-tmp-launcher')
+            & $venvPython -m pytest ..\tests
             if ($LASTEXITCODE -ne 0) { throw "Backend pytest failed with exit code $LASTEXITCODE." }
         } finally { Pop-Location }
     } finally {
@@ -1103,15 +1119,33 @@ function Remove-PythonCaches {
 }
 
 function Invoke-ClearApplicationCache {
-    Write-Status -Level STEP -Message 'Removing Python bytecode and the repository-local uv cache.'
+    Write-Status -Level STEP -Message 'Removing centralized development caches and generated artifacts.'
     $pythonCacheCount = Remove-PythonCaches
-    $uvCache = Join-Path $script:RuntimeDir '.uv-cache'
-    $uvCacheRemoved = $false
-    if (Test-Path -LiteralPath $uvCache) {
-        Remove-Item -LiteralPath $uvCache -Recurse -Force
-        $uvCacheRemoved = $true
+    $legacyPaths = @(
+        (Join-Path $script:RuntimeDir '.uv-cache'),
+        (Join-Path $script:AppDir '.pytest_cache'),
+        (Join-Path $script:AppDir '.ruff_cache'),
+        (Join-Path $script:ServerDir '.pytest_cache'),
+        (Join-Path $script:ServerDir '.ruff_cache'),
+        (Join-Path $script:ServerDir '.mypy_cache'),
+        (Join-Path $script:ClientDir '.vite'),
+        (Join-Path $script:ClientDir 'dist'),
+        (Join-Path $script:ClientDir 'coverage'),
+        (Join-Path $script:ClientDir 'node_modules\.vite')
+    )
+    $removedPathCount = 0
+    foreach ($target in @($script:CacheDir) + $legacyPaths) {
+        if (Test-Path -LiteralPath $target) {
+            try {
+                Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction Stop
+                $removedPathCount++
+            } catch {
+                Write-Warn "Could not remove legacy cache/artifact path '$target': $($_.Exception.Message)"
+            }
+        }
     }
-    Write-Status -Level SUCCESS -Message "Caches cleared ($pythonCacheCount Python cache director$(if ($pythonCacheCount -eq 1) { 'y' } else { 'ies' })$(if ($uvCacheRemoved) { ' and uv cache' } else { '' }))."
+    New-Item -ItemType Directory -Path $script:CacheDir -Force | Out-Null
+    Write-Status -Level SUCCESS -Message "Caches cleared ($pythonCacheCount Python cache director$(if ($pythonCacheCount -eq 1) { 'y' } else { 'ies' }), $removedPathCount cache/artifact path$(if ($removedPathCount -eq 1) { '' } else { 's' }))."
 }
 
 function Confirm-LauncherAction {
@@ -1137,7 +1171,7 @@ function Invoke-UninstallApplication {
         $script:PythonDir,
         $script:UvDir,
         $script:NodeDir,
-        (Join-Path $script:RuntimeDir '.uv-cache'),
+        $script:CacheDir,
         $script:VenvDir,
         (Join-Path $script:ClientDir 'node_modules'),
         (Join-Path $script:ClientDir 'dist'),
