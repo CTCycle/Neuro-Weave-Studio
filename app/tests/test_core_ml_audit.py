@@ -5,7 +5,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 import pytest
@@ -62,7 +62,12 @@ def _runtime_controller() -> RuntimeController:
     return controller
 
 ###############################################################################
-def _runtime_worker(controller: RuntimeController, backend: ExecutionBackend) -> WorkerConfiguration | None:
+def _runtime_worker(
+    controller: RuntimeController,
+    backend: ExecutionBackend,
+    *,
+    precision: Literal["float32", "mixed_float16", "mixed_bfloat16"] = "float32",
+) -> WorkerConfiguration | None:
     status = controller.backend_statuses.get(backend)
     if status is None or not status.available or not status.devices:
         return None
@@ -72,18 +77,35 @@ def _runtime_worker(controller: RuntimeController, backend: ExecutionBackend) ->
     return WorkerConfiguration(
         backend=backend,
         device_id=device.device_id,
-        precision="mixed_float16" if False else "float32",
+        precision=precision,
     )
+
+###############################################################################
+def _available_backend() -> ExecutionBackend | None:
+    controller = _runtime_controller()
+    try:
+        return next(
+            (
+                backend
+                for backend, status in controller.backend_statuses.items()
+                if status.available
+            ),
+            None,
+        )
+    finally:
+        controller.shutdown()
 
 ###############################################################################
 def _run_smoke(graph: ModelGraph, backend: ExecutionBackend = ExecutionBackend.PYTORCH) -> dict[str, Any] | None:
     controller = _runtime_controller()
     try:
-        worker = _runtime_worker(controller, backend)
+        worker = _runtime_worker(
+            controller,
+            backend,
+            precision="mixed_float16" if graph.model_configuration.mixed_precision else "float32",
+        )
         if worker is None:
             return None
-        if graph.model_configuration.mixed_precision:
-            worker = worker.model_copy(update={"precision": "mixed_float16"})
         job = controller.submit(
             JobSubmitRequest(
                 operation=SmokeInferenceOperation(graph=graph),
@@ -177,9 +199,8 @@ def test_pool_defaults_and_grouped_convolution_follow_keras_contract() -> None:
         item for item in valid_grouped_result.shape_summaries if item.node_id == "conv"
     ).parameter_count == 152
 
-    runner = KerasBackendRunner()
-    if runner.probe(ExecutionBackend.PYTORCH):
-        runtime = runner.smoke_test(pool_graph, ExecutionBackend.PYTORCH)
+    runtime = _run_smoke(pool_graph)
+    if runtime is not None:
         assert runtime["outputs"] == [
             {"node_id": "output", "shape": [1, 16, 16, 3], "dtype": "float32"}
         ]
@@ -255,10 +276,9 @@ def test_attention_shape_and_port_order_match_runtime() -> None:
     assert attention.outputs["output"].shape == [None, 5, 6]
     assert attention.parameter_count == 522
 
-    runner = KerasBackendRunner()
-    if not runner.probe(ExecutionBackend.PYTORCH):
+    runtime = _run_smoke(graph)
+    if runtime is None:
         pytest.skip("CPU PyTorch backend is unavailable")
-    runtime = runner.smoke_test(graph, ExecutionBackend.PYTORCH)
     assert runtime["outputs"] == [{"node_id": "output", "shape": [1, 5, 6], "dtype": "float32"}]
     assert runtime["parameter_count"] == 522
 
@@ -282,10 +302,9 @@ def test_transformer_encoder_preserves_residual_width() -> None:
         "output"
     ].shape == [None, 5, 128]
 
-    runner = KerasBackendRunner()
-    if not runner.probe(ExecutionBackend.PYTORCH):
+    runtime = _run_smoke(graph)
+    if runtime is None:
         pytest.skip("CPU PyTorch backend is unavailable")
-    runtime = runner.smoke_test(graph, ExecutionBackend.PYTORCH)
     assert runtime["outputs"] == [{"node_id": "output", "shape": [1, 5, 128], "dtype": "float32"}]
 
 ###############################################################################
@@ -317,8 +336,7 @@ def test_invalid_state_and_unreachable_components_are_blocked() -> None:
 
 ###############################################################################
 def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
-    runner = KerasBackendRunner()
-    backend = next(iter(runner.available_backends()), None)
+    backend = _available_backend()
     if backend is None:
         pytest.skip("No operational Keras backend is installed")
     graph = ModelGraph(
@@ -379,10 +397,9 @@ def test_supported_optimizers_compile_on_cpu_backend(optimizer: str) -> None:
     )
     result = validate(graph)
     assert result.valid
-    runner = KerasBackendRunner()
-    if not runner.probe(ExecutionBackend.PYTORCH):
+    runtime = _run_smoke(graph)
+    if runtime is None:
         pytest.skip("CPU PyTorch backend is unavailable")
-    runtime = runner.smoke_test(graph, ExecutionBackend.PYTORCH)
     assert runtime["outputs"] == [
         {"node_id": "output", "shape": [1, 2], "dtype": "float32"}
     ]
@@ -403,18 +420,16 @@ def test_mixed_precision_policy_is_applied_before_cpu_model_build() -> None:
         ),
     )
     assert validate(graph).valid
-    runner = KerasBackendRunner()
-    if not runner.probe(ExecutionBackend.PYTORCH):
+    runtime = _run_smoke(graph)
+    if runtime is None:
         pytest.skip("CPU PyTorch backend is unavailable")
-    runtime = runner.smoke_test(graph, ExecutionBackend.PYTORCH)
     assert runtime["outputs"] == [
         {"node_id": "output", "shape": [1, 2], "dtype": "float16"}
     ]
 
 ###############################################################################
 def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -> None:
-    runner = KerasBackendRunner()
-    backend = next(iter(runner.available_backends()), None)
+    backend = _available_backend()
     if backend is None:
         pytest.skip("No operational Keras backend is installed")
     graph = ModelGraph(
@@ -465,16 +480,15 @@ def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -
     completed = subprocess.run(command, env=environment, capture_output=True, text=True, check=False)
     assert completed.returncode == 0, completed.stderr
 
-    runner = KerasBackendRunner()
-    if runner.probe(ExecutionBackend.PYTORCH):
-        runtime = runner.smoke_test(graph, ExecutionBackend.PYTORCH)
+    runtime = _run_smoke(graph)
+    if runtime is not None:
         assert runtime["outputs"] == [
             {"node_id": "output_a", "shape": [1, 5, 128], "dtype": "float32"},
             {"node_id": "output_b", "shape": [1, 5, 128], "dtype": "float32"},
         ]
 
 ###############################################################################
-def test_binary_artifact_reloads_in_a_clean_process(tmp_path: Path) -> None:
+def test_keras_export_job_reloads_in_a_clean_process(tmp_path: Path) -> None:
     graph = ModelGraph(
         nodes=[
             node("input", "input.sequence", {"shape": [None, 5, 8], "dtype": "float32"}),
@@ -490,10 +504,9 @@ def test_binary_artifact_reloads_in_a_clean_process(tmp_path: Path) -> None:
         ),
     )
     assert validate(graph).valid
-    runner = KerasBackendRunner()
-    if not runner.probe(ExecutionBackend.PYTORCH):
+    destination = _export_job(graph, tmp_path / "positional.keras")
+    if destination is None:
         pytest.skip("CPU PyTorch backend is unavailable")
-    destination = runner.export(graph, tmp_path / "positional.keras", ExecutionBackend.PYTORCH)
     environment = os.environ.copy()
     environment["KERAS_BACKEND"] = "torch"
     server_root = Path(__file__).resolve().parents[1] / "server"
