@@ -15,7 +15,7 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
         "'2' -Label 'Install or repair base dependencies'",
         "'3' -Label 'Rebuild frontend'",
         "'4' -Label 'Manage compute backends'",
-        "'5' -Label 'Initialize or recreate database'",
+        "'5' -Label 'Initialize or upgrade database'",
         "'6' -Label 'Run validation suite'",
         "'7' -Label 'Remove logs'",
         "'8' -Label 'Clear cache'",
@@ -87,16 +87,30 @@ def test_environment_contract_is_canonical_and_secret_safe() -> None:
     assert "settings/.env" not in ignored
     assert "**/.env" in ignored
     assert ".env.example" not in ignored
+    for sidecar in (
+        "*.db-wal",
+        "*.db-shm",
+        "*.db-journal",
+        "*.sqlite-wal",
+        "*.sqlite-shm",
+        "*.sqlite-journal",
+        "*.sqlite3-wal",
+        "*.sqlite3-shm",
+        "*.sqlite3-journal",
+    ):
+        assert sidecar in ignored
     assert "Write-Host $value" not in launcher
     assert "Write-Host $env:" not in launcher
 
 ###############################################################################
-def test_launcher_has_one_explicit_database_action_with_confirmed_reset() -> None:
+def test_launcher_has_one_non_destructive_database_action() -> None:
     source = LAUNCHER.read_text(encoding="utf-8")
 
     assert "Invoke-DatabaseInitialization" in source
-    assert "--reset" in source
-    assert "Type RESET to continue" in source
+    assert "--reset" not in source
+    assert "Type RESET to continue" not in source
+    assert "Assert-ApplicationStopped" in source
+    assert "import fastapi, uvicorn, sqlalchemy, alembic, filelock" in source
     assert "Get-DescendantProcessIds" in source
     assert "Stop-Process -Id $processId -Force" in source
 

@@ -11,17 +11,12 @@ LOGGER = logging.getLogger(__name__)
 ###############################################################################
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Explicitly initialize or recreate the configured database schema."
+        description="Initialize or upgrade the configured database to the Alembic head."
     )
-    parser.add_argument(
-        "--reset",
-        action="store_true",
-        help="Drop the managed schema and recreate it from scratch.",
-    )
-    args = parser.parse_args()
+    parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     try:
-        initialize_database(get_database_settings(), reset=args.reset)
+        initialize_database(get_database_settings())
     except Exception as exc:
         LOGGER.error("Database initialization failed: %s", exc)
         return 1

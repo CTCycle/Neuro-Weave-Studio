@@ -15,3 +15,7 @@ The controller requests cooperative cancellation first. After five seconds it te
 `dependency_missing`, `backend_import_failed`, and unsupported device/policy messages come from fresh probe workers. Native inference reports `not_implemented` by design. Memory numbers are best-effort observations: PyTorch allocated and reserved/cache memory are different, TensorFlow reports tracked current/peak values, and JAX reports device statistics only when the platform exposes them. Cleanup calls do not replace process teardown.
 
 If a backend package is installed or removed, stop the application and restart it so probes and startup environment are refreshed. Normal backend/device/policy selection changes only affect new workers.
+
+## Database migrations
+
+The backend logs the current Alembic revision, pending upgrades, legacy version-2 adoption, and the verified head. If startup reports an unsupported or incomplete schema, do not delete the database: make a backup/export and restore the matching migration files or follow the project’s data-recovery procedure. Version-1 and the historical two-table prototype are intentionally not auto-adopted. A lock-timeout message means another process is migrating; close stale application instances and retry after confirming no migration process is still active.

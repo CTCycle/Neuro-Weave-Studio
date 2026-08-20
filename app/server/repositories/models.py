@@ -13,14 +13,12 @@ from sqlalchemy import (
     Index,
     Integer,
     PrimaryKeyConstraint,
-    SmallInteger,
     String,
     Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from common.constants import DATABASE_SCHEMA_VERSION
 from common.timestamps import utc_now
 from domain.enums import CodeTarget, ValidationStatus
 from repositories.base import Base
@@ -28,23 +26,6 @@ from repositories.types import UTCDateTime
 
 _CODE_TARGET_SQL_VALUES = ", ".join(repr(item.value) for item in CodeTarget)
 _VALIDATION_STATUS_SQL_VALUES = ", ".join(repr(item.value) for item in ValidationStatus)
-
-###############################################################################
-class SchemaMetadataRecord(Base):
-    __tablename__ = "schema_metadata"
-
-    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=1)
-    schema_version: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=DATABASE_SCHEMA_VERSION
-    )
-    initialized_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), nullable=False, default=utc_now
-    )
-
-    __table_args__ = (
-        CheckConstraint("id = 1", name="ck_schema_metadata_singleton"),
-        CheckConstraint("schema_version >= 1", name="ck_schema_metadata_version"),
-    )
 
 ###############################################################################
 class ProjectRecord(Base):

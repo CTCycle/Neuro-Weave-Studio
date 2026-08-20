@@ -5,6 +5,8 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import inspect, select, text
 from sqlalchemy.dialects import sqlite
 from sqlalchemy.exc import IntegrityError
@@ -18,12 +20,16 @@ from configurations.settings import (
 )
 from domain.enums import CodeTarget, ValidationStatus
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
-from repositories import initializer
 from repositories.backend import (
     build_session_factory,
 )
 from repositories.base import Base
-from repositories.initializer import ensure_database_ready, initialize_database
+from repositories.initializer import (
+    ALEMBIC_CONFIG_PATH,
+    BASELINE_REVISION,
+    HEAD_REVISION,
+    initialize_database,
+)
 from repositories.models import (
     GeneratedCodeSnapshotRecord,
     ProjectEdgeRecord,
@@ -31,9 +37,9 @@ from repositories.models import (
     ProjectNodeRecord,
     ProjectRecord,
     ProjectRevisionRecord,
-    SchemaMetadataRecord,
 )
 from repositories.session import RepositoryContext
+
 
 ###############################################################################
 def _settings(path: Path) -> DatabaseSettings:
@@ -41,7 +47,7 @@ def _settings(path: Path) -> DatabaseSettings:
 
 ###############################################################################
 def _context(path: Path) -> RepositoryContext:
-    backend = initialize_database(_settings(path), reset=True)
+    backend = initialize_database(_settings(path))
     return RepositoryContext(
         backend=backend,
         engine=backend.engine,
@@ -49,8 +55,11 @@ def _context(path: Path) -> RepositoryContext:
     )
 
 ###############################################################################
-def fail_schema_recreation(_engine: object) -> None:
-    pytest.fail("ordinary startup must not recreate the schema")
+def _alembic_config(connection: object) -> Config:
+    config = Config(str(ALEMBIC_CONFIG_PATH))
+    config.attributes["connection"] = connection
+    config.attributes["skip_logging_config"] = True
+    return config
 
 ###############################################################################
 def test_sqlite_database_settings_resolve_relative_path(
@@ -88,7 +97,6 @@ def test_schema_is_canonical_for_sqlite() -> None:
     )
 
     expected = {
-        "schema_metadata",
         "projects",
         "project_graph_settings",
         "project_nodes",
@@ -101,13 +109,138 @@ def test_schema_is_canonical_for_sqlite() -> None:
     assert "uq_project_revisions_revision" in sqlite_sql
 
 ###############################################################################
-def test_explicit_sqlite_reset_creates_schema_and_marker(tmp_path: Path) -> None:
+def test_sqlite_database_initialization_creates_schema_and_head(tmp_path: Path) -> None:
     path = tmp_path / "database.db"
-    backend = initialize_database(_settings(path), reset=True)
+    backend = initialize_database(_settings(path))
 
     assert path.exists()
     assert set(inspect(backend.engine).get_table_names()) == {
-        "schema_metadata",
+        "alembic_version",
+        "projects",
+        "project_graph_settings",
+        "project_nodes",
+        "project_edges",
+        "project_revisions",
+        "generated_code_snapshots",
+    }
+    with backend.engine.connect() as connection:
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == HEAD_REVISION
+        assert connection.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
+    backend.engine.dispose()
+
+###############################################################################
+def test_empty_existing_sqlite_file_is_initialized(tmp_path: Path) -> None:
+    path = tmp_path / "database.db"
+    path.touch()
+
+    backend = initialize_database(_settings(path))
+    with backend.engine.connect() as connection:
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == HEAD_REVISION
+    backend.engine.dispose()
+
+###############################################################################
+def test_already_current_database_is_idempotent(tmp_path: Path) -> None:
+    path = tmp_path / "database.db"
+    first = initialize_database(_settings(path))
+    first.engine.dispose()
+
+    second = initialize_database(_settings(path))
+    with second.engine.connect() as connection:
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == HEAD_REVISION
+    second.engine.dispose()
+
+###############################################################################
+def test_incompatible_sqlite_file_is_rejected_without_mutation(tmp_path: Path) -> None:
+    path = tmp_path / "old.db"
+    from sqlalchemy import create_engine
+
+    seed_engine = create_engine(f"sqlite:///{path}")
+    with seed_engine.begin() as connection:
+        connection.execute(text("CREATE TABLE legacy (id INTEGER PRIMARY KEY)"))
+    seed_engine.dispose()
+
+    with pytest.raises(RuntimeError, match="unsupported or incomplete schema"):
+        initialize_database(_settings(path))
+
+    engine = create_engine(f"sqlite:///{path}")
+    try:
+        assert inspect(engine).get_table_names() == ["legacy"]
+    finally:
+        engine.dispose()
+
+###############################################################################
+def test_empty_alembic_version_table_is_rejected_without_mutation(tmp_path: Path) -> None:
+    path = tmp_path / "partial.db"
+    from sqlalchemy import create_engine
+
+    seed_engine = create_engine(f"sqlite:///{path}")
+    with seed_engine.begin() as connection:
+        connection.execute(
+            text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
+        )
+    seed_engine.dispose()
+
+    with pytest.raises(RuntimeError, match="without a current revision"):
+        initialize_database(_settings(path))
+
+    engine = create_engine(f"sqlite:///{path}")
+    try:
+        assert inspect(engine).get_table_names() == ["alembic_version"]
+        with engine.connect() as connection:
+            assert (
+                connection.execute(text("SELECT COUNT(*) FROM alembic_version")).scalar_one()
+                == 0
+            )
+    finally:
+        engine.dispose()
+
+###############################################################################
+def _prepare_unversioned_v2_database(path: Path) -> str:
+    context = _context(path)
+    now = datetime.now(UTC)
+    try:
+        with context.new_unit_of_work() as uow:
+            project = uow.projects.create(
+                name="Adopted project",
+                description="Preserved data",
+                code_target=CodeTarget.KERAS,
+                graph_schema_version=2,
+                timestamp=now,
+                validation_status=ValidationStatus.VALID,
+            )
+            graph = ModelGraph()
+            uow.graphs.replace(project.id, graph)
+            uow.revisions.append(
+                project.id,
+                revision=1,
+                graph=graph,
+                code_target=CodeTarget.KERAS,
+                timestamp=now,
+            )
+            uow.code_snapshots.upsert(
+                project.id,
+                revision=1,
+                code_target=CodeTarget.KERAS,
+                source_code="preserve-me",
+                timestamp=now,
+            )
+            uow.commit()
+
+        with context.engine.begin() as connection:
+            command.downgrade(_alembic_config(connection), BASELINE_REVISION)
+            connection.execute(text("DROP TABLE alembic_version"))
+        return str(project.id)
+    finally:
+        context.dispose()
+
+###############################################################################
+def test_unversioned_v2_database_is_adopted_and_data_is_preserved(tmp_path: Path) -> None:
+    path = tmp_path / "legacy-v2.db"
+    project_id = _prepare_unversioned_v2_database(path)
+
+    backend = initialize_database(_settings(path))
+    assert set(inspect(backend.engine).get_table_names()) == {
+        "alembic_version",
         "projects",
         "project_graph_settings",
         "project_nodes",
@@ -116,34 +249,26 @@ def test_explicit_sqlite_reset_creates_schema_and_marker(tmp_path: Path) -> None
         "generated_code_snapshots",
     }
     with Session(backend.engine) as session:
-        marker = session.get(SchemaMetadataRecord, 1)
-        assert marker is not None
-        assert marker.schema_version == 2
+        project = session.get(ProjectRecord, project_id)
+        snapshot = session.get(GeneratedCodeSnapshotRecord, (project_id, 1, "keras"))
+        assert project is not None
+        assert project.name == "Adopted project"
+        assert snapshot is not None
+        assert snapshot.source_code == "preserve-me"
     backend.engine.dispose()
 
 ###############################################################################
-def test_existing_sqlite_schema_is_checked_without_recreation(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    path = tmp_path / "database.db"
-    backend = initialize_database(_settings(path), reset=True)
+def test_versioned_database_behind_head_is_upgraded(tmp_path: Path) -> None:
+    path = tmp_path / "behind.db"
+    backend = initialize_database(_settings(path))
+    with backend.engine.begin() as connection:
+        command.downgrade(_alembic_config(connection), BASELINE_REVISION)
     backend.engine.dispose()
 
-    monkeypatch.setattr(
-        initializer,
-        "_create_schema",
-        fail_schema_recreation,
-    )
-    reopened = ensure_database_ready(_settings(path))
-    reopened.engine.dispose()
-
-###############################################################################
-def test_incompatible_sqlite_file_requires_explicit_reset(tmp_path: Path) -> None:
-    path = tmp_path / "old.db"
-    path.touch()
-
-    with pytest.raises(RuntimeError, match="canonical NeuroWeave schema"):
-        ensure_database_ready(_settings(path))
+    upgraded = initialize_database(_settings(path))
+    with upgraded.engine.connect() as connection:
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == HEAD_REVISION
+    upgraded.engine.dispose()
 
 ###############################################################################
 def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> None:
@@ -257,7 +382,7 @@ def test_project_and_dependents_cascade(tmp_path: Path) -> None:
 
 ###############################################################################
 def test_foreign_keys_are_enabled_for_sqlite(tmp_path: Path) -> None:
-    backend = initialize_database(_settings(tmp_path / "foreign-keys.db"), reset=True)
+    backend = initialize_database(_settings(tmp_path / "foreign-keys.db"))
     with backend.engine.connect() as connection:
         assert connection.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
     backend.engine.dispose()
