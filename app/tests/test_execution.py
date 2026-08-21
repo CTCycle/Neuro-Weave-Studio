@@ -151,7 +151,7 @@ def test_health_and_metadata_are_typed_contracts(client: httpx.Client) -> None:
     assert health.status_code == 200
     assert health.json() == {"status": "ok"}
     assert metadata.status_code == 200
-    assert "code_targets" not in metadata.json()
+    assert "compilation_catalog" in metadata.json()["configuration"]
     assert metadata.json()["runtime_apis"] == [
         {"id": "keras", "available": True, "reason_code": None},
         {"id": "native", "available": False, "reason_code": "not_implemented"},

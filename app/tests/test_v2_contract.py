@@ -122,13 +122,13 @@ def test_high_parameter_keras_layers_expose_safe_constructor_controls() -> None:
                 assert parameter.options
 
 ###############################################################################
-def test_metadata_reports_v2_targets_and_backend_states(client: httpx.Client) -> None:
+def test_metadata_reports_execution_backends_and_configuration(client: httpx.Client) -> None:
     response: httpx.Response = client.get("/api/metadata")
     assert response.status_code == 200
     payload: dict[str, Any] = response.json()
     assert payload["version"] == "1.0.0"
     assert payload["schema_version"] == 2
-    assert "code_targets" not in payload
+    assert "compilation_catalog" in payload["configuration"]
     backend_items = cast(list[dict[str, Any]], payload["execution_backends"])
     assert [item["id"] for item in backend_items] == [item.value for item in ExecutionBackend]
 

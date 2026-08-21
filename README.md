@@ -15,13 +15,15 @@ The phrase “Django DP” in the original brief was treated as ambiguous and no
 - Inference-only model smoke tests with generated dummy tensors, isolated Keras workers, tensor metadata, parameter counts, and actionable runtime errors.
 - SQLite project persistence with immutable revision snapshots.
 - Project create, save, reopen, duplicate, delete, JSON import, and JSON export.
-- Keras, TensorFlow through Keras, and PyTorch source generation for the documented supported subset.
-- Optional uninitialized Keras `.keras` export when a selected TensorFlow or Torch backend is operational and the graph uses binary-export-supported nodes.
+- Keras-enabled source generation for the documented portable subset, using the model's persisted execution backend.
+- Native PyTorch source generation for its verified subset; native TensorFlow and JAX/Flax source capabilities remain unavailable until parity is proven.
+- Optional uninitialized Keras `.keras` export for Keras-enabled models when the persisted backend is operational and the graph uses binary-export-supported nodes.
+- Source-only `.keras` architecture import through the allowlisted Keras configuration format; imported weights and custom code are never accepted.
 - MLP, convolutional classifier, LSTM, and Transformer encoder examples.
 
 ## Important terminology
 
-Keras is the high-level model API. TensorFlow through Keras uses Keras with the TensorFlow runtime. PyTorch is the framework built on the Torch tensor library. NeuroWeave does not present Torch and PyTorch as independent equivalent backends.
+Every model persists one execution profile: `execution_backend` (`tensorflow`, `pytorch`, or `jax`) and `keras_enabled` (`true` or `false`). With Keras enabled, the canonical graph is implemented through Keras and runs against the persisted backend. With Keras disabled, the graph uses the backend-specific native adapter where that adapter is verified. Keras is an API layer, not a fourth backend.
 
 ## Requirements
 
@@ -52,7 +54,7 @@ The launcher menu provides these actions:
 
 The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. Option 2 installs or repairs dependencies and rebuilds the frontend; option 3 rebuilds only the frontend from current source using the existing frontend dependencies; option 1 reuses that build and only performs a recovery build when `app/tests/cache/frontend-dist/index.html` is missing. Use `.\start_on_windows.ps1 -Action RebuildFrontend` to run the standalone rebuild directly. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, waits for both readiness checks, opens the frontend in the default browser when possible, and then closes the initial PowerShell menu while leaving the independent application process roots running. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening.
 
-`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/database.db`. Alembic owns schema creation and evolution: installation, explicit initialization, and every backend startup migrate the database to the current head. Existing normalized version-2 databases without an Alembic version table are adopted after an exact schema check; unsupported or partial schemas are rejected without mutation. Keras is core and is installed with the base application. Optional TensorFlow, PyTorch, and JAX installation is explicit through `.\start_on_windows.ps1 -Action ManageBackends`; choose `none`, one backend, a comma-separated combination, or `all`. The launcher reports native-Windows CPU limitations for TensorFlow/JAX and verifies actual worker capability after installation. Runtime/download caches are under `runtimes/cache`; pytest, Ruff, Vite, frontend build output, TypeScript metadata, Python bytecode, coverage, and lint caches are under `app/tests/cache`.
+`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/database.db`. Alembic owns schema creation and evolution: installation, explicit initialization, and every backend startup migrate a missing or current-schema database to the current head. Existing databases without the current Alembic history are unsupported and are rejected without legacy adoption or mutation. Keras is core and is installed with the base application. Optional TensorFlow, PyTorch, and JAX installation is explicit through `.\start_on_windows.ps1 -Action ManageBackends`; choose `none`, one backend, a comma-separated combination, or `all`. The launcher reports native-Windows CPU limitations for TensorFlow/JAX and verifies actual worker capability after installation. Runtime/download caches are under `runtimes/cache`; pytest, Ruff, Vite, frontend build output, TypeScript metadata, Python bytecode, coverage, and lint caches are under `app/tests/cache`.
 
 Set `BACKEND_LOGS_VISIBLE=false` in `settings/.env` to keep backend output in the runtime log files instead of opening a dedicated terminal; the default is `true`.
 
@@ -117,16 +119,18 @@ npm run test
 npm run build
 ```
 
-## Keras backend selection and binary export
+## Execution profiles, compilation, and artifacts
 
 ```bash
 cd app/server
 uv sync --extra test --extra tensorflow  # or --extra torch-cpu / --extra torch-cu126
 ```
 
-Keras is the model API layer and TensorFlow/Torch are runtime backends. The editor discovers operational backends, auto-selects the only available backend, and requires a selector choice when several are installed. Binary export creates an initialized but untrained `.keras` model. It is not a trained model, does not contain learned weights, and supports only the explicitly documented subset. With no installed backend, export is disabled and the API returns a structured 409 for a valid unavailable-backend request.
+The Builder persists `execution_backend` and `keras_enabled` with the graph. Validation, source generation, and runtime job submission derive their implementation from that profile; the persisted backend is authoritative for the model. The metadata endpoint reports live backend probes and a catalog-driven compilation configuration. Keras compilation settings are useful for Keras source and binary export, but NeuroWeave does not provide training loops, checkpoints, or native optimizer execution.
 
-The **Smoke test** button in the model toolbar is a dry run: it validates the current graph, generates compatible zero-filled inputs, runs one inference pass, and reports tensor shapes, dtype, parameter count, device, and status. It never trains or updates weights.
+Binary export creates an initialized but untrained `.keras` model. It is not a trained model, does not contain learned weights, and supports only the explicitly documented subset. With no operational backend, export is disabled and the API returns a structured unavailable-backend error. Keras architecture import accepts only standard `.keras` configuration metadata, creates a canonical graph, and warns that weights are not imported.
+
+The workspace **Smoke test** is a dry run for Keras-enabled models: it validates the saved graph, generates compatible zero-filled inputs, runs one inference pass, and reports tensor shapes, dtype, parameter count, device, and status. Native-only models retain static, shape, and source validation where supported, while native runtime inference remains explicitly unavailable. No path trains or updates weights.
 
 ## Examples
 

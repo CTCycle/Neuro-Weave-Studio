@@ -1,7 +1,8 @@
 {
   "name": "LSTM sequence model",
   "description": "Sequence input processed by an LSTM and classification head.",
-  "code_target": "keras",
+  "execution_backend": "pytorch",
+  "keras_enabled": true,
   "graph": {
     "schema_version": 2,
     "nodes": [

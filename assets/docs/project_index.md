@@ -1,6 +1,6 @@
 # NeuroWeave Documentation Index
 
-Last updated: 2026-08-07
+Last updated: 2026-08-21
 
 ## Purpose
 
@@ -19,6 +19,7 @@ This is the root navigation document for the repository. Read it first, then ope
 - `architecture/backend_architecture.md`
 - `architecture/frontend_architecture.md`
 - `architecture/graph_compiler.md`
+- `architecture/model_execution_profile.md`
 - `architecture/shape_inference.md`
 - `architecture/persistence.md`
 - `architecture/export_pipeline.md`
