@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Last updated: 2026-08-20
+Last updated: 2026-08-21
 
 A blank catalog usually means node JSON failed Pydantic validation; inspect the backend log under `app/resources/runtime/logs`. If a configured port is occupied, the launcher reports the listener PID and leaves that process untouched. Save conflicts return HTTP 409 and require reopening before overwrite.
 
@@ -18,4 +18,4 @@ If a backend package is installed or removed, stop the application and restart i
 
 ## Database migrations
 
-The backend logs the current Alembic revision, pending upgrades, legacy version-2 adoption, and the verified head. If startup reports an unsupported or incomplete schema, do not delete the database: make a backup/export and restore the matching migration files or follow the project’s data-recovery procedure. Version-1 and the historical two-table prototype are intentionally not auto-adopted. A lock-timeout message means another process is migrating; close stale application instances and retry after confirming no migration process is still active.
+The backend logs the current Alembic revision, pending upgrades, and the verified head. If startup reports an unsupported or incomplete schema (including an older database that fails with `table projects already exists`), the initializer stops before running Alembic and does not mutate the file. Do not delete the database: make a backup/export, restore matching migration files, or configure `DATABASE_SQLITE_PATH` to a new database after preserving the original. Version-1, the historical two-table prototype, and other unversioned schemas are intentionally not auto-adopted. A lock-timeout message means another process is migrating; close stale application instances and retry after confirming no migration process is still active.

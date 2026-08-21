@@ -145,12 +145,31 @@ def test_incompatible_sqlite_file_is_rejected_without_mutation(tmp_path: Path) -
         connection.execute(text("CREATE TABLE legacy (id INTEGER PRIMARY KEY)"))
     seed_engine.dispose()
 
-    with pytest.raises(RuntimeError, match="managed table set"):
+    with pytest.raises(RuntimeError, match="no current Alembic revision"):
         initialize_database(_settings(path))
 
     engine = create_engine(f"sqlite:///{path}")
     try:
         assert inspect(engine).get_table_names() == ["legacy"]
+    finally:
+        engine.dispose()
+
+###############################################################################
+def test_unversioned_projects_table_is_rejected_before_upgrade(tmp_path: Path) -> None:
+    path = tmp_path / "unversioned.db"
+    from sqlalchemy import create_engine
+
+    seed_engine = create_engine(f"sqlite:///{path}")
+    with seed_engine.begin() as connection:
+        connection.execute(text("CREATE TABLE projects (id VARCHAR(36) PRIMARY KEY)"))
+    seed_engine.dispose()
+
+    with pytest.raises(RuntimeError, match="no current Alembic revision"):
+        initialize_database(_settings(path))
+
+    engine = create_engine(f"sqlite:///{path}")
+    try:
+        assert inspect(engine).get_table_names() == ["projects"]
     finally:
         engine.dispose()
 

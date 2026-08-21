@@ -73,6 +73,18 @@ def _run_migrations(connection: Connection) -> None:
     current_heads = _current_heads(connection)
     _validate_known_revisions(current_heads, script)
 
+    unversioned_tables = frozenset(inspect(connection).get_table_names()) - {
+        ALEMBIC_VERSION_TABLE
+    }
+    if not current_heads and unversioned_tables:
+        found_tables = ", ".join(sorted(unversioned_tables))
+        raise RuntimeError(
+            "The database contains tables but no current Alembic revision. "
+            "Unsupported or incomplete schemas are not adopted or mutated. "
+            f"Tables found: {found_tables}. Back up/export the data before "
+            "configuring a new database."
+        )
+
     if current_heads == (expected_head,):
         LOGGER.info("Database schema is already at Alembic head %s", expected_head)
     else:
