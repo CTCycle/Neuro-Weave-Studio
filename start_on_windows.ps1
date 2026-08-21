@@ -1,6 +1,9 @@
+# ===============================================================================
+# Launcher configuration
+# ===============================================================================
 [CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'Install', 'RebuildFrontend', 'ManageBackends', 'Launch', 'InitDb', 'Test', 'CleanLogs', 'ClearCache', 'Uninstall')]
+    [ValidateSet('Menu', 'Install', 'RebuildFrontend', 'ManageBackends', 'Launch', 'InitDb', 'Test', 'CleanLogs', 'ClearCache', 'RemoveAllData', 'CheckForUpdates', 'Update', 'Uninstall')]
     [string]$Action = 'Menu',
     [string]$Backends = '',
     [ValidateSet('Auto', 'CPU')]
@@ -15,6 +18,8 @@ $ProgressPreference = 'SilentlyContinue'
 Set-StrictMode -Version Latest
 $script:RepoRoot = $PSScriptRoot
 $script:AppDir = Join-Path $RepoRoot 'app'
+$script:ResourceDir = Join-Path $script:AppDir 'resources'
+$script:SettingsDir = Join-Path $RepoRoot 'settings'
 $script:ServerDir = Join-Path $AppDir 'server'
 $script:ClientDir = Join-Path $AppDir 'client'
 $script:ScriptsDir = Join-Path $AppDir 'scripts'
@@ -34,9 +39,13 @@ $script:UvDir = Join-Path $RuntimeDir 'uv'
 $script:NodeDir = Join-Path $RuntimeDir 'node'
 $script:VenvDir = Join-Path $ServerDir '.venv'
 $script:EnvironmentFile = Join-Path (Join-Path $RepoRoot 'settings') '.env'
-$script:LogDir = Join-Path $AppDir 'resources\runtime\logs'
+$script:DefaultDatabasePath = Join-Path $script:ResourceDir 'database.db'
+$script:UserDataRuntimeDir = Join-Path $script:ResourceDir 'runtime'
+$script:LogDir = Join-Path $script:UserDataRuntimeDir 'logs'
 $script:BackendInstallState = Join-Path $AppDir 'resources\runtime\backend-installation.json'
 $script:FrontendDistIndex = Join-Path $script:CacheDir 'frontend-dist\index.html'
+$script:GitRemote = 'origin'
+$script:GitMainBranch = 'main'
 $script:PythonVersion = '3.13.14'
 $script:UvVersion = '0.12.0'
 $script:NodeVersion = '22.23.1'
@@ -44,6 +53,9 @@ $script:Children = [System.Collections.Generic.List[object]]::new()
 $script:LaunchHandedOff = $false
 $script:NoBrowser = $NoBrowser
 
+# ===============================================================================
+# Output and diagnostics
+# ===============================================================================
 function Write-Status {
     param(
         [Parameter(Mandatory = $true)]
@@ -71,6 +83,9 @@ function Write-Info([string]$Message) { Write-Status -Level INFO -Message $Messa
 function Write-Warn([string]$Message) { Write-Status -Level WARN -Message $Message }
 function Write-Fatal([string]$Message) { Write-Status -Level FAIL -Message $Message }
 
+# ===============================================================================
+# Portable runtimes and environment setup
+# ===============================================================================
 function Get-PortablePythonPath {
     return Join-Path $script:PythonDir "cpython-$($script:PythonVersion)-windows-x86_64-none\python.exe"
 }
@@ -260,6 +275,9 @@ function Import-DotEnv {
     }
 }
 
+# ===============================================================================
+# Compute backend management
+# ===============================================================================
 function Get-BooleanEnvironmentValue {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -560,6 +578,9 @@ function Write-BackendCapabilitySummary {
     }
 }
 
+# ===============================================================================
+# Dependency and frontend lifecycle
+# ===============================================================================
 function Sync-Dependencies {
     param(
         [switch]$IncludeTests,
@@ -776,10 +797,35 @@ function Test-DependenciesReady {
     return $LASTEXITCODE -eq 0
 }
 
+# ===============================================================================
+# Application process lifecycle
+# ===============================================================================
+function Get-ConfiguredEnvironmentValue {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [AllowNull()][string]$Default = $null
+    )
+
+    $raw = [Environment]::GetEnvironmentVariable($Name, 'Process')
+    if ([string]::IsNullOrWhiteSpace($raw) -and (Test-Path -LiteralPath $script:EnvironmentFile)) {
+        foreach ($rawLine in Get-Content -LiteralPath $script:EnvironmentFile) {
+            $line = $rawLine.Trim()
+            if (-not $line -or $line.StartsWith('#') -or $line.StartsWith(';')) { continue }
+            $separator = $line.IndexOf('=')
+            if ($separator -lt 1) { continue }
+            $key = $line.Substring(0, $separator).Trim()
+            if ($key -ine $Name) { continue }
+            $raw = $line.Substring($separator + 1).Trim().Trim('"').Trim("'")
+            break
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $Default }
+    return $raw
+}
+
 function Get-ConfiguredInt {
     param([Parameter(Mandatory = $true)][string]$Name, [Parameter(Mandatory = $true)][string]$Default)
-    $raw = [Environment]::GetEnvironmentVariable($Name, 'Process')
-    if ([string]::IsNullOrWhiteSpace($raw)) { $raw = $Default }
+    $raw = Get-ConfiguredEnvironmentValue -Name $Name -Default $Default
     $value = 0
     if (-not [int]::TryParse($raw, [System.Globalization.NumberStyles]::Integer, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$value) -or $value -lt 1 -or $value -gt 65535) {
         throw "$Name must be a valid TCP port between 1 and 65535."
@@ -954,6 +1000,9 @@ function Assert-ManagedProcessesAlive {
     }
 }
 
+# ===============================================================================
+# Application actions
+# ===============================================================================
 function Invoke-Launch {
     $script:LaunchHandedOff = $false
     Ensure-PortableRuntimes
@@ -1024,6 +1073,9 @@ function Invoke-Launch {
     }
 }
 
+# ===============================================================================
+# Installation, database, and validation actions
+# ===============================================================================
 function Read-InstallationType {
     Write-Host '  [1] Development - include Ruff, Pyright, and pytest' -ForegroundColor White
     Write-Host '  [2] Standard    - install runtime dependencies only' -ForegroundColor White
@@ -1121,6 +1173,190 @@ function Invoke-TestSuite {
     Write-Ok 'Validation suite completed.'
 }
 
+# ===============================================================================
+# Source control and update actions
+# ===============================================================================
+function Get-GitCommand {
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($null -eq $git) { throw 'Git is required for update actions but was not found on PATH.' }
+    return $git.Source
+}
+
+function Get-GitText {
+    param([Parameter(Mandatory = $true)][string[]]$Arguments)
+
+    $git = Get-GitCommand
+    $gitArguments = @('-C', $script:RepoRoot) + $Arguments
+    $output = @(& $git @gitArguments 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        $message = @($output | ForEach-Object { [string]$_ }) -join ' '
+        throw "Git command failed ($($Arguments -join ' ')): $message"
+    }
+    return (@($output | ForEach-Object { [string]$_ }) -join "`n").Trim()
+}
+
+function Assert-GitWorktreeClean {
+    $git = Get-GitCommand
+    $status = @(& $git -C $script:RepoRoot status --porcelain 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        $message = @($status | ForEach-Object { [string]$_ }) -join ' '
+        throw "Unable to inspect the Git worktree: $message"
+    }
+    $changes = @($status | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if ($changes.Count -gt 0) {
+        throw "Update requires a clean Git worktree. Commit or move these changes first:`n$($changes -join "`n")"
+    }
+}
+
+function Invoke-CheckForUpdates {
+    $git = Get-GitCommand
+    $probe = @(& $git -C $script:RepoRoot fetch --dry-run $script:GitRemote $script:GitMainBranch 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        $message = @($probe | ForEach-Object { [string]$_ }) -join ' '
+        throw "Unable to check origin/$($script:GitMainBranch) for updates: $message"
+    }
+
+    $changes = @($probe | Where-Object {
+            $line = [string]$_
+            $line -match '\.\.|->\s+origin/'
+        })
+    if ($changes.Count -gt 0) {
+        Write-Warn "A newer commit is available on origin/$($script:GitMainBranch)."
+        foreach ($line in $changes) { Write-Info ([string]$line) }
+    } else {
+        Write-Ok "NeuroWeave is up to date with origin/$($script:GitMainBranch)."
+    }
+    Write-Info 'Check completed without downloading or applying changes.'
+}
+
+function Invoke-UpdateApplication {
+    Assert-ApplicationStopped
+    Assert-GitWorktreeClean
+    $git = Get-GitCommand
+    $branch = Get-GitText -Arguments @('branch', '--show-current')
+    if ($branch -and $branch -ne $script:GitMainBranch) {
+        Write-Warn "Current branch is '$branch'; pulling origin/$($script:GitMainBranch) into this checkout."
+    }
+    Write-Step "Updating the application from origin/$($script:GitMainBranch)."
+    & $git -C $script:RepoRoot pull $script:GitRemote $script:GitMainBranch
+    if ($LASTEXITCODE -ne 0) {
+        throw "Application update failed while pulling origin/$($script:GitMainBranch)."
+    }
+    Write-Ok "Application update from origin/$($script:GitMainBranch) completed."
+}
+
+# ===============================================================================
+# Maintenance and user data actions
+# ===============================================================================
+function Test-PathWithin {
+    param(
+        [Parameter(Mandatory = $true)][string]$Child,
+        [Parameter(Mandatory = $true)][string]$Parent
+    )
+
+    $childPath = [IO.Path]::GetFullPath($Child)
+    $parentPath = [IO.Path]::GetFullPath($Parent)
+    if ($childPath -ieq $parentPath) { return $true }
+    $parentPrefix = if ($parentPath.EndsWith('\')) { $parentPath } else { "$parentPath\" }
+    return $childPath.StartsWith($parentPrefix, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Resolve-ConfiguredPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$Default
+    )
+
+    $raw = [string](Get-ConfiguredEnvironmentValue -Name $Name -Default $Default)
+    if ([string]::IsNullOrWhiteSpace($raw) -or $raw -ieq ':memory:') { return $null }
+    try {
+        if ([IO.Path]::IsPathRooted($raw)) {
+            return [IO.Path]::GetFullPath($raw)
+        }
+        return [IO.Path]::GetFullPath((Join-Path $script:RepoRoot $raw))
+    } catch {
+        throw "$Name contains an invalid path: '$raw'."
+    }
+}
+
+function Get-UserDataTargets {
+    $targets = [System.Collections.Generic.List[string]]::new()
+    $databasePaths = [System.Collections.Generic.List[string]]::new()
+    $configuredDatabase = Resolve-ConfiguredPath -Name 'DATABASE_SQLITE_PATH' -Default 'app/resources/database.db'
+
+    foreach ($candidate in @($script:DefaultDatabasePath, $configuredDatabase)) {
+        if ($null -eq $candidate) { continue }
+        $fullPath = [IO.Path]::GetFullPath($candidate)
+        if ($databasePaths -notcontains $fullPath) { $databasePaths.Add($fullPath) }
+    }
+    if (Test-Path -LiteralPath $script:ResourceDir -PathType Container) {
+        foreach ($database in @(Get-ChildItem -LiteralPath $script:ResourceDir -Filter 'database*.db' -File -Force -ErrorAction SilentlyContinue)) {
+            $fullPath = [IO.Path]::GetFullPath($database.FullName)
+            if ($databasePaths -notcontains $fullPath) { $databasePaths.Add($fullPath) }
+        }
+    }
+
+    $targets.Add($script:UserDataRuntimeDir)
+    foreach ($databasePath in $databasePaths) {
+        foreach ($suffix in @('', '-wal', '-shm', '-journal')) {
+            $targets.Add("$databasePath$suffix")
+        }
+    }
+
+    foreach ($configuredPath in @(
+            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_EXPORT_ROOT' -Default 'app/resources/runtime/exports'),
+            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_LOG_FILE' -Default 'app/resources/runtime/logs/backend.log'),
+            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_ML_JOB_ROOT' -Default 'app/resources/runtime/ml-jobs')
+        )) {
+        if ($null -ne $configuredPath -and -not (Test-PathWithin -Child $configuredPath -Parent $script:UserDataRuntimeDir)) {
+            $targets.Add($configuredPath)
+        }
+    }
+    return @($targets | Select-Object -Unique)
+}
+
+function Get-TrackedFilesUnderPath {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not (Test-PathWithin -Child $Path -Parent $script:RepoRoot)) { return @() }
+    $relative = [IO.Path]::GetRelativePath($script:RepoRoot, [IO.Path]::GetFullPath($Path)).Replace('\', '/')
+    if ([string]::IsNullOrWhiteSpace($relative) -or $relative -eq '.') {
+        throw 'The repository root is not a removable user-data target.'
+    }
+    $git = Get-GitCommand
+    $tracked = @(& $git ls-files -- $relative "$relative/**" 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        $message = @($tracked | ForEach-Object { [string]$_ }) -join ' '
+        throw "Unable to verify whether '$Path' contains application files: $message"
+    }
+    return @($tracked | ForEach-Object { [string]$_ } | Where-Object { $_ })
+}
+
+function Assert-UserDataTarget {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $fullPath = [IO.Path]::GetFullPath($Path)
+    $protectedRoots = @(
+        $script:RepoRoot,
+        $script:AppDir,
+        $script:ResourceDir,
+        $script:ServerDir,
+        $script:ClientDir,
+        $script:SettingsDir,
+        $script:RuntimeDir,
+        $script:CacheDir,
+        (Join-Path $script:RepoRoot '.git')
+    ) | ForEach-Object { [IO.Path]::GetFullPath($_) }
+    if ([IO.Path]::GetPathRoot($fullPath) -ieq $fullPath -or $protectedRoots -contains $fullPath) {
+        throw "Refusing to remove protected application path '$fullPath'."
+    }
+
+    $trackedFiles = @(Get-TrackedFilesUnderPath -Path $fullPath)
+    if ($trackedFiles.Count -gt 0) {
+        throw "Refusing to remove '$fullPath' because it contains tracked application files: $($trackedFiles -join ', ')"
+    }
+}
+
 function Invoke-RemoveApplicationLogs {
     if (-not (Test-Path -LiteralPath $script:LogDir)) {
         Write-Info "Log directory does not exist: $($script:LogDir)"
@@ -1140,6 +1376,30 @@ function Invoke-RemoveApplicationLogs {
         $skippedCount += $result.Skipped
     }
     Write-Status -Level SUCCESS -Message "Removed $removedCount application log file(s); skipped $skippedCount locked or inaccessible file(s)."
+}
+
+function Invoke-RemoveAllData {
+    Assert-ApplicationStopped
+    $targets = @(Get-UserDataTargets)
+    foreach ($target in $targets) { Assert-UserDataTarget -Path $target }
+
+    if (-not (Confirm-LauncherAction -Prompt 'This removes all user-generated data. Type DELETE ALL DATA to continue' -Confirmation 'DELETE ALL DATA')) {
+        Write-Warn 'Remove all data cancelled. Application files, settings, runtimes, dependencies, caches, and build output were preserved.'
+        return
+    }
+
+    Write-Status -Level STEP -Message 'Removing user-generated application data.'
+    $removedCount = 0
+    $skippedCount = 0
+    foreach ($target in $targets) {
+        if (-not (Test-Path -LiteralPath $target -ErrorAction SilentlyContinue)) { continue }
+        Write-Info "Removing $target"
+        $result = Remove-PathBestEffort -Path $target
+        $removedCount += $result.Removed
+        $skippedCount += $result.Skipped
+    }
+    New-Item -ItemType Directory -Path $script:UserDataRuntimeDir -Force | Out-Null
+    Write-Status -Level SUCCESS -Message "User-generated data removed ($removedCount item$(if ($removedCount -eq 1) { '' } else { 's' }) removed; $skippedCount locked or inaccessible item$(if ($skippedCount -eq 1) { '' } else { 's' }) skipped). Application files and settings were preserved."
 }
 
 function Remove-PythonCaches {
@@ -1288,18 +1548,31 @@ function Invoke-UninstallApplication {
     Write-Status -Level SUCCESS -Message "Application dependencies removed ($removedCount item$(if ($removedCount -eq 1) { '' } else { 's' }) removed; $skippedCount locked or inaccessible item$(if ($skippedCount -eq 1) { '' } else { 's' }) skipped). Settings, lockfiles, database files, and exports were preserved."
 }
 
+# ===============================================================================
+# Non-interactive action dispatch
+# ===============================================================================
 if ($Action -ne 'Menu') {
     try {
         switch ($Action) {
+            # Setup and validation
             'Install' { Invoke-Install }
             'RebuildFrontend' { Invoke-FrontendRebuild }
             'ManageBackends' { Invoke-BackendManagement }
-            'Launch' { Invoke-Launch }
             'InitDb' { Invoke-DatabaseInitialization }
             'Test' { Invoke-TestSuite }
+
+            # Application
+            'Launch' { Invoke-Launch }
+
+            # Maintenance and data
             'CleanLogs' { Invoke-RemoveApplicationLogs }
             'ClearCache' { Invoke-ClearApplicationCache }
+            'RemoveAllData' { Invoke-RemoveAllData }
             'Uninstall' { Invoke-UninstallApplication }
+
+            # Updates
+            'CheckForUpdates' { Invoke-CheckForUpdates }
+            'Update' { Invoke-UpdateApplication }
         }
     } catch {
         Write-Fatal $_.Exception.Message
@@ -1361,39 +1634,54 @@ function Show-LauncherMenu {
     Write-MenuOption -Number '5' -Label 'Initialize or upgrade database' -Description 'Create or migrate the schema to the Alembic head'
     Write-MenuOption -Number '6' -Label 'Run validation suite' -Description 'Run backend and frontend quality gates'
     Write-Host
-    Write-Host '  MAINTENANCE' -ForegroundColor DarkCyan
+    Write-Host '  MAINTENANCE & DATA' -ForegroundColor DarkCyan
     Write-MenuOption -Number '7' -Label 'Remove logs' -Description 'Clear generated application logs'
     Write-MenuOption -Number '8' -Label 'Clear cache' -Description 'Remove runtime and test/tool caches'
-    Write-MenuOption -Number '9' -Label 'Uninstall application' -Description 'Remove dependencies and build output' -Destructive
+    Write-MenuOption -Number '9' -Label 'Remove all data' -Description 'Delete user-generated data; preserve application files' -Destructive
+    Write-MenuOption -Number '10' -Label 'Uninstall application' -Description 'Remove dependencies and build output' -Destructive
+    Write-Host
+    Write-Host '  UPDATES' -ForegroundColor DarkCyan
+    Write-MenuOption -Number '11' -Label 'Check for updates' -Description 'Report main-branch status without changing files'
+    Write-MenuOption -Number '12' -Label 'Update application' -Description 'Pull the latest changes from the main branch'
     Write-Host
     Write-MenuRule
-    Write-MenuOption -Number '10' -Label 'Exit' -Description 'Close this launcher' -Exit
+    Write-MenuOption -Number '13' -Label 'Exit' -Description 'Close this launcher' -Exit
     Write-MenuRule
     Write-Host
 }
 
 while ($true) {
     Show-LauncherMenu
-    $rawSelection = Read-Host '  Select an option (1-10)'
+    $rawSelection = Read-Host '  Select an option (1-13)'
     if ($null -eq $rawSelection) { break }
     $selection = ([string]$rawSelection).Trim()
-    if ($selection -notmatch '^(10|[1-9])$') {
-        Write-Warn 'Invalid option. Enter a number from 1 to 10.'
+    if ($selection -notmatch '^(13|1[0-2]|[1-9])$') {
+        Write-Warn 'Invalid option. Enter a number from 1 to 13.'
         Wait-ForMenuReturn
         continue
     }
-    if ($selection -eq '10') { break }
+    if ($selection -eq '13') { break }
     try {
         switch ($selection) {
+            # Application
             '1' { Invoke-Launch; exit 0 }
+
+            # Setup and validation
             '2' { Invoke-Install -PromptForInstallationType }
             '3' { Invoke-FrontendRebuild }
             '4' { Invoke-BackendManagement }
             '5' { Invoke-DatabaseInitialization }
             '6' { Invoke-TestSuite }
+
+            # Maintenance and data
             '7' { Invoke-RemoveApplicationLogs }
             '8' { Invoke-ClearApplicationCache }
-            '9' { Invoke-UninstallApplication }
+            '9' { Invoke-RemoveAllData }
+            '10' { Invoke-UninstallApplication }
+
+            # Updates
+            '11' { Invoke-CheckForUpdates }
+            '12' { Invoke-UpdateApplication }
         }
     } catch {
         Write-Fatal $_.Exception.Message
