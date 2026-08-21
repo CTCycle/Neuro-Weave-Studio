@@ -77,7 +77,7 @@ class ValidationService:
                     )
                 )
                 continue
-            mapping = manifest.frameworks.get(implementation_key)
+            mapping = manifest.implementations.get(implementation_key)
             if mapping is None or not mapping.supported:
                 diagnostics.append(
                     ValidationDiagnostic(

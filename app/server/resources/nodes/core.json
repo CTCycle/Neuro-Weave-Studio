@@ -68,9 +68,14 @@
         "kind": "dense",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -108,6 +113,10 @@
               "notes": "Constraints are not part of generated inference modules."
             }
           }
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -167,9 +176,14 @@
         "kind": "identity",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -177,6 +191,10 @@
         },
         "pytorch": {
           "supported": true
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -232,9 +250,14 @@
         "kind": "dropout",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -248,6 +271,10 @@
               "notes": "Per-layer deterministic seeds are not mapped by native PyTorch export."
             }
           }
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -309,9 +336,14 @@
         "kind": "normalization",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -322,19 +354,28 @@
           "notes": "Exported with rank-aware PyTorch BatchNorm modules.",
           "parameters": {
             "axis": {
-              "allowed_values": [-1, 1],
+              "allowed_values": [
+                -1,
+                1
+              ],
               "notes": "Native PyTorch BatchNorm accepts channel axis 1 or the trailing axis."
             },
             "center": {
-              "allowed_values": [true],
+              "allowed_values": [
+                true
+              ],
               "notes": "Generated BatchNorm uses affine scale and center together."
             },
             "scale": {
-              "allowed_values": [true],
+              "allowed_values": [
+                true
+              ],
               "notes": "Generated BatchNorm uses affine scale and center together."
             },
             "synchronized": {
-              "allowed_values": [false],
+              "allowed_values": [
+                false
+              ],
               "notes": "Synchronized statistics are not mapped by native PyTorch export."
             },
             "beta_initializer": {
@@ -370,6 +411,10 @@
               "notes": "Constraints are not part of generated inference modules."
             }
           }
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -422,9 +467,14 @@
         "kind": "normalization",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -435,15 +485,23 @@
           "notes": "Exported with PyTorch LayerNorm for trailing normalized axes.",
           "parameters": {
             "axis": {
-              "allowed_values": [[-1]],
+              "allowed_values": [
+                [
+                  -1
+                ]
+              ],
               "notes": "Native PyTorch LayerNorm normalizes the trailing feature axis."
             },
             "center": {
-              "allowed_values": [true],
+              "allowed_values": [
+                true
+              ],
               "notes": "Generated LayerNorm uses affine scale and center together."
             },
             "scale": {
-              "allowed_values": [true],
+              "allowed_values": [
+                true
+              ],
               "notes": "Generated LayerNorm uses affine scale and center together."
             },
             "beta_initializer": {
@@ -471,6 +529,10 @@
               "notes": "Constraints are not part of generated inference modules."
             }
           }
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -534,10 +596,15 @@
         "kind": "normalization",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
           "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "execution_backends": {
+            "tensorflow": false,
+            "pytorch": false,
+            "jax": false
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -546,6 +613,10 @@
         "pytorch": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -588,9 +659,14 @@
         "kind": "flatten",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -598,6 +674,10 @@
         },
         "pytorch": {
           "supported": true
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -652,10 +732,15 @@
         "kind": "reshape",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
           "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "execution_backends": {
+            "tensorflow": false,
+            "pytorch": false,
+            "jax": false
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -664,6 +749,10 @@
         "pytorch": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -719,10 +808,15 @@
         "kind": "transpose",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
           "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "execution_backends": {
+            "tensorflow": false,
+            "pytorch": false,
+            "jax": false
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -731,6 +825,10 @@
         "pytorch": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -794,10 +892,15 @@
         "kind": "identity",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
           "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "execution_backends": {
+            "tensorflow": false,
+            "pytorch": false,
+            "jax": false
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -806,6 +909,10 @@
         "pytorch": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -871,9 +978,14 @@
         "kind": "embedding",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -899,7 +1011,9 @@
               "notes": "Constraints are not part of generated inference modules."
             },
             "mask_zero": {
-              "allowed_values": [false],
+              "allowed_values": [
+                false
+              ],
               "notes": "Mask propagation is not represented in the native PyTorch graph."
             },
             "lora_rank": {
@@ -907,6 +1021,10 @@
               "notes": "LoRA parameters are not part of generated inference modules."
             }
           }
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {

@@ -51,9 +51,14 @@
         "kind": "input",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -61,6 +66,10 @@
         },
         "pytorch": {
           "supported": true
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -125,9 +134,14 @@
         "kind": "input",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -135,6 +149,10 @@
         },
         "pytorch": {
           "supported": true
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -198,9 +216,14 @@
         "kind": "input",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -208,6 +231,10 @@
         },
         "pytorch": {
           "supported": true
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -270,9 +297,14 @@
         "kind": "input",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -280,6 +312,10 @@
         },
         "pytorch": {
           "supported": true
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -342,9 +378,14 @@
         "kind": "input",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -352,6 +393,10 @@
         },
         "pytorch": {
           "supported": true
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -414,9 +459,14 @@
         "kind": "input",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -424,6 +474,10 @@
         },
         "pytorch": {
           "supported": true
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -469,7 +523,7 @@
           "id": "value",
           "display_name": "Value",
           "type": "number",
-          "default": 0.0,
+          "default": 0,
           "required": false,
           "options": [],
           "constraints": {}
@@ -479,10 +533,15 @@
         "kind": "input",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
           "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "execution_backends": {
+            "tensorflow": false,
+            "pytorch": false,
+            "jax": false
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -491,6 +550,10 @@
         "pytorch": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -549,10 +612,15 @@
         "kind": "input",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
           "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "execution_backends": {
+            "tensorflow": false,
+            "pytorch": false,
+            "jax": false
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -561,6 +629,10 @@
         "pytorch": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
