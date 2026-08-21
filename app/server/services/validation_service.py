@@ -78,12 +78,24 @@ class ValidationService:
                 )
                 continue
             mapping = manifest.implementations.get(implementation_key)
-            if mapping is None or not mapping.supported:
+            backend_excluded = (
+                keras_enabled
+                and mapping is not None
+                and bool(mapping.execution_backends)
+                and mapping.execution_backends.get(execution_backend, True) is False
+            )
+            if mapping is None or not mapping.supported or backend_excluded:
+                message = (
+                    f"{manifest.display_name} does not support Keras on the "
+                    f"{execution_backend.value} backend"
+                    if backend_excluded
+                    else f"{manifest.display_name} has no explicit {implementation_label} adapter"
+                )
                 diagnostics.append(
                     ValidationDiagnostic(
                         code="unsupported_implementation",
                         severity=DiagnosticSeverity.COMPATIBILITY,
-                        message=f"{manifest.display_name} has no explicit {implementation_label} adapter",
+                        message=message,
                         node_id=node.id,
                         execution_backend=execution_backend,
                         keras_enabled=keras_enabled,

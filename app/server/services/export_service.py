@@ -3,7 +3,6 @@ from __future__ import annotations
 from uuid import UUID
 
 from common.timestamps import utc_now
-from configurations.settings import Settings
 from domain.compilation import CompilationResult
 from domain.exports import SourceExportResponse
 from repositories.contracts import UnitOfWorkFactory
@@ -14,7 +13,6 @@ from services.errors import (
     RevisionConflictError,
 )
 from services.project_service import ProjectService
-from services.validation_service import ValidationService
 
 ###############################################################################
 class ExportService:
@@ -25,15 +23,11 @@ class ExportService:
         *,
         project_service: ProjectService,
         compilation_service: CompilationService,
-        validator: ValidationService,
         uow_factory: UnitOfWorkFactory,
-        settings: Settings,
     ) -> None:
         self._projects = project_service
         self._compilation = compilation_service
-        self._validator = validator
         self._uow_factory = uow_factory
-        self._settings = settings
 
     # -------------------------------------------------------------------------
     def source(self, project_id: UUID) -> SourceExportResponse:
