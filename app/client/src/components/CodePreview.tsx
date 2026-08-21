@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Clipboard, Check, X } from 'lucide-react'
+import { Clipboard, Check, Download, X } from 'lucide-react'
 
-export function CodePreview({ code, onClose, embedded = false }: { code: string; onClose?: () => void; embedded?: boolean }) {
+export function CodePreview({ code, onClose, embedded = false, downloadFilename = 'model.py' }: { code: string; onClose?: () => void; embedded?: boolean; downloadFilename?: string }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   useEffect(() => {
@@ -32,7 +32,18 @@ export function CodePreview({ code, onClose, embedded = false }: { code: string;
     }
   }
 
-  const copyControl = <div className="code-copy-control"><button className="icon-button" title={copyState === 'copied' ? 'Copied' : 'Copy code'} aria-label={copyState === 'copied' ? 'Copied' : 'Copy code'} onClick={copyCode}>{copyState === 'copied' ? <Check size={18} /> : <Clipboard size={18} />}</button>{copyState === 'copied' && <span className="copy-status" role="status">Copied</span>}{copyState === 'failed' && <span className="copy-status copy-status-error" role="status">Copy unavailable</span>}</div>
+  const downloadCode = () => {
+    const url = URL.createObjectURL(new Blob([code], { type: 'text/x-python' }))
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = downloadFilename
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const copyControl = <div className="code-copy-control"><button className="icon-button" title={copyState === 'copied' ? 'Copied' : 'Copy code'} aria-label={copyState === 'copied' ? 'Copied' : 'Copy code'} onClick={copyCode}>{copyState === 'copied' ? <Check size={18} /> : <Clipboard size={18} />}</button><button className="icon-button" title={`Download ${downloadFilename}`} aria-label={`Download ${downloadFilename}`} onClick={downloadCode}><Download size={18} /></button>{copyState === 'copied' && <span className="copy-status" role="status">Copied</span>}{copyState === 'failed' && <span className="copy-status copy-status-error" role="status">Copy unavailable</span>}</div>
 
   if (embedded) return <section className="generated-code-panel panel"><div className="drawer-heading"><div><span className="eyebrow">FRAMEWORK ADAPTER</span><h2>Generated source</h2></div>{copyControl}</div><pre><code>{code}</code></pre></section>
   return (
