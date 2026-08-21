@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from domain.compilation import CanonicalModelIR
+from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
@@ -62,8 +63,16 @@ class KerasSourceExporter(SourceExporter):
     # -------------------------------------------------------------------------
     def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
         nodes = {node.id: node for node in graph.nodes}
+        backend = (
+            "torch"
+            if ir.execution_backend is ExecutionBackend.PYTORCH
+            else ir.execution_backend.value
+        )
         lines = [
             "from __future__ import annotations",
+            "",
+            "import os",
+            f"os.environ['KERAS_BACKEND'] = {backend!r}",
             "",
             "import keras",
             "from keras import layers",

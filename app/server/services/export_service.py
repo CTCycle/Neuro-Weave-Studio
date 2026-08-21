@@ -5,7 +5,6 @@ from uuid import UUID
 from common.timestamps import utc_now
 from configurations.settings import Settings
 from domain.compilation import CompilationResult
-from domain.enums import CodeTarget
 from domain.exports import SourceExportResponse
 from repositories.contracts import UnitOfWorkFactory
 from services.compilation_service import CompilationService
@@ -37,11 +36,13 @@ class ExportService:
         self._settings = settings
 
     # -------------------------------------------------------------------------
-    def source(self, project_id: UUID, code_target: CodeTarget) -> SourceExportResponse:
+    def source(self, project_id: UUID) -> SourceExportResponse:
         project = self._projects.get(project_id)
         if project is None:
             raise ProjectNotFoundError(project_id)
-        result: CompilationResult = self._compilation.compile(project.graph, code_target)
+        result: CompilationResult = self._compilation.compile(
+            project.graph, project.execution_backend, project.keras_enabled
+        )
         if not result.valid or result.code is None:
             raise CompilationRejectedError(result.diagnostics)
 
@@ -56,9 +57,14 @@ class ExportService:
             uow.code_snapshots.upsert(
                 project_id,
                 revision=current.current_revision,
-                code_target=code_target,
+                execution_backend=current.execution_backend,
+                keras_enabled=current.keras_enabled,
                 source_code=result.code,
                 timestamp=utc_now(),
             )
             uow.commit()
-        return SourceExportResponse(code_target=code_target, code=result.code)
+        return SourceExportResponse(
+            execution_backend=project.execution_backend,
+            keras_enabled=project.keras_enabled,
+            code=result.code,
+        )

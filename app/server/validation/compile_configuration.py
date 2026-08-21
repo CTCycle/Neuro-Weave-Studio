@@ -4,7 +4,7 @@ import math
 from typing import Any
 
 from domain.diagnostics import ValidationDiagnostic
-from domain.enums import CodeTarget, DiagnosticSeverity
+from domain.enums import DiagnosticSeverity
 from domain.graph import ModelGraph
 
 SUPPORTED_OPTIMIZERS = frozenset({"adam", "adamw", "sgd", "rmsprop"})
@@ -55,7 +55,7 @@ def _output_selectors(graph: ModelGraph) -> set[str]:
 ###############################################################################
 def validate_model_configuration(
     graph: ModelGraph,
-    code_target: CodeTarget,
+    keras_enabled: bool,
 ) -> list[ValidationDiagnostic]:
     """Validate the compile settings used by the Keras runtime.
 
@@ -64,7 +64,7 @@ def validate_model_configuration(
     configuration in the current product boundary.
     """
 
-    if code_target is not CodeTarget.KERAS:
+    if not keras_enabled:
         return []
 
     configuration = graph.model_configuration

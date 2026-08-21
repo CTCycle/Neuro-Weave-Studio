@@ -5,7 +5,7 @@ from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog
 from domain.diagnostics import ValidationDiagnostic, ValidationResult
-from domain.enums import CodeTarget, DiagnosticSeverity
+from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph, NodeInstance
 from domain.manifests import NodeManifest, ParameterDefinition
 from validation.compile_configuration import validate_model_configuration
@@ -50,11 +50,18 @@ class ValidationService:
         self._catalog = catalog
 
     # -------------------------------------------------------------------------
-    def validate(self, graph: ModelGraph, code_target: CodeTarget) -> ValidationResult:
+    def validate(
+        self,
+        graph: ModelGraph,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
+    ) -> ValidationResult:
         diagnostics: list[ValidationDiagnostic] = []
         nodes = {node.id: node for node in graph.nodes}
         manifests: dict[str, NodeManifest] = {}
-        diagnostics.extend(validate_model_configuration(graph, code_target))
+        diagnostics.extend(validate_model_configuration(graph, keras_enabled))
+        implementation_key = "keras" if keras_enabled else execution_backend.value
+        implementation_label = "Keras" if keras_enabled else f"native {execution_backend.value}"
 
         for node in graph.nodes:
             try:
@@ -70,15 +77,16 @@ class ValidationService:
                     )
                 )
                 continue
-            mapping = manifest.frameworks.get(code_target)
+            mapping = manifest.frameworks.get(implementation_key)
             if mapping is None or not mapping.supported:
                 diagnostics.append(
                     ValidationDiagnostic(
-                        code="unsupported_code_target_feature",
+                        code="unsupported_implementation",
                         severity=DiagnosticSeverity.COMPATIBILITY,
-                        message=f"{manifest.display_name} has no explicit {code_target.value} adapter",
+                        message=f"{manifest.display_name} has no explicit {implementation_label} adapter",
                         node_id=node.id,
-                        code_target=code_target,
+                        execution_backend=execution_backend,
+                        keras_enabled=keras_enabled,
                     )
                 )
             known_parameter_ids = {parameter.id for parameter in manifest.parameters}
@@ -91,7 +99,8 @@ class ValidationService:
                         message=f"Parameter '{parameter_id}' is not declared by the node manifest",
                         node_id=node.id,
                         parameter_id=parameter_id,
-                        code_target=code_target,
+                        execution_backend=execution_backend,
+                        keras_enabled=keras_enabled,
                     )
                 )
             for parameter in manifest.parameters:
@@ -106,7 +115,8 @@ class ValidationService:
                             message=f"Parameter '{parameter.display_name}' is required",
                             node_id=node.id,
                             parameter_id=parameter.id,
-                            code_target=code_target,
+                            execution_backend=execution_backend,
+                            keras_enabled=keras_enabled,
                         )
                     )
                     continue
@@ -120,7 +130,8 @@ class ValidationService:
                             message=f"Parameter '{parameter.display_name}' cannot be null",
                             node_id=node.id,
                             parameter_id=parameter.id,
-                            code_target=code_target,
+                            execution_backend=execution_backend,
+                            keras_enabled=keras_enabled,
                         )
                     )
                     continue
@@ -135,7 +146,8 @@ class ValidationService:
                             ),
                             node_id=node.id,
                             parameter_id=parameter.id,
-                            code_target=code_target,
+                            execution_backend=execution_backend,
+                            keras_enabled=keras_enabled,
                         )
                     )
                     continue
@@ -144,10 +156,11 @@ class ValidationService:
                         ValidationDiagnostic(
                             code="unsupported_parameter_value",
                             severity=DiagnosticSeverity.ERROR,
-                            message=f"Parameter '{parameter.display_name}' is not supported for {code_target.value}",
+                            message=f"Parameter '{parameter.display_name}' is not supported for {implementation_label}",
                             node_id=node.id,
                             parameter_id=parameter.id,
-                            code_target=code_target,
+                            execution_backend=execution_backend,
+                            keras_enabled=keras_enabled,
                             details={"value": value, "notes": capability.notes},
                         )
                     )
@@ -160,10 +173,11 @@ class ValidationService:
                         ValidationDiagnostic(
                             code="unsupported_parameter_option",
                             severity=DiagnosticSeverity.ERROR,
-                            message=f"{parameter.display_name} has no supported {code_target.value} mapping for this value",
+                            message=f"{parameter.display_name} has no supported {implementation_label} mapping for this value",
                             node_id=node.id,
                             parameter_id=parameter.id,
-                            code_target=code_target,
+                            execution_backend=execution_backend,
+                            keras_enabled=keras_enabled,
                             details={"allowed": capability.allowed_values, "value": value},
                         )
                     )
@@ -175,7 +189,8 @@ class ValidationService:
                             message=f"{parameter.display_name} has an unsupported value",
                             node_id=node.id,
                             parameter_id=parameter.id,
-                            code_target=code_target,
+                            execution_backend=execution_backend,
+                            keras_enabled=keras_enabled,
                             details={"allowed": parameter.options, "value": value},
                         )
                     )
@@ -194,7 +209,8 @@ class ValidationService:
                                 message="Shape dimensions cannot be zero",
                                 node_id=node.id,
                                 parameter_id=parameter.id,
-                                code_target=code_target,
+                                execution_backend=execution_backend,
+                                keras_enabled=keras_enabled,
                             )
                         )
                 if parameter.type == "expression" and isinstance(value, str):
@@ -208,7 +224,8 @@ class ValidationService:
                                 message=str(exc),
                                 node_id=node.id,
                                 parameter_id=parameter.id,
-                                code_target=code_target,
+                                execution_backend=execution_backend,
+                                keras_enabled=keras_enabled,
                             )
                         )
                 constraints = parameter.constraints
@@ -229,7 +246,8 @@ class ValidationService:
                             message=f"{parameter.display_name} must be at least {minimum}",
                             node_id=node.id,
                             parameter_id=parameter.id,
-                            code_target=code_target,
+                            execution_backend=execution_backend,
+                            keras_enabled=keras_enabled,
                         )
                     )
                 if (
@@ -245,7 +263,8 @@ class ValidationService:
                             message=f"{parameter.display_name} must be at most {maximum}",
                             node_id=node.id,
                             parameter_id=parameter.id,
-                            code_target=code_target,
+                            execution_backend=execution_backend,
+                            keras_enabled=keras_enabled,
                         )
                     )
                 if isinstance(value, list):
@@ -261,7 +280,8 @@ class ValidationService:
                                 message=f"{parameter.display_name} must contain exactly {expected_length} values",
                                 node_id=node.id,
                                 parameter_id=parameter.id,
-                                code_target=code_target,
+                                execution_backend=execution_backend,
+                                keras_enabled=keras_enabled,
                             )
                         )
                     if isinstance(minimum_length, int) and len(items) < minimum_length:
@@ -272,7 +292,8 @@ class ValidationService:
                                 message=f"{parameter.display_name} must contain at least {minimum_length} values",
                                 node_id=node.id,
                                 parameter_id=parameter.id,
-                                code_target=code_target,
+                                execution_backend=execution_backend,
+                                keras_enabled=keras_enabled,
                             )
                         )
                     if isinstance(maximum_length, int) and len(items) > maximum_length:
@@ -283,7 +304,8 @@ class ValidationService:
                                 message=f"{parameter.display_name} must contain at most {maximum_length} values",
                                 node_id=node.id,
                                 parameter_id=parameter.id,
-                                code_target=code_target,
+                                execution_backend=execution_backend,
+                                keras_enabled=keras_enabled,
                             )
                         )
                     item_minimum = constraints.get("item_min")
@@ -298,7 +320,8 @@ class ValidationService:
                                         message=f"Values in {parameter.display_name} must be at least {item_minimum}",
                                         node_id=node.id,
                                         parameter_id=parameter.id,
-                                        code_target=code_target,
+                                        execution_backend=execution_backend,
+                                        keras_enabled=keras_enabled,
                                     )
                                 )
                                 break
@@ -310,7 +333,8 @@ class ValidationService:
                                         message=f"Values in {parameter.display_name} must be at most {item_maximum}",
                                         node_id=node.id,
                                         parameter_id=parameter.id,
-                                        code_target=code_target,
+                                        execution_backend=execution_backend,
+                                        keras_enabled=keras_enabled,
                                     )
                                 )
                                 break

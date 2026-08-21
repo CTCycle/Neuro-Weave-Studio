@@ -3,7 +3,7 @@ from __future__ import annotations
 from common.catalogs.loader import NodeCatalog
 from compilation.compiler import compile_to_ir
 from domain.compilation import CompilationResult
-from domain.enums import CodeTarget
+from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from exporters.jax_exporter import JaxSourceExporter
 from exporters.keras_exporter import KerasSourceExporter
@@ -19,31 +19,41 @@ class CompilationService:
         self._catalog = catalog
         self._validator = validator
         self._exporters = {
-            CodeTarget.KERAS: KerasSourceExporter(),
-            CodeTarget.TENSORFLOW: TensorFlowSourceExporter(),
-            CodeTarget.PYTORCH: PyTorchSourceExporter(),
-            CodeTarget.JAX: JaxSourceExporter(),
+            (True, ExecutionBackend.TENSORFLOW): KerasSourceExporter(),
+            (True, ExecutionBackend.PYTORCH): KerasSourceExporter(),
+            (True, ExecutionBackend.JAX): KerasSourceExporter(),
+            (False, ExecutionBackend.TENSORFLOW): TensorFlowSourceExporter(),
+            (False, ExecutionBackend.PYTORCH): PyTorchSourceExporter(),
+            (False, ExecutionBackend.JAX): JaxSourceExporter(),
         }
 
     # -------------------------------------------------------------------------
-    def compile(self, graph: ModelGraph, code_target: CodeTarget) -> CompilationResult:
-        validation = self._validator.validate(graph, code_target)
+    def compile(
+        self,
+        graph: ModelGraph,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
+    ) -> CompilationResult:
+        validation = self._validator.validate(graph, execution_backend, keras_enabled)
         if not validation.valid:
             return CompilationResult(
                 valid=False,
-                code_target=code_target,
+                execution_backend=execution_backend,
+                keras_enabled=keras_enabled,
                 diagnostics=validation.diagnostics,
             )
         ir = compile_to_ir(
             graph,
-            code_target,
+            execution_backend,
+            keras_enabled,
             self._catalog,
             shape_summaries=validation.shape_summaries,
         )
-        code = self._exporters[code_target].generate(graph, ir)
+        code = self._exporters[(keras_enabled, execution_backend)].generate(graph, ir)
         return CompilationResult(
             valid=True,
-            code_target=code_target,
+            execution_backend=execution_backend,
+            keras_enabled=keras_enabled,
             diagnostics=validation.diagnostics,
             code=code,
             ir=ir,

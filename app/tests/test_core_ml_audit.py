@@ -12,7 +12,7 @@ import pytest
 
 from common.catalogs.loader import get_node_catalog
 from configurations.settings import get_settings
-from domain.enums import CodeTarget, ExecutionBackend, keras_backend_value
+from domain.enums import ExecutionBackend, keras_backend_value
 from domain.graph import EdgeInstance, ModelConfiguration, ModelGraph, NodeInstance, Position
 from domain.jobs import KerasExportOperation, JobResponse, JobSubmitRequest, SmokeInferenceOperation
 from domain.runtime import WorkerConfiguration
@@ -53,7 +53,7 @@ def edge(
 
 ###############################################################################
 def validate(graph: ModelGraph):
-    return ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    return ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
 
 ###############################################################################
 def _runtime_controller() -> RuntimeController:
@@ -357,7 +357,7 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
 
     source = KerasSourceExporter().generate(
         graph,
-        compile_to_ir(graph, CodeTarget.KERAS, get_node_catalog()),
+        compile_to_ir(graph, ExecutionBackend.PYTORCH, True, get_node_catalog()),
     )
     source_path = tmp_path / "generated_model.py"
     source_path.write_text(source, encoding="utf-8")
@@ -460,7 +460,7 @@ def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -
 
     source = KerasSourceExporter().generate(
         graph,
-        compile_to_ir(graph, CodeTarget.KERAS, get_node_catalog()),
+        compile_to_ir(graph, ExecutionBackend.PYTORCH, True, get_node_catalog()),
     )
     source_path = tmp_path / "generated_transformer.py"
     source_path.write_text(source, encoding="utf-8")

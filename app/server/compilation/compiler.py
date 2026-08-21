@@ -5,7 +5,7 @@ import re
 
 from common.catalogs.loader import NodeCatalog
 from domain.compilation import CanonicalModelIR, CompiledNode
-from domain.enums import CodeTarget
+from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph, ShapeSummary
 from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.shape_inference import infer_shapes
@@ -20,7 +20,8 @@ def _variable_name(node_id: str) -> str:
 ###############################################################################
 def compile_to_ir(
     graph: ModelGraph,
-    code_target: CodeTarget,
+    execution_backend: ExecutionBackend,
+    keras_enabled: bool,
     catalog: NodeCatalog,
     shape_summaries: list[ShapeSummary] | None = None,
 ) -> CanonicalModelIR:
@@ -51,7 +52,8 @@ def compile_to_ir(
             )
         )
     return CanonicalModelIR(
-        code_target=code_target,
+        execution_backend=execution_backend,
+        keras_enabled=keras_enabled,
         ordered_nodes=ordered_nodes,
         input_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("input.")],
         output_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("output.")],

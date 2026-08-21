@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from domain.enums import CodeTarget
+from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from repositories.models import ProjectRevisionRecord
 
@@ -24,7 +24,8 @@ class RevisionRepository:
         *,
         revision: int,
         graph: ModelGraph,
-        code_target: CodeTarget,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
         timestamp: datetime,
     ) -> None:
         self._session.add(
@@ -32,7 +33,8 @@ class RevisionRepository:
                 project_id=str(project_id),
                 revision=revision,
                 graph_schema_version=graph.schema_version,
-                code_target=code_target.value,
+                execution_backend=execution_backend.value,
+                keras_enabled=keras_enabled,
                 created_at=timestamp,
                 graph_snapshot_json=graph.model_dump(mode="json"),
             )

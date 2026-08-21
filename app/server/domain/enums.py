@@ -3,15 +3,6 @@ from __future__ import annotations
 from enum import StrEnum
 
 ###############################################################################
-class CodeTarget(StrEnum):
-    """Public source-generation targets for the Keras 3 model API."""
-
-    KERAS = "keras"
-    TENSORFLOW = "tensorflow"
-    PYTORCH = "pytorch"
-    JAX = "jax"
-
-###############################################################################
 class ExecutionBackend(StrEnum):
     TENSORFLOW = "tensorflow"
     PYTORCH = "pytorch"

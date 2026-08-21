@@ -1,5 +1,5 @@
 from common.catalogs.loader import NodeCatalog, get_node_catalog
-from domain.enums import CodeTarget, DataType, DiagnosticSeverity, PortKind
+from domain.enums import DataType, DiagnosticSeverity, ExecutionBackend, PortKind
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from domain.tensor import TensorSpec
 from services.validation_service import ValidationService
@@ -22,7 +22,7 @@ def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
             EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
     assert result.valid
     assert result.total_parameters == 63
     dense_summary = next(item for item in result.shape_summaries if item.node_id == "dense")
@@ -44,7 +44,7 @@ def test_cycle_is_reported_as_error() -> None:
             EdgeInstance(id="e4", source_node_id="b", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
     assert not result.valid
     assert any(item.code == "cycle_detected" and item.severity == DiagnosticSeverity.ERROR for item in result.diagnostics)
 
@@ -61,7 +61,7 @@ def test_unsafe_math_expression_is_rejected() -> None:
             EdgeInstance(id="e2", source_node_id="expression", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
     assert not result.valid
     assert any(item.code == "unsafe_expression" for item in result.diagnostics)
 
@@ -78,7 +78,7 @@ def test_pooling_updates_spatial_shape() -> None:
             EdgeInstance(id="e2", source_node_id="pool", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
     assert result.valid
     pool = next(item for item in result.shape_summaries if item.node_id == "pool")
     assert pool.outputs["output"].shape == [None, 16, 16, 3]
@@ -96,7 +96,7 @@ def test_optional_non_nullable_parameter_may_be_omitted() -> None:
             EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
     assert result.valid
 
 ###############################################################################
@@ -112,11 +112,12 @@ def test_explicit_null_for_non_nullable_parameter_is_rejected() -> None:
             EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
     assert not result.valid
     diagnostic = next(item for item in result.diagnostics if item.code == "non_nullable_parameter")
     assert diagnostic.parameter_id == "use_bias"
-    assert diagnostic.code_target is CodeTarget.KERAS
+    assert diagnostic.execution_backend is ExecutionBackend.PYTORCH
+    assert diagnostic.keras_enabled is True
 
 ###############################################################################
 def test_unknown_v2_parameter_is_rejected() -> None:
@@ -131,7 +132,7 @@ def test_unknown_v2_parameter_is_rejected() -> None:
             EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
     assert not result.valid
     diagnostic = next(item for item in result.diagnostics if item.code == "unknown_parameter")
     assert diagnostic.parameter_id == "strieds"
@@ -164,7 +165,7 @@ def test_merge_rejects_same_shape_different_dtype() -> None:
         {"shape": [None, 4], "dtype": "float32"},
         {"shape": [None, 4], "dtype": "int32"},
     )
-    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
     assert not result.valid
     assert any("compatible shapes" in item.message for item in result.diagnostics)
 
@@ -176,7 +177,7 @@ def test_concatenate_rejects_non_concatenated_dimension_mismatch() -> None:
         {"shape": [None, 9, 17], "dtype": "float32"},
         {"axis": -1},
     )
-    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
     assert not result.valid
     assert any("non-concatenated" in item.message for item in result.diagnostics)
 
@@ -209,7 +210,7 @@ def test_conv_rejects_stride_and_dilation_combination() -> None:
             EdgeInstance(id="e2", source_node_id="conv", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = ValidationService(get_node_catalog()).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, True)
     assert not result.valid
     assert any("strides > 1" in item.message for item in result.diagnostics)
 
@@ -244,7 +245,7 @@ def test_declared_port_rank_is_enforced_after_shape_inference() -> None:
             EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = ValidationService(test_catalog).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(test_catalog).validate(graph, ExecutionBackend.PYTORCH, True)
     assert not result.valid
     assert any(item.code == "port_rank_mismatch" for item in result.diagnostics)
 
@@ -268,7 +269,7 @@ def test_tensor_list_declares_and_enforces_element_kind() -> None:
             EdgeInstance(id="e2", source_node_id="merge", source_port_id="output", target_node_id="output", target_port_id="input"),
         ],
     )
-    result = ValidationService(test_catalog).validate(graph, CodeTarget.KERAS)
+    result = ValidationService(test_catalog).validate(graph, ExecutionBackend.PYTORCH, True)
     assert not result.valid
     assert any(item.code == "incompatible_port_kind" for item in result.diagnostics)
 

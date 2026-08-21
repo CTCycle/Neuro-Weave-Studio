@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from common.catalogs.loader import get_node_catalog
-from domain.enums import CodeTarget
+from domain.enums import ExecutionBackend
 from domain.graph import ProjectCreate
 from services.compilation_service import CompilationService
 from services.validation_service import ValidationService
@@ -28,7 +28,7 @@ def test_example_projects_validate_and_generate_parseable_keras_source(filename:
     catalog = get_node_catalog()
     service = CompilationService(catalog, ValidationService(catalog))
 
-    result = service.compile(project.graph, CodeTarget.KERAS)
+    result = service.compile(project.graph, ExecutionBackend.PYTORCH, True)
 
     assert result.valid is True, result.diagnostics
     assert result.code is not None
@@ -42,7 +42,7 @@ def test_mlp_generates_parseable_pytorch_source() -> None:
     catalog = get_node_catalog()
     service = CompilationService(catalog, ValidationService(catalog))
 
-    result = service.compile(project.graph, CodeTarget.PYTORCH)
+    result = service.compile(project.graph, ExecutionBackend.PYTORCH, False)
 
     assert result.valid is True, result.diagnostics
     assert result.code is not None

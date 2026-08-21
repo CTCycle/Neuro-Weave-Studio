@@ -6,7 +6,7 @@ import pytest
 
 from common.catalogs.loader import get_node_catalog
 from compilation.compiler import compile_to_ir
-from domain.enums import CodeTarget
+from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.pytorch_exporter import PyTorchSourceExporter
 from services.validation_service import ValidationService
@@ -37,11 +37,12 @@ def edge(edge_id: str, source: str, target: str, target_port: str = "input") -> 
 ###############################################################################
 def build_model(graph: ModelGraph) -> Any:
     torch = pytest.importorskip("torch")
-    validation = ValidationService(get_node_catalog()).validate(graph, CodeTarget.PYTORCH)
+    validation = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, False)
     assert validation.valid, validation.diagnostics
     ir = compile_to_ir(
         graph,
-        CodeTarget.PYTORCH,
+        ExecutionBackend.PYTORCH,
+        False,
         get_node_catalog(),
         shape_summaries=validation.shape_summaries,
     )

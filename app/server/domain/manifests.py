@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from domain.enums import CodeTarget, ExecutionBackend, PortKind
+from domain.enums import ExecutionBackend, PortKind
 
 ParameterType = Literal[
     "string", "integer", "number", "boolean", "enum", "shape", "axis", "list", "tuple", "expression"
@@ -85,7 +85,7 @@ class NodeManifest(BaseModel):
     outputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     parameters: list[ParameterDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     shape_rule: ShapeRule
-    frameworks: dict[CodeTarget, FrameworkMapping]
+    frameworks: dict[str, FrameworkMapping]
     ui: UiMetadata = Field(default_factory=UiMetadata)
     deprecated: bool = False
     documentation_ref: str
@@ -109,7 +109,7 @@ class NodeManifest(BaseModel):
             unknown_capabilities = sorted(set(mapping.parameters) - known_parameter_ids)
             if unknown_capabilities:
                 raise ValueError(
-                    f"Framework mapping {target.value} for {self.id} references unknown "
+                    f"Framework mapping {target} for {self.id} references unknown "
                     f"parameters: {', '.join(unknown_capabilities)}"
                 )
         return self

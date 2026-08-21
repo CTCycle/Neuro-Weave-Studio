@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { CompilationStatusBadge, ValidationStatusBadge } from '../components/ModelStatusBadge'
 import type { ProjectExportBundle, ProjectSummary } from '../domain/types'
-import { codeTargetShortLabels } from '../domain/types'
+import { implementationLabel, executionBackendShortLabels } from '../domain/types'
 import { useAppResources } from '../state/useAppResources'
 
 type CatalogFilter = 'all' | 'compiled' | 'uncompiled' | 'valid' | 'attention'
@@ -17,8 +17,8 @@ export function ModelCatalogPage() {
   const [filter, setFilter] = useState<CatalogFilter>('all')
   const [notice, setNotice] = useState<string | null>(null)
   const filtered = useMemo(() => projects.filter((project) => {
-    const matchesQuery = `${project.name} ${project.description} ${project.code_target}`.toLowerCase().includes(query.toLowerCase())
-    const compiled = project.compiled_targets.includes(project.code_target)
+    const matchesQuery = `${project.name} ${project.description} ${project.execution_backend} ${project.keras_enabled ? 'keras' : 'native'}`.toLowerCase().includes(query.toLowerCase())
+    const compiled = project.has_generated_source
     const matchesFilter = filter === 'all' || (filter === 'compiled' && compiled) || (filter === 'uncompiled' && !compiled) || (filter === 'valid' && project.validation_status === 'valid') || (filter === 'attention' && project.validation_status !== 'valid')
     return matchesQuery && matchesFilter
   }), [filter, projects, query])
@@ -40,8 +40,8 @@ export function ModelCatalogPage() {
 }
 
 function ModelCard({ project }: { project: ProjectSummary }) {
-  const compiled = project.compiled_targets.includes(project.code_target)
-  return <Link className="model-card panel" to={`/models/${project.id}`}><div className="model-card-top"><span className="eyebrow">MODEL</span><span className="revision-label">r{project.current_revision}</span></div><div className="model-card-title"><h2>{project.name}</h2><span className="model-card-arrow">→</span></div><p>{project.description || 'No description added.'}</p><div className="model-card-meta"><ValidationStatusBadge status={project.validation_status} /><CompilationStatusBadge compiled={compiled} /></div><div className="model-card-stats"><span><strong>{project.node_count}</strong> nodes</span><span><strong>{project.edge_count}</strong> connections</span><span><strong>{codeTargetShortLabels[project.code_target]}</strong> target</span></div><footer><span>Updated {formatUpdated(project.updated_at)}</span><Box size={13} /></footer></Link>
+  const compiled = project.has_generated_source
+  return <Link className="model-card panel" to={`/models/${project.id}`}><div className="model-card-top"><span className="eyebrow">MODEL</span><span className="revision-label">r{project.current_revision}</span></div><div className="model-card-title"><h2>{project.name}</h2><span className="model-card-arrow">→</span></div><p>{project.description || 'No description added.'}</p><div className="model-card-meta"><ValidationStatusBadge status={project.validation_status} /><span className="model-profile-badge">{executionBackendShortLabels[project.execution_backend]}</span><span className="model-profile-badge">{project.keras_enabled ? 'Keras' : 'Native'}</span><CompilationStatusBadge compiled={compiled} /></div><div className="model-card-stats"><span><strong>{project.node_count}</strong> nodes</span><span><strong>{project.edge_count}</strong> connections</span><span><strong>{implementationLabel(project.execution_backend, project.keras_enabled)}</strong></span></div><footer><span>Updated {formatUpdated(project.updated_at)}</span><Box size={13} /></footer></Link>
 }
 
 function filterLabel(filter: CatalogFilter): string { return filter === 'all' ? 'All models' : filter === 'attention' ? 'Needs attention' : filter[0].toUpperCase() + filter.slice(1) }

@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 
 from common.timestamps import utc_now
-from domain.enums import CodeTarget, ValidationStatus
+from domain.enums import ExecutionBackend, ValidationStatus
 from domain.tensor import TensorSpec
 
 GRAPH_SCHEMA_VERSION = 2
@@ -78,14 +78,16 @@ class ModelGraph(BaseModel):
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=2000)
-    code_target: CodeTarget = CodeTarget.KERAS
+    execution_backend: ExecutionBackend | None = None
+    keras_enabled: bool = True
     graph: ModelGraph = Field(default_factory=ModelGraph)
 
 ###############################################################################
 class ProjectUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=2000)
-    code_target: CodeTarget
+    execution_backend: ExecutionBackend
+    keras_enabled: bool = True
     graph: ModelGraph
     expected_revision: int = Field(ge=1)
 
@@ -97,15 +99,12 @@ class ProjectDocument(BaseModel):
     created_at: datetime
     updated_at: datetime
     schema_version: int
-    code_target: CodeTarget
+    execution_backend: ExecutionBackend
+    keras_enabled: bool
     current_revision: int
     graph: ModelGraph
     validation_status: ValidationStatus
-    generated_code_snapshots: dict[str, str] = Field(default_factory=dict)
-
-###############################################################################
-def _empty_code_targets() -> list[CodeTarget]:
-    return []
+    generated_source: str | None = None
 
 ###############################################################################
 class ProjectSummary(BaseModel):
@@ -113,12 +112,13 @@ class ProjectSummary(BaseModel):
     name: str
     description: str
     updated_at: datetime
-    code_target: CodeTarget
+    execution_backend: ExecutionBackend
+    keras_enabled: bool
     current_revision: int
     validation_status: ValidationStatus
     node_count: int = Field(ge=0)
     edge_count: int = Field(ge=0)
-    compiled_targets: list[CodeTarget] = Field(default_factory=_empty_code_targets)
+    has_generated_source: bool = False
 
 ###############################################################################
 class ProjectListResponse(BaseModel):
@@ -131,7 +131,7 @@ class ProjectDuplicateRequest(BaseModel):
 ###############################################################################
 class ProjectExportBundle(BaseModel):
     format: Literal["neuro-weave-project"] = "neuro-weave-project"
-    format_version: Literal[2] = 2
+    format_version: Literal[3] = 3
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
 

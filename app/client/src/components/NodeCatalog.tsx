@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
-import type { CodeTarget, NodeManifest } from '../domain/types'
+import type { ExecutionBackend, NodeManifest } from '../domain/types'
+import { implementationKey } from '../domain/types'
 
 interface Props {
   manifests: NodeManifest[]
-  codeTarget?: CodeTarget
+  executionBackend?: ExecutionBackend
+  kerasEnabled?: boolean
   onClose?: () => void
   onAdd?: (manifest: NodeManifest) => void
   isOpen?: boolean
 }
 
-export function NodeCatalog({ manifests, codeTarget, onClose, onAdd, isOpen = true }: Props) {
-  const selectedTarget = codeTarget ?? 'keras'
+export function NodeCatalog({ manifests, executionBackend = 'pytorch', kerasEnabled = true, onClose, onAdd, isOpen = true }: Props) {
   const [query, setQuery] = useState('')
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
   const listRef = useRef<HTMLDivElement>(null)
@@ -63,7 +64,7 @@ export function NodeCatalog({ manifests, codeTarget, onClose, onAdd, isOpen = tr
             <span aria-hidden="true">{openCategories[group.category] ? '−' : '+'}</span>
           </button>
           {openCategories[group.category] && <div id={`catalog-${group.category}`} className="catalog-category-items">{group.manifests.map((manifest) => {
-            const supported = manifest.frameworks[selectedTarget]?.supported ?? false
+            const supported = manifest.frameworks[implementationKey(executionBackend, kerasEnabled)]?.supported ?? false
             return (
               <article
                 key={`${manifest.id}@${manifest.version}`}
