@@ -416,10 +416,14 @@ function ConvertTo-BackendExtras {
 
 function Read-BackendSelection {
     Write-Host 'Keras 3: core model API, installed with the base application (not an execution backend).' -ForegroundColor DarkGray
-    Write-Host '  pytorch   - general-purpose execution; CPU or hardware-aware CUDA wheel' -ForegroundColor White
-    Write-Host '  tensorflow - native Windows CPU execution; GPU requires WSL2 or Linux' -ForegroundColor White
-    Write-Host '  jax       - native Windows CPU execution; Windows support is experimental' -ForegroundColor White
-    Write-Host '  all       - install all three execution backends; review the CPU/GPU limitations above' -ForegroundColor White
+    Write-Host 'Select an execution backend configuration:' -ForegroundColor White
+    Write-Host '  [1] None                         - Keras core only' -ForegroundColor White
+    Write-Host '  [2] PyTorch GPU / CUDA           - hardware-aware CUDA 12.6 wheel; CPU fallback if unavailable' -ForegroundColor White
+    Write-Host '  [3] PyTorch CPU-only             - install the CPU wheel even when an NVIDIA GPU is detected' -ForegroundColor White
+    Write-Host '  [4] TensorFlow CPU-only          - native Windows CPU execution; GPU requires WSL2 or Linux' -ForegroundColor White
+    Write-Host '  [5] JAX CPU-only                 - native Windows CPU execution; Windows support is experimental' -ForegroundColor White
+    Write-Host '  [6] All backends                 - PyTorch GPU / CUDA plus TensorFlow and JAX CPU' -ForegroundColor White
+    Write-Host '  [7] All backends CPU-only        - CPU wheels for PyTorch, TensorFlow, and JAX' -ForegroundColor White
     $details = @(Get-InstalledExecutionBackendDetails | Where-Object { $_.installed })
     $installed = if ($details.Count) {
         @($details | ForEach-Object { "$($_.id) $($_.version)" }) -join ', '
@@ -431,8 +435,38 @@ function Read-BackendSelection {
     } else {
         Write-Host 'No NVIDIA CUDA device detected. PyTorch Auto will use the CPU wheel.' -ForegroundColor DarkGray
     }
-    $selection = (Read-Host 'Execution backends to install (Enter=none; all, tensorflow,pytorch,jax, or none)').Trim().ToLowerInvariant()
-    return @(ConvertTo-BackendExtras -Selection $selection)
+    $selection = (Read-Host 'Select an execution backend option (1-7)').Trim()
+    switch ($selection) {
+        '1' {
+            $script:Acceleration = 'Auto'
+            return @()
+        }
+        '2' {
+            $script:Acceleration = 'Auto'
+            return @('pytorch')
+        }
+        '3' {
+            $script:Acceleration = 'CPU'
+            return @('pytorch')
+        }
+        '4' {
+            $script:Acceleration = 'Auto'
+            return @('tensorflow')
+        }
+        '5' {
+            $script:Acceleration = 'Auto'
+            return @('jax')
+        }
+        '6' {
+            $script:Acceleration = 'Auto'
+            return @('tensorflow', 'pytorch', 'jax')
+        }
+        '7' {
+            $script:Acceleration = 'CPU'
+            return @('tensorflow', 'pytorch', 'jax')
+        }
+        default { throw 'Select an execution backend option from 1 to 7.' }
+    }
 }
 
 function Resolve-BackendExtras {
