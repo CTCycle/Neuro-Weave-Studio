@@ -108,7 +108,7 @@ def _run_smoke(graph: ModelGraph, backend: ExecutionBackend = ExecutionBackend.P
             return None
         job = controller.submit(
             JobSubmitRequest(
-                operation=SmokeInferenceOperation(graph=graph),
+                operation=SmokeInferenceOperation(project_id=uuid4(), graph=graph),
                 worker=worker,
             ),
             graph=graph,

@@ -9,8 +9,9 @@ import type { ModelWorkspaceContext } from './ModelWorkspacePage'
 
 export function ModelInferencePage() {
   const { project } = useOutletContext<ModelWorkspaceContext>()
-  const { backendStatuses, runtimeSelection } = useAppResources()
-  const backend = runtimeSelection?.backend ?? null
+  const { backendStatuses, runtimePreferences } = useAppResources()
+  const backend = project.execution_backend
+  const runtimeSelection = runtimePreferences[backend] ?? null
   const [state, setState] = useState<SmokeTestViewState>({ status: 'ready' })
   const mounted = useRef(true)
 
@@ -30,7 +31,7 @@ export function ModelInferencePage() {
     }
     setState({ status: 'loading' })
     try {
-      let job = await api.submitSmokeInference(project.graph, runtimeSelection)
+      let job = await api.submitSmokeInference(project.id, project.graph, runtimeSelection)
       if (mounted.current) setState({ status: 'loading', job })
       while (mounted.current && !['succeeded', 'terminated', 'failed'].includes(job.state)) {
         await new Promise((resolve) => window.setTimeout(resolve, 250))
@@ -56,7 +57,7 @@ export function ModelInferencePage() {
     }
   }
 
-  return <div className="workflow-page inference-page"><div className="workflow-intro"><div><span className="eyebrow">INFERENCE</span><h2>Run a safe model check</h2><p>This workspace creates compatible dummy inputs and performs one forward pass. It never trains or updates weights.</p></div><div className="backend-selection-summary workflow-backend-summary"><span>Session runtime</span>{runtimeSelection ? <strong>{runtimeSelection.api} · {runtimeSelection.backend} · {runtimeSelection.device_id}</strong> : <Link to="/environment">Choose in Environment</Link>}</div></div><section className="inference-controls panel"><div className="inference-control-note"><FlaskConical size={18} /><span>Inference-only dry run. The selected runtime is immutable for this job and is not stored in model data.</span></div><Link className="secondary environment-link" to="/environment">{backend ? 'Change runtime' : 'Choose runtime'}</Link></section><ModelSmokeTestDrawer backend={backend} backendStatus={backendStatuses.find((item) => item.id === backend)} state={state} onRun={run} onStop={stop} embedded /></div>
+  return <div className="workflow-page inference-page"><div className="workflow-intro"><div><span className="eyebrow">INFERENCE</span><h2>Run a safe model check</h2><p>This workspace creates compatible dummy inputs and performs one forward pass. It never trains or updates weights.</p></div><div className="backend-selection-summary workflow-backend-summary"><span>Model backend preference</span>{runtimeSelection ? <strong>{runtimeSelection.api} · {backend} · {runtimeSelection.device_id}</strong> : <Link to="/environment">Configure {backend} in Environment</Link>}</div></div><section className="inference-controls panel"><div className="inference-control-note"><FlaskConical size={18} /><span>Inference uses the model's persisted backend and its matching runtime preference. It never changes model data.</span></div><Link className="secondary environment-link" to="/environment">Configure runtime</Link></section><ModelSmokeTestDrawer backend={backend} backendStatus={backendStatuses.find((item) => item.id === backend)} state={state} onRun={run} onStop={stop} embedded /></div>
 }
 
 function smokeResult(job: JobResponse): SmokeTestResponse {

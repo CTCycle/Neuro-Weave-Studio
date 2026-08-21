@@ -76,7 +76,10 @@ def terminate_process_tree(pid: int, *, force: bool) -> None:
         command = ["taskkill", "/PID", str(pid), "/T"]
         if force:
             command.append("/F")
-        subprocess.run(command, capture_output=True, check=False)
+        try:
+            subprocess.run(command, capture_output=True, check=False, timeout=1)
+        except (OSError, subprocess.TimeoutExpired):
+            return
         return
     try:
         os.killpg(os.getpgid(pid), signal.SIGKILL if force else signal.SIGTERM)

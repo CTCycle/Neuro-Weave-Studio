@@ -6,12 +6,12 @@ export interface AppResources {
   projects: ProjectSummary[]
   backendStatuses: ExecutionBackendStatus[]
   runtimeApis: RuntimeApiStatus[]
-  runtimeSelection: WorkerConfiguration | null
-  selectedExecutionBackend: ExecutionBackend | null
+  runtimePreferences: Partial<Record<ExecutionBackend, WorkerConfiguration>>
+  runtimePreferenceBackend: ExecutionBackend | null
   loading: boolean
   error: string | null
-  setSelectedExecutionBackend: (backend: ExecutionBackend | null) => void
-  setRuntimeSelection: (selection: WorkerConfiguration | null) => void
+  setRuntimePreferenceBackend: (backend: ExecutionBackend | null) => void
+  setRuntimePreference: (selection: WorkerConfiguration) => void
   refreshProjects: () => Promise<ProjectSummary[]>
   clearError: () => void
 }

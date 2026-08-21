@@ -13,7 +13,8 @@ const labels: Record<ExecutionBackendStatus['id'], string> = {
 const apiLabels: Record<RuntimeApi, string> = { keras: 'Keras', native: 'Native framework' }
 
 export function BackendStatusPanel() {
-  const { backendStatuses, runtimeApis, loading, runtimeSelection, setRuntimeSelection, setSelectedExecutionBackend } = useAppResources()
+  const { backendStatuses, runtimeApis, loading, runtimePreferences, runtimePreferenceBackend, setRuntimePreference, setRuntimePreferenceBackend } = useAppResources()
+  const runtimeSelection = runtimePreferenceBackend ? runtimePreferences[runtimePreferenceBackend] ?? null : null
   const [activeJobs, setActiveJobs] = useState<JobResponse[]>([])
   const [pendingSelection, setPendingSelection] = useState<WorkerConfiguration | null>(null)
   const [stopping, setStopping] = useState(false)
@@ -47,8 +48,8 @@ export function BackendStatusPanel() {
   }
 
   const applySelection = (next: WorkerConfiguration) => {
-    setSelectedExecutionBackend(next.backend)
-    setRuntimeSelection(next)
+    setRuntimePreferenceBackend(next.backend)
+    setRuntimePreference(next)
     setPendingSelection(null)
   }
 
@@ -83,7 +84,7 @@ export function BackendStatusPanel() {
         {runtimeApiStatuses.map((status) => <button key={status.id} type="button" className={`runtime-api-option ${runtimeSelection?.api === status.id ? 'selected' : ''}`} disabled={!status.available || status.id !== 'keras'} onClick={() => runtimeSelection && requestSelection({ ...runtimeSelection, api: status.id })}><strong>{apiLabels[status.id]}</strong><span>{status.available ? 'Operational' : status.reason_code === 'not_implemented' ? 'Deferred' : 'Unavailable'}</span></button>)}
       </div>
       <div className="backend-status-grid">
-        {backendStatuses.map((status) => <BackendStatusCard key={status.id} status={status} selected={runtimeSelection?.backend === status.id} runtimeSelection={runtimeSelection} onSelect={requestSelection} />)}
+        {backendStatuses.map((status) => <BackendStatusCard key={status.id} status={status} selected={runtimePreferenceBackend === status.id} runtimeSelection={runtimePreferences[status.id] ?? null} onSelect={requestSelection} />)}
       </div>
       {pendingSelection && <div className="selection-prompt panel" role="alert"><strong>This runtime is used by an active worker.</strong><span>Choose whether to stop and reap it before switching, or keep it unchanged and use the new selection only for subsequent jobs.</span><div className="dialog-actions"><button className="secondary" onClick={() => applySelection(pendingSelection)} disabled={stopping}>Keep running</button><button className="danger-action" onClick={stopAndSwitch} disabled={stopping}>{stopping ? 'Reaping…' : 'Stop and switch'}</button></div></div>}
       <ActiveJobs jobs={activeJobs} />

@@ -20,16 +20,16 @@ describe('BackendStatusPanel', () => {
   })
 
   it('shows every detected backend and lets the user select only an operational one', async () => {
-    const setSelectedExecutionBackend = vi.fn()
+    const setRuntimePreferenceBackend = vi.fn()
     vi.mocked(useAppResources).mockReturnValue({
-      manifests: [], projects: [], backendStatuses: statuses, runtimeApis: [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'not_implemented' }], runtimeSelection: null, selectedExecutionBackend: null,
-      loading: false, error: null, refreshProjects: vi.fn(), clearError: vi.fn(), setSelectedExecutionBackend, setRuntimeSelection: vi.fn(),
+      manifests: [], projects: [], backendStatuses: statuses, runtimeApis: [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'not_implemented' }], runtimePreferences: {}, runtimePreferenceBackend: null,
+      loading: false, error: null, refreshProjects: vi.fn(), clearError: vi.fn(), setRuntimePreferenceBackend, setRuntimePreference: vi.fn(),
     })
     render(<BackendStatusPanel />)
     expect(screen.getByRole('button', { name: /TensorFlow/ })).toBeEnabled()
     expect(screen.getByRole('button', { name: /PyTorch/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: /JAX/ })).toBeDisabled()
     await userEvent.click(screen.getByRole('button', { name: /TensorFlow/ }))
-    expect(setSelectedExecutionBackend).toHaveBeenCalledWith('tensorflow')
+    expect(setRuntimePreferenceBackend).toHaveBeenCalledWith('tensorflow')
   })
 })

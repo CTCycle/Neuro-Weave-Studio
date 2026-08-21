@@ -125,10 +125,10 @@ export const api = {
       body: JSON.stringify({ graph, execution_backend, keras_enabled }),
     })
   },
-  submitSmokeInference(graph: ModelGraph, worker: WorkerConfiguration): Promise<JobResponse> {
+  submitSmokeInference(project_id: string, graph: ModelGraph, worker: WorkerConfiguration): Promise<JobResponse> {
     return request('/execution/jobs', {
       method: 'POST',
-      body: JSON.stringify({ operation: { type: 'smoke_inference', graph }, worker }),
+      body: JSON.stringify({ operation: { type: 'smoke_inference', project_id, graph }, worker }),
     })
   },
   submitKerasExport(project_id: string, worker: WorkerConfiguration): Promise<JobResponse> {
