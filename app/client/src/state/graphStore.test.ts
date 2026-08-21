@@ -61,3 +61,38 @@ describe('graph metadata persistence', () => {
     })
   })
 })
+
+describe('editor session persistence', () => {
+  afterEach(() => useGraphStore.getState().reset())
+
+  it('captures and restores graph history and selection without sharing mutable nodes', () => {
+    const manifest = {
+      id: 'layer.dense',
+      version: 1,
+      display_name: 'Dense',
+      category: 'core',
+      description: '',
+      inputs: [],
+      outputs: [],
+      parameters: [],
+      shape_rule: { kind: 'dense', config: {} },
+      implementations: { keras: { supported: true } },
+      ui: { icon: 'Box', accent: 'violet', width: 250, height: 120 },
+      deprecated: false,
+      documentation_ref: '',
+    }
+    useGraphStore.getState().setManifests([manifest])
+    useGraphStore.getState().addNode(manifest, { x: 40, y: 60 })
+    const nodeId = useGraphStore.getState().nodes[0].id
+    useGraphStore.getState().selectNode(nodeId)
+    const captured = useGraphStore.getState().captureEditorSession()
+
+    useGraphStore.getState().reset()
+    useGraphStore.getState().restoreEditorSession(captured)
+    captured.nodes[0].data.label = 'mutated outside the store'
+
+    expect(useGraphStore.getState().nodes[0].data.label).toBe('Dense')
+    expect(useGraphStore.getState().selectedNodeId).toBe(nodeId)
+    expect(useGraphStore.getState().past).toHaveLength(1)
+  })
+})

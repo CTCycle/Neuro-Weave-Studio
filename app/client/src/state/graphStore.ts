@@ -18,12 +18,25 @@ import type {
 } from '../domain/types'
 import { editorNodeFromGraph, emptyModelConfiguration } from '../domain/types'
 
-interface Snapshot {
+export interface EditorHistorySnapshot {
   nodes: EditorNode[]
   edges: EditorEdge[]
   modelConfiguration: ModelConfiguration
   exportSettings: ModelGraph['export_settings']
   futureTrainingConfiguration: ModelGraph['future_training_configuration']
+}
+
+export interface GraphEditorSession {
+  nodes: EditorNode[]
+  edges: EditorEdge[]
+  modelConfiguration: ModelConfiguration
+  exportSettings: ModelGraph['export_settings']
+  futureTrainingConfiguration: ModelGraph['future_training_configuration']
+  selectedNodeId: string | null
+  selectedEdgeId: string | null
+  copiedNodeIds: string[]
+  past: EditorHistorySnapshot[]
+  future: EditorHistorySnapshot[]
 }
 
 interface GraphState {
@@ -36,8 +49,8 @@ interface GraphState {
   selectedNodeId: string | null
   selectedEdgeId: string | null
   copiedNodeIds: string[]
-  past: Snapshot[]
-  future: Snapshot[]
+  past: EditorHistorySnapshot[]
+  future: EditorHistorySnapshot[]
   setManifests: (manifests: NodeManifest[]) => void
   checkpoint: () => void
   onNodesChange: (changes: NodeChange<EditorNode>[]) => void
@@ -54,6 +67,8 @@ interface GraphState {
   undo: () => void
   redo: () => void
   replaceGraph: (project: ProjectDocument) => void
+  captureEditorSession: () => GraphEditorSession
+  restoreEditorSession: (session: GraphEditorSession) => void
   reset: () => void
   toGraph: () => ModelGraph
   applyShapeSummaries: (summaries: ShapeSummary[]) => void
@@ -70,12 +85,33 @@ const defaultExportSettings = (): ModelGraph['export_settings'] => ({
   preferred_binary_format: 'keras',
 })
 
-const snapshot = (state: Pick<GraphState, 'nodes' | 'edges' | 'modelConfiguration' | 'exportSettings' | 'futureTrainingConfiguration'>): Snapshot => ({
+const snapshot = (state: Pick<GraphState, 'nodes' | 'edges' | 'modelConfiguration' | 'exportSettings' | 'futureTrainingConfiguration'>): EditorHistorySnapshot => ({
   nodes: cloneNodes(state.nodes),
   edges: cloneEdges(state.edges),
   modelConfiguration: structuredClone(state.modelConfiguration),
   exportSettings: structuredClone(state.exportSettings),
   futureTrainingConfiguration: structuredClone(state.futureTrainingConfiguration),
+})
+
+const cloneHistory = (history: EditorHistorySnapshot[]) => history.map((entry) => ({
+  nodes: cloneNodes(entry.nodes),
+  edges: cloneEdges(entry.edges),
+  modelConfiguration: structuredClone(entry.modelConfiguration),
+  exportSettings: structuredClone(entry.exportSettings),
+  futureTrainingConfiguration: structuredClone(entry.futureTrainingConfiguration),
+}))
+
+const cloneSession = (session: GraphEditorSession): GraphEditorSession => ({
+  nodes: cloneNodes(session.nodes),
+  edges: cloneEdges(session.edges),
+  modelConfiguration: structuredClone(session.modelConfiguration),
+  exportSettings: structuredClone(session.exportSettings),
+  futureTrainingConfiguration: structuredClone(session.futureTrainingConfiguration),
+  selectedNodeId: session.selectedNodeId,
+  selectedEdgeId: session.selectedEdgeId,
+  copiedNodeIds: [...session.copiedNodeIds],
+  past: cloneHistory(session.past),
+  future: cloneHistory(session.future),
 })
 
 function wouldCreateCycle(nodes: EditorNode[], edges: EditorEdge[], source: string, target: string): boolean {
@@ -226,6 +262,22 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       future: [],
     }
   }),
+  captureEditorSession: () => {
+    const state = get()
+    return cloneSession({
+      nodes: state.nodes,
+      edges: state.edges,
+      modelConfiguration: state.modelConfiguration,
+      exportSettings: state.exportSettings,
+      futureTrainingConfiguration: state.futureTrainingConfiguration,
+      selectedNodeId: state.selectedNodeId,
+      selectedEdgeId: state.selectedEdgeId,
+      copiedNodeIds: state.copiedNodeIds,
+      past: state.past,
+      future: state.future,
+    })
+  },
+  restoreEditorSession: (session) => set(cloneSession(session)),
   reset: () => set({ nodes: [], edges: [], modelConfiguration: emptyModelConfiguration(), exportSettings: defaultExportSettings(), futureTrainingConfiguration: {}, selectedNodeId: null, selectedEdgeId: null, past: [], future: [] }),
   toGraph: () => {
     const state = get()

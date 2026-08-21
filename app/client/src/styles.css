@@ -417,6 +417,19 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .smoke-test-panel .smoke-test-content { padding-top: 14px; }
 .smoke-test-panel .smoke-test-state { padding-left: 0; }
 .builder-page { display: flex; height: 100%; min-height: 0; flex-direction: column; gap: 10px; }
+.model-tab-bar { display: flex; min-width: 0; min-height: 38px; align-items: stretch; gap: 8px; padding: 4px; overflow: hidden; }
+.model-tab-list { display: flex; min-width: 0; flex: 1 1 auto; gap: 4px; overflow-x: auto; }
+.model-tab { display: flex; min-width: 150px; max-width: 240px; align-items: stretch; border: 1px solid transparent; border-radius: 5px; background: transparent; }
+.model-tab.active { border-color: var(--accent); background: var(--surface-2); }
+.model-tab-select, .model-tab-close, .model-tab-new { border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.model-tab-select { display: flex; min-width: 0; flex: 1 1 auto; align-items: center; gap: 6px; padding: 6px 8px; text-align: left; }
+.model-tab-select:hover, .model-tab-close:hover, .model-tab-new:hover { color: var(--text); }
+.model-tab-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.model-tab-select small { flex: 0 0 auto; color: var(--dim); font: 9px 'IBM Plex Mono', Consolas, monospace; }
+.model-tab-status { color: var(--dim); font-size: 8px; }
+.model-tab-status.dirty { color: var(--accent); }
+.model-tab-close { display: inline-flex; align-items: center; padding: 0 7px; }
+.model-tab-new { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 5px; padding: 0 10px; border-left: 1px solid var(--border); font: 500 10px 'IBM Plex Mono', Consolas, monospace; }
 .builder-toolbar { display: grid; min-height: 72px; grid-template-columns: auto minmax(180px, 1fr) minmax(140px, 190px) auto auto; align-items: center; gap: 10px 14px; padding: 10px 12px; }
 .builder-toolbar-heading { display: flex; flex-direction: column; gap: 5px; min-width: 160px; }
 .builder-toolbar-heading > div { display: flex; flex-direction: column; gap: 2px; }
@@ -502,6 +515,9 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
   .workspace-footer-actions > * { flex: 1; }
   .workflow-stat-row { grid-template-columns: 1fr; }
   .builder-toolbar { grid-template-columns: 1fr; }
+  .model-tab-bar { min-height: 36px; }
+  .model-tab { min-width: 132px; }
+  .model-tab-new { padding: 0 8px; font-size: 9px; }
   .builder-target, .builder-history { grid-column: auto; grid-row: auto; }
   .builder-actions { grid-column: auto; grid-row: auto; }
   .builder-actions button { flex: 1; }
