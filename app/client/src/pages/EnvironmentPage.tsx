@@ -12,11 +12,11 @@ export function EnvironmentPage() {
         <div>
           <span className="eyebrow">RUNTIME ENVIRONMENT</span>
           <h1>Execution backends</h1>
-          <p>Select the session-scoped API, backend, device, and memory policy used by future jobs.</p>
+          <p>Configure the API, device, and memory policy preference stored for each execution backend.</p>
         </div>
         <div className="environment-summary"><Cpu size={16} /><strong>{loading ? 'Reading runtime…' : `${operationalCount} operational`}</strong></div>
       </div>
-      <div className="environment-note panel"><Info size={16} /><span>Availability comes from fresh probe workers. Keras jobs are operational; native-framework inference remains explicitly unavailable. Selection stays in this session and is not saved into model data.</span></div>
+      <div className="environment-note panel"><Info size={16} /><span>Availability comes from fresh probe workers. Keras jobs are operational; native-framework inference remains explicitly unavailable. Each model uses the preference for its persisted backend.</span></div>
       <BackendStatusPanel />
     </div>
   )

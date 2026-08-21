@@ -7,9 +7,9 @@ from common.catalogs.loader import NodeCatalog
 from configurations.settings import Settings
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity
-from domain.graph import ModelGraph
+from domain.graph import ModelGraph, ProjectDocument
 from domain.jobs import JobResponse, JobSubmitRequest, SmokeInferenceOperation
-from domain.runtime import WorkerConfiguration
+from domain.runtime import RuntimeApi, WorkerConfiguration
 from services.errors import CompilationRejectedError, ProjectNotFoundError
 from services.project_service import ProjectService
 from services.validation_service import ValidationService
@@ -34,8 +34,14 @@ class JobService:
     # -------------------------------------------------------------------------
     def submit(self, request: JobSubmitRequest) -> JobResponse:
         if isinstance(request.operation, SmokeInferenceOperation):
-            graph = request.operation.graph
-            validation = self._validator.validate(graph, request.worker.backend, True)
+            project = self._projects.get(request.operation.project_id)
+            if project is None:
+                raise ProjectNotFoundError(request.operation.project_id)
+            self._ensure_worker_matches_project(project, request.worker)
+            graph = project.graph
+            validation = self._validator.validate(
+                graph, project.execution_backend, project.keras_enabled
+            )
             if not validation.valid:
                 raise CompilationRejectedError(validation.diagnostics)
             worker = self._with_graph_precision(request.worker, graph)
@@ -48,6 +54,7 @@ class JobService:
         project = self._projects.get(project_id)
         if project is None:
             raise ProjectNotFoundError(project_id)
+        self._ensure_worker_matches_project(project, request.worker)
         if not project.keras_enabled:
             raise CompilationRejectedError(
                 [ValidationDiagnostic(
@@ -77,6 +84,39 @@ class JobService:
                 project_id, project.current_revision
             ),
         )
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _ensure_worker_matches_project(project: ProjectDocument, worker: WorkerConfiguration) -> None:
+        execution_backend = project.execution_backend
+        keras_enabled = project.keras_enabled
+        if worker.backend is not execution_backend:
+            raise CompilationRejectedError(
+                [
+                    ValidationDiagnostic(
+                        code="runtime_backend_mismatch",
+                        severity=DiagnosticSeverity.COMPATIBILITY,
+                        message=(
+                            f"This model is persisted for the {execution_backend.value} backend; "
+                            f"the worker requested {worker.backend.value}"
+                        ),
+                        execution_backend=execution_backend,
+                        keras_enabled=keras_enabled,
+                    )
+                ]
+            )
+        if keras_enabled and worker.api is not RuntimeApi.KERAS:
+            raise CompilationRejectedError(
+                [
+                    ValidationDiagnostic(
+                        code="runtime_api_mismatch",
+                        severity=DiagnosticSeverity.COMPATIBILITY,
+                        message="This model is persisted as a Keras model and requires the Keras runtime API",
+                        execution_backend=execution_backend,
+                        keras_enabled=keras_enabled,
+                    )
+                ]
+            )
 
     # -------------------------------------------------------------------------
     def _project_revision_is_current(self, project_id: UUID, revision: int) -> bool:

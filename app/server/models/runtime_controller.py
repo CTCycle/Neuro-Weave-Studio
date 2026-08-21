@@ -232,8 +232,7 @@ class RuntimeController:
                 "type": operation.value,
                 "graph": graph.model_dump(mode="json"),
             }
-            if request.operation.type is JobOperation.KERAS_EXPORT:
-                operation_payload["project_id"] = str(request.operation.project_id)
+            operation_payload["project_id"] = str(request.operation.project_id)
             self._write_json(
                 job_dir / "request.json",
                 {"operation": operation_payload, "worker": request.worker.model_dump(mode="json")},
@@ -433,6 +432,10 @@ class RuntimeController:
                         record.state = JobState.STOPPING
                         record.forced_termination = True
                         terminate_process_tree(record.pid or -1, force=True)
+                        try:
+                            process.kill()
+                        except OSError:
+                            pass
                 elif time.monotonic() - timeout_started >= self._settings.ml_worker_timeout_seconds:
                     record.cancellation_requested = True
                     record.stop_started_at = time.monotonic()

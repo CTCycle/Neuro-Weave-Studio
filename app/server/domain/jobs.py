@@ -30,6 +30,7 @@ class SmokeInferenceOperation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: Literal[JobOperation.SMOKE_INFERENCE] = JobOperation.SMOKE_INFERENCE
+    project_id: UUID
     graph: ModelGraph
 
 ###############################################################################
@@ -94,4 +95,3 @@ class JobResponse(BaseModel):
     result: dict[str, Any] | None = None
     artifact_available: bool = False
     error: JobError | None = None
-

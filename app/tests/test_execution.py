@@ -40,6 +40,21 @@ def worker_payload(client: httpx.Client, *, api: str = "keras", backend: str = "
     }
 
 ###############################################################################
+def create_project(client: httpx.Client, graph: dict[str, object] | None = None, *, backend: str = "pytorch") -> str:
+    response = client.post(
+        "/api/projects",
+        json={
+            "name": "Runtime authority model",
+            "description": "",
+            "execution_backend": backend,
+            "keras_enabled": True,
+            "graph": graph or smoke_graph(),
+        },
+    )
+    assert response.status_code == 201, response.text
+    return str(response.json()["id"])
+
+###############################################################################
 def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
     for _ in range(240):
         job = client.get(f"/api/execution/jobs/{job_id}").json()
@@ -50,9 +65,10 @@ def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
 
 ###############################################################################
 def test_smoke_job_returns_tensor_metadata_without_training(client: httpx.Client) -> None:
+    project_id = create_project(client)
     response = client.post(
         "/api/execution/jobs",
-        json={"operation": {"type": "smoke_inference", "graph": smoke_graph()}, "worker": worker_payload(client)},
+        json={"operation": {"type": "smoke_inference", "project_id": project_id, "graph": smoke_graph()}, "worker": worker_payload(client)},
     )
     assert response.status_code == 202, response.text
     job = wait_for_job(client, response.json()["id"])
@@ -66,9 +82,10 @@ def test_smoke_job_returns_tensor_metadata_without_training(client: httpx.Client
 
 ###############################################################################
 def test_smoke_job_rejects_incompatible_shape_before_worker_start(client: httpx.Client) -> None:
+    project_id = create_project(client, smoke_graph(input_shape=[None, 0]))
     response = client.post(
         "/api/execution/jobs",
-        json={"operation": {"type": "smoke_inference", "graph": smoke_graph(input_shape=[None, 0])}, "worker": worker_payload(client)},
+        json={"operation": {"type": "smoke_inference", "project_id": project_id, "graph": smoke_graph()}, "worker": worker_payload(client)},
     )
     assert response.status_code == 422
     detail = response.json()["detail"]
@@ -77,16 +94,26 @@ def test_smoke_job_rejects_incompatible_shape_before_worker_start(client: httpx.
 
 ###############################################################################
 def test_job_submission_reports_native_api_and_missing_backend_as_structured_errors(client: httpx.Client) -> None:
+    project_id = create_project(client)
+    mismatch = client.post(
+        "/api/execution/jobs",
+        json={"operation": {"type": "smoke_inference", "project_id": project_id, "graph": smoke_graph()}, "worker": worker_payload(client, backend="tensorflow")},
+    )
+    assert mismatch.status_code == 422
+    assert mismatch.json()["detail"]["diagnostics"][0]["code"] == "runtime_backend_mismatch"
+
     native = client.post(
         "/api/execution/jobs",
-        json={"operation": {"type": "smoke_inference", "graph": smoke_graph()}, "worker": worker_payload(client, api="native")},
+        json={"operation": {"type": "smoke_inference", "project_id": project_id, "graph": smoke_graph()}, "worker": worker_payload(client, api="native")},
     )
-    assert native.status_code == 409
-    assert native.json()["detail"]["code"] == "api_unavailable"
+    assert native.status_code == 422
+    assert native.json()["detail"]["code"] == "model_validation_failed"
+    assert native.json()["detail"]["diagnostics"][0]["code"] == "runtime_api_mismatch"
 
+    tensorflow_project_id = create_project(client, backend="tensorflow")
     missing = client.post(
         "/api/execution/jobs",
-        json={"operation": {"type": "smoke_inference", "graph": smoke_graph()}, "worker": worker_payload(client, backend="tensorflow")},
+        json={"operation": {"type": "smoke_inference", "project_id": tensorflow_project_id, "graph": smoke_graph()}, "worker": worker_payload(client, backend="tensorflow")},
     )
     if any(item["id"] == "tensorflow" and item["available"] for item in client.get("/api/metadata").json()["execution_backends"]):
         pytest.skip("TensorFlow is available in this environment")
@@ -95,9 +122,10 @@ def test_job_submission_reports_native_api_and_missing_backend_as_structured_err
 
 ###############################################################################
 def test_job_stop_is_idempotent_and_releases_device_lease(client: httpx.Client) -> None:
+    project_id = create_project(client)
     response = client.post(
         "/api/execution/jobs",
-        json={"operation": {"type": "smoke_inference", "graph": smoke_graph()}, "worker": worker_payload(client)},
+        json={"operation": {"type": "smoke_inference", "project_id": project_id, "graph": smoke_graph()}, "worker": worker_payload(client)},
     )
     assert response.status_code == 202, response.text
     job_id = response.json()["id"]
@@ -109,7 +137,7 @@ def test_job_stop_is_idempotent_and_releases_device_lease(client: httpx.Client) 
     assert terminal["state"] in {"terminated", "succeeded"}
     replacement = client.post(
         "/api/execution/jobs",
-        json={"operation": {"type": "smoke_inference", "graph": smoke_graph()}, "worker": worker_payload(client)},
+        json={"operation": {"type": "smoke_inference", "project_id": project_id, "graph": smoke_graph()}, "worker": worker_payload(client)},
     )
     assert replacement.status_code == 202, replacement.text
     client.post(f"/api/execution/jobs/{replacement.json()['id']}/stop")

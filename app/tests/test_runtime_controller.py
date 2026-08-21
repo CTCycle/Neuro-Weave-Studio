@@ -10,6 +10,8 @@ import pytest
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
+from uuid import uuid4
+
 from domain.jobs import JobResponse, JobSubmitRequest, SmokeInferenceOperation
 from domain.runtime import MemoryPolicy, MemoryPolicyKind, RuntimeDevice, WorkerConfiguration
 from domain.metadata import ExecutionBackendStatus
@@ -56,7 +58,7 @@ def _controller(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, sleep_second
 ###############################################################################
 def _request(device_id: str = "cpu") -> JobSubmitRequest:
     return JobSubmitRequest(
-        operation=SmokeInferenceOperation(graph=ModelGraph()),
+        operation=SmokeInferenceOperation(project_id=uuid4(), graph=ModelGraph()),
         worker=WorkerConfiguration(backend=ExecutionBackend.PYTORCH, device_id=device_id),
     )
 
