@@ -80,23 +80,29 @@ def _compile_value(values: dict[str, Any], output_count: int) -> Any:
     return values
 
 ###############################################################################
-def _optimizer(name: str, learning_rate: float) -> keras.optimizers.Optimizer:
+def _optimizer(name: str, parameters: dict[str, Any]) -> keras.optimizers.Optimizer:
     optimizer_types = {
         "adam": keras.optimizers.Adam,
         "adamw": keras.optimizers.AdamW,
         "sgd": keras.optimizers.SGD,
         "rmsprop": keras.optimizers.RMSprop,
     }
-    return optimizer_types[name](learning_rate=learning_rate)
+    accepted_parameters = {
+        "adam": {"learning_rate", "beta_1", "beta_2", "epsilon"},
+        "adamw": {"learning_rate", "weight_decay", "beta_1", "beta_2", "epsilon"},
+        "sgd": {"learning_rate", "momentum", "nesterov"},
+        "rmsprop": {"learning_rate", "rho", "momentum", "epsilon", "centered"},
+    }[name]
+    kwargs = {key: value for key, value in parameters.items() if key in accepted_parameters}
+    return optimizer_types[name](**kwargs)
 
 ###############################################################################
 def compile_model(model: keras.Model, graph: ModelGraph) -> keras.Model:
     configuration = graph.model_configuration
-    learning_rate = float(configuration.optimizer_parameters.get("learning_rate", 0.001))
     losses = _configured_values(graph, configuration.losses, default=None)
     metrics = _configured_values(graph, configuration.metrics, default=[])
     model.compile(
-        optimizer=_optimizer(configuration.optimizer, learning_rate),
+        optimizer=_optimizer(configuration.optimizer, configuration.optimizer_parameters),
         loss=_compile_value(losses, len(_output_names(graph))),
         metrics=_compile_value(metrics, len(_output_names(graph))),
     )

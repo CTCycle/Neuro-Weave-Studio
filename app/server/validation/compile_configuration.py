@@ -3,21 +3,19 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from domain.compilation_catalog import get_compilation_catalog
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity
 from domain.graph import ModelGraph
 
-SUPPORTED_OPTIMIZERS = frozenset({"adam", "adamw", "sgd", "rmsprop"})
-SUPPORTED_LOSSES = frozenset(
-    {
-        "categorical_crossentropy",
-        "sparse_categorical_crossentropy",
-        "binary_crossentropy",
-        "mean_squared_error",
-        "mean_absolute_error",
-    }
-)
-SUPPORTED_METRICS = frozenset({"accuracy", "precision", "recall", "auc", "mae", "mse"})
+_CATALOG = get_compilation_catalog()
+SUPPORTED_OPTIMIZERS = frozenset(item.id for item in _CATALOG.optimizers)
+SUPPORTED_LOSSES = frozenset(item.id for item in _CATALOG.losses)
+SUPPORTED_METRICS = frozenset(item.id for item in _CATALOG.metrics)
+OPTIMIZER_PARAMETERS = {
+    item.id: {parameter.id: parameter for parameter in item.parameters}
+    for item in _CATALOG.optimizers
+}
 SUPPORTED_INITIALIZERS = frozenset(
     {
         "uniform",
@@ -77,27 +75,32 @@ def validate_model_configuration(
             )
         )
 
-    unknown_optimizer_parameters = set(configuration.optimizer_parameters) - {"learning_rate"}
+    allowed_parameters = OPTIMIZER_PARAMETERS.get(configuration.optimizer, {})
+    unknown_optimizer_parameters = set(configuration.optimizer_parameters) - set(allowed_parameters)
     if unknown_optimizer_parameters:
         diagnostics.append(
             _error(
                 "unsupported_optimizer_parameter",
-                "Only learning_rate is supported in optimizer_parameters",
+                f"Optimizer '{configuration.optimizer}' does not support: {', '.join(sorted(unknown_optimizer_parameters))}",
             )
         )
-    learning_rate: Any = configuration.optimizer_parameters.get("learning_rate", 0.001)
-    if (
-        not isinstance(learning_rate, int | float)
-        or isinstance(learning_rate, bool)
-        or not math.isfinite(float(learning_rate))
-        or learning_rate <= 0
-    ):
-        diagnostics.append(
-            _error(
-                "invalid_optimizer_learning_rate",
-                "optimizer_parameters.learning_rate must be a finite positive number",
-            )
-        )
+    for parameter_id, value in configuration.optimizer_parameters.items():
+        parameter = allowed_parameters.get(parameter_id)
+        if parameter is None:
+            continue
+        if parameter.type == "boolean":
+            if not isinstance(value, bool):
+                diagnostics.append(_error("invalid_optimizer_parameter", f"optimizer_parameters.{parameter_id} must be a boolean"))
+            continue
+        if not isinstance(value, int | float) or isinstance(value, bool) or not math.isfinite(float(value)):
+            diagnostics.append(_error("invalid_optimizer_parameter", f"optimizer_parameters.{parameter_id} must be a finite number"))
+            continue
+        minimum = parameter.constraints.get("min")
+        maximum = parameter.constraints.get("max")
+        if isinstance(minimum, int | float) and value < minimum or isinstance(maximum, int | float) and value > maximum:
+            diagnostics.append(_error("invalid_optimizer_parameter", f"optimizer_parameters.{parameter_id} is outside its supported range"))
+        if parameter_id == "learning_rate" and value <= 0:
+            diagnostics.append(_error("invalid_optimizer_learning_rate", "optimizer_parameters.learning_rate must be a finite positive number"))
 
     selectors = _output_selectors(graph)
     for output_selector, loss in configuration.losses.items():
