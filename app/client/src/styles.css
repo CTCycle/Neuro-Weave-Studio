@@ -416,7 +416,7 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .smoke-test-panel { min-height: 440px; display: grid; grid-template-rows: auto minmax(0, 1fr); padding: 15px; overflow: hidden; }
 .smoke-test-panel .smoke-test-content { padding-top: 14px; }
 .smoke-test-panel .smoke-test-state { padding-left: 0; }
-.builder-page { display: flex; height: 100%; min-height: 0; flex-direction: column; gap: 10px; }
+.builder-page { display: flex; width: 100%; max-width: none; height: 100%; min-width: 0; min-height: 0; margin: 0; flex-direction: column; gap: 10px; overflow: hidden; }
 .model-tab-bar { display: flex; min-width: 0; min-height: 38px; align-items: stretch; gap: 8px; padding: 4px; overflow: hidden; }
 .model-tab-list { display: flex; min-width: 0; flex: 1 1 auto; gap: 4px; overflow-x: auto; }
 .model-tab { display: flex; min-width: 150px; max-width: 240px; align-items: stretch; border: 1px solid transparent; border-radius: 5px; background: transparent; }
@@ -447,10 +447,11 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .builder-toolbar .secondary { border-color: var(--border); background: var(--surface); color: var(--text); }
 .builder-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
 .builder-actions .secondary, .builder-actions .primary { min-height: 34px; }
-.builder-workspace-grid { min-width: 0; min-height: 0; flex: 1 1 auto; display: grid; grid-template-columns: clamp(220px, 20vw, 280px) minmax(420px, 1fr) clamp(244px, 20vw, 300px); gap: 8px; }
-.builder-center-workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; }
+.builder-workspace-grid { width: 100%; min-width: 0; min-height: 0; flex: 1 1 auto; display: grid; grid-template-columns: clamp(220px, 20vw, 280px) minmax(420px, 1fr) clamp(244px, 20vw, 300px); gap: 8px; overflow: hidden; }
+.builder-center-workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; overflow: hidden; }
+.builder-center-workspace > * { min-width: 0; min-height: 0; }
 .builder-mobile-actions { display: none; }
-.builder-content { min-height: 0; overflow: hidden; padding: 10px; }
+.builder-content { width: 100%; min-width: 0; min-height: 0; overflow: hidden; padding: 10px; }
 .dialog-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(2,6,9,.72); }
 .confirm-dialog { width: min(420px, 100%); padding: 22px; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
 .confirm-dialog h2 { margin: 7px 0; font-size: 19px; }
