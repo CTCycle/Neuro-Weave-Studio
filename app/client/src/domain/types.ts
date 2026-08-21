@@ -97,6 +97,34 @@ export interface ModelConfiguration {
   random_seed?: number | null
 }
 
+export type CompilationParameterType = 'number' | 'integer' | 'boolean'
+
+export interface CompilationParameter {
+  id: string
+  label: string
+  type: CompilationParameterType
+  default: number | boolean
+  description: string
+  constraints: Record<string, number | boolean>
+}
+
+export interface CompilationOption {
+  id: string
+  label: string
+  description: string
+  parameters: CompilationParameter[]
+  formula?: string | null
+}
+
+export interface CompilationCatalog {
+  optimizers: CompilationOption[]
+  losses: CompilationOption[]
+  metrics: CompilationOption[]
+  initializers: string[]
+  regularizers: string[]
+  constraints: string[]
+}
+
 export interface ModelGraph {
   schema_version: number
   nodes: GraphNodeInstance[]
@@ -185,6 +213,7 @@ export interface MetadataResponse {
   runtime_apis?: RuntimeApiStatus[]
   execution_backends: ExecutionBackendStatus[]
   configuration: {
+    compilation_catalog: CompilationCatalog
     optimizers: string[]
     losses: string[]
     metrics: string[]

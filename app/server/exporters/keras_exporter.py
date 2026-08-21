@@ -61,6 +61,22 @@ class KerasSourceExporter(SourceExporter):
         return {"adam": "Adam", "adamw": "AdamW", "sgd": "SGD", "rmsprop": "RMSprop"}[name]
 
     # -------------------------------------------------------------------------
+    @staticmethod
+    def _optimizer_parameters(graph: ModelGraph) -> str:
+        accepted = {
+            "adam": {"learning_rate", "beta_1", "beta_2", "epsilon"},
+            "adamw": {"learning_rate", "weight_decay", "beta_1", "beta_2", "epsilon"},
+            "sgd": {"learning_rate", "momentum", "nesterov"},
+            "rmsprop": {"learning_rate", "rho", "momentum", "epsilon", "centered"},
+        }[graph.model_configuration.optimizer]
+        parameters = {
+            key: value
+            for key, value in graph.model_configuration.optimizer_parameters.items()
+            if key in accepted
+        }
+        return ", ".join(f"{key}={value!r}" for key, value in parameters.items())
+
+    # -------------------------------------------------------------------------
     def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
         nodes = {node.id: node for node in graph.nodes}
         backend = (
@@ -260,14 +276,12 @@ class KerasSourceExporter(SourceExporter):
             f"    model = keras.Model(inputs=[{input_variables}], outputs=[{output_variables}], name='neuro_weave_model')"
         )
         optimizer_name = self._optimizer_name(graph.model_configuration.optimizer)
-        learning_rate = float(
-            graph.model_configuration.optimizer_parameters.get("learning_rate", 0.001)
-        )
         loss = self._compile_mapping(graph, graph.model_configuration.losses, None)
         metrics = self._compile_mapping(graph, graph.model_configuration.metrics, [])
+        optimizer_parameters = self._optimizer_parameters(graph)
         lines.extend(
             [
-                f"    optimizer = keras.optimizers.{optimizer_name}(learning_rate={learning_rate!r})",
+                f"    optimizer = keras.optimizers.{optimizer_name}({optimizer_parameters})",
                 f"    model.compile(optimizer=optimizer, loss={loss!r}, metrics={metrics!r})",
                 "    return model",
                 "",

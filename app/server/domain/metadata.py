@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
 from domain.enums import ExecutionBackend
 from domain.runtime import RuntimeApiStatus, RuntimeDevice
 
@@ -11,23 +12,12 @@ class HealthResponse(BaseModel):
 
 ###############################################################################
 class MetadataConfiguration(BaseModel):
-    optimizers: list[str] = Field(default_factory=lambda: ["adam", "adamw", "sgd", "rmsprop"])
-    losses: list[str] = Field(
-        default_factory=lambda: [
-            "categorical_crossentropy",
-            "sparse_categorical_crossentropy",
-            "binary_crossentropy",
-            "mean_squared_error",
-            "mean_absolute_error",
-        ]
-    )
-    metrics: list[str] = Field(
-        default_factory=lambda: ["accuracy", "precision", "recall", "auc", "mae", "mse"]
-    )
-    initializers: list[str] = Field(
-        default_factory=lambda: ["glorot_uniform", "he_normal", "zeros", "ones"]
-    )
-    regularizers: list[str] = Field(default_factory=lambda: ["none", "l1", "l2", "l1_l2"])
+    compilation_catalog: CompilationCatalog = Field(default_factory=get_compilation_catalog)
+    optimizers: list[str] = Field(default_factory=lambda: [item.id for item in get_compilation_catalog().optimizers])
+    losses: list[str] = Field(default_factory=lambda: [item.id for item in get_compilation_catalog().losses])
+    metrics: list[str] = Field(default_factory=lambda: [item.id for item in get_compilation_catalog().metrics])
+    initializers: list[str] = Field(default_factory=lambda: get_compilation_catalog().initializers)
+    regularizers: list[str] = Field(default_factory=lambda: get_compilation_catalog().regularizers)
 
 ###############################################################################
 class MetadataResponse(BaseModel):

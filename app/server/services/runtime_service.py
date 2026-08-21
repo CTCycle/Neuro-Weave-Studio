@@ -4,6 +4,7 @@ from collections.abc import Mapping
 
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
+from domain.compilation_catalog import get_compilation_catalog
 from domain.graph import GRAPH_SCHEMA_VERSION
 from domain.metadata import (
     ExecutionBackendStatus,
@@ -32,6 +33,7 @@ class RuntimeService:
 
     # -------------------------------------------------------------------------
     def metadata(self) -> MetadataResponse:
+        catalog = get_compilation_catalog()
         return MetadataResponse(
             name=self._settings.app_name,
             version=self._settings.app_version,
@@ -57,5 +59,12 @@ class RuntimeService:
                 )
                 for backend, status in self._backend_statuses.items()
             ],
-            configuration=MetadataConfiguration(),
+            configuration=MetadataConfiguration(
+                compilation_catalog=catalog,
+                optimizers=[item.id for item in catalog.optimizers],
+                losses=[item.id for item in catalog.losses],
+                metrics=[item.id for item in catalog.metrics],
+                initializers=catalog.initializers,
+                regularizers=catalog.regularizers,
+            ),
         )

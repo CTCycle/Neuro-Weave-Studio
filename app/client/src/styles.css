@@ -76,6 +76,37 @@ h2 { margin: 4px 0 0; font-size: 17px; }
 .catalog-item.export-limited { border-style: dashed; }
 .compatibility-badge { font: 500 8px 'IBM Plex Mono', Consolas, monospace; color: var(--warning); white-space: nowrap; }
 .configuration-strip { display: flex; min-height: 0; flex-direction: column; gap: 8px; padding: 10px 12px; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; -webkit-overflow-scrolling: touch; }
+.compilation-overview { display: flex; min-width: 0; min-height: 52px; align-items: center; justify-content: space-between; gap: 14px; }
+.compilation-overview > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.compilation-overview strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.compilation-overview small, .compilation-description { color: var(--muted); font-size: 9px; line-height: 1.4; }
+.compilation-overview button { flex: 0 0 auto; min-height: 30px; padding-inline: 10px; }
+.compilation-modal { display: grid; width: min(760px, 100%); max-height: min(820px, calc(100vh - 28px)); grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; box-shadow: 0 18px 60px rgba(0,0,0,.58); }
+.compilation-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 20px 22px 14px; border-bottom: 1px solid var(--border); }
+.compilation-modal-header h2 { margin: 5px 0 4px; }
+.compilation-modal-header p { margin: 0; color: var(--muted); font-size: 10px; }
+.compilation-modal-body { min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 14px 22px 20px; }
+.compilation-section { padding: 13px 0; border-bottom: 1px solid var(--border); }
+.compilation-section:first-child { padding-top: 0; }
+.compilation-section:last-child { border-bottom: 0; }
+.compilation-section h3 { margin: 3px 0 0; font-size: 13px; }
+.compilation-section .field { margin-top: 10px; }
+.compilation-section .field span small { display: block; margin-top: 3px; color: var(--muted); font-size: 8px; font-weight: 400; line-height: 1.35; }
+.compilation-parameter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
+.compilation-option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.compilation-option { display: flex; align-items: flex-start; gap: 8px; min-width: 0; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: #0d151c; cursor: pointer; }
+.compilation-option:has(input:checked) { border-color: rgba(101,201,212,.55); background: rgba(23,43,49,.52); }
+.compilation-option > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.compilation-option strong { font-size: 10px; }
+.compilation-option small { color: var(--muted); font-size: 8px; line-height: 1.35; }
+.math-formula { display: block; overflow-x: auto; padding: 6px 0; color: var(--cyan); font-size: 12px; }
+.compilation-advanced summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; list-style: none; }
+.compilation-advanced summary::-webkit-details-marker { display: none; }
+.compilation-advanced summary > span { display: flex; flex-direction: column; gap: 3px; }
+.compilation-advanced summary strong { font-size: 12px; }
+.compilation-advanced summary small { color: var(--muted); font-size: 9px; }
+.compilation-advanced[open] summary { margin-bottom: 8px; }
+.compilation-modal > .dialog-actions { padding: 12px 22px 16px; border-top: 1px solid var(--border); }
 .configuration-strip:hover, .configuration-strip:focus-within { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
 .configuration-heading { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .configuration-heading strong { font-size: 12px; }
@@ -507,7 +538,7 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
   .builder-catalog.is-open, .builder-inspector.is-open { display: flex; position: fixed; inset: 130px 10px 12px; z-index: 45; }
   .builder-catalog.is-open > .panel, .builder-inspector.is-open > .panel { box-shadow: 0 18px 44px rgba(0,0,0,.55); }
   .builder-center-workspace { min-height: 0; grid-template-rows: auto minmax(205px, 1fr) auto; }
-  .builder-center-workspace .configuration-strip { min-height: 172px; }
+  .builder-center-workspace .configuration-strip { min-height: 0; }
   .configuration-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .environment-header { align-items: flex-start; flex-direction: column; }
 }
@@ -531,6 +562,10 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
   .builder-target, .builder-history { grid-column: auto; grid-row: auto; }
   .builder-actions { grid-column: auto; grid-row: auto; }
   .builder-actions button { flex: 1; }
+  .compilation-modal { max-height: calc(100vh - 14px); }
+  .compilation-modal-header, .compilation-modal-body { padding-inline: 14px; }
+  .compilation-modal > .dialog-actions { padding-inline: 14px; }
+  .compilation-parameter-grid, .compilation-option-grid { grid-template-columns: 1fr; }
   .configuration-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .inference-controls { align-items: stretch; flex-direction: column; }
   .environment-page .backend-status-grid { grid-template-columns: 1fr; }

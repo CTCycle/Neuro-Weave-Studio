@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from '../api/client'
-import type { ExecutionBackend, ExecutionBackendStatus, NodeManifest, ProjectSummary, RuntimeApiStatus, RuntimeDevice, WorkerConfiguration } from '../domain/types'
+import type { CompilationCatalog, ExecutionBackend, ExecutionBackendStatus, NodeManifest, ProjectSummary, RuntimeApiStatus, RuntimeDevice, WorkerConfiguration } from '../domain/types'
 import { AppResourcesContext, type AppResources } from './appResourcesContext'
 
 function defaultPreference(status: ExecutionBackendStatus): WorkerConfiguration {
@@ -32,6 +32,7 @@ export function AppResourcesProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [backendStatuses, setBackendStatuses] = useState<ExecutionBackendStatus[]>([])
   const [runtimeApis, setRuntimeApis] = useState<RuntimeApiStatus[]>([])
+  const [compilationCatalog, setCompilationCatalog] = useState<CompilationCatalog | null>(null)
   const [runtimePreferences, setRuntimePreferences] = useState<Partial<Record<ExecutionBackend, WorkerConfiguration>>>({})
   const [runtimePreferenceBackend, setRuntimePreferenceBackend] = useState<ExecutionBackend | null>(null)
   const [loading, setLoading] = useState(true)
@@ -51,6 +52,7 @@ export function AppResourcesProvider({ children }: { children: ReactNode }) {
       if (metadataResult.status === 'fulfilled') {
         const statuses = metadataResult.value.execution_backends
         setBackendStatuses(statuses)
+        setCompilationCatalog(metadataResult.value.configuration.compilation_catalog)
         setRuntimeApis(metadataResult.value.runtime_apis ?? [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'not_implemented' }])
         setRuntimePreferences((current) => {
           const next = { ...current }
@@ -85,6 +87,7 @@ export function AppResourcesProvider({ children }: { children: ReactNode }) {
     projects,
     backendStatuses,
     runtimeApis,
+    compilationCatalog,
     runtimePreferences,
     runtimePreferenceBackend,
     loading,
@@ -97,7 +100,7 @@ export function AppResourcesProvider({ children }: { children: ReactNode }) {
     clearError: () => setError(null),
     setRuntimePreferenceBackend: selectRuntimePreferenceBackend,
     setRuntimePreference,
-  }), [backendStatuses, error, loading, manifests, projects, runtimeApis, runtimePreferences, runtimePreferenceBackend, selectRuntimePreferenceBackend, setRuntimePreference])
+  }), [backendStatuses, compilationCatalog, error, loading, manifests, projects, runtimeApis, runtimePreferences, runtimePreferenceBackend, selectRuntimePreferenceBackend, setRuntimePreference])
 
   return <AppResourcesContext.Provider value={value}>{children}</AppResourcesContext.Provider>
 }
