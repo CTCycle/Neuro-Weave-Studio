@@ -33,8 +33,14 @@ describe('ModelConfigurationPanel', () => {
     expect(screen.queryByText('Model defaults')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Configure' }))
-    expect(screen.getByText('Model defaults')).toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(4)
+    expect(screen.getByRole('tab', { name: /Advanced Model defaults/ })).toBeVisible()
+    const advancedPanel = document.getElementById('compilation-tabpanel-advanced') as HTMLElement
+    expect(advancedPanel).not.toBeVisible()
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Optimizer' }), 'sgd')
+    await userEvent.click(screen.getByRole('tab', { name: /Advanced Model defaults/ }))
+    expect(advancedPanel).toBeVisible()
+    expect(advancedPanel).toHaveTextContent('Model defaults')
     await userEvent.click(screen.getByRole('button', { name: 'Apply configuration' }))
     expect(useGraphStore.getState().modelConfiguration.optimizer).toBe('sgd')
   })

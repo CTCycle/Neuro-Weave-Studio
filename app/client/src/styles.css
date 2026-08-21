@@ -100,12 +100,6 @@ h2 { margin: 4px 0 0; font-size: 17px; }
 .compilation-option strong { font-size: 10px; }
 .compilation-option small { color: var(--muted); font-size: 8px; line-height: 1.35; }
 .math-formula { display: block; overflow-x: auto; padding: 6px 0; color: var(--cyan); font-size: 12px; }
-.compilation-advanced summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; list-style: none; }
-.compilation-advanced summary::-webkit-details-marker { display: none; }
-.compilation-advanced summary > span { display: flex; flex-direction: column; gap: 3px; }
-.compilation-advanced summary strong { font-size: 12px; }
-.compilation-advanced summary small { color: var(--muted); font-size: 9px; }
-.compilation-advanced[open] summary { margin-bottom: 8px; }
 .compilation-modal > .dialog-actions { padding: 12px 22px 16px; border-top: 1px solid var(--border); }
 .configuration-strip:hover, .configuration-strip:focus-within { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
 .configuration-heading { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
@@ -648,4 +642,24 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
   .builder-identity, .builder-target, .toolbar-toggle, .builder-history, .builder-actions { grid-column: auto; grid-row: auto; }
   .builder-actions { justify-content: stretch; }
   .model-profile-badge { font-size: 8px; }
+}
+
+/* Compilation configuration tabs: keep one focused section visible in the modal. */
+.compilation-modal { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.compilation-modal-tabs { display: flex; min-width: 0; gap: 4px; padding: 8px 22px 0; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+.compilation-tab { display: flex; min-width: 112px; flex: 0 0 auto; flex-direction: column; gap: 3px; padding: 9px 10px 8px; border: 1px solid transparent; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; background: transparent; color: var(--muted); text-align: left; cursor: pointer; }
+.compilation-tab:hover, .compilation-tab.active { border-color: var(--border); background: var(--surface-2); color: var(--text); }
+.compilation-tab.active { border-bottom-color: var(--accent); }
+.compilation-tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+.compilation-tab span { overflow: hidden; font: 600 10px 'IBM Plex Mono', Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.compilation-tab small { overflow: hidden; color: var(--muted); font-size: 8px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.compilation-modal-body { padding: 0 22px 20px; }
+.compilation-section.compilation-tab-panel { padding-top: 18px; border-bottom: 0; }
+.compilation-tab-panel > .section-heading { margin-bottom: 4px; }
+.compilation-tab-panel[hidden] { display: none; }
+
+@media (max-width: 560px) {
+  .compilation-modal-tabs { padding-inline: 14px; }
+  .compilation-tab { min-width: 96px; padding-inline: 8px; }
+  .compilation-modal-body { padding-inline: 14px; }
 }
