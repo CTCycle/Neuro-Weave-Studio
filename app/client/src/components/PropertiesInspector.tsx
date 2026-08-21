@@ -159,7 +159,7 @@ export function PropertiesInspector({ onClose, isOpen = true, executionBackend =
   if (!node) {
     return <aside ref={inspectorRef} className="inspector-panel panel empty-state"><div><span className="eyebrow">INSPECTOR</span><h2>No node selected</h2><p>Select a node to edit its label and parameters.</p></div></aside>
   }
-  const targetMapping = node.data.manifest.frameworks[implementationKey(executionBackend, kerasEnabled)]
+  const targetMapping = node.data.manifest.implementations[implementationKey(executionBackend, kerasEnabled)]
   const updateParameter = (definition: ParameterDefinition, raw: DraftValue) => {
     setDrafts((state) => ({ ...state, [definition.id]: raw }))
     const capability = targetMapping?.parameters?.[definition.id]

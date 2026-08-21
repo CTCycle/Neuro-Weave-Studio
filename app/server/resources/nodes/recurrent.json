@@ -52,10 +52,15 @@
         "kind": "recurrent",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
           "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "execution_backends": {
+            "tensorflow": false,
+            "pytorch": false,
+            "jax": false
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -64,6 +69,10 @@
         "pytorch": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -127,9 +136,14 @@
         "kind": "recurrent",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -139,43 +153,64 @@
           "supported": true,
           "parameters": {
             "activation": {
-              "allowed_values": ["tanh"],
+              "allowed_values": [
+                "tanh"
+              ],
               "notes": "Native PyTorch recurrent export uses tanh cell activation."
             },
             "recurrent_activation": {
-              "allowed_values": ["sigmoid"],
+              "allowed_values": [
+                "sigmoid"
+              ],
               "notes": "Native PyTorch recurrent export uses sigmoid gate activation."
             },
             "dropout": {
-              "allowed_values": [0.0],
+              "allowed_values": [
+                0
+              ],
               "notes": "Per-step recurrent dropout is not mapped."
             },
             "recurrent_dropout": {
-              "allowed_values": [0.0],
+              "allowed_values": [
+                0
+              ],
               "notes": "Per-step recurrent dropout is not mapped."
             },
             "return_state": {
-              "allowed_values": [false],
+              "allowed_values": [
+                false
+              ],
               "notes": "The graph contract exposes one recurrent output port."
             },
             "go_backwards": {
-              "allowed_values": [false],
+              "allowed_values": [
+                false
+              ],
               "notes": "Reverse-time recurrent traversal is not mapped."
             },
             "stateful": {
-              "allowed_values": [false],
+              "allowed_values": [
+                false
+              ],
               "notes": "Stateful recurrent execution is not mapped."
             },
             "unroll": {
-              "allowed_values": [false],
+              "allowed_values": [
+                false
+              ],
               "notes": "Static recurrent unrolling is not mapped."
             },
             "seed": {
-              "allowed_values": [null],
+              "allowed_values": [
+                null
+              ],
               "notes": "Per-layer recurrent seeds are not mapped."
             },
             "unit_forget_bias": {
-              "allowed_values": [true, false],
+              "allowed_values": [
+                true,
+                false
+              ],
               "notes": "The exporter applies the canonical forget-bias initialization when enabled."
             },
             "kernel_initializer": {
@@ -191,6 +226,10 @@
               "notes": "Native PyTorch initializer mapping is not exposed yet."
             }
           }
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -254,9 +293,14 @@
         "kind": "recurrent",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
-          "supported": true
+          "supported": true,
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -266,43 +310,63 @@
           "supported": true,
           "parameters": {
             "activation": {
-              "allowed_values": ["tanh"],
+              "allowed_values": [
+                "tanh"
+              ],
               "notes": "Native PyTorch recurrent export uses tanh cell activation."
             },
             "recurrent_activation": {
-              "allowed_values": ["sigmoid"],
+              "allowed_values": [
+                "sigmoid"
+              ],
               "notes": "Native PyTorch recurrent export uses sigmoid gate activation."
             },
             "dropout": {
-              "allowed_values": [0.0],
+              "allowed_values": [
+                0
+              ],
               "notes": "Per-step recurrent dropout is not mapped."
             },
             "recurrent_dropout": {
-              "allowed_values": [0.0],
+              "allowed_values": [
+                0
+              ],
               "notes": "Per-step recurrent dropout is not mapped."
             },
             "return_state": {
-              "allowed_values": [false],
+              "allowed_values": [
+                false
+              ],
               "notes": "The graph contract exposes one recurrent output port."
             },
             "go_backwards": {
-              "allowed_values": [false],
+              "allowed_values": [
+                false
+              ],
               "notes": "Reverse-time recurrent traversal is not mapped."
             },
             "stateful": {
-              "allowed_values": [false],
+              "allowed_values": [
+                false
+              ],
               "notes": "Stateful recurrent execution is not mapped."
             },
             "unroll": {
-              "allowed_values": [false],
+              "allowed_values": [
+                false
+              ],
               "notes": "Static recurrent unrolling is not mapped."
             },
             "seed": {
-              "allowed_values": [null],
+              "allowed_values": [
+                null
+              ],
               "notes": "Per-layer recurrent seeds are not mapped."
             },
             "reset_after": {
-              "allowed_values": [true],
+              "allowed_values": [
+                true
+              ],
               "notes": "Native PyTorch GRU export uses the canonical reset-after gate order."
             },
             "kernel_initializer": {
@@ -318,6 +382,10 @@
               "notes": "Native PyTorch initializer mapping is not exposed yet."
             }
           }
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -392,10 +460,15 @@
         "kind": "recurrent",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
           "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "execution_backends": {
+            "tensorflow": false,
+            "pytorch": false,
+            "jax": false
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -404,6 +477,10 @@
         "pytorch": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {
@@ -487,10 +564,15 @@
         "kind": "recurrent",
         "config": {}
       },
-      "frameworks": {
+      "implementations": {
         "keras": {
           "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "execution_backends": {
+            "tensorflow": false,
+            "pytorch": false,
+            "jax": false
+          }
         },
         "tensorflow": {
           "supported": false,
@@ -499,6 +581,10 @@
         "pytorch": {
           "supported": false,
           "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX implementation is not available for this node."
         }
       },
       "ui": {

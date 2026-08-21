@@ -55,7 +55,9 @@ class ParameterCapability(BaseModel):
     notes: str | None = None
 
 ###############################################################################
-class FrameworkMapping(BaseModel):
+class ImplementationMapping(BaseModel):
+    """Capability metadata for one Keras or native node implementation."""
+
     supported: bool = True
     symbol: str | None = None
     notes: str | None = None
@@ -85,7 +87,7 @@ class NodeManifest(BaseModel):
     outputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     parameters: list[ParameterDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     shape_rule: ShapeRule
-    frameworks: dict[str, FrameworkMapping]
+    implementations: dict[str, ImplementationMapping]
     ui: UiMetadata = Field(default_factory=UiMetadata)
     deprecated: bool = False
     documentation_ref: str
@@ -105,11 +107,11 @@ class NodeManifest(BaseModel):
             if len(ids) != len(set(ids)):
                 raise ValueError(f"Duplicate {label} identifiers in manifest {self.id}")
         known_parameter_ids = {parameter.id for parameter in parameters}
-        for target, mapping in self.frameworks.items():
+        for implementation, mapping in self.implementations.items():
             unknown_capabilities = sorted(set(mapping.parameters) - known_parameter_ids)
             if unknown_capabilities:
                 raise ValueError(
-                    f"Framework mapping {target} for {self.id} references unknown "
+                    f"Implementation mapping {implementation} for {self.id} references unknown "
                     f"parameters: {', '.join(unknown_capabilities)}"
                 )
         return self

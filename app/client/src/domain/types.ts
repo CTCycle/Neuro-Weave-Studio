@@ -39,7 +39,7 @@ export interface ParameterCapability {
   notes?: string | null
 }
 
-export interface FrameworkMapping {
+export interface ImplementationMapping {
   supported: boolean
   symbol?: string
   notes?: string
@@ -57,7 +57,7 @@ export interface NodeManifest {
   outputs: PortDefinition[]
   parameters: ParameterDefinition[]
   shape_rule: { kind: string; config: Record<string, unknown> }
-  frameworks: Record<string, FrameworkMapping>
+  implementations: Record<string, ImplementationMapping>
   ui: { icon: string; accent: string; width: number; height: number }
   deprecated: boolean
   documentation_ref: string

@@ -8,7 +8,7 @@ const node = (id: string): EditorNode => ({
   type: 'modelNode',
   position: { x: 0, y: 0 },
   data: {
-    manifest: { id: 'layer.dense', version: 1, display_name: 'Dense', category: 'core', description: '', inputs: [], outputs: [], parameters: [], shape_rule: { kind: 'dense', config: {} }, frameworks: { keras: { supported: true }, tensorflow: { supported: true }, pytorch: { supported: true }, jax: { supported: true } }, ui: { icon: 'Box', accent: 'violet', width: 250, height: 120 }, deprecated: false, documentation_ref: '' },
+    manifest: { id: 'layer.dense', version: 1, display_name: 'Dense', category: 'core', description: '', inputs: [], outputs: [], parameters: [], shape_rule: { kind: 'dense', config: {} }, implementations: { keras: { supported: true }, tensorflow: { supported: true }, pytorch: { supported: true }, jax: { supported: true } }, ui: { icon: 'Box', accent: 'violet', width: 250, height: 120 }, deprecated: false, documentation_ref: '' },
     parameters: {}, label: id,
   },
 })

@@ -64,7 +64,7 @@ export function NodeCatalog({ manifests, executionBackend = 'pytorch', kerasEnab
             <span aria-hidden="true">{openCategories[group.category] ? '−' : '+'}</span>
           </button>
           {openCategories[group.category] && <div id={`catalog-${group.category}`} className="catalog-category-items">{group.manifests.map((manifest) => {
-            const supported = manifest.frameworks[implementationKey(executionBackend, kerasEnabled)]?.supported ?? false
+            const supported = manifest.implementations[implementationKey(executionBackend, kerasEnabled)]?.supported ?? false
             return (
               <article
                 key={`${manifest.id}@${manifest.version}`}

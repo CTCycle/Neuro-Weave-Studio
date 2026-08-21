@@ -248,24 +248,11 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
     return []
 
 ###############################################################################
-def _normalize_manifest(raw: dict[str, Any]) -> dict[str, Any]:
-    """Complete omitted target entries without changing declared support."""
+def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
+    """Add the safe constructor controls used by the inspector."""
 
     item = dict(raw)
-    original = dict(item.get("frameworks", {}))
-    mappings: dict[str, Any] = {}
-    for key, value in original.items():
-        target = key
-        if target is None:
-            continue
-        mappings[target] = value
     node_id = str(item.get("id", ""))
-    keras_mapping = mappings.get("keras", {"supported": False, "notes": "Design-only node"})
-    mappings.setdefault("keras", keras_mapping)
-    mappings.setdefault("tensorflow", mappings.get("tensorflow", {"supported": False, "notes": "Target-limited"}))
-    mappings.setdefault("pytorch", mappings.get("pytorch", {"supported": False, "notes": "Target-limited"}))
-    mappings.setdefault("jax", {"supported": False, "notes": "Target-limited or design-only node"})
-    item["frameworks"] = mappings
     parameters: list[dict[str, Any]] = []
     for parameter in [*item.get("parameters", []), *_safe_layer_parameters(node_id)]:
         normalized = dict(parameter)
@@ -327,7 +314,7 @@ def get_node_catalog() -> NodeCatalog:
         items = cast(
             list[dict[str, Any]], raw if isinstance(raw, list) else raw["nodes"]
         )
-        manifests.extend(NodeManifest.model_validate(_normalize_manifest(item)) for item in items)
+        manifests.extend(NodeManifest.model_validate(_enrich_manifest_parameters(item)) for item in items)
     if not manifests:
         raise RuntimeError(f"No node manifests found under {RESOURCE_ROOT}")
     keys = [(manifest.id, manifest.version) for manifest in manifests]

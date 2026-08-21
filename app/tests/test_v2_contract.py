@@ -14,7 +14,7 @@ def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
     catalog = get_node_catalog()
     assert len(catalog.manifests) == 85
     for manifest in catalog.manifests:
-        assert set(manifest.frameworks) == {"keras", "tensorflow", "pytorch", "jax"}
+        assert set(manifest.implementations) == {"keras", "tensorflow", "pytorch", "jax"}
         ids = [item.id for item in manifest.parameters]
         assert len(ids) == len(set(ids))
         for parameter in manifest.parameters:
@@ -26,18 +26,30 @@ def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
 ###############################################################################
 def test_manifest_capabilities_are_not_inflated_by_runtime_registry() -> None:
     catalog = get_node_catalog()
-    assert catalog.get("layer.batch_norm").frameworks["pytorch"].supported
-    assert catalog.get("conv.conv2d").frameworks["pytorch"].supported
-    assert not catalog.get("attention.multi_head").frameworks["pytorch"].supported
-    assert not catalog.get("attention.multi_head").frameworks["tensorflow"].supported
-    assert not catalog.get("transformer.encoder_block").frameworks["tensorflow"].supported
-    assert not catalog.get("layer.dense").frameworks["jax"].supported
+    assert catalog.get("layer.batch_norm").implementations["pytorch"].supported
+    assert catalog.get("conv.conv2d").implementations["pytorch"].supported
+    assert not catalog.get("attention.multi_head").implementations["pytorch"].supported
+    assert not catalog.get("attention.multi_head").implementations["tensorflow"].supported
+    assert not catalog.get("transformer.encoder_block").implementations["tensorflow"].supported
+    assert not catalog.get("layer.dense").implementations["jax"].supported
+
+###############################################################################
+def test_keras_mappings_declare_backend_portability_explicitly() -> None:
+    catalog = get_node_catalog()
+    for identifier in ("layer.dense", "conv.conv2d", "recurrent.lstm", "attention.multi_head"):
+        mapping = catalog.get(identifier).implementations["keras"]
+        assert mapping.supported
+        assert mapping.execution_backends == {
+            ExecutionBackend.TENSORFLOW: True,
+            ExecutionBackend.PYTORCH: True,
+            ExecutionBackend.JAX: True,
+        }
 
 ###############################################################################
 def test_unproven_native_targets_remain_disabled() -> None:
     catalog = get_node_catalog()
     for target in ("tensorflow", "jax"):
-        assert all(not manifest.frameworks[target].supported for manifest in catalog.manifests)
+        assert all(not manifest.implementations[target].supported for manifest in catalog.manifests)
 
 ###############################################################################
 def test_target_parameter_capabilities_block_unmapped_values() -> None:
@@ -213,7 +225,7 @@ def test_execution_profiles_generate_or_reject_source_explicitly(client: httpx.C
         )
         assert response.status_code == 200, response.text
         payload: dict[str, Any] = response.json()
-        if catalog.get("layer.dense").frameworks[target].supported:
+        if catalog.get("layer.dense").implementations[target].supported:
             assert payload["valid"] is True
             ast.parse(cast(str, payload["code"]))
         else:
