@@ -7,7 +7,7 @@ import { ModelTabBar } from '../components/ModelTabBar'
 import { NodeCatalog } from '../components/NodeCatalog'
 import { ProjectToolbar } from '../components/ProjectToolbar'
 import { PropertiesInspector } from '../components/PropertiesInspector'
-import { ResizableValidationRegion } from '../components/ResizableValidationRegion'
+import { DEFAULT_VALIDATION_HEIGHT, ResizableValidationRegion } from '../components/ResizableValidationRegion'
 import { ValidationPanel } from '../components/ValidationPanel'
 import type { ExecutionBackend, ProjectDocument } from '../domain/types'
 import { useAppResources } from '../state/useAppResources'
@@ -33,6 +33,8 @@ function projectTabInput(project: ProjectDocument, graph: GraphEditorSession): N
     revision: project.current_revision,
     graph,
     validation: null,
+    validationExpanded: false,
+    validationHeight: DEFAULT_VALIDATION_HEIGHT,
     savedBaseline: draftSnapshot(project.name, project.description, project.execution_backend, project.keras_enabled, project.graph),
   }
 }
@@ -47,6 +49,8 @@ function untitledTabInput(executionBackend: ExecutionBackend, graph: GraphEditor
     revision: 1,
     graph,
     validation: null,
+    validationExpanded: false,
+    validationHeight: DEFAULT_VALIDATION_HEIGHT,
     savedBaseline: draftSnapshot('Untitled model', '', executionBackend, true, modelGraph),
   }
 }
@@ -300,12 +304,11 @@ export function ModelBuilderPage() {
 
   return (
     <div className="builder-page">
-      <ProjectToolbar name={activeTab.name} onNameChange={(name) => updateDraftMetadata({ name })} description={activeTab.description} onDescriptionChange={(description) => updateDraftMetadata({ description })} executionBackend={activeTab.executionBackend} onExecutionBackendChange={(executionBackend) => updateDraftMetadata({ executionBackend })} kerasEnabled={activeTab.kerasEnabled} onKerasEnabledChange={(kerasEnabled) => updateDraftMetadata({ kerasEnabled })} onSave={() => persist(false)} onCompile={() => persist(true)} onValidate={runValidation} busy={busy} modelId={activeTab.projectId} onOpenWorkspace={() => activeTab.projectId && navigate(`/models/${activeTab.projectId}`)} />
-      <ModelTabBar tabs={tabs} activeTabId={activeTabId} onSelect={switchTab} onClose={requestCloseTab} onNew={openNewTab} />
+      <ProjectToolbar name={activeTab.name} onNameChange={(name) => updateDraftMetadata({ name })} description={activeTab.description} onDescriptionChange={(description) => updateDraftMetadata({ description })} executionBackend={activeTab.executionBackend} onExecutionBackendChange={(executionBackend) => updateDraftMetadata({ executionBackend })} kerasEnabled={activeTab.kerasEnabled} onKerasEnabledChange={(kerasEnabled) => updateDraftMetadata({ kerasEnabled })} onSave={() => persist(false)} onCompile={() => persist(true)} onValidate={runValidation} busy={busy} dirty={activeTab.dirty} modelId={activeTab.projectId} onOpenWorkspace={() => activeTab.projectId && navigate(`/models/${activeTab.projectId}`)} />
       <div className="builder-mobile-actions"><button className={mobilePanel === 'catalog' ? 'active' : ''} onClick={() => setMobilePanel(mobilePanel === 'catalog' ? null : 'catalog')}>Catalog</button><button className={mobilePanel === 'inspector' ? 'active' : ''} onClick={() => setMobilePanel(mobilePanel === 'inspector' ? null : 'inspector')}>Inspector</button></div>
       <div className="builder-workspace-grid">
         <div className={`drawer-slot builder-catalog ${mobilePanel === 'catalog' ? 'is-open' : ''}`}><NodeCatalog manifests={manifests} executionBackend={activeTab.executionBackend} kerasEnabled={activeTab.kerasEnabled} isOpen={mobilePanel === 'catalog'} onClose={() => setMobilePanel(null)} onAdd={(manifest) => addNode(manifest, { x: 120 + useGraphStore.getState().nodes.length * 280, y: 120 })} /></div>
-        <section className="builder-center-workspace"><ModelConfigurationPanel kerasEnabled={activeTab.kerasEnabled} /><GraphCanvas /><ResizableValidationRegion><ValidationPanel result={activeTab.validation} /></ResizableValidationRegion></section>
+        <section id="builder-editor-workspace" className="builder-center-workspace"><ModelTabBar tabs={tabs} activeTabId={activeTabId} onSelect={switchTab} onClose={requestCloseTab} onNew={openNewTab} /><ModelConfigurationPanel kerasEnabled={activeTab.kerasEnabled} /><GraphCanvas /><ResizableValidationRegion expanded={activeTab.validationExpanded} height={activeTab.validationHeight} onHeightChange={(height) => activeTabId && updateTab(activeTabId, { validationHeight: height })}><ValidationPanel result={activeTab.validation} expanded={activeTab.validationExpanded} onExpandedChange={(expanded) => activeTabId && updateTab(activeTabId, { validationExpanded: expanded })} /></ResizableValidationRegion></section>
         <div className={`drawer-slot builder-inspector ${mobilePanel === 'inspector' ? 'is-open' : ''}`}><PropertiesInspector onClose={() => setMobilePanel(null)} isOpen={mobilePanel === 'inspector'} executionBackend={activeTab.executionBackend} kerasEnabled={activeTab.kerasEnabled} /></div>
       </div>
       {blocker.state === 'blocked' && <div className="dialog-backdrop"><section className="confirm-dialog panel" role="dialog" aria-modal="true" aria-labelledby="unsaved-title"><span className="eyebrow">UNSAVED CHANGES</span><h2 id="unsaved-title">Leave the Model Builder?</h2><p>{dirtyTabCount === 1 ? 'One model tab has unsaved changes.' : `${dirtyTabCount} model tabs have unsaved changes.`} Leave and discard them?</p><div className="dialog-actions"><button className="secondary" onClick={() => blocker.reset?.()}>Stay</button><button className="primary" onClick={() => blocker.proceed?.()}>Discard changes</button></div></section></div>}

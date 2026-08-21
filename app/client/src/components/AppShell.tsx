@@ -7,7 +7,7 @@ export function AppShell() {
   const location = useLocation()
   const isBuilder = location.pathname.startsWith('/builder')
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isBuilder ? 'builder-shell' : ''}`}>
       <header className="app-header">
         <NavLink className="brand-mark" to="/models" aria-label="NeuroWeave models">
           <span className="brand-icon"><BrainCircuit size={18} /></span>

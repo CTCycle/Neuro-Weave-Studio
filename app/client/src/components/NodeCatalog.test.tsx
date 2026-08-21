@@ -21,15 +21,20 @@ describe('NodeCatalog', () => {
 
   it('groups nodes into collapsible categories', async () => {
     render(<NodeCatalog manifests={manifests} executionBackend="pytorch" kerasEnabled />)
-    expect(screen.getByText('Dense')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /Core/ }))
+    const coreToggle = screen.getByRole('button', { name: /Core/ })
+    expect(coreToggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('Dense')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /Core/ }))
+    await userEvent.click(coreToggle)
+    expect(coreToggle).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('Dense')).toBeInTheDocument()
+    await userEvent.click(coreToggle)
+    expect(coreToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Dense')).not.toBeInTheDocument()
   })
 
   it('keeps the node drag payload stable', () => {
     render(<NodeCatalog manifests={manifests} executionBackend="pytorch" kerasEnabled />)
+    fireEvent.click(screen.getByRole('button', { name: /Core/ }))
     const data = new Map<string, string>()
     const item = screen.getByText('Dense').closest('[draggable="true"]')
     expect(item).not.toBeNull()

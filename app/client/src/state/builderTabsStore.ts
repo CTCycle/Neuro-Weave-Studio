@@ -12,6 +12,8 @@ export interface BuilderTab {
   revision: number
   graph: GraphEditorSession
   validation: ValidationResult | null
+  validationExpanded: boolean
+  validationHeight: number
   savedBaseline: string
   dirty: boolean
 }

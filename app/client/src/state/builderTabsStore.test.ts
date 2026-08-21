@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { GraphEditorSession } from './graphStore'
 import { useBuilderTabsStore } from './builderTabsStore'
-import { emptyModelConfiguration } from '../domain/types'
+import { emptyModelConfiguration, type ValidationResult } from '../domain/types'
 
 const session = (label: string): GraphEditorSession => ({
   nodes: [],
@@ -25,9 +25,18 @@ function tab(projectId: string | null, label: string) {
     revision: 1,
     graph: session(label),
     validation: null,
+    validationExpanded: false,
+    validationHeight: 160,
     savedBaseline: label,
   }
 }
+
+const validation = (code: string): ValidationResult => ({
+  valid: false,
+  diagnostics: [{ code, severity: 'error', message: `${code} finding`, details: {} }],
+  shape_summaries: [],
+  total_parameters: 0,
+})
 
 describe('builder tabs store', () => {
   afterEach(() => useBuilderTabsStore.getState().reset())
@@ -52,5 +61,33 @@ describe('builder tabs store', () => {
 
     expect(useBuilderTabsStore.getState().activeTabId).toBe(secondId)
     expect(useBuilderTabsStore.getState().tabs[0].graph.modelConfiguration.optimizer).toBe('second')
+  })
+
+  it('keeps validation UI state independent between workspaces', () => {
+    const firstId = useBuilderTabsStore.getState().openTab(tab('project-1', 'first'))
+    const secondId = useBuilderTabsStore.getState().openTab(tab('project-2', 'second'))
+    useBuilderTabsStore.getState().updateTab(firstId, {
+      graph: { ...session('first-edited'), selectedNodeId: 'node-first' },
+      validation: validation('FIRST'),
+      validationExpanded: true,
+      validationHeight: 240,
+    })
+    useBuilderTabsStore.getState().updateTab(secondId, {
+      graph: { ...session('second-edited'), selectedNodeId: 'node-second' },
+      validation: validation('SECOND'),
+    })
+    useBuilderTabsStore.getState().focusTab(firstId)
+
+    const first = useBuilderTabsStore.getState().tabs.find((item) => item.id === firstId)
+    const second = useBuilderTabsStore.getState().tabs.find((item) => item.id === secondId)
+    expect(first?.graph.selectedNodeId).toBe('node-first')
+    expect(first?.graph.modelConfiguration.optimizer).toBe('first-edited')
+    expect(first?.validation?.diagnostics[0].code).toBe('FIRST')
+    expect(first?.validationExpanded).toBe(true)
+    expect(first?.validationHeight).toBe(240)
+    expect(second?.graph.selectedNodeId).toBe('node-second')
+    expect(second?.graph.modelConfiguration.optimizer).toBe('second-edited')
+    expect(second?.validation?.diagnostics[0].code).toBe('SECOND')
+    expect(second?.validationExpanded).toBe(false)
   })
 })

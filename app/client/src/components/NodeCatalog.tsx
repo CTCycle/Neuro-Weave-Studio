@@ -34,7 +34,7 @@ export function NodeCatalog({ manifests, executionBackend = 'pytorch', kerasEnab
     setOpenCategories((current) => {
       const next = { ...current }
       categories.forEach((category) => {
-        if (!(category in next)) next[category] = true
+        if (!(category in next)) next[category] = false
       })
       return next
     })
