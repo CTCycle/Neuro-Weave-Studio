@@ -21,8 +21,10 @@ describe('ValidationPanel', () => {
     useGraphStore.getState().reset()
   })
 
-  it('opens blocking findings and selects their graph target', async () => {
+  it('keeps blocking findings collapsed until the user opens them', async () => {
     render(<ValidationPanel result={result} />)
+    expect(screen.queryByText('Output shape is incompatible.')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Validation/ }))
     expect(await screen.findByText('Output shape is incompatible.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /Output shape is incompatible/ }))
     expect(useGraphStore.getState().selectedNodeId).toBe('node-1')
