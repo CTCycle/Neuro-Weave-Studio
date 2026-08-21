@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { CompilationStatusBadge, ValidationStatusBadge } from '../components/ModelStatusBadge'
 import type { ExecutionBackend, ProjectDocument, ProjectExportBundle, ProjectSummary } from '../domain/types'
-import { implementationLabel, executionBackendShortLabels } from '../domain/types'
+import { executionBackendShortLabels } from '../domain/types'
 import { useAppResources } from '../state/useAppResources'
 
 type CatalogFilter = 'all' | 'compiled' | 'uncompiled' | 'valid' | 'attention'
@@ -50,7 +50,7 @@ export function ModelCatalogPage() {
 
 function ModelCard({ project }: { project: ProjectSummary }) {
   const compiled = project.has_generated_source
-  return <Link className="model-card panel" to={`/models/${project.id}`}><div className="model-card-top"><span className="eyebrow">MODEL</span><span className="revision-label">r{project.current_revision}</span></div><div className="model-card-title"><h2>{project.name}</h2><span className="model-card-arrow">→</span></div><p>{project.description || 'No description added.'}</p><div className="model-card-meta"><ValidationStatusBadge status={project.validation_status} /><span className="model-profile-badge">{executionBackendShortLabels[project.execution_backend]}</span><span className="model-profile-badge">{project.keras_enabled ? 'Keras' : 'Native'}</span><CompilationStatusBadge compiled={compiled} /></div><div className="model-card-stats"><span><strong>{project.node_count}</strong> nodes</span><span><strong>{project.edge_count}</strong> connections</span><span><strong>{implementationLabel(project.execution_backend, project.keras_enabled)}</strong></span></div><footer><span>Updated {formatUpdated(project.updated_at)}</span><Box size={13} /></footer></Link>
+  return <Link className="model-card panel" to={`/models/${project.id}`}><div className="model-card-top"><span className="eyebrow">MODEL</span><span className="revision-label">r{project.current_revision}</span></div><div className="model-card-title"><h2>{project.name}</h2><span className="model-card-arrow">→</span></div><p>{project.description || 'No description added.'}</p><div className="model-card-meta"><ValidationStatusBadge status={project.validation_status} /><span className="model-profile-badge">{executionBackendShortLabels[project.execution_backend]}</span><span className="model-profile-badge">{project.keras_enabled ? 'Keras' : 'Native'}</span><CompilationStatusBadge compiled={compiled} /></div><div className="model-card-stats"><span><strong>{project.node_count}</strong> nodes</span><span><strong>{project.edge_count}</strong> connections</span></div><footer><span>Updated {formatUpdated(project.updated_at)}</span><Box size={13} /></footer></Link>
 }
 
 function filterLabel(filter: CatalogFilter): string { return filter === 'all' ? 'All models' : filter === 'attention' ? 'Needs attention' : filter[0].toUpperCase() + filter.slice(1) }
