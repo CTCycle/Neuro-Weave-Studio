@@ -1,7 +1,8 @@
 {
   "name": "Multilayer perceptron",
   "description": "A compact tabular classifier example.",
-  "code_target": "keras",
+  "execution_backend": "pytorch",
+  "keras_enabled": true,
   "graph": {
     "schema_version": 2,
     "nodes": [

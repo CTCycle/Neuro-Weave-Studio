@@ -100,7 +100,7 @@ def test_health_and_metadata_are_typed_contracts(client: httpx.Client) -> None:
     assert health.status_code == 200
     assert health.json() == {"status": "ok"}
     assert metadata.status_code == 200
-    assert "code_targets" not in metadata.json()
+    assert "compilation_catalog" in metadata.json()["configuration"]
     backend_items = metadata.json()["execution_backends"]
     assert {item["id"] for item in backend_items} == {
         "tensorflow", "pytorch", "jax"

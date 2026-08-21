@@ -1,7 +1,8 @@
 {
   "name": "Small Transformer encoder",
   "description": "Token embedding, positional encoding and a compact Transformer encoder block.",
-  "code_target": "keras",
+  "execution_backend": "pytorch",
+  "keras_enabled": true,
   "graph": {
     "schema_version": 2,
     "nodes": [
