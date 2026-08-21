@@ -258,23 +258,26 @@ def _unique_id(value: str, used: set[str]) -> str:
     return candidate
 
 
+def _visit_inbound_names(item: Any, names: list[str]) -> None:
+    if isinstance(item, dict):
+        config = item.get("config")
+        history = config.get("keras_history") if isinstance(config, dict) else None
+        if isinstance(history, list) and history and isinstance(history[0], str):
+            names.append(history[0])
+            return
+        for child in item.values():
+            _visit_inbound_names(child, names)
+    elif isinstance(item, list):
+        if item and isinstance(item[0], str) and len(item) >= 3:
+            names.append(item[0])
+            return
+        for child in item:
+            _visit_inbound_names(child, names)
+
+
 def _inbound_names(value: Any) -> list[str]:
     names: list[str] = []
-    def visit(item: Any) -> None:
-        if isinstance(item, dict):
-            history = item.get("config", {}).get("keras_history") if isinstance(item.get("config"), dict) else None
-            if isinstance(history, list) and history and isinstance(history[0], str):
-                names.append(history[0])
-                return
-            for child in item.values():
-                visit(child)
-        elif isinstance(item, list):
-            if item and isinstance(item[0], str) and len(item) >= 3:
-                names.append(item[0])
-                return
-            for child in item:
-                visit(child)
-    visit(value)
+    _visit_inbound_names(value, names)
     return list(dict.fromkeys(names))
 
 

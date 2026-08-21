@@ -348,7 +348,7 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
         edges=[edge("e1", "input", "dense"), edge("e2", "dense", "output")],
         model_configuration=ModelConfiguration(
             losses={"__default__": "mean_squared_error"},
-            metrics={"__default__": ["mse"]},
+            metrics={"__default__": ["mean_squared_error"]},
         ),
     )
     result = validate(graph)
@@ -391,7 +391,7 @@ def test_supported_optimizers_compile_on_cpu_backend(optimizer: str) -> None:
             optimizer=optimizer,
             optimizer_parameters={"learning_rate": 0.002},
             losses={"__default__": "mean_squared_error"},
-            metrics={"__default__": ["mae"]},
+            metrics={"__default__": ["mean_absolute_error"]},
             random_seed=7,
         ),
     )
@@ -451,7 +451,7 @@ def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -
         model_configuration=ModelConfiguration(
             optimizer="adamw",
             losses={"tokens": "mean_squared_error", "output_b": "mean_absolute_error"},
-            metrics={"__default__": ["mse"]},
+            metrics={"__default__": ["mean_squared_error"]},
         ),
     )
     result = validate(graph)
@@ -499,7 +499,7 @@ def test_keras_export_job_reloads_in_a_clean_process(tmp_path: Path) -> None:
         model_configuration=ModelConfiguration(
             optimizer="adamw",
             losses={"__default__": "mean_squared_error"},
-            metrics={"__default__": ["mse"]},
+            metrics={"__default__": ["mean_squared_error"]},
             random_seed=123,
         ),
     )
