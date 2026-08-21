@@ -59,9 +59,9 @@ def validate_model_configuration(
 ) -> list[ValidationDiagnostic]:
     """Validate the compile settings used by the Keras runtime.
 
-    Other source targets retain their existing target-specific source contract;
-    Keras is the executable model API and the only target that consumes this
-    configuration in the current product boundary.
+    Native implementations do not consume Keras compile settings; Keras is the
+    executable model API and the only implementation that uses this configuration
+    in the current product boundary.
     """
 
     if not keras_enabled:

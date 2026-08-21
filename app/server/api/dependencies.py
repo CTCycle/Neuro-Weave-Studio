@@ -82,16 +82,12 @@ def get_compilation_service(
 def get_export_service(
     project_service: ProjectService = Depends(get_project_service),
     compilation_service: CompilationService = Depends(get_compilation_service),
-    validator: ValidationService = Depends(get_validation_service),
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
-    settings: Settings = Depends(get_settings),
 ) -> ExportService:
     return ExportService(
         project_service=project_service,
         compilation_service=compilation_service,
-        validator=validator,
         uow_factory=uow_factory,
-        settings=settings,
     )
 
 ###############################################################################
