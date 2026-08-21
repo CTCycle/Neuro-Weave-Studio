@@ -384,6 +384,11 @@ export interface ProjectExportBundle {
   }
 }
 
+export interface KerasArchitectureImportResponse {
+  project: ProjectDocument
+  warnings: string[]
+}
+
 export const emptyModelConfiguration = (): ModelConfiguration => ({
   optimizer: 'adam',
   optimizer_parameters: { learning_rate: 0.001 },

@@ -10,6 +10,7 @@ import type {
   ValidationResult,
   JobResponse,
   WorkerConfiguration,
+  KerasArchitectureImportResponse,
 } from '../domain/types'
 
 const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//
@@ -112,6 +113,15 @@ export const api = {
   },
   importProject(bundle: ProjectExportBundle): Promise<ProjectDocument> {
     return request('/projects/import', { method: 'POST', body: JSON.stringify(bundle) })
+  },
+  importKerasArchitecture(file: Blob, execution_backend: ExecutionBackend, name?: string): Promise<KerasArchitectureImportResponse> {
+    const query = new URLSearchParams({ execution_backend })
+    if (name) query.set('name', name)
+    return request(`/imports/keras-architecture?${query.toString()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/vnd.keras.zip' },
+      body: file,
+    })
   },
   validate(graph: ModelGraph, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ValidationResult> {
     return request('/validation', {

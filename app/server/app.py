@@ -16,6 +16,7 @@ from api.routes import (
     execution,
     exports,
     health,
+    imports,
     metadata,
     projects,
     validation,
@@ -99,6 +100,7 @@ def create_app() -> FastAPI:
     application.include_router(compilation.router)
     application.include_router(execution.router)
     application.include_router(exports.router)
+    application.include_router(imports.router)
 
     if _client_build_available():
         if common_path.FRONTEND_ASSETS_ROOT.is_dir():
