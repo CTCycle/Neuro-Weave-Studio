@@ -19,8 +19,11 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
         "'6' -Label 'Run validation suite'",
         "'7' -Label 'Remove logs'",
         "'8' -Label 'Clear cache'",
-        "'9' -Label 'Uninstall application'",
-        "'10' -Label 'Exit'",
+        "'9' -Label 'Remove all data'",
+        "'10' -Label 'Uninstall application'",
+        "'11' -Label 'Check for updates'",
+        "'12' -Label 'Update application'",
+        "'13' -Label 'Exit'",
     ):
         assert menu_entry in source
     assert "Assert-PortAvailable" in source
@@ -70,7 +73,19 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "$script:PythonVersion = '3.13.14'" in source
     assert "'CleanLogs' { Invoke-RemoveApplicationLogs }" in source
     assert "'ClearCache' { Invoke-ClearApplicationCache }" in source
+    assert "'RemoveAllData' { Invoke-RemoveAllData }" in source
+    assert "'CheckForUpdates' { Invoke-CheckForUpdates }" in source
+    assert "'Update' { Invoke-UpdateApplication }" in source
     assert "'Uninstall' { Invoke-UninstallApplication }" in source
+    assert "MAINTENANCE & DATA" in source
+    assert "UPDATES" in source
+    assert "fetch --dry-run" in source
+    assert "& $git -C $script:RepoRoot pull $script:GitRemote $script:GitMainBranch" in source
+    assert "Assert-GitWorktreeClean" in source
+    assert "DELETE ALL DATA" in source
+    assert "Get-UserDataTargets" in source
+    assert "database*.db" in source
+    assert "tracked application files" in source
     assert "$script:RuntimeCacheDir = Join-Path $script:RuntimeDir 'cache'" in source
     assert "$script:CacheDir = Join-Path $AppDir 'tests\\cache'" in source
     assert "function Remove-PathBestEffort" in source
