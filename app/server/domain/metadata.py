@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from domain.enums import CodeTarget, ExecutionBackend
+from domain.enums import ExecutionBackend
 from domain.runtime import RuntimeApiStatus, RuntimeDevice
 
 ###############################################################################
@@ -34,7 +34,6 @@ class MetadataResponse(BaseModel):
     name: str
     version: str
     schema_version: int
-    code_targets: list[CodeTarget]
     runtime_apis: list[RuntimeApiStatus] = Field(default_factory=list)
     execution_backends: list[ExecutionBackendStatus]
     configuration: MetadataConfiguration

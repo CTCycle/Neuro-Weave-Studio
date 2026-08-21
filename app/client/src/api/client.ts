@@ -6,7 +6,7 @@ import type {
   ProjectDocument,
   ProjectExportBundle,
   ProjectSummary,
-  CodeTarget,
+  ExecutionBackend,
   ValidationResult,
   JobResponse,
   WorkerConfiguration,
@@ -82,7 +82,8 @@ export const api = {
   createProject(payload: {
     name: string
     description: string
-    code_target: CodeTarget
+    execution_backend?: ExecutionBackend | null
+    keras_enabled: boolean
     graph: ModelGraph
   }): Promise<ProjectDocument> {
     return request('/projects', { method: 'POST', body: JSON.stringify(payload) })
@@ -90,7 +91,8 @@ export const api = {
   updateProject(id: string, payload: {
     name: string
     description: string
-    code_target: CodeTarget
+    execution_backend: ExecutionBackend
+    keras_enabled: boolean
     graph: ModelGraph
     expected_revision: number
   }): Promise<ProjectDocument> {
@@ -111,16 +113,16 @@ export const api = {
   importProject(bundle: ProjectExportBundle): Promise<ProjectDocument> {
     return request('/projects/import', { method: 'POST', body: JSON.stringify(bundle) })
   },
-  validate(graph: ModelGraph, code_target: CodeTarget): Promise<ValidationResult> {
+  validate(graph: ModelGraph, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ValidationResult> {
     return request('/validation', {
       method: 'POST',
-      body: JSON.stringify({ graph, code_target }),
+      body: JSON.stringify({ graph, execution_backend, keras_enabled }),
     })
   },
-  compile(graph: ModelGraph, code_target: CodeTarget): Promise<CompilationResult> {
+  compile(graph: ModelGraph, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<CompilationResult> {
     return request('/compilation', {
       method: 'POST',
-      body: JSON.stringify({ graph, code_target }),
+      body: JSON.stringify({ graph, execution_backend, keras_enabled }),
     })
   },
   submitSmokeInference(graph: ModelGraph, worker: WorkerConfiguration): Promise<JobResponse> {
@@ -150,7 +152,7 @@ export const api = {
   metadata(): Promise<MetadataResponse> {
     return request('/metadata')
   },
-  sourceForProject(id: string, code_target: CodeTarget): Promise<{ code: string }> {
-    return request(`/exports/${id}/source/${code_target}`)
+  sourceForProject(id: string): Promise<{ code: string }> {
+    return request(`/exports/${id}/source`)
   },
 }

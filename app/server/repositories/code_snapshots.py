@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
-from domain.enums import CodeTarget
+from domain.enums import ExecutionBackend
 from repositories.models import GeneratedCodeSnapshotRecord
 
 ###############################################################################
@@ -18,19 +18,17 @@ class CodeSnapshotRepository:
         self._session = session
 
     # -------------------------------------------------------------------------
-    def list_for_revision(self, project_id: UUID, revision: int) -> dict[str, str]:
-        rows = self._session.scalars(
+    def get_for_revision(self, project_id: UUID, revision: int) -> str | None:
+        row = self._session.scalar(
             select(GeneratedCodeSnapshotRecord).where(
                 GeneratedCodeSnapshotRecord.project_id == str(project_id),
                 GeneratedCodeSnapshotRecord.revision == revision,
             )
-        ).all()
-        return {row.code_target: row.source_code for row in rows}
+        )
+        return row.source_code if row is not None else None
 
     # -------------------------------------------------------------------------
-    def targets_for_revisions(
-        self, revisions: Mapping[UUID, int]
-    ) -> dict[UUID, list[CodeTarget]]:
+    def has_for_revisions(self, revisions: Mapping[UUID, int]) -> dict[UUID, bool]:
         if not revisions:
             return {}
         conditions = [
@@ -43,10 +41,10 @@ class CodeSnapshotRepository:
         rows = self._session.scalars(
             select(GeneratedCodeSnapshotRecord).where(or_(*conditions))
         ).all()
-        result: dict[UUID, list[CodeTarget]] = {}
+        result: dict[UUID, bool] = {}
         for row in rows:
             project_id = UUID(row.project_id)
-            result.setdefault(project_id, []).append(CodeTarget(row.code_target))
+            result[project_id] = True
         return result
 
     # -------------------------------------------------------------------------
@@ -55,20 +53,22 @@ class CodeSnapshotRepository:
         project_id: UUID,
         *,
         revision: int,
-        code_target: CodeTarget,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
         source_code: str,
         timestamp: datetime,
     ) -> None:
         key = {
             "project_id": str(project_id),
             "revision": revision,
-            "code_target": code_target.value,
         }
         row = self._session.get(GeneratedCodeSnapshotRecord, key)
         if row is None:
             self._session.add(
                 GeneratedCodeSnapshotRecord(
                     **key,
+                    execution_backend=execution_backend.value,
+                    keras_enabled=keras_enabled,
                     source_code=source_code,
                     created_at=timestamp,
                     updated_at=timestamp,

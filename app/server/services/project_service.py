@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 
 from common.timestamps import utc_now
-from domain.enums import ValidationStatus
+from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import (
     ProjectCreate,
     ProjectDocument,
@@ -15,6 +16,7 @@ from domain.graph import (
     ProjectSummary,
     ProjectUpdate,
 )
+from domain.metadata import ExecutionBackendStatus
 from repositories.contracts import (
     ProjectMetadata,
     RepositoryRevisionConflictError,
@@ -31,16 +33,22 @@ from services.validation_service import ValidationService
 class ProjectService:
 
     # -------------------------------------------------------------------------
-    def __init__(self, uow_factory: UnitOfWorkFactory, validator: ValidationService) -> None:
+    def __init__(
+        self,
+        uow_factory: UnitOfWorkFactory,
+        validator: ValidationService,
+        backend_statuses: Mapping[ExecutionBackend, ExecutionBackendStatus] | None = None,
+    ) -> None:
         self._uow_factory = uow_factory
         self._validator = validator
+        self._backend_statuses = backend_statuses or {}
 
     # -------------------------------------------------------------------------
     def list(self) -> ProjectListResponse:
         with self._uow_factory() as uow:
             metadata = uow.projects.list_metadata()
             graph_summaries = uow.graphs.summaries([item.id for item in metadata])
-            compiled_targets = uow.code_snapshots.targets_for_revisions(
+            generated_sources = uow.code_snapshots.has_for_revisions(
                 {item.id: item.current_revision for item in metadata}
             )
             summaries = [
@@ -49,12 +57,13 @@ class ProjectService:
                     name=item.name,
                     description=item.description,
                     updated_at=item.updated_at,
-                    code_target=item.code_target,
+                    execution_backend=item.execution_backend,
+                    keras_enabled=item.keras_enabled,
                     current_revision=item.current_revision,
                     validation_status=item.validation_status,
                     node_count=graph_summaries[item.id].node_count,
                     edge_count=graph_summaries[item.id].edge_count,
-                    compiled_targets=compiled_targets.get(item.id, []),
+                    has_generated_source=generated_sources.get(item.id, False),
                 )
                 for item in metadata
             ]
@@ -70,14 +79,18 @@ class ProjectService:
 
     # -------------------------------------------------------------------------
     def create(self, payload: ProjectCreate) -> ProjectDocument:
-        validation = self._validator.validate(payload.graph, payload.code_target)
+        execution_backend = self._resolve_execution_backend(payload.execution_backend)
+        validation = self._validator.validate(
+            payload.graph, execution_backend, payload.keras_enabled
+        )
         timestamp = utc_now()
         try:
             with self._uow_factory() as uow:
                 metadata = uow.projects.create(
                     name=payload.name,
                     description=payload.description,
-                    code_target=payload.code_target,
+                    execution_backend=execution_backend,
+                    keras_enabled=payload.keras_enabled,
                     graph_schema_version=payload.graph.schema_version,
                     timestamp=timestamp,
                     validation_status=(
@@ -89,7 +102,8 @@ class ProjectService:
                     metadata.id,
                     revision=1,
                     graph=payload.graph,
-                    code_target=payload.code_target,
+                    execution_backend=execution_backend,
+                    keras_enabled=payload.keras_enabled,
                     timestamp=timestamp,
                 )
                 document = self._document(uow, metadata)
@@ -102,7 +116,9 @@ class ProjectService:
 
     # -------------------------------------------------------------------------
     def update(self, project_id: UUID, payload: ProjectUpdate) -> ProjectDocument | None:
-        validation = self._validator.validate(payload.graph, payload.code_target)
+        validation = self._validator.validate(
+            payload.graph, payload.execution_backend, payload.keras_enabled
+        )
         timestamp = utc_now()
         try:
             with self._uow_factory() as uow:
@@ -110,7 +126,8 @@ class ProjectService:
                     project_id,
                     name=payload.name,
                     description=payload.description,
-                    code_target=payload.code_target,
+                    execution_backend=payload.execution_backend,
+                    keras_enabled=payload.keras_enabled,
                     graph_schema_version=payload.graph.schema_version,
                     timestamp=timestamp,
                     validation_status=(
@@ -125,7 +142,8 @@ class ProjectService:
                     metadata.id,
                     revision=metadata.current_revision,
                     graph=payload.graph,
-                    code_target=payload.code_target,
+                    execution_backend=payload.execution_backend,
+                    keras_enabled=payload.keras_enabled,
                     timestamp=timestamp,
                 )
                 document = self._document(uow, metadata)
@@ -157,7 +175,8 @@ class ProjectService:
             ProjectCreate(
                 name=payload.name or f"{source.name} copy",
                 description=source.description,
-                code_target=source.code_target,
+                execution_backend=source.execution_backend,
+                keras_enabled=source.keras_enabled,
                 graph=source.graph,
             )
         )
@@ -171,7 +190,8 @@ class ProjectService:
             project=ProjectCreate(
                 name=project.name,
                 description=project.description,
-                code_target=project.code_target,
+                execution_backend=project.execution_backend,
+                keras_enabled=project.keras_enabled,
                 graph=project.graph,
             )
         )
@@ -189,11 +209,30 @@ class ProjectService:
             created_at=metadata.created_at,
             updated_at=metadata.updated_at,
             schema_version=metadata.graph_schema_version,
-            code_target=metadata.code_target,
+            execution_backend=metadata.execution_backend,
+            keras_enabled=metadata.keras_enabled,
             current_revision=metadata.current_revision,
             graph=graph,
             validation_status=metadata.validation_status,
-            generated_code_snapshots=uow.code_snapshots.list_for_revision(
+            generated_source=uow.code_snapshots.get_for_revision(
                 metadata.id, metadata.current_revision
             ),
         )
+
+    # -------------------------------------------------------------------------
+    def _resolve_execution_backend(
+        self, requested: ExecutionBackend | None
+    ) -> ExecutionBackend:
+        if requested is not None:
+            return requested
+        available = {
+            backend
+            for backend, status in self._backend_statuses.items()
+            if status.available
+        }
+        if ExecutionBackend.PYTORCH in available:
+            return ExecutionBackend.PYTORCH
+        for backend in ExecutionBackend:
+            if backend in available:
+                return backend
+        return ExecutionBackend.PYTORCH

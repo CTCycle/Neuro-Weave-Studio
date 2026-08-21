@@ -6,7 +6,7 @@ from typing import Any, cast
 import httpx
 
 from common.catalogs.loader import get_node_catalog
-from domain.enums import CodeTarget, ExecutionBackend
+from domain.enums import ExecutionBackend
 
 
 ###############################################################################
@@ -14,7 +14,7 @@ def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
     catalog = get_node_catalog()
     assert len(catalog.manifests) == 85
     for manifest in catalog.manifests:
-        assert set(manifest.frameworks) == set(CodeTarget)
+        assert set(manifest.frameworks) == {"keras", "tensorflow", "pytorch", "jax"}
         ids = [item.id for item in manifest.parameters]
         assert len(ids) == len(set(ids))
         for parameter in manifest.parameters:
@@ -26,17 +26,17 @@ def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
 ###############################################################################
 def test_manifest_capabilities_are_not_inflated_by_runtime_registry() -> None:
     catalog = get_node_catalog()
-    assert catalog.get("layer.batch_norm").frameworks[CodeTarget.PYTORCH].supported
-    assert catalog.get("conv.conv2d").frameworks[CodeTarget.PYTORCH].supported
-    assert not catalog.get("attention.multi_head").frameworks[CodeTarget.PYTORCH].supported
-    assert not catalog.get("attention.multi_head").frameworks[CodeTarget.TENSORFLOW].supported
-    assert not catalog.get("transformer.encoder_block").frameworks[CodeTarget.TENSORFLOW].supported
-    assert not catalog.get("layer.dense").frameworks[CodeTarget.JAX].supported
+    assert catalog.get("layer.batch_norm").frameworks["pytorch"].supported
+    assert catalog.get("conv.conv2d").frameworks["pytorch"].supported
+    assert not catalog.get("attention.multi_head").frameworks["pytorch"].supported
+    assert not catalog.get("attention.multi_head").frameworks["tensorflow"].supported
+    assert not catalog.get("transformer.encoder_block").frameworks["tensorflow"].supported
+    assert not catalog.get("layer.dense").frameworks["jax"].supported
 
 ###############################################################################
 def test_unproven_native_targets_remain_disabled() -> None:
     catalog = get_node_catalog()
-    for target in (CodeTarget.TENSORFLOW, CodeTarget.JAX):
+    for target in ("tensorflow", "jax"):
         assert all(not manifest.frameworks[target].supported for manifest in catalog.manifests)
 
 ###############################################################################
@@ -71,12 +71,12 @@ def test_target_parameter_capabilities_block_unmapped_values() -> None:
         ],
         edges=[edge("e1", "input", "dense"), edge("e2", "dense", "output")],
     )
-    result = ValidationService(catalog).validate(graph, CodeTarget.PYTORCH)
+    result = ValidationService(catalog).validate(graph, ExecutionBackend.PYTORCH, False)
     assert not result.valid
     assert any(item.code == "unsupported_parameter_value" and item.parameter_id == "kernel_initializer" for item in result.diagnostics)
 
     graph.nodes[1].parameters = {"units": 2, "input_size": 4}
-    result = ValidationService(catalog).validate(graph, CodeTarget.PYTORCH)
+    result = ValidationService(catalog).validate(graph, ExecutionBackend.PYTORCH, False)
     assert not result.valid
     assert any(item.code == "unknown_parameter" and item.parameter_id == "input_size" for item in result.diagnostics)
 
@@ -116,7 +116,7 @@ def test_metadata_reports_v2_targets_and_backend_states(client: httpx.Client) ->
     payload: dict[str, Any] = response.json()
     assert payload["version"] == "1.0.0"
     assert payload["schema_version"] == 2
-    assert payload["code_targets"] == [item.value for item in CodeTarget]
+    assert "code_targets" not in payload
     backend_items = cast(list[dict[str, Any]], payload["execution_backends"])
     assert [item["id"] for item in backend_items] == [item.value for item in ExecutionBackend]
 
@@ -131,11 +131,12 @@ def test_project_and_binary_contract_v2(client: httpx.Client) -> None:
         "future_training_configuration": {},
     }
     created: httpx.Response = client.post(
-        "/api/projects", json={"name": "v2", "code_target": "jax", "graph": graph}
+        "/api/projects", json={"name": "v2", "execution_backend": "jax", "keras_enabled": True, "graph": graph}
     )
     assert created.status_code == 201
     created_payload: dict[str, Any] = created.json()
-    assert created_payload["code_target"] == "jax"
+    assert created_payload["execution_backend"] == "jax"
+    assert created_payload["keras_enabled"] is True
     unknown: httpx.Response = client.post(
         "/api/execution/jobs",
         json={
@@ -153,7 +154,7 @@ def test_project_and_binary_contract_v2(client: httpx.Client) -> None:
     assert unknown.json()["detail"]["code"] == "model_validation_failed"
 
 ###############################################################################
-def test_all_code_targets_generate_parseable_source(client: httpx.Client) -> None:
+def test_execution_profiles_generate_or_reject_source_explicitly(client: httpx.Client) -> None:
     graph: dict[str, Any] = {
         "schema_version": 2,
         "nodes": [
@@ -200,9 +201,15 @@ def test_all_code_targets_generate_parseable_source(client: httpx.Client) -> Non
         "future_training_configuration": {},
     }
     catalog = get_node_catalog()
-    for target in CodeTarget:
+    profiles = [
+        (ExecutionBackend.PYTORCH, True, "keras"),
+        (ExecutionBackend.PYTORCH, False, "pytorch"),
+        (ExecutionBackend.TENSORFLOW, False, "tensorflow"),
+        (ExecutionBackend.JAX, False, "jax"),
+    ]
+    for backend, keras_enabled, target in profiles:
         response: httpx.Response = client.post(
-            "/api/compilation", json={"graph": graph, "code_target": target.value}
+            "/api/compilation", json={"graph": graph, "execution_backend": backend.value, "keras_enabled": keras_enabled}
         )
         assert response.status_code == 200, response.text
         payload: dict[str, Any] = response.json()
@@ -211,4 +218,4 @@ def test_all_code_targets_generate_parseable_source(client: httpx.Client) -> Non
             ast.parse(cast(str, payload["code"]))
         else:
             assert payload["valid"] is False
-            assert any(item["code"] == "unsupported_code_target_feature" for item in payload["diagnostics"])
+            assert any(item["code"] == "unsupported_implementation" for item in payload["diagnostics"])

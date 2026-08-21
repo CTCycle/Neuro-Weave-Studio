@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from domain.enums import CodeTarget, DiagnosticSeverity
+from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph, ShapeSummary
 
 ###############################################################################
@@ -13,7 +13,8 @@ class ValidationDiagnostic(BaseModel):
     node_id: str | None = None
     edge_id: str | None = None
     parameter_id: str | None = None
-    code_target: CodeTarget | None = None
+    execution_backend: ExecutionBackend | None = None
+    keras_enabled: bool | None = None
     details: dict[str, object] = Field(default_factory=dict)
 
 ###############################################################################
@@ -26,4 +27,5 @@ class ValidationResult(BaseModel):
 ###############################################################################
 class ValidationRequest(BaseModel):
     graph: ModelGraph
-    code_target: CodeTarget
+    execution_backend: ExecutionBackend
+    keras_enabled: bool = True

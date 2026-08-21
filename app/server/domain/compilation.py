@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from domain.diagnostics import ValidationDiagnostic
-from domain.enums import CodeTarget
+from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph, ShapeSummary
 
 ###############################################################################
@@ -17,7 +17,8 @@ class CompiledNode(BaseModel):
 ###############################################################################
 class CanonicalModelIR(BaseModel):
     schema_version: int = 2
-    code_target: CodeTarget
+    execution_backend: ExecutionBackend
+    keras_enabled: bool
     ordered_nodes: list[CompiledNode]
     input_node_ids: list[str]
     output_node_ids: list[str]
@@ -26,7 +27,8 @@ class CanonicalModelIR(BaseModel):
 ###############################################################################
 class CompilationResult(BaseModel):
     valid: bool
-    code_target: CodeTarget
+    execution_backend: ExecutionBackend
+    keras_enabled: bool
     diagnostics: list[ValidationDiagnostic]
     code: str | None = None
     ir: CanonicalModelIR | None = None
@@ -34,4 +36,5 @@ class CompilationResult(BaseModel):
 ###############################################################################
 class CompilationRequest(BaseModel):
     graph: ModelGraph
-    code_target: CodeTarget
+    execution_backend: ExecutionBackend
+    keras_enabled: bool = True

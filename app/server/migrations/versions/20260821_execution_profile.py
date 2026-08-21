@@ -1,11 +1,9 @@
-"""Create the normalized version-2 NeuroWeave schema baseline."""
-
-from datetime import UTC, datetime
+"""Create the current execution-profile NeuroWeave schema."""
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "20260820_v2"
+revision = "20260821_execution_profile"
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -13,21 +11,13 @@ depends_on = None
 
 def upgrade() -> None:
     op.create_table(
-        "schema_metadata",
-        sa.Column("id", sa.SmallInteger(), nullable=False),
-        sa.Column("schema_version", sa.Integer(), nullable=False),
-        sa.Column("initialized_at", sa.DateTime(timezone=True), nullable=False),
-        sa.CheckConstraint("id = 1", name="ck_schema_metadata_singleton"),
-        sa.CheckConstraint("schema_version >= 1", name="ck_schema_metadata_version"),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_table(
         "projects",
         sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("name", sa.String(length=160), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
         sa.Column("graph_schema_version", sa.Integer(), nullable=False),
-        sa.Column("code_target", sa.String(length=32), nullable=False),
+        sa.Column("execution_backend", sa.String(length=32), nullable=False),
+        sa.Column("keras_enabled", sa.Boolean(create_constraint=True), nullable=False),
         sa.Column("current_revision", sa.Integer(), nullable=False),
         sa.Column("validation_status", sa.String(length=16), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -35,8 +25,8 @@ def upgrade() -> None:
         sa.CheckConstraint("length(trim(name)) > 0", name="ck_projects_name_nonempty"),
         sa.CheckConstraint("graph_schema_version >= 1", name="ck_projects_graph_version"),
         sa.CheckConstraint(
-            "code_target IN ('keras', 'tensorflow', 'pytorch', 'jax')",
-            name="ck_projects_code_target",
+            "execution_backend IN ('tensorflow', 'pytorch', 'jax')",
+            name="ck_projects_execution_backend",
         ),
         sa.CheckConstraint("current_revision >= 1", name="ck_projects_revision"),
         sa.CheckConstraint(
@@ -59,11 +49,7 @@ def upgrade() -> None:
         sa.Column("mixed_precision", sa.Boolean(create_constraint=True), nullable=False),
         sa.Column("random_seed", sa.Integer(), nullable=True),
         sa.Column("include_comments", sa.Boolean(create_constraint=True), nullable=False),
-        sa.Column(
-            "include_shape_assertions",
-            sa.Boolean(create_constraint=True),
-            nullable=False,
-        ),
+        sa.Column("include_shape_assertions", sa.Boolean(create_constraint=True), nullable=False),
         sa.Column("preferred_binary_format", sa.String(length=32), nullable=False),
         sa.Column("future_training_configuration_json", sa.JSON(), nullable=False),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="CASCADE"),
@@ -85,9 +71,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("project_id", "ordinal", name="uq_project_nodes_ordinal"),
         sa.CheckConstraint("length(trim(node_id)) > 0", name="ck_project_nodes_id_nonempty"),
         sa.CheckConstraint("ordinal >= 0", name="ck_project_nodes_ordinal"),
-        sa.CheckConstraint(
-            "definition_version >= 1", name="ck_project_nodes_definition_version"
-        ),
+        sa.CheckConstraint("definition_version >= 1", name="ck_project_nodes_definition_version"),
         sa.CheckConstraint(
             "position_x = position_x AND position_x BETWEEN -1e308 AND 1e308",
             name="ck_project_nodes_position_x_finite",
@@ -97,42 +81,34 @@ def upgrade() -> None:
             name="ck_project_nodes_position_y_finite",
         ),
     )
-    op.create_index(
-        "ix_project_nodes_definition",
-        "project_nodes",
-        ["definition_id", "definition_version"],
-    )
+    op.create_index("ix_project_nodes_definition", "project_nodes", ["definition_id", "definition_version"])
     op.create_table(
         "project_revisions",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("project_id", sa.String(length=36), nullable=False),
         sa.Column("revision", sa.Integer(), nullable=False),
         sa.Column("graph_schema_version", sa.Integer(), nullable=False),
-        sa.Column("code_target", sa.String(length=32), nullable=False),
+        sa.Column("execution_backend", sa.String(length=32), nullable=False),
+        sa.Column("keras_enabled", sa.Boolean(create_constraint=True), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("graph_snapshot_json", sa.JSON(), nullable=False),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("project_id", "revision", name="uq_project_revisions_revision"),
         sa.CheckConstraint("revision >= 1", name="ck_project_revisions_revision"),
+        sa.CheckConstraint("graph_schema_version >= 1", name="ck_project_revisions_graph_version"),
         sa.CheckConstraint(
-            "graph_schema_version >= 1", name="ck_project_revisions_graph_version"
-        ),
-        sa.CheckConstraint(
-            "code_target IN ('keras', 'tensorflow', 'pytorch', 'jax')",
-            name="ck_project_revisions_code_target",
+            "execution_backend IN ('tensorflow', 'pytorch', 'jax')",
+            name="ck_project_revisions_execution_backend",
         ),
     )
-    op.create_index(
-        "ix_project_revisions_project_created",
-        "project_revisions",
-        ["project_id", "created_at"],
-    )
+    op.create_index("ix_project_revisions_project_created", "project_revisions", ["project_id", "created_at"])
     op.create_table(
         "generated_code_snapshots",
         sa.Column("project_id", sa.String(length=36), nullable=False),
         sa.Column("revision", sa.Integer(), nullable=False),
-        sa.Column("code_target", sa.String(length=32), nullable=False),
+        sa.Column("execution_backend", sa.String(length=32), nullable=False),
+        sa.Column("keras_enabled", sa.Boolean(create_constraint=True), nullable=False),
         sa.Column("source_code", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -142,20 +118,14 @@ def upgrade() -> None:
             name="fk_generated_code_snapshots_revision",
             ondelete="CASCADE",
         ),
-        sa.PrimaryKeyConstraint(
-            "project_id", "revision", "code_target", name="pk_generated_code_snapshots"
-        ),
+        sa.PrimaryKeyConstraint("project_id", "revision", name="pk_generated_code_snapshots"),
         sa.CheckConstraint("revision >= 1", name="ck_generated_code_snapshots_revision"),
         sa.CheckConstraint(
-            "code_target IN ('keras', 'tensorflow', 'pytorch', 'jax')",
-            name="ck_generated_code_snapshots_code_target",
+            "execution_backend IN ('tensorflow', 'pytorch', 'jax')",
+            name="ck_generated_code_snapshots_execution_backend",
         ),
     )
-    op.create_index(
-        "ix_generated_code_snapshots_project",
-        "generated_code_snapshots",
-        ["project_id", "revision"],
-    )
+    op.create_index("ix_generated_code_snapshots_project", "generated_code_snapshots", ["project_id", "revision"])
     op.create_table(
         "project_edges",
         sa.Column("project_id", sa.String(length=36), nullable=False),
@@ -184,18 +154,8 @@ def upgrade() -> None:
         sa.CheckConstraint("source_node_id <> target_node_id", name="ck_project_edges_no_self_edge"),
         sa.CheckConstraint("ordinal >= 0", name="ck_project_edges_ordinal"),
     )
-    op.create_index(
-        "ix_project_edges_source", "project_edges", ["project_id", "source_node_id"]
-    )
-    op.create_index(
-        "ix_project_edges_target", "project_edges", ["project_id", "target_node_id"]
-    )
-    op.execute(
-        sa.text(
-            "INSERT INTO schema_metadata (id, schema_version, initialized_at) "
-            "VALUES (1, 2, :initialized_at)"
-        ).bindparams(initialized_at=datetime.now(UTC))
-    )
+    op.create_index("ix_project_edges_source", "project_edges", ["project_id", "source_node_id"])
+    op.create_index("ix_project_edges_target", "project_edges", ["project_id", "target_node_id"])
 
 
 def downgrade() -> None:
@@ -211,4 +171,3 @@ def downgrade() -> None:
     op.drop_table("project_graph_settings")
     op.drop_index("ix_projects_updated_at", table_name="projects")
     op.drop_table("projects")
-    op.drop_table("schema_metadata")

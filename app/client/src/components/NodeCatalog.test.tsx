@@ -13,14 +13,14 @@ describe('NodeCatalog', () => {
   afterEach(cleanup)
 
   it('filters nodes by text', async () => {
-    render(<NodeCatalog manifests={manifests} codeTarget="keras" />)
+    render(<NodeCatalog manifests={manifests} executionBackend="pytorch" kerasEnabled />)
     await userEvent.type(screen.getByLabelText('Search nodes'), 'dense')
     expect(screen.getByText('Dense')).toBeInTheDocument()
     expect(screen.queryByText('Conv2D')).not.toBeInTheDocument()
   })
 
   it('groups nodes into collapsible categories', async () => {
-    render(<NodeCatalog manifests={manifests} codeTarget="keras" />)
+    render(<NodeCatalog manifests={manifests} executionBackend="pytorch" kerasEnabled />)
     expect(screen.getByText('Dense')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /Core/ }))
     expect(screen.queryByText('Dense')).not.toBeInTheDocument()
@@ -29,7 +29,7 @@ describe('NodeCatalog', () => {
   })
 
   it('keeps the node drag payload stable', () => {
-    render(<NodeCatalog manifests={manifests} codeTarget="keras" />)
+    render(<NodeCatalog manifests={manifests} executionBackend="pytorch" kerasEnabled />)
     const data = new Map<string, string>()
     const item = screen.getByText('Dense').closest('[draggable="true"]')
     expect(item).not.toBeNull()

@@ -21,7 +21,8 @@ def project_payload() -> dict[str, object]:
     return {
         "name": "API MLP",
         "description": "Persistence integration test",
-        "code_target": "keras",
+        "execution_backend": "pytorch",
+        "keras_enabled": True,
         "graph": {
             "schema_version": 2,
             "nodes": [
@@ -44,33 +45,35 @@ def test_project_save_reopen_validate_and_compile(client: httpx.Client) -> None:
     created = client.post("/api/projects", json=project_payload())
     assert created.status_code == 201, created.text
     project = created.json()
-    assert project["generated_code_snapshots"] == {}
+    assert project["generated_source"] is None
+    assert project["execution_backend"] == "pytorch"
+    assert project["keras_enabled"] is True
     summaries = client.get("/api/projects")
     assert summaries.status_code == 200
     summary = next(item for item in summaries.json()["projects"] if item["id"] == project["id"])
     assert summary["node_count"] == 3
     assert summary["edge_count"] == 2
-    assert summary["compiled_targets"] == []
+    assert summary["has_generated_source"] is False
 
     reopened = client.get(f"/api/projects/{project['id']}")
     assert reopened.status_code == 200
     assert reopened.json()["graph"]["nodes"][1]["definition_id"] == "layer.dense"
 
-    validation = client.post("/api/validation", json={"graph": project["graph"], "code_target": "keras"})
+    validation = client.post("/api/validation", json={"graph": project["graph"], "execution_backend": "pytorch", "keras_enabled": True})
     assert validation.status_code == 200
     assert validation.json()["valid"] is True
 
-    keras_code = client.post("/api/compilation", json={"graph": project["graph"], "code_target": "keras"})
-    torch_code = client.post("/api/compilation", json={"graph": project["graph"], "code_target": "pytorch"})
+    keras_code = client.post("/api/compilation", json={"graph": project["graph"], "execution_backend": "pytorch", "keras_enabled": True})
+    torch_code = client.post("/api/compilation", json={"graph": project["graph"], "execution_backend": "pytorch", "keras_enabled": False})
     assert "keras.Model" in keras_code.json()["code"]
     assert "class GeneratedModel" in torch_code.json()["code"]
 
-    source = client.get(f"/api/exports/{project['id']}/source/keras")
+    source = client.get(f"/api/exports/{project['id']}/source")
     assert source.status_code == 200
     compiled_summary = next(
         item for item in client.get("/api/projects").json()["projects"] if item["id"] == project["id"]
     )
-    assert compiled_summary["compiled_targets"] == ["keras"]
+    assert compiled_summary["has_generated_source"] is True
 
     update_payload = project_payload()
     update_payload["name"] = "API MLP updated"
@@ -81,7 +84,7 @@ def test_project_save_reopen_validate_and_compile(client: httpx.Client) -> None:
     updated_summary = next(
         item for item in client.get("/api/projects").json()["projects"] if item["id"] == project["id"]
     )
-    assert updated_summary["compiled_targets"] == []
+    assert updated_summary["has_generated_source"] is False
 
     stale = client.put(f"/api/projects/{project['id']}", json=update_payload)
     assert stale.status_code == 409
@@ -97,7 +100,7 @@ def test_health_and_metadata_are_typed_contracts(client: httpx.Client) -> None:
     assert health.status_code == 200
     assert health.json() == {"status": "ok"}
     assert metadata.status_code == 200
-    assert metadata.json()["code_targets"] == ["keras", "tensorflow", "pytorch", "jax"]
+    assert "code_targets" not in metadata.json()
     backend_items = metadata.json()["execution_backends"]
     assert {item["id"] for item in backend_items} == {
         "tensorflow", "pytorch", "jax"
@@ -158,19 +161,20 @@ def test_keras_export_rejects_incompatible_graph_before_worker_start(client: htt
 def test_source_export_is_revision_specific(client: httpx.Client) -> None:
     created = client.post("/api/projects", json=project_payload()).json()
 
-    source = client.get(f"/api/exports/{created['id']}/source/keras")
+    source = client.get(f"/api/exports/{created['id']}/source")
     assert source.status_code == 200
-    assert source.json()["code_target"] == "keras"
+    assert source.json()["execution_backend"] == "pytorch"
+    assert source.json()["keras_enabled"] is True
 
     saved = client.get(f"/api/projects/{created['id']}").json()
-    assert "keras" in saved["generated_code_snapshots"]
+    assert saved["generated_source"] is not None
 
     update = project_payload()
     update["name"] = "New revision"
     update["expected_revision"] = saved["current_revision"]
     updated = client.put(f"/api/projects/{created['id']}", json=update)
     assert updated.status_code == 200
-    assert updated.json()["generated_code_snapshots"] == {}
+    assert updated.json()["generated_source"] is None
 
 ###############################################################################
 def test_project_delete_removes_the_project(client: httpx.Client) -> None:

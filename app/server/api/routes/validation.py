@@ -14,4 +14,6 @@ def validate_graph(
     payload: ValidationRequest,
     service: ValidationService = Depends(get_validation_service),
 ) -> ValidationResult:
-    return service.validate(payload.graph, payload.code_target)
+    return service.validate(
+        payload.graph, payload.execution_backend, payload.keras_enabled
+    )

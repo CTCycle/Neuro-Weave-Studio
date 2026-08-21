@@ -1,6 +1,5 @@
 import type { Edge, Node, XYPosition } from '@xyflow/react'
 
-export type CodeTarget = 'keras' | 'tensorflow' | 'pytorch' | 'jax'
 export type ExecutionBackend = 'tensorflow' | 'pytorch' | 'jax'
 export type RuntimeApi = 'keras' | 'native'
 export type MemoryPolicyKind = 'default' | 'tensorflow_growth' | 'tensorflow_limit_mb' | 'jax_no_preallocation' | 'jax_preallocate_fraction' | 'jax_platform_allocator' | 'pytorch_fraction'
@@ -118,11 +117,12 @@ export interface ProjectDocument {
   created_at: string
   updated_at: string
   schema_version: number
-  code_target: CodeTarget
+  execution_backend: ExecutionBackend
+  keras_enabled: boolean
   current_revision: number
   graph: ModelGraph
   validation_status: string
-  generated_code_snapshots: Record<string, string>
+  generated_source?: string | null
 }
 
 export interface ProjectSummary {
@@ -130,12 +130,13 @@ export interface ProjectSummary {
   name: string
   description: string
   updated_at: string
-  code_target: CodeTarget
+  execution_backend: ExecutionBackend
+  keras_enabled: boolean
   current_revision: number
   validation_status: string
   node_count: number
   edge_count: number
-  compiled_targets: CodeTarget[]
+  has_generated_source: boolean
 }
 
 export interface ValidationDiagnostic {
@@ -145,7 +146,8 @@ export interface ValidationDiagnostic {
   node_id?: string | null
   edge_id?: string | null
   parameter_id?: string | null
-  code_target?: CodeTarget | null
+  execution_backend?: ExecutionBackend | null
+  keras_enabled?: boolean | null
   details: Record<string, unknown>
 }
 
@@ -170,7 +172,8 @@ export interface ValidationResult {
 
 export interface CompilationResult {
   valid: boolean
-  code_target: CodeTarget
+  execution_backend: ExecutionBackend
+  keras_enabled: boolean
   diagnostics: ValidationDiagnostic[]
   code?: string | null
 }
@@ -179,7 +182,6 @@ export interface MetadataResponse {
   name: string
   version: string
   schema_version: number
-  code_targets: CodeTarget[]
   runtime_apis?: RuntimeApiStatus[]
   execution_backends: ExecutionBackendStatus[]
   configuration: {
@@ -310,18 +312,24 @@ export interface SmokeTestErrorDetail {
   diagnostics?: ValidationDiagnostic[]
 }
 
-export const codeTargetLabels: Record<CodeTarget, string> = {
-  keras: 'Portable Keras',
+export const executionBackendLabels: Record<ExecutionBackend, string> = {
   tensorflow: 'Native TensorFlow',
   pytorch: 'Native PyTorch',
   jax: 'Native JAX / Flax',
 }
 
-export const codeTargetShortLabels: Record<CodeTarget, string> = {
-  keras: 'Keras',
+export const executionBackendShortLabels: Record<ExecutionBackend, string> = {
   tensorflow: 'TensorFlow',
   pytorch: 'PyTorch',
   jax: 'JAX / Flax',
+}
+
+export function implementationLabel(backend: ExecutionBackend, kerasEnabled: boolean): string {
+  return kerasEnabled ? `Keras · ${executionBackendShortLabels[backend]} backend` : executionBackendLabels[backend]
+}
+
+export function implementationKey(backend: ExecutionBackend, kerasEnabled: boolean): string {
+  return kerasEnabled ? 'keras' : backend
 }
 
 export interface EditorNodeData extends Record<string, unknown> {
@@ -336,12 +344,13 @@ export type EditorEdge = Edge
 
 export interface ProjectExportBundle {
   format: 'neuro-weave-project'
-  format_version: 2
+  format_version: 3
   exported_at: string
   project: {
     name: string
     description: string
-    code_target: CodeTarget
+    execution_backend: ExecutionBackend
+    keras_enabled: boolean
     graph: ModelGraph
   }
 }

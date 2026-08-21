@@ -67,8 +67,9 @@ def get_runtime_service(
 def get_project_service(
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
     validator: ValidationService = Depends(get_validation_service),
+    backend_statuses: dict[ExecutionBackend, ExecutionBackendStatus] = Depends(get_backend_statuses),
 ) -> ProjectService:
-    return ProjectService(uow_factory, validator)
+    return ProjectService(uow_factory, validator, backend_statuses)
 
 ###############################################################################
 def get_compilation_service(

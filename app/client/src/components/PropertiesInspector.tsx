@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CodeTarget, ParameterCapability, ParameterDefinition } from '../domain/types'
+import type { ExecutionBackend, ParameterCapability, ParameterDefinition } from '../domain/types'
+import { implementationKey } from '../domain/types'
 import { useGraphStore } from '../state/graphStore'
 
 type DraftValue = string | boolean
@@ -135,7 +136,7 @@ function helpfulDescription(definition: ParameterDefinition): string | null {
   return genericDescriptions.has(normalized) ? null : description
 }
 
-export function PropertiesInspector({ onClose, isOpen = true, codeTarget = 'keras' }: { onClose?: () => void; isOpen?: boolean; codeTarget?: CodeTarget }) {
+export function PropertiesInspector({ onClose, isOpen = true, executionBackend = 'pytorch', kerasEnabled = true }: { onClose?: () => void; isOpen?: boolean; executionBackend?: ExecutionBackend; kerasEnabled?: boolean }) {
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId)
   const node = useGraphStore((state) => state.nodes.find((item) => item.id === selectedNodeId))
   const updateNode = useGraphStore((state) => state.updateNode)
@@ -158,7 +159,7 @@ export function PropertiesInspector({ onClose, isOpen = true, codeTarget = 'kera
   if (!node) {
     return <aside ref={inspectorRef} className="inspector-panel panel empty-state"><div><span className="eyebrow">INSPECTOR</span><h2>No node selected</h2><p>Select a node to edit its label and parameters.</p></div></aside>
   }
-  const targetMapping = node.data.manifest.frameworks[codeTarget]
+  const targetMapping = node.data.manifest.frameworks[implementationKey(executionBackend, kerasEnabled)]
   const updateParameter = (definition: ParameterDefinition, raw: DraftValue) => {
     setDrafts((state) => ({ ...state, [definition.id]: raw }))
     const capability = targetMapping?.parameters?.[definition.id]

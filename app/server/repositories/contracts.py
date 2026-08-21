@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Protocol
 from uuid import UUID
 
-from domain.enums import CodeTarget, ValidationStatus
+from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import ModelGraph
 
 ###############################################################################
@@ -18,7 +18,8 @@ class ProjectMetadata:
     created_at: datetime
     updated_at: datetime
     graph_schema_version: int
-    code_target: CodeTarget
+    execution_backend: ExecutionBackend
+    keras_enabled: bool
     current_revision: int
     validation_status: ValidationStatus
 
@@ -47,13 +48,15 @@ class ProjectRepositoryProtocol(Protocol):
     def get_metadata(self, project_id: UUID) -> ProjectMetadata | None: ...
 
     # -------------------------------------------------------------------------
-    def create(self, *, name: str, description: str, code_target: CodeTarget,
+    def create(self, *, name: str, description: str, execution_backend: ExecutionBackend,
+               keras_enabled: bool,
                graph_schema_version: int, timestamp: datetime,
                validation_status: ValidationStatus) -> ProjectMetadata: ...
 
     # -------------------------------------------------------------------------
     def update(self, project_id: UUID, *, name: str, description: str,
-               code_target: CodeTarget, graph_schema_version: int,
+               execution_backend: ExecutionBackend, keras_enabled: bool,
+               graph_schema_version: int,
                timestamp: datetime, validation_status: ValidationStatus,
                expected_revision: int) -> ProjectMetadata | None: ...
 
@@ -77,21 +80,21 @@ class RevisionRepositoryProtocol(Protocol):
 
     # -------------------------------------------------------------------------
     def append(self, project_id: UUID, *, revision: int, graph: ModelGraph,
-               code_target: CodeTarget, timestamp: datetime) -> None: ...
+               execution_backend: ExecutionBackend, keras_enabled: bool,
+               timestamp: datetime) -> None: ...
 
 ###############################################################################
 class CodeSnapshotRepositoryProtocol(Protocol):
 
     # -------------------------------------------------------------------------
-    def list_for_revision(self, project_id: UUID, revision: int) -> dict[str, str]: ...
+    def get_for_revision(self, project_id: UUID, revision: int) -> str | None: ...
 
     # -------------------------------------------------------------------------
-    def targets_for_revisions(
-        self, revisions: Mapping[UUID, int]
-    ) -> dict[UUID, list[CodeTarget]]: ...
+    def has_for_revisions(self, revisions: Mapping[UUID, int]) -> dict[UUID, bool]: ...
 
     # -------------------------------------------------------------------------
-    def upsert(self, project_id: UUID, *, revision: int, code_target: CodeTarget,
+    def upsert(self, project_id: UUID, *, revision: int,
+               execution_backend: ExecutionBackend, keras_enabled: bool,
                source_code: str, timestamp: datetime) -> None: ...
 
 ###############################################################################

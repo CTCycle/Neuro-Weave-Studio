@@ -68,7 +68,7 @@ def test_openapi_uses_named_schemas_for_stable_contracts() -> None:
     assert _response_schema(paths["/api/compilation"]["post"]) == {
         "$ref": "#/components/schemas/CompilationResult"
     }
-    assert _response_schema(paths["/api/exports/{project_id}/source/{code_target}"]["get"]) == {
+    assert _response_schema(paths["/api/exports/{project_id}/source"]["get"]) == {
         "$ref": "#/components/schemas/SourceExportResponse"
     }
 

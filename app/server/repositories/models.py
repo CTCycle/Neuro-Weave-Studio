@@ -20,11 +20,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from common.timestamps import utc_now
-from domain.enums import CodeTarget, ValidationStatus
+from domain.enums import ExecutionBackend, ValidationStatus
 from repositories.base import Base
 from repositories.types import UTCDateTime
 
-_CODE_TARGET_SQL_VALUES = ", ".join(repr(item.value) for item in CodeTarget)
+_EXECUTION_BACKEND_SQL_VALUES = ", ".join(repr(item.value) for item in ExecutionBackend)
 _VALIDATION_STATUS_SQL_VALUES = ", ".join(repr(item.value) for item in ValidationStatus)
 
 ###############################################################################
@@ -39,8 +39,13 @@ class ProjectRecord(Base):
     graph_schema_version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1
     )
-    code_target: Mapped[str] = mapped_column(
-        String(32), nullable=False, default=CodeTarget.KERAS.value
+    execution_backend: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=ExecutionBackend.PYTORCH.value
+    )
+    keras_enabled: Mapped[bool] = mapped_column(
+        Boolean(create_constraint=True, name="ck_projects_keras_enabled"),
+        nullable=False,
+        default=True,
     )
     current_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     validation_status: Mapped[str] = mapped_column(
@@ -82,8 +87,8 @@ class ProjectRecord(Base):
         CheckConstraint("length(trim(name)) > 0", name="ck_projects_name_nonempty"),
         CheckConstraint("graph_schema_version >= 1", name="ck_projects_graph_version"),
         CheckConstraint(
-            f"code_target IN ({_CODE_TARGET_SQL_VALUES})",
-            name="ck_projects_code_target",
+            f"execution_backend IN ({_EXECUTION_BACKEND_SQL_VALUES})",
+            name="ck_projects_execution_backend",
         ),
         CheckConstraint("current_revision >= 1", name="ck_projects_revision"),
         CheckConstraint(
@@ -240,7 +245,11 @@ class ProjectRevisionRecord(Base):
     )
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     graph_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
-    code_target: Mapped[str] = mapped_column(String(32), nullable=False)
+    execution_backend: Mapped[str] = mapped_column(String(32), nullable=False)
+    keras_enabled: Mapped[bool] = mapped_column(
+        Boolean(create_constraint=True, name="ck_project_revisions_keras_enabled"),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=utc_now
     )
@@ -257,8 +266,8 @@ class ProjectRevisionRecord(Base):
             "graph_schema_version >= 1", name="ck_project_revisions_graph_version"
         ),
         CheckConstraint(
-            f"code_target IN ({_CODE_TARGET_SQL_VALUES})",
-            name="ck_project_revisions_code_target",
+            f"execution_backend IN ({_EXECUTION_BACKEND_SQL_VALUES})",
+            name="ck_project_revisions_execution_backend",
         ),
         Index("ix_project_revisions_project_created", "project_id", "created_at"),
     )
@@ -269,7 +278,11 @@ class GeneratedCodeSnapshotRecord(Base):
 
     project_id: Mapped[str] = mapped_column(String(36), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    code_target: Mapped[str] = mapped_column(String(32), nullable=False)
+    execution_backend: Mapped[str] = mapped_column(String(32), nullable=False)
+    keras_enabled: Mapped[bool] = mapped_column(
+        Boolean(create_constraint=True, name="ck_generated_code_snapshots_keras_enabled"),
+        nullable=False,
+    )
     source_code: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=utc_now
@@ -280,7 +293,7 @@ class GeneratedCodeSnapshotRecord(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint(
-            "project_id", "revision", "code_target", name="pk_generated_code_snapshots"
+            "project_id", "revision", name="pk_generated_code_snapshots"
         ),
         ForeignKeyConstraint(
             ["project_id", "revision"],
@@ -290,8 +303,8 @@ class GeneratedCodeSnapshotRecord(Base):
         ),
         CheckConstraint("revision >= 1", name="ck_generated_code_snapshots_revision"),
         CheckConstraint(
-            f"code_target IN ({_CODE_TARGET_SQL_VALUES})",
-            name="ck_generated_code_snapshots_code_target",
+            f"execution_backend IN ({_EXECUTION_BACKEND_SQL_VALUES})",
+            name="ck_generated_code_snapshots_execution_backend",
         ),
         Index("ix_generated_code_snapshots_project", "project_id", "revision"),
     )

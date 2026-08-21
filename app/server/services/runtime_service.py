@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from configurations.settings import Settings
-from domain.enums import CodeTarget, ExecutionBackend
+from domain.enums import ExecutionBackend
 from domain.graph import GRAPH_SCHEMA_VERSION
 from domain.metadata import (
     ExecutionBackendStatus,
@@ -36,7 +36,6 @@ class RuntimeService:
             name=self._settings.app_name,
             version=self._settings.app_version,
             schema_version=GRAPH_SCHEMA_VERSION,
-            code_targets=list(CodeTarget),
             runtime_apis=[
                 RuntimeApiStatus(id=RuntimeApi.KERAS, available=True),
                 RuntimeApiStatus(

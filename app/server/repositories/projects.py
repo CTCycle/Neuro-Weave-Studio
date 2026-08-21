@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from domain.enums import CodeTarget, ValidationStatus
+from domain.enums import ExecutionBackend, ValidationStatus
 from repositories.contracts import ProjectMetadata, RepositoryRevisionConflictError
 from repositories.models import ProjectRecord
 
@@ -35,7 +35,8 @@ class ProjectRepository:
         *,
         name: str,
         description: str,
-        code_target: CodeTarget,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
         graph_schema_version: int,
         timestamp: datetime,
         validation_status: ValidationStatus,
@@ -44,7 +45,8 @@ class ProjectRepository:
             name=name,
             description=description,
             graph_schema_version=graph_schema_version,
-            code_target=code_target.value,
+            execution_backend=execution_backend.value,
+            keras_enabled=keras_enabled,
             current_revision=1,
             validation_status=validation_status,
             created_at=timestamp,
@@ -61,7 +63,8 @@ class ProjectRepository:
         *,
         name: str,
         description: str,
-        code_target: CodeTarget,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
         graph_schema_version: int,
         timestamp: datetime,
         validation_status: ValidationStatus,
@@ -77,7 +80,8 @@ class ProjectRepository:
                 name=name,
                 description=description,
                 graph_schema_version=graph_schema_version,
-                code_target=code_target.value,
+                execution_backend=execution_backend.value,
+                keras_enabled=keras_enabled,
                 current_revision=expected_revision + 1,
                 validation_status=validation_status,
                 updated_at=timestamp,
@@ -115,7 +119,8 @@ class ProjectRepository:
             created_at=record.created_at,
             updated_at=record.updated_at,
             graph_schema_version=record.graph_schema_version,
-            code_target=CodeTarget(record.code_target),
+            execution_backend=ExecutionBackend(record.execution_backend),
+            keras_enabled=record.keras_enabled,
             current_revision=record.current_revision,
             validation_status=ValidationStatus(record.validation_status),
         )

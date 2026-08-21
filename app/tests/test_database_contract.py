@@ -5,8 +5,6 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import inspect, select, text
 from sqlalchemy.dialects import sqlite
 from sqlalchemy.exc import IntegrityError
@@ -18,18 +16,13 @@ from configurations.settings import (
     DatabaseSettings,
     get_database_settings,
 )
-from domain.enums import CodeTarget, ValidationStatus
+from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from repositories.backend import (
     build_session_factory,
 )
 from repositories.base import Base
-from repositories.initializer import (
-    ALEMBIC_CONFIG_PATH,
-    BASELINE_REVISION,
-    HEAD_REVISION,
-    initialize_database,
-)
+from repositories.initializer import HEAD_REVISION, initialize_database
 from repositories.models import (
     GeneratedCodeSnapshotRecord,
     ProjectEdgeRecord,
@@ -53,13 +46,6 @@ def _context(path: Path) -> RepositoryContext:
         engine=backend.engine,
         session_factory=build_session_factory(backend.engine),
     )
-
-###############################################################################
-def _alembic_config(connection: object) -> Config:
-    config = Config(str(ALEMBIC_CONFIG_PATH))
-    config.attributes["connection"] = connection
-    config.attributes["skip_logging_config"] = True
-    return config
 
 ###############################################################################
 def test_sqlite_database_settings_resolve_relative_path(
@@ -159,7 +145,7 @@ def test_incompatible_sqlite_file_is_rejected_without_mutation(tmp_path: Path) -
         connection.execute(text("CREATE TABLE legacy (id INTEGER PRIMARY KEY)"))
     seed_engine.dispose()
 
-    with pytest.raises(RuntimeError, match="unsupported or incomplete schema"):
+    with pytest.raises(RuntimeError, match="managed table set"):
         initialize_database(_settings(path))
 
     engine = create_engine(f"sqlite:///{path}")
@@ -169,7 +155,7 @@ def test_incompatible_sqlite_file_is_rejected_without_mutation(tmp_path: Path) -
         engine.dispose()
 
 ###############################################################################
-def test_empty_alembic_version_table_is_rejected_without_mutation(tmp_path: Path) -> None:
+def test_empty_alembic_version_table_is_initialized_as_current_schema(tmp_path: Path) -> None:
     path = tmp_path / "partial.db"
     from sqlalchemy import create_engine
 
@@ -180,95 +166,10 @@ def test_empty_alembic_version_table_is_rejected_without_mutation(tmp_path: Path
         )
     seed_engine.dispose()
 
-    with pytest.raises(RuntimeError, match="without a current revision"):
-        initialize_database(_settings(path))
-
-    engine = create_engine(f"sqlite:///{path}")
-    try:
-        assert inspect(engine).get_table_names() == ["alembic_version"]
-        with engine.connect() as connection:
-            assert (
-                connection.execute(text("SELECT COUNT(*) FROM alembic_version")).scalar_one()
-                == 0
-            )
-    finally:
-        engine.dispose()
-
-###############################################################################
-def _prepare_unversioned_v2_database(path: Path) -> str:
-    context = _context(path)
-    now = datetime.now(UTC)
-    try:
-        with context.new_unit_of_work() as uow:
-            project = uow.projects.create(
-                name="Adopted project",
-                description="Preserved data",
-                code_target=CodeTarget.KERAS,
-                graph_schema_version=2,
-                timestamp=now,
-                validation_status=ValidationStatus.VALID,
-            )
-            graph = ModelGraph()
-            uow.graphs.replace(project.id, graph)
-            uow.revisions.append(
-                project.id,
-                revision=1,
-                graph=graph,
-                code_target=CodeTarget.KERAS,
-                timestamp=now,
-            )
-            uow.code_snapshots.upsert(
-                project.id,
-                revision=1,
-                code_target=CodeTarget.KERAS,
-                source_code="preserve-me",
-                timestamp=now,
-            )
-            uow.commit()
-
-        with context.engine.begin() as connection:
-            command.downgrade(_alembic_config(connection), BASELINE_REVISION)
-            connection.execute(text("DROP TABLE alembic_version"))
-        return str(project.id)
-    finally:
-        context.dispose()
-
-###############################################################################
-def test_unversioned_v2_database_is_adopted_and_data_is_preserved(tmp_path: Path) -> None:
-    path = tmp_path / "legacy-v2.db"
-    project_id = _prepare_unversioned_v2_database(path)
-
     backend = initialize_database(_settings(path))
-    assert set(inspect(backend.engine).get_table_names()) == {
-        "alembic_version",
-        "projects",
-        "project_graph_settings",
-        "project_nodes",
-        "project_edges",
-        "project_revisions",
-        "generated_code_snapshots",
-    }
-    with Session(backend.engine) as session:
-        project = session.get(ProjectRecord, project_id)
-        snapshot = session.get(GeneratedCodeSnapshotRecord, (project_id, 1, "keras"))
-        assert project is not None
-        assert project.name == "Adopted project"
-        assert snapshot is not None
-        assert snapshot.source_code == "preserve-me"
-    backend.engine.dispose()
-
-###############################################################################
-def test_versioned_database_behind_head_is_upgraded(tmp_path: Path) -> None:
-    path = tmp_path / "behind.db"
-    backend = initialize_database(_settings(path))
-    with backend.engine.begin() as connection:
-        command.downgrade(_alembic_config(connection), BASELINE_REVISION)
-    backend.engine.dispose()
-
-    upgraded = initialize_database(_settings(path))
-    with upgraded.engine.connect() as connection:
+    with backend.engine.connect() as connection:
         assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == HEAD_REVISION
-    upgraded.engine.dispose()
+    backend.engine.dispose()
 
 ###############################################################################
 def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> None:
@@ -279,7 +180,8 @@ def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> 
             created = uow.projects.create(
                 name="Repository project",
                 description="",
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
@@ -290,13 +192,15 @@ def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> 
                 created.id,
                 revision=1,
                 graph=graph,
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 timestamp=now,
             )
             uow.code_snapshots.upsert(
                 created.id,
                 revision=1,
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 source_code="model = None",
                 timestamp=now,
             )
@@ -307,9 +211,7 @@ def test_project_repository_operations_share_one_transaction(tmp_path: Path) -> 
             assert metadata is not None
             assert metadata.current_revision == 1
             assert uow.graphs.load(created.id, 2) == ModelGraph()
-            assert uow.code_snapshots.list_for_revision(created.id, 1) == {
-                "keras": "model = None"
-            }
+            assert uow.code_snapshots.get_for_revision(created.id, 1) == "model = None"
     finally:
         context.dispose()
 
@@ -323,7 +225,8 @@ def test_transaction_rolls_back_partial_project(tmp_path: Path) -> None:
             metadata = uow.projects.create(
                 name="Rolled back",
                 description="",
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
@@ -346,7 +249,8 @@ def test_project_and_dependents_cascade(tmp_path: Path) -> None:
             project = uow.projects.create(
                 name="Cascade",
                 description="",
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
@@ -357,13 +261,15 @@ def test_project_and_dependents_cascade(tmp_path: Path) -> None:
                 project.id,
                 revision=1,
                 graph=graph,
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 timestamp=now,
             )
             uow.code_snapshots.upsert(
                 project.id,
                 revision=1,
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 source_code="code",
                 timestamp=now,
             )
@@ -419,7 +325,8 @@ def test_node_delete_cascades_incident_edges(tmp_path: Path) -> None:
             project = uow.projects.create(
                 name="Node cascade",
                 description="",
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
@@ -429,7 +336,8 @@ def test_node_delete_cascades_incident_edges(tmp_path: Path) -> None:
                 project.id,
                 revision=1,
                 graph=graph,
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 timestamp=now,
             )
             uow.commit()
@@ -454,7 +362,8 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
             first = uow.projects.create(
                 name="First",
                 description="",
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
@@ -462,7 +371,8 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
             second = uow.projects.create(
                 name="Second",
                 description="",
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
@@ -491,14 +401,16 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
                 first.id,
                 revision=1,
                 graph=first_graph,
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 timestamp=now,
             )
             uow.revisions.append(
                 second.id,
                 revision=1,
                 graph=second_graph,
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 timestamp=now,
             )
             uow.commit()
@@ -551,7 +463,8 @@ def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> Non
             project = uow.projects.create(
                 name="Constraint project",
                 description="",
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 graph_schema_version=2,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
@@ -561,7 +474,8 @@ def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> Non
                 project.id,
                 revision=1,
                 graph=graph,
-                code_target=CodeTarget.KERAS,
+                execution_backend=ExecutionBackend.PYTORCH,
+                keras_enabled=True,
                 timestamp=now,
             )
             uow.commit()
@@ -601,7 +515,8 @@ def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> Non
                     project_id=str(project.id),
                     revision=1,
                     graph_schema_version=2,
-                    code_target="keras",
+                    execution_backend="pytorch",
+                    keras_enabled=True,
                     graph_snapshot_json={},
                     created_at=now,
                 )
@@ -613,7 +528,8 @@ def test_unique_and_check_constraints_reject_invalid_rows(tmp_path: Path) -> Non
                 ProjectRecord(
                     name=" ",
                     description="",
-                    code_target="unknown",
+                    execution_backend="unknown",
+                    keras_enabled=True,
                     validation_status=ValidationStatus.UNKNOWN,
                 )
             )
