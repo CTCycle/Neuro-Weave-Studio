@@ -84,11 +84,15 @@ def get_export_service(
     project_service: ProjectService = Depends(get_project_service),
     compilation_service: CompilationService = Depends(get_compilation_service),
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
+    runtime_controller: RuntimeController = Depends(get_runtime_controller),
+    validation_service: ValidationService = Depends(get_validation_service),
 ) -> ExportService:
     return ExportService(
         project_service=project_service,
         compilation_service=compilation_service,
         uow_factory=uow_factory,
+        runtime_controller=runtime_controller,
+        validation_service=validation_service,
     )
 
 ###############################################################################
@@ -97,7 +101,8 @@ def get_job_service(
     controller: RuntimeController = Depends(get_runtime_controller),
     settings: Settings = Depends(get_settings),
     validator: ValidationService = Depends(get_validation_service),
+    exports: ExportService = Depends(get_export_service),
 ) -> JobService:
-    return JobService(project_service, controller, settings, validator)
+    return JobService(project_service, controller, settings, validator, exports)
 
 ###############################################################################

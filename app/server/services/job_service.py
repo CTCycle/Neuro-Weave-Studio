@@ -6,10 +6,12 @@ from uuid import UUID
 from configurations.settings import Settings
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity
+from domain.exports import ExportFormat, ExportOptions, export_suffix
 from domain.graph import ModelGraph, ProjectDocument
-from domain.jobs import JobResponse, JobSubmitRequest, SmokeInferenceOperation
+from domain.jobs import JobResponse, JobSubmitRequest, ModelExportOperation, SmokeInferenceOperation
 from domain.runtime import RuntimeApi, WorkerConfiguration
 from services.errors import CompilationRejectedError, ProjectNotFoundError
+from services.export_service import ExportService
 from services.project_service import ProjectService
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
@@ -26,11 +28,13 @@ class JobService:
         controller: RuntimeController,
         settings: Settings,
         validator: ValidationService,
+        exports: ExportService,
     ) -> None:
         self._validator = validator
         self._projects = projects
         self._controller = controller
         self._settings = settings
+        self._exports = exports
 
     # -------------------------------------------------------------------------
     def submit(self, request: JobSubmitRequest) -> JobResponse:
@@ -51,32 +55,60 @@ class JobService:
                 graph=graph,
             )
 
-        project_id = request.operation.project_id
+        operation = request.operation
+        if not isinstance(operation, ModelExportOperation):
+            raise RuntimeError("Unsupported job operation")
+        project_id = operation.project_id
         project = self._projects.get(project_id)
         if project is None:
             raise ProjectNotFoundError(project_id)
         self._ensure_worker_matches_project(project, request.worker)
-        if not project.keras_enabled:
-            raise CompilationRejectedError(
-                [ValidationDiagnostic(
-                    code="native_runtime_unavailable",
-                    severity=DiagnosticSeverity.COMPATIBILITY,
-                    message="Native runtime execution is not implemented",
-                )]
-            )
         validation = self._validator.validate(
             project.graph, project.execution_backend, project.keras_enabled
         )
         if not validation.valid:
             raise CompilationRejectedError(validation.diagnostics)
-        worker = self._with_graph_precision(request.worker, project.graph)
-        destination = (
-            self._settings.export_root
-            / str(project_id)
-            / f"{self._safe_filename_stem(project.name)}.keras"
+        capabilities = self._exports.capabilities(project_id)
+        capability = next(
+            (item for item in capabilities.formats if item.format is operation.format),
+            None,
         )
+        if capability is None or not capability.available:
+            raise CompilationRejectedError(
+                [
+                    ValidationDiagnostic(
+                        code="export_unavailable",
+                        severity=DiagnosticSeverity.COMPATIBILITY,
+                        message=capability.reason if capability and capability.reason else f"Export format '{operation.format.value}' is unavailable",
+                        execution_backend=project.execution_backend,
+                        keras_enabled=project.keras_enabled,
+                        details={
+                            "format": operation.format.value,
+                            "reason_code": capability.reason_code if capability else "unknown_format",
+                        },
+                    )
+                ]
+            )
+        self._validate_export_options(operation.format, operation.options)
+        stem = self._resolve_filename_stem(project.name, operation.filename_stem)
+        worker = self._with_graph_precision(request.worker, project.graph)
+        export_operation = operation.model_copy(update={"filename_stem": stem})
+        destination_root = (self._settings.export_root / str(project_id)).resolve()
+        destination = (
+            destination_root / f"{stem}{export_suffix(operation.format, operation.options)}"
+        )
+        if not destination.is_relative_to(destination_root):
+            raise CompilationRejectedError(
+                [
+                    ValidationDiagnostic(
+                        code="invalid_filename",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="The export filename resolves outside the project export directory",
+                    )
+                ]
+            )
         return self._controller.submit(
-            request.model_copy(update={"worker": worker}),
+            request.model_copy(update={"worker": worker, "operation": export_operation}),
             graph=project.graph,
             artifact_destination=destination,
             artifact_filename=destination.name,
@@ -106,13 +138,18 @@ class JobService:
                     )
                 ]
             )
-        if keras_enabled and worker.api is not RuntimeApi.KERAS:
+        expected_api = RuntimeApi.KERAS if keras_enabled else RuntimeApi.NATIVE
+        if worker.api is not expected_api:
             raise CompilationRejectedError(
                 [
                     ValidationDiagnostic(
                         code="runtime_api_mismatch",
                         severity=DiagnosticSeverity.COMPATIBILITY,
-                        message="This model is persisted as a Keras model and requires the Keras runtime API",
+                        message=(
+                            "This model is persisted as a Keras profile and requires the Keras runtime API"
+                            if keras_enabled
+                            else "This model is persisted as a native profile and requires the native framework API"
+                        ),
                         execution_backend=execution_backend,
                         keras_enabled=keras_enabled,
                     )
@@ -140,3 +177,60 @@ class JobService:
     def _safe_filename_stem(value: str) -> str:
         sanitized = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
         return (sanitized or "model")[:120]
+
+    # -------------------------------------------------------------------------
+    @classmethod
+    def _resolve_filename_stem(cls, project_name: str, requested: str | None) -> str:
+        if requested is None:
+            return cls._safe_filename_stem(project_name)
+        if any(separator in requested for separator in ("/", "\\")) or "\x00" in requested:
+            raise CompilationRejectedError(
+                [
+                    ValidationDiagnostic(
+                        code="invalid_filename",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Filename stems cannot contain path separators",
+                    )
+                ]
+            )
+        if re.search(r"\.[A-Za-z0-9]+$", requested.strip()):
+            raise CompilationRejectedError(
+                [
+                    ValidationDiagnostic(
+                        code="invalid_filename",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Provide a filename stem without an extension",
+                    )
+                ]
+            )
+        return cls._safe_filename_stem(requested)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _validate_export_options(export_format: ExportFormat, options: ExportOptions) -> None:
+        if options.max_shard_size_gb is not None:
+            raise CompilationRejectedError(
+                [
+                    ValidationDiagnostic(
+                        code="invalid_export_options",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Weight sharding is not enabled for this export profile",
+                        details={"format": export_format.value, "option": "max_shard_size_gb"},
+                    )
+                ]
+            )
+        if export_format is not ExportFormat.ONNX and (
+            options.opset_version != 18
+            or not options.dynamic_batch
+            or options.external_data != "auto"
+        ):
+            raise CompilationRejectedError(
+                [
+                    ValidationDiagnostic(
+                        code="invalid_export_options",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=f"ONNX options are only valid for the ONNX export format, not '{export_format.value}'",
+                        details={"format": export_format.value},
+                    )
+                ]
+            )

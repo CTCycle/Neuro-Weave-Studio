@@ -32,18 +32,32 @@ class RuntimeService:
     # -------------------------------------------------------------------------
     def metadata(self) -> MetadataResponse:
         catalog = get_compilation_catalog()
+        runtime_apis = [
+            RuntimeApiStatus(
+                id=api,
+                available=any(
+                    api_status.available
+                    for status in self._backend_statuses.values()
+                    for api_status in status.runtime_apis
+                    if api_status.id is api
+                ),
+                reason_code=next(
+                    (
+                        api_status.reason_code
+                        for status in self._backend_statuses.values()
+                        for api_status in status.runtime_apis
+                        if api_status.id is api and not api_status.available and api_status.reason_code
+                    ),
+                    None,
+                ),
+            )
+            for api in RuntimeApi
+        ]
         return MetadataResponse(
             name=self._settings.app_name,
             version=self._settings.app_version,
             schema_version=GRAPH_SCHEMA_VERSION,
-            runtime_apis=[
-                RuntimeApiStatus(id=RuntimeApi.KERAS, available=True),
-                RuntimeApiStatus(
-                    id=RuntimeApi.NATIVE,
-                    available=False,
-                    reason_code="not_implemented",
-                ),
-            ],
+            runtime_apis=runtime_apis,
             execution_backends=[
                 ExecutionBackendStatus(
                     id=backend,
@@ -54,6 +68,7 @@ class RuntimeService:
                     accelerator=status.accelerator,
                     device_name=status.device_name,
                     devices=status.devices,
+                    runtime_apis=status.runtime_apis,
                 )
                 for backend, status in self._backend_statuses.items()
             ],

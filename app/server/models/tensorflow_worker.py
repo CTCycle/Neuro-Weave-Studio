@@ -8,19 +8,18 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import keras
 import tensorflow
 
 from domain.enums import ExecutionBackend
+from domain.exports import ExportFormat, ExportOptions
 from domain.graph import ModelGraph
-from domain.runtime import MemoryPolicyKind, WorkerConfiguration
-from models import keras_worker
-from models.keras_runtime import compile_model
+from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 from models.worker_backend import (
     BackendWorker,
     empty_memory_metrics,
-    run_keras_export,
     run_keras_smoke,
+    run_model_export,
+    run_native_smoke,
 )
 
 
@@ -60,8 +59,13 @@ class TensorFlowWorker:
             if self._config is not None and self._config.device_id == "cpu"
             else tensorflow.config.list_logical_devices("GPU")
         )
+        backend_name = "tensorflow"
+        if self._config is not None and self._config.api is RuntimeApi.KERAS:
+            import keras
+
+            backend_name = str(keras.backend.backend())
         return {
-            "backend": str(keras.backend.backend()),
+            "backend": backend_name,
             "available": True,
             "accelerator": "cuda" if devices else "cpu",
             "device_name": str(devices[0].name) if devices else "CPU",
@@ -114,6 +118,10 @@ class TensorFlowWorker:
     def device_scope(self) -> contextlib.AbstractContextManager[Any]:
         capabilities = self.capabilities()
         if capabilities.get("accelerator") == "cuda":
+            if self._config is not None and self._config.api is RuntimeApi.NATIVE:
+                return tensorflow.device("/GPU:0")
+            import keras
+
             return keras.device("gpu:0")
         return contextlib.nullcontext()
 
@@ -127,6 +135,20 @@ class TensorFlowWorker:
         graph: ModelGraph,
         checkpoint: Callable[[], None],
     ) -> dict[str, object]:
+        if self._config is not None and self._config.api is RuntimeApi.NATIVE:
+            return run_native_smoke(
+                graph,
+                backend=self.backend,
+                capabilities=self.capabilities(),
+                scope=self.device_scope(),
+                synchronize=self.synchronize,
+                checkpoint=checkpoint,
+            )
+        import keras
+
+        from models import keras_worker
+        from models.keras_runtime import compile_model
+
         return run_keras_smoke(
             graph,
             keras_module=keras,
@@ -143,23 +165,32 @@ class TensorFlowWorker:
         self,
         graph: ModelGraph,
         destination: Path,
+        export_format: ExportFormat,
+        options: ExportOptions,
         checkpoint: Callable[[], None],
+        project_id: str | None = None,
+        project_revision: int | None = None,
     ) -> dict[str, object]:
-        return run_keras_export(
+        return run_model_export(
             graph,
             destination,
-            keras_module=keras,
-            build_model=keras_worker.build_model,
-            compile_model=compile_model,
+            export_format=export_format,
+            options=options,
+            backend=self.backend,
+            api=self._config.api if self._config is not None else RuntimeApi.KERAS,
             capabilities=self.capabilities(),
             scope=self.device_scope(),
             synchronize=self.synchronize,
             checkpoint=checkpoint,
+            project_id=project_id,
+            project_revision=project_revision,
         )
 
     # -------------------------------------------------------------------------
     def cleanup(self) -> None:
         with contextlib.suppress(AttributeError, RuntimeError, TypeError):
+            import keras
+
             keras.backend.clear_session()
         gc.collect()
 

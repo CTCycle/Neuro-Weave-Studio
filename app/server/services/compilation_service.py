@@ -5,11 +5,12 @@ from compilation.compiler import compile_to_ir
 from domain.compilation import CompilationResult
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
-from exporters.jax_exporter import JaxSourceExporter
 from exporters.keras_exporter import KerasSourceExporter
+from exporters.native_jax_exporter import NativeJaxSourceExporter
+from exporters.native_tensorflow_exporter import NativeTensorFlowSourceExporter
 from exporters.pytorch_exporter import PyTorchSourceExporter
-from exporters.tensorflow_exporter import TensorFlowSourceExporter
 from services.validation_service import ValidationService
+
 
 ###############################################################################
 class CompilationService:
@@ -22,9 +23,9 @@ class CompilationService:
             (True, ExecutionBackend.TENSORFLOW): KerasSourceExporter(),
             (True, ExecutionBackend.PYTORCH): KerasSourceExporter(),
             (True, ExecutionBackend.JAX): KerasSourceExporter(),
-            (False, ExecutionBackend.TENSORFLOW): TensorFlowSourceExporter(),
+            (False, ExecutionBackend.TENSORFLOW): NativeTensorFlowSourceExporter(),
             (False, ExecutionBackend.PYTORCH): PyTorchSourceExporter(),
-            (False, ExecutionBackend.JAX): JaxSourceExporter(),
+            (False, ExecutionBackend.JAX): NativeJaxSourceExporter(),
         }
 
     # -------------------------------------------------------------------------
