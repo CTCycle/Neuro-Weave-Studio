@@ -5,7 +5,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from sqlalchemy import inspect, select, text
+from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.dialects import sqlite
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -32,6 +32,7 @@ from repositories.models import (
     ProjectRevisionRecord,
 )
 from repositories.session import RepositoryContext
+
 
 ###############################################################################
 def _settings(path: Path) -> DatabaseSettings:
@@ -137,8 +138,6 @@ def test_already_current_database_is_idempotent(tmp_path: Path) -> None:
 ###############################################################################
 def test_incompatible_sqlite_file_is_rejected_without_mutation(tmp_path: Path) -> None:
     path = tmp_path / "old.db"
-    from sqlalchemy import create_engine
-
     seed_engine = create_engine(f"sqlite:///{path}")
     with seed_engine.begin() as connection:
         connection.execute(text("CREATE TABLE legacy (id INTEGER PRIMARY KEY)"))
@@ -156,8 +155,6 @@ def test_incompatible_sqlite_file_is_rejected_without_mutation(tmp_path: Path) -
 ###############################################################################
 def test_unversioned_projects_table_is_rejected_before_upgrade(tmp_path: Path) -> None:
     path = tmp_path / "unversioned.db"
-    from sqlalchemy import create_engine
-
     seed_engine = create_engine(f"sqlite:///{path}")
     with seed_engine.begin() as connection:
         connection.execute(text("CREATE TABLE projects (id VARCHAR(36) PRIMARY KEY)"))
@@ -175,8 +172,6 @@ def test_unversioned_projects_table_is_rejected_before_upgrade(tmp_path: Path) -
 ###############################################################################
 def test_empty_alembic_version_table_is_initialized_as_current_schema(tmp_path: Path) -> None:
     path = tmp_path / "partial.db"
-    from sqlalchemy import create_engine
-
     seed_engine = create_engine(f"sqlite:///{path}")
     with seed_engine.begin() as connection:
         connection.execute(

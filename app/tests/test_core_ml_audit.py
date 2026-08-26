@@ -11,14 +11,16 @@ from uuid import uuid4
 import pytest
 
 from common.catalogs.loader import get_node_catalog
+from compilation.compiler import compile_to_ir
 from configurations.settings import get_settings
 from domain.enums import ExecutionBackend, keras_backend_value
 from domain.graph import EdgeInstance, ModelConfiguration, ModelGraph, NodeInstance, Position
-from domain.jobs import KerasExportOperation, JobResponse, JobSubmitRequest, SmokeInferenceOperation
+from domain.jobs import JobResponse, JobSubmitRequest, KerasExportOperation, SmokeInferenceOperation
 from domain.runtime import WorkerConfiguration
 from exporters.keras_exporter import KerasSourceExporter
-from models.runtime_controller import RuntimeController
+from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
+
 
 ###############################################################################
 def node(
@@ -353,8 +355,6 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
     )
     result = validate(graph)
     assert result.valid
-    from compilation.compiler import compile_to_ir
-
     source = KerasSourceExporter().generate(
         graph,
         compile_to_ir(graph, ExecutionBackend.PYTORCH, True, get_node_catalog()),
@@ -456,8 +456,6 @@ def test_multi_output_compile_selectors_and_transformer_source(tmp_path: Path) -
     )
     result = validate(graph)
     assert result.valid
-    from compilation.compiler import compile_to_ir
-
     source = KerasSourceExporter().generate(
         graph,
         compile_to_ir(graph, ExecutionBackend.PYTORCH, True, get_node_catalog()),

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-
 from configurations.settings import Settings
-from domain.enums import ExecutionBackend
 from domain.compilation_catalog import get_compilation_catalog
+from domain.enums import ExecutionBackend
 from domain.graph import GRAPH_SCHEMA_VERSION
 from domain.metadata import (
     ExecutionBackendStatus,
@@ -14,18 +12,18 @@ from domain.metadata import (
 )
 from domain.runtime import RuntimeApi, RuntimeApiStatus
 
+
 ###############################################################################
 class RuntimeService:
 
     # -------------------------------------------------------------------------
-    def __init__(self, settings: Settings, backend_statuses: Mapping[ExecutionBackend, ExecutionBackendStatus | Mapping[str, object]]) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        backend_statuses: dict[ExecutionBackend, ExecutionBackendStatus],
+    ) -> None:
         self._settings = settings
-        self._backend_statuses = {
-            backend: status
-            if isinstance(status, ExecutionBackendStatus)
-            else ExecutionBackendStatus.model_validate({"id": backend, **dict(status)})
-            for backend, status in backend_statuses.items()
-        }
+        self._backend_statuses = backend_statuses
 
     # -------------------------------------------------------------------------
     def health(self) -> HealthResponse:

@@ -1,0 +1,212 @@
+# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalOperand=false, reportOperatorIssue=false, reportArgumentType=false
+
+from __future__ import annotations
+
+import contextlib
+import gc
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+import keras
+import torch
+
+from domain.enums import ExecutionBackend
+from domain.graph import ModelGraph
+from domain.runtime import MemoryPolicyKind, WorkerConfiguration
+from models import keras_worker
+from models.keras_runtime import compile_model
+from models.worker_backend import (
+    BackendWorker,
+    empty_memory_metrics,
+    run_keras_export,
+    run_keras_smoke,
+)
+
+
+###############################################################################
+class PyTorchWorker:
+    backend = ExecutionBackend.PYTORCH
+
+    def __init__(self) -> None:
+        self._config: WorkerConfiguration | None = None
+
+    # -------------------------------------------------------------------------
+    def configure(self, config: WorkerConfiguration) -> None:
+        self._config = config
+        if config.device_id.startswith(("cuda:", "rocm:")) and bool(torch.cuda.is_available()):
+            torch.cuda.set_device(0)
+            if config.memory_policy.kind is MemoryPolicyKind.PYTORCH_FRACTION:
+                fraction = config.memory_policy.fraction
+                if fraction is None:
+                    raise RuntimeError("pytorch_fraction requires a fraction")
+                torch.cuda.set_per_process_memory_fraction(float(fraction), device=0)
+
+    # -------------------------------------------------------------------------
+    def capabilities(self) -> dict[str, object]:
+        requested_device = self._config.device_id if self._config is not None else "auto"
+        accelerator = "cpu"
+        device_name = "CPU"
+        if (
+            requested_device == "auto" or requested_device.startswith(("cuda:", "rocm:"))
+        ) and bool(torch.cuda.is_available()):
+            accelerator = "cuda"
+            device_name = str(torch.cuda.get_device_name(0))
+        elif requested_device.startswith("xpu:") and hasattr(torch, "xpu") and bool(torch.xpu.is_available()):
+            accelerator = "xpu"
+            device_name = str(torch.xpu.get_device_name(0))
+        elif requested_device.startswith("mps:") and hasattr(torch.backends, "mps") and bool(torch.backends.mps.is_available()):
+            accelerator = "mps"
+            device_name = "Apple Metal Performance Shaders"
+        return {
+            "backend": str(keras.backend.backend()),
+            "available": True,
+            "accelerator": accelerator,
+            "device_name": device_name,
+        }
+
+    # -------------------------------------------------------------------------
+    def device_inventory(self) -> list[dict[str, object]]:
+        devices: list[dict[str, object]] = [
+            {
+                "device_id": "cpu",
+                "lease_key": "cpu",
+                "kind": "cpu",
+                "index": None,
+                "name": "CPU",
+                "accelerator": "cpu",
+                "supported_memory_policies": [MemoryPolicyKind.DEFAULT.value],
+            }
+        ]
+        if bool(torch.cuda.is_available()):
+            for index in range(int(torch.cuda.device_count())):
+                devices.append(
+                    {
+                        "device_id": f"cuda:{index}",
+                        "lease_key": f"cuda:{index}",
+                        "kind": "cuda",
+                        "index": index,
+                        "name": str(torch.cuda.get_device_name(index)),
+                        "accelerator": "cuda",
+                        "total_memory_bytes": int(
+                            torch.cuda.get_device_properties(index).total_memory
+                        ),
+                        "supported_memory_policies": [
+                            MemoryPolicyKind.DEFAULT.value,
+                            MemoryPolicyKind.PYTORCH_FRACTION.value,
+                        ],
+                    }
+                )
+        if hasattr(torch, "xpu") and bool(torch.xpu.is_available()):
+            devices.append(
+                {
+                    "device_id": "xpu:0",
+                    "lease_key": "xpu:0",
+                    "kind": "xpu",
+                    "index": 0,
+                    "name": str(torch.xpu.get_device_name(0)),
+                    "accelerator": "xpu",
+                    "supported_memory_policies": [MemoryPolicyKind.DEFAULT.value],
+                }
+            )
+        if hasattr(torch.backends, "mps") and bool(torch.backends.mps.is_available()):
+            devices.append(
+                {
+                    "device_id": "mps:0",
+                    "lease_key": "mps:0",
+                    "kind": "mps",
+                    "index": 0,
+                    "name": "Apple Metal Performance Shaders",
+                    "accelerator": "mps",
+                    "supported_memory_policies": [MemoryPolicyKind.DEFAULT.value],
+                }
+            )
+        return devices
+
+    # -------------------------------------------------------------------------
+    def memory_metrics(self) -> dict[str, int | None]:
+        metrics = empty_memory_metrics()
+        try:
+            if self.capabilities().get("accelerator") == "cuda":
+                metrics["framework_allocated_bytes"] = int(torch.cuda.memory_allocated(0))
+                metrics["framework_reserved_bytes"] = int(torch.cuda.memory_reserved(0))
+                metrics["framework_peak_bytes"] = int(torch.cuda.max_memory_allocated(0))
+                device_memory_used = getattr(torch.cuda, "device_memory_used", None)
+                if callable(device_memory_used):
+                    metrics["device_used_bytes"] = int(device_memory_used(0))
+                metrics["device_total_bytes"] = int(
+                    torch.cuda.get_device_properties(0).total_memory
+                )
+        except (AttributeError, ImportError, RuntimeError, TypeError, ValueError):
+            return metrics
+        return metrics
+
+    # -------------------------------------------------------------------------
+    def device_scope(self) -> contextlib.AbstractContextManager[Any]:
+        capabilities = self.capabilities()
+        if capabilities.get("accelerator") in {"cuda", "xpu", "mps"}:
+            return keras.device("gpu:0")
+        return contextlib.nullcontext()
+
+    # -------------------------------------------------------------------------
+    def synchronize(self, values: list[Any]) -> None:
+        for value in values:
+            block_until_ready = getattr(value, "block_until_ready", None)
+            if callable(block_until_ready):
+                block_until_ready()
+        try:
+            if self.capabilities().get("accelerator") == "cuda":
+                torch.cuda.synchronize()
+        except (RuntimeError, TypeError):
+            pass
+
+    # -------------------------------------------------------------------------
+    def run_smoke(
+        self,
+        graph: ModelGraph,
+        checkpoint: Callable[[], None],
+    ) -> dict[str, object]:
+        return run_keras_smoke(
+            graph,
+            keras_module=keras,
+            build_model=keras_worker.build_model,
+            compile_model=compile_model,
+            capabilities=self.capabilities(),
+            scope=self.device_scope(),
+            synchronize=self.synchronize,
+            checkpoint=checkpoint,
+        )
+
+    # -------------------------------------------------------------------------
+    def run_export(
+        self,
+        graph: ModelGraph,
+        destination: Path,
+        checkpoint: Callable[[], None],
+    ) -> dict[str, object]:
+        return run_keras_export(
+            graph,
+            destination,
+            keras_module=keras,
+            build_model=keras_worker.build_model,
+            compile_model=compile_model,
+            capabilities=self.capabilities(),
+            scope=self.device_scope(),
+            synchronize=self.synchronize,
+            checkpoint=checkpoint,
+        )
+
+    # -------------------------------------------------------------------------
+    def cleanup(self) -> None:
+        try:
+            if self.capabilities().get("accelerator") == "cuda":
+                torch.cuda.synchronize()
+                torch.cuda.empty_cache()
+            keras.backend.clear_session()
+        except (AttributeError, RuntimeError, TypeError):
+            pass
+        gc.collect()
+
+###############################################################################
+def create_worker() -> BackendWorker:
+    return PyTorchWorker()

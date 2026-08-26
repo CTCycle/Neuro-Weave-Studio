@@ -7,6 +7,28 @@ import httpx
 
 from common.catalogs.loader import get_node_catalog
 from domain.enums import ExecutionBackend
+from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+from services.validation_service import ValidationService
+
+
+###############################################################################
+def _node(node_id: str, definition_id: str, parameters: dict[str, object]) -> NodeInstance:
+    return NodeInstance(
+        id=node_id,
+        definition_id=definition_id,
+        position=Position(x=0, y=0),
+        parameters=parameters,
+    )
+
+###############################################################################
+def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
+    return EdgeInstance(
+        id=edge_id,
+        source_node_id=source,
+        source_port_id="output",
+        target_node_id=target,
+        target_port_id="input",
+    )
 
 ###############################################################################
 def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
@@ -52,35 +74,15 @@ def test_unproven_native_targets_remain_disabled() -> None:
 
 ###############################################################################
 def test_target_parameter_capabilities_block_unmapped_values() -> None:
-    from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
-    from services.validation_service import ValidationService
-
     catalog = get_node_catalog()
-
-    def node(node_id: str, definition_id: str, parameters: dict[str, object]) -> NodeInstance:
-        return NodeInstance(
-            id=node_id,
-            definition_id=definition_id,
-            position=Position(x=0, y=0),
-            parameters=parameters,
-        )
-
-    def edge(edge_id: str, source: str, target: str) -> EdgeInstance:
-        return EdgeInstance(
-            id=edge_id,
-            source_node_id=source,
-            source_port_id="output",
-            target_node_id=target,
-            target_port_id="input",
-        )
 
     graph = ModelGraph(
         nodes=[
-            node("input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
-            node("dense", "layer.dense", {"units": 2, "kernel_initializer": "he_normal"}),
-            node("output", "output.regression", {}),
+            _node("input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
+            _node("dense", "layer.dense", {"units": 2, "kernel_initializer": "he_normal"}),
+            _node("output", "output.regression", {}),
         ],
-        edges=[edge("e1", "input", "dense"), edge("e2", "dense", "output")],
+        edges=[_edge("e1", "input", "dense"), _edge("e2", "dense", "output")],
     )
     result = ValidationService(catalog).validate(graph, ExecutionBackend.PYTORCH, False)
     assert not result.valid

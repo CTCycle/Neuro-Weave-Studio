@@ -38,8 +38,6 @@ def _nested_definitions(
     tree: ast.AST,
     path: Path,
     parents: dict[ast.AST, ast.AST],
-    *,
-    allow_worker_imports: bool = False,
 ) -> list[str]:
     violations: list[str] = []
 
@@ -50,7 +48,7 @@ def _nested_definitions(
                 violations.append(f"{path}:{node.lineno}: nested definition")
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             parent = parents.get(node)
-            if not isinstance(parent, ast.Module) and not allow_worker_imports:
+            if not isinstance(parent, ast.Module):
                 violations.append(f"{path}:{node.lineno}: non-top-level import")
     return violations
 
@@ -67,7 +65,6 @@ def test_backend_python_structure_contract() -> None:
                 tree,
                 path,
                 _parent_map(tree),
-                allow_worker_imports=path.name in {"ml_worker.py", "keras_worker.py"},
             )
         )
     assert not violations, "\n".join(violations)

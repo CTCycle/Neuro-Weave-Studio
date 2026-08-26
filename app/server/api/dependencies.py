@@ -6,18 +6,18 @@ from fastapi import Depends, Request
 
 from common.catalogs.loader import NodeCatalog
 from configurations.settings import Settings
-from domain.enums import ExecutionBackend
-from domain.metadata import ExecutionBackendStatus
-from models.runtime_controller import RuntimeController
 from repositories.contracts import UnitOfWorkFactory
 from repositories.session import RepositoryContext
 from services.catalog_service import CatalogService
 from services.compilation_service import CompilationService
-from services.job_service import JobService
 from services.export_service import ExportService
+from services.job_service import JobService
+from services.keras_import_service import KerasImportService
 from services.project_service import ProjectService
+from services.runtime_controller import RuntimeController
 from services.runtime_service import RuntimeService
 from services.validation_service import ValidationService
+
 
 ###############################################################################
 def get_catalog(request: Request) -> NodeCatalog:
@@ -42,10 +42,6 @@ def get_runtime_controller(request: Request) -> RuntimeController:
     return cast(RuntimeController, request.app.state.runtime_controller)
 
 ###############################################################################
-def get_backend_statuses(request: Request) -> dict[ExecutionBackend, ExecutionBackendStatus]:
-    return cast(dict[ExecutionBackend, ExecutionBackendStatus], request.app.state.backend_statuses)
-
-###############################################################################
 def get_validation_service(
     catalog: NodeCatalog = Depends(get_catalog),
 ) -> ValidationService:
@@ -57,19 +53,24 @@ def get_catalog_service(catalog: NodeCatalog = Depends(get_catalog)) -> CatalogS
 
 ###############################################################################
 def get_runtime_service(
-    request: Request,
     settings: Settings = Depends(get_settings),
+    controller: RuntimeController = Depends(get_runtime_controller),
 ) -> RuntimeService:
-    statuses = cast(dict[ExecutionBackend, ExecutionBackendStatus], request.app.state.backend_statuses)
-    return RuntimeService(settings, statuses)
+    return RuntimeService(settings, controller.backend_statuses)
 
 ###############################################################################
 def get_project_service(
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
     validator: ValidationService = Depends(get_validation_service),
-    backend_statuses: dict[ExecutionBackend, ExecutionBackendStatus] = Depends(get_backend_statuses),
+    controller: RuntimeController = Depends(get_runtime_controller),
 ) -> ProjectService:
-    return ProjectService(uow_factory, validator, backend_statuses)
+    return ProjectService(uow_factory, validator, controller.backend_statuses)
+
+###############################################################################
+def get_keras_import_service(
+    project_service: ProjectService = Depends(get_project_service),
+) -> KerasImportService:
+    return KerasImportService(project_service)
 
 ###############################################################################
 def get_compilation_service(
@@ -92,11 +93,11 @@ def get_export_service(
 
 ###############################################################################
 def get_job_service(
-    catalog: NodeCatalog = Depends(get_catalog),
     project_service: ProjectService = Depends(get_project_service),
     controller: RuntimeController = Depends(get_runtime_controller),
     settings: Settings = Depends(get_settings),
+    validator: ValidationService = Depends(get_validation_service),
 ) -> JobService:
-    return JobService(catalog, project_service, controller, settings)
+    return JobService(project_service, controller, settings, validator)
 
 ###############################################################################

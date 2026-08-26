@@ -5,9 +5,9 @@ from fastapi.responses import FileResponse
 
 from api.dependencies import get_job_service, get_runtime_controller
 from domain.jobs import JobResponse, JobSubmitRequest
-from models.runtime_controller import RuntimeController, RuntimeControllerError
 from services.errors import CompilationRejectedError, ProjectNotFoundError
 from services.job_service import JobService
+from services.runtime_controller import RuntimeController, RuntimeControllerError
 
 router = APIRouter(prefix="/api/execution", tags=["execution"])
 
@@ -86,4 +86,3 @@ def get_job_artifact(
         status = 404 if exc.code in {"job_not_found", "artifact_not_found"} else 409
         raise HTTPException(status_code=status, detail={"code": exc.code, "message": str(exc)}) from exc
     return FileResponse(path=path, filename=filename, media_type="application/octet-stream")
-

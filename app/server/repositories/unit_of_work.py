@@ -3,12 +3,15 @@ from __future__ import annotations
 from types import TracebackType
 from typing import Self
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from repositories.code_snapshots import CodeSnapshotRepository
+from repositories.contracts import RepositoryIntegrityError
 from repositories.graphs import GraphRepository
 from repositories.projects import ProjectRepository
 from repositories.revisions import RevisionRepository
+
 
 ###############################################################################
 class UnitOfWork:
@@ -34,9 +37,15 @@ class UnitOfWork:
     ) -> None:
         if self.session is None:
             return
-        if exc_type is not None or not self._committed:
-            self.session.rollback()
-        self.session.close()
+        try:
+            if exc_type is not None or not self._committed:
+                self.session.rollback()
+        finally:
+            self.session.close()
+        if isinstance(exc_value, IntegrityError):
+            raise RepositoryIntegrityError(
+                "The repository operation violated a database integrity constraint"
+            ) from exc_value
 
     # -------------------------------------------------------------------------
     @property

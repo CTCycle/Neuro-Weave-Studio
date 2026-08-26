@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from uuid import UUID
 
-from common.catalogs.loader import NodeCatalog
 from configurations.settings import Settings
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity
@@ -12,8 +11,9 @@ from domain.jobs import JobResponse, JobSubmitRequest, SmokeInferenceOperation
 from domain.runtime import RuntimeApi, WorkerConfiguration
 from services.errors import CompilationRejectedError, ProjectNotFoundError
 from services.project_service import ProjectService
+from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
-from models.runtime_controller import RuntimeController
+
 
 ###############################################################################
 class JobService:
@@ -22,12 +22,12 @@ class JobService:
     # -------------------------------------------------------------------------
     def __init__(
         self,
-        catalog: NodeCatalog,
         projects: ProjectService,
         controller: RuntimeController,
         settings: Settings,
+        validator: ValidationService,
     ) -> None:
-        self._validator = ValidationService(catalog)
+        self._validator = validator
         self._projects = projects
         self._controller = controller
         self._settings = settings
