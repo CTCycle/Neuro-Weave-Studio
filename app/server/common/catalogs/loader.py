@@ -23,6 +23,65 @@ _INITIALIZER_OPTIONS = [
 _REGULARIZER_OPTIONS = ["none", "l1", "l2", "l1_l2"]
 _CONSTRAINT_OPTIONS = ["none", "max_norm", "min_max_norm", "non_neg", "unit_norm"]
 
+_NATIVE_PARITY_NODE_IDS = frozenset(
+    {
+        "layer.dense",
+        "layer.activation",
+        "layer.dropout",
+        "layer.flatten",
+        "layer.embedding",
+        "layer.batch_norm",
+        "layer.layer_norm",
+        "conv.conv2d",
+        "conv.max_pool2d",
+        "recurrent.lstm",
+        "recurrent.gru",
+        "merge.add",
+        "merge.residual",
+        "merge.skip",
+        "merge.concatenate",
+        "input.tensor",
+        "input.image",
+        "input.sequence",
+        "input.tabular",
+        "input.token",
+        "input.mask",
+        "output.classification",
+        "output.regression",
+        "output.segmentation",
+        "output.sequence",
+        "output.multi_head",
+        "output.custom",
+    }
+)
+
+_NATIVE_UNSUPPORTED_PARAMETERS = {
+    "kernel_initializer": "Native inference uses deterministic worker-owned parameters.",
+    "bias_initializer": "Native inference uses deterministic worker-owned parameters.",
+    "recurrent_initializer": "Native inference uses deterministic worker-owned parameters.",
+    "bias_regularizer": "Regularizers are not part of generated inference modules.",
+    "kernel_regularizer": "Regularizers are not part of generated inference modules.",
+    "activity_regularizer": "Regularizers are not part of generated inference modules.",
+    "embeddings_initializer": "Native inference uses deterministic worker-owned parameters.",
+    "embeddings_regularizer": "Regularizers are not part of generated inference modules.",
+    "beta_initializer": "Native inference uses deterministic worker-owned parameters.",
+    "gamma_initializer": "Native inference uses deterministic worker-owned parameters.",
+    "moving_mean_initializer": "Native inference uses deterministic worker-owned parameters.",
+    "moving_variance_initializer": "Native inference uses deterministic worker-owned parameters.",
+    "beta_regularizer": "Regularizers are not part of generated inference modules.",
+    "gamma_regularizer": "Regularizers are not part of generated inference modules.",
+    "beta_constraint": "Constraints are not part of generated inference modules.",
+    "gamma_constraint": "Constraints are not part of generated inference modules.",
+    "kernel_constraint": "Constraints are not part of generated inference modules.",
+    "bias_constraint": "Constraints are not part of generated inference modules.",
+    "seed": "Native parity is inference-only and does not apply stochastic dropout.",
+    "return_state": "Native parity exposes the primary tensor output only.",
+    "go_backwards": "Native recurrent parity uses forward sequence order.",
+    "stateful": "Native parity uses stateless inference.",
+    "unroll": "Native recurrent parity controls its own sequence loop.",
+    "recurrent_dropout": "Native parity is inference-only and does not apply stochastic dropout.",
+}
+
 ###############################################################################
 def _parameter(
     identifier: str,
@@ -287,6 +346,53 @@ def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
     return item
 
 ###############################################################################
+def _enable_native_parity(raw: dict[str, Any]) -> dict[str, Any]:
+    """Expose the deliberately bounded native target set to validation/UI."""
+
+    item = dict(raw)
+    node_id = str(item.get("id", ""))
+    if node_id not in _NATIVE_PARITY_NODE_IDS:
+        return item
+    implementations = dict(item.get("implementations", {}))
+    known_parameter_ids = {
+        str(parameter.get("id", ""))
+        for parameter in [*item.get("parameters", []), *_safe_layer_parameters(node_id)]
+        if isinstance(parameter, dict)
+    }
+    for backend in ("tensorflow", "jax"):
+        mapping = dict(implementations.get(backend, {}))
+        mapping["supported"] = True
+        mapping["notes"] = "Verified native inference/export adapter for the common parity subset."
+        parameters = dict(mapping.get("parameters", {}))
+        for parameter_id, notes in _NATIVE_UNSUPPORTED_PARAMETERS.items():
+            if parameter_id in known_parameter_ids:
+                parameters.setdefault(
+                    parameter_id,
+                    {"supported": False, "notes": notes},
+                )
+        if node_id == "conv.conv2d":
+            parameters["groups"] = {"allowed_values": [1], "notes": "Native parity currently supports one feature group."}
+        if node_id == "layer.flatten":
+            parameters["data_format"] = {"allowed_values": ["channels_last"], "notes": "Native parity uses channel-last flatten ordering."}
+        if node_id == "layer.embedding":
+            parameters["mask_zero"] = {"allowed_values": [False], "notes": "Native parity does not propagate masks."}
+            parameters["lora_rank"] = {"allowed_values": [None], "notes": "Native parity does not apply LoRA adapters."}
+        if node_id == "layer.layer_norm":
+            parameters["axis"] = {"allowed_values": [[-1]], "notes": "Native parity normalizes the trailing axis."}
+        if node_id in {"recurrent.lstm", "recurrent.gru"}:
+            parameters["activation"] = {"allowed_values": ["tanh"], "notes": "Native parity uses the canonical tanh activation."}
+            parameters["recurrent_activation"] = {"allowed_values": ["sigmoid"], "notes": "Native parity uses the canonical sigmoid activation."}
+            parameters["dropout"] = {"allowed_values": [0.0], "notes": "Native parity is inference-only."}
+            if node_id == "recurrent.gru" and "reset_after" in known_parameter_ids:
+                parameters["reset_after"] = {"allowed_values": [True], "notes": "Native parity uses the canonical reset-after GRU form."}
+            if node_id == "recurrent.lstm" and "unit_forget_bias" in known_parameter_ids:
+                parameters["unit_forget_bias"] = {"allowed_values": [True], "notes": "Native parity uses the canonical LSTM forget bias."}
+        mapping["parameters"] = parameters
+        implementations[backend] = mapping
+    item["implementations"] = implementations
+    return item
+
+###############################################################################
 class NodeCatalog:
 
     # -------------------------------------------------------------------------
@@ -314,7 +420,10 @@ def get_node_catalog() -> NodeCatalog:
         items = cast(
             list[dict[str, Any]], raw if isinstance(raw, list) else raw["nodes"]
         )
-        manifests.extend(NodeManifest.model_validate(_enrich_manifest_parameters(item)) for item in items)
+        manifests.extend(
+            NodeManifest.model_validate(_enrich_manifest_parameters(_enable_native_parity(item)))
+            for item in items
+        )
     if not manifests:
         raise RuntimeError(f"No node manifests found under {RESOURCE_ROOT}")
     keys = [(manifest.id, manifest.version) for manifest in manifests]

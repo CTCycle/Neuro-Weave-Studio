@@ -9,18 +9,17 @@ from pathlib import Path
 from typing import Any, cast
 
 import jax
-import keras
 
 from domain.enums import ExecutionBackend
+from domain.exports import ExportFormat, ExportOptions
 from domain.graph import ModelGraph
-from domain.runtime import MemoryPolicyKind, WorkerConfiguration
-from models import keras_worker
-from models.keras_runtime import compile_model
+from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 from models.worker_backend import (
     BackendWorker,
     empty_memory_metrics,
-    run_keras_export,
     run_keras_smoke,
+    run_model_export,
+    run_native_smoke,
 )
 
 
@@ -28,9 +27,12 @@ from models.worker_backend import (
 class JaxWorker:
     backend = ExecutionBackend.JAX
 
+    def __init__(self) -> None:
+        self._config: WorkerConfiguration | None = None
+
     # -------------------------------------------------------------------------
     def configure(self, config: WorkerConfiguration) -> None:
-        del config
+        self._config = config
         list(jax.devices())
 
     # -------------------------------------------------------------------------
@@ -43,8 +45,13 @@ class JaxWorker:
             if platform not in {"cpu", ""}:
                 accelerator = platform
             device_name = str(devices[0])
+        backend_name = "jax"
+        if self._config is not None and self._config.api is RuntimeApi.KERAS:
+            import keras
+
+            backend_name = str(keras.backend.backend())
         return {
-            "backend": str(keras.backend.backend()),
+            "backend": backend_name,
             "available": True,
             "accelerator": accelerator,
             "device_name": device_name,
@@ -103,6 +110,10 @@ class JaxWorker:
     def device_scope(self) -> contextlib.AbstractContextManager[Any]:
         capabilities = self.capabilities()
         if capabilities.get("accelerator") not in {None, "cpu"}:
+            if self._config is not None and self._config.api is RuntimeApi.NATIVE:
+                return jax.default_device(jax.devices()[0])
+            import keras
+
             return keras.device("gpu:0")
         return contextlib.nullcontext()
 
@@ -119,6 +130,20 @@ class JaxWorker:
         graph: ModelGraph,
         checkpoint: Callable[[], None],
     ) -> dict[str, object]:
+        if self._config is not None and self._config.api is RuntimeApi.NATIVE:
+            return run_native_smoke(
+                graph,
+                backend=self.backend,
+                capabilities=self.capabilities(),
+                scope=self.device_scope(),
+                synchronize=self.synchronize,
+                checkpoint=checkpoint,
+            )
+        import keras
+
+        from models import keras_worker
+        from models.keras_runtime import compile_model
+
         return run_keras_smoke(
             graph,
             keras_module=keras,
@@ -135,18 +160,25 @@ class JaxWorker:
         self,
         graph: ModelGraph,
         destination: Path,
+        export_format: ExportFormat,
+        options: ExportOptions,
         checkpoint: Callable[[], None],
+        project_id: str | None = None,
+        project_revision: int | None = None,
     ) -> dict[str, object]:
-        return run_keras_export(
+        return run_model_export(
             graph,
             destination,
-            keras_module=keras,
-            build_model=keras_worker.build_model,
-            compile_model=compile_model,
+            export_format=export_format,
+            options=options,
+            backend=self.backend,
+            api=self._config.api if self._config is not None else RuntimeApi.KERAS,
             capabilities=self.capabilities(),
             scope=self.device_scope(),
             synchronize=self.synchronize,
             checkpoint=checkpoint,
+            project_id=project_id,
+            project_revision=project_revision,
         )
 
     # -------------------------------------------------------------------------
@@ -154,7 +186,10 @@ class JaxWorker:
         try:
             if hasattr(jax, "clear_caches"):
                 jax.clear_caches()
-            keras.backend.clear_session()
+            if self._config is not None and self._config.api is RuntimeApi.KERAS:
+                import keras
+
+                keras.backend.clear_session()
         except (AttributeError, RuntimeError, TypeError):
             pass
         gc.collect()

@@ -10,7 +10,7 @@ import traceback
 from pathlib import Path
 
 from domain.enums import ExecutionBackend
-from domain.runtime import WorkerConfiguration
+from domain.runtime import RuntimeApi, WorkerConfiguration
 from models.worker_backend import (
     BackendWorker,
     configure_startup_environment,
@@ -20,13 +20,14 @@ from models.worker_core import WorkerCancelled, WorkerContext, read_request, run
 
 
 ###############################################################################
-def _probe(backend: ExecutionBackend) -> None:
-    config = WorkerConfiguration(backend=backend, device_id="auto")
+def _probe(backend: ExecutionBackend, api: RuntimeApi) -> None:
+    config = WorkerConfiguration(backend=backend, api=api, device_id="auto")
     configure_startup_environment(config)
     worker = load_backend_worker(backend)
     try:
         worker.configure(config)
         payload: dict[str, object] = {
+            "api": api.value,
             "backend": worker.capabilities().get("backend"),
             "available": True,
             "devices": worker.device_inventory(),
@@ -45,6 +46,7 @@ def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--probe", action="store_true")
     parser.add_argument("--backend", choices=[item.value for item in ExecutionBackend])
+    parser.add_argument("--api", choices=[item.value for item in RuntimeApi], default=RuntimeApi.KERAS.value)
     parser.add_argument("--job-dir", type=Path)
     return parser.parse_args()
 
@@ -101,7 +103,7 @@ def main() -> None:
         if arguments.backend is None:
             raise RuntimeError("--backend is required for a probe")
         try:
-            _probe(ExecutionBackend(arguments.backend))
+            _probe(ExecutionBackend(arguments.backend), RuntimeApi(arguments.api))
         except Exception as exc:
             reason = "dependency_missing" if isinstance(exc, ModuleNotFoundError) else "probe_failed"
             print(json.dumps({"available": False, "reason_code": reason, "message": str(exc)}))

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.metadata
 import importlib.util
 import json
@@ -10,6 +11,7 @@ import subprocess
 import sys
 import threading
 import time
+import zipfile
 from collections.abc import Callable, Mapping
 from contextlib import suppress
 from dataclasses import dataclass, field
@@ -27,6 +29,7 @@ from common.process_control import (
 from common.timestamps import utc_now
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend, keras_backend_value
+from domain.exports import ExportArtifactManifest, ExportFormat, export_suffix
 from domain.graph import ModelGraph
 from domain.jobs import (
     JobDiagnostics,
@@ -36,15 +39,19 @@ from domain.jobs import (
     JobResponse,
     JobState,
     JobSubmitRequest,
+    ModelExportOperation,
+    SmokeInferenceOperation,
 )
 from domain.metadata import ExecutionBackendStatus
 from domain.runtime import (
     DeviceLeaseStatus,
     MemoryPolicyKind,
     RuntimeApi,
+    RuntimeApiStatus,
     RuntimeDevice,
     WorkerConfiguration,
 )
+from models.export_artifacts import sha256_file
 
 LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +96,8 @@ class _JobRecord:
     error: JobError | None = None
     artifact_destination: Path | None = None
     artifact_filename: str | None = None
+    export_format: ExportFormat | None = None
+    artifact: ExportArtifactManifest | None = None
     project_revision: int | None = None
     revision_checker: Callable[[], bool] | None = None
     stderr_tail: str | None = None
@@ -110,6 +119,7 @@ class RuntimeController:
         self._leases: dict[str, str] = {}
         self._last_worker_by_lease: dict[str, WorkerConfiguration] = {}
         self._backend_statuses: dict[ExecutionBackend, ExecutionBackendStatus] = {}
+        self._api_statuses: dict[tuple[ExecutionBackend, RuntimeApi], RuntimeApiStatus] = {}
         self._shutting_down = False
         self._sweep_orphaned_jobs()
 
@@ -120,27 +130,59 @@ class RuntimeController:
             return dict(self._backend_statuses)
 
     # -------------------------------------------------------------------------
+    def api_status(self, backend: ExecutionBackend, api: RuntimeApi) -> RuntimeApiStatus | None:
+        with self._lock:
+            return self._api_statuses.get((backend, api))
+
+    # -------------------------------------------------------------------------
     def probe_statuses(self) -> dict[ExecutionBackend, dict[str, object]]:
         statuses: dict[ExecutionBackend, dict[str, object]] = {}
         for backend in ExecutionBackend:
             installed, version = self._installed_package(backend)
-            started = time.perf_counter()
-            capabilities: dict[str, object] = {}
-            reason: str | None = None
-            try:
-                result = self._run_probe(backend)
-                capabilities = self._parse_probe_output(result)
-                available = bool(
-                    result.returncode == 0
-                    and capabilities.get("backend") == keras_backend_value(backend)
-                    and capabilities.get("available", False)
+            api_results: dict[RuntimeApi, tuple[bool, str | None, dict[str, object]]] = {}
+            for api in RuntimeApi:
+                started = time.perf_counter()
+                capabilities: dict[str, object] = {}
+                reason: str | None = None
+                try:
+                    result = self._run_probe(backend, api)
+                    capabilities = self._parse_probe_output(result)
+                    expected_backend = (
+                        keras_backend_value(backend)
+                        if api is RuntimeApi.KERAS
+                        else backend.value
+                    )
+                    available = bool(
+                        result.returncode == 0
+                        and capabilities.get("backend") == expected_backend
+                        and capabilities.get("available", False)
+                    )
+                    if not available:
+                        reason = str(capabilities.get("reason_code") or self._reason_code(result))
+                except (OSError, subprocess.SubprocessError) as exc:
+                    available = False
+                    reason = "worker_failed"
+                    capabilities = {"message": str(exc)}
+                api_status = RuntimeApiStatus(
+                    id=api,
+                    available=available,
+                    reason_code=reason,
                 )
-                if not available:
-                    reason = str(capabilities.get("reason_code") or self._reason_code(result))
-            except (OSError, subprocess.SubprocessError) as exc:
-                available = False
-                reason = "worker_failed"
-                capabilities = {"message": str(exc)}
+                with self._lock:
+                    self._api_statuses[(backend, api)] = api_status
+                api_results[api] = (available, reason, capabilities)
+                LOGGER.info(
+                    "backend_probe requested=%s api=%s duration_ms=%s outcome=%s",
+                    backend.value,
+                    api.value,
+                    round((time.perf_counter() - started) * 1000, 1),
+                    "available" if available else reason,
+                )
+            selected_api = next(
+                (api for api in RuntimeApi if api_results[api][0]),
+                RuntimeApi.KERAS,
+            )
+            available, reason, capabilities = api_results[selected_api]
             raw_devices = capabilities.get("devices", [])
             device_items = cast(list[object], raw_devices) if isinstance(raw_devices, list) else []
             devices = [
@@ -159,27 +201,28 @@ class RuntimeController:
                         supported_memory_policies=[MemoryPolicyKind.DEFAULT],
                     )
                 ]
+            runtime_api_statuses = [
+                RuntimeApiStatus(
+                    id=api,
+                    available=result[0],
+                    reason_code=None if result[0] else result[1],
+                )
+                for api, result in api_results.items()
+            ]
             status = ExecutionBackendStatus(
                 id=backend,
                 installed=installed,
                 version=version,
-                available=available,
-                reason_code=reason,
+                available=any(result[0] for result in api_results.values()),
+                reason_code=reason if not any(result[0] for result in api_results.values()) else None,
                 accelerator=(str(capabilities.get("accelerator")) if available else None),
                 device_name=(str(capabilities.get("device_name")) if available else None),
                 devices=devices,
+                runtime_apis=runtime_api_statuses,
             )
             with self._lock:
                 self._backend_statuses[backend] = status
             statuses[backend] = status.model_dump(mode="json")
-            LOGGER.info(
-                "backend_probe requested=%s worker_backend=%s duration_ms=%s outcome=%s devices=%s",
-                backend.value,
-                keras_backend_value(backend),
-                round((time.perf_counter() - started) * 1000, 1),
-                "available" if available else reason,
-                len(devices),
-            )
         return statuses
 
     # -------------------------------------------------------------------------
@@ -204,16 +247,23 @@ class RuntimeController:
                     f"Device '{lease_key}' already has an active ML job",
                     details={"device_id": device.device_id, "job_id": self._leases[lease_key]},
                 )
-            if request.operation.type is JobOperation.SMOKE_INFERENCE:
+            if isinstance(request.operation, SmokeInferenceOperation):
                 operation = JobOperation.SMOKE_INFERENCE
                 if graph is None:
                     graph = request.operation.graph
             else:
-                operation = JobOperation.KERAS_EXPORT
+                operation = JobOperation.MODEL_EXPORT
                 if graph is None:
                     raise RuntimeControllerError(
-                        "missing_graph_snapshot", "Keras export submission requires a graph snapshot"
+                        "missing_graph_snapshot", "Model export submission requires a graph snapshot"
                     )
+            export_format = (
+                request.operation.format
+                if isinstance(request.operation, ModelExportOperation)
+                else None
+            )
+            if operation is JobOperation.MODEL_EXPORT and artifact_filename is None:
+                artifact_filename = f"model{export_suffix(export_format or ExportFormat.KERAS)}"
             job_id = uuid4().hex
             job_dir = self._job_root / job_id
             job_dir.mkdir(parents=True, exist_ok=False)
@@ -228,6 +278,7 @@ class RuntimeController:
                 updated_at=utc_now(),
                 artifact_destination=artifact_destination,
                 artifact_filename=artifact_filename,
+                export_format=export_format,
                 project_revision=project_revision,
                 revision_checker=revision_checker,
                 restart_reason=restart_reason,
@@ -237,6 +288,12 @@ class RuntimeController:
                 "graph": graph.model_dump(mode="json"),
             }
             operation_payload["project_id"] = str(request.operation.project_id)
+            if isinstance(request.operation, ModelExportOperation):
+                operation_payload["format"] = request.operation.format.value
+                operation_payload["filename_stem"] = request.operation.filename_stem
+                operation_payload["options"] = request.operation.options.model_dump(mode="json")
+                operation_payload["artifact_filename"] = artifact_filename
+                operation_payload["project_revision"] = project_revision
             self._write_json(
                 job_dir / "request.json",
                 {"operation": operation_payload, "worker": request.worker.model_dump(mode="json")},
@@ -320,7 +377,7 @@ class RuntimeController:
             record = self._jobs.get(job_id)
             if record is None:
                 raise RuntimeControllerError("job_not_found", f"ML job '{job_id}' was not found")
-            if record.operation is not JobOperation.KERAS_EXPORT:
+            if record.operation is not JobOperation.MODEL_EXPORT:
                 raise RuntimeControllerError("artifact_not_available", "This job does not produce an artifact")
             if record.state is not JobState.SUCCEEDED or record.artifact_destination is None:
                 raise RuntimeControllerError("artifact_not_ready", "The export artifact is not ready")
@@ -363,13 +420,20 @@ class RuntimeController:
 
     # -------------------------------------------------------------------------
     def _validate_worker(self, worker: WorkerConfiguration) -> RuntimeDevice:
-        if worker.api is not RuntimeApi.KERAS:
+        status = self._backend_statuses.get(worker.backend)
+        api_status = self._api_statuses.get((worker.backend, worker.api))
+        # Keep controller fixtures and previously persisted status snapshots
+        # usable for the default Keras API while native execution remains
+        # explicitly gated by its own probe result.
+        if api_status is None and worker.api is RuntimeApi.KERAS and status is not None:
+            api_status = RuntimeApiStatus(id=RuntimeApi.KERAS, available=status.available)
+        if api_status is None or not api_status.available:
+            reason_code = api_status.reason_code if api_status is not None else "unknown_api"
             raise RuntimeControllerError(
                 "api_unavailable",
-                "Native framework inference is not implemented",
-                details={"api": worker.api.value, "reason_code": "not_implemented"},
+                f"Runtime API '{worker.api.value}' is not operational for {worker.backend.value}",
+                details={"backend": worker.backend.value, "api": worker.api.value, "reason_code": reason_code},
             )
-        status = self._backend_statuses.get(worker.backend)
         if status is None or not status.available:
             raise RuntimeControllerError(
                 "backend_unavailable",
@@ -457,7 +521,7 @@ class RuntimeController:
             record.finished_at = utc_now()
             record.updated_at = utc_now()
             if record.exit_code == 0 and status.get("state") == "succeeded" and not record.forced_termination:
-                if record.operation is JobOperation.KERAS_EXPORT and not self._publish_artifact(record):
+                if record.operation is JobOperation.MODEL_EXPORT and not self._publish_artifact(record):
                     record.state = JobState.FAILED
                 else:
                     record.state = JobState.SUCCEEDED
@@ -538,19 +602,84 @@ class RuntimeController:
             except Exception as exc:
                 record.error = JobError(code="revision_check_failed", message=str(exc))
                 return False
-        source = record.job_dir / "artifact.keras"
+        result_path = (record.result or {}).get("artifact_path")
+        if not isinstance(result_path, str) or not result_path:
+            record.error = JobError(code="artifact_missing", message="Worker completed without an artifact path")
+            return False
+        candidate = Path(result_path)
+        if candidate.is_absolute() or ".." in candidate.parts:
+            record.error = JobError(code="artifact_path_invalid", message="Worker returned an unsafe artifact path")
+            return False
+        source = (record.job_dir / candidate).resolve()
+        try:
+            source.relative_to(record.job_dir.resolve())
+        except ValueError:
+            record.error = JobError(code="artifact_path_invalid", message="Worker returned an artifact outside its workspace")
+            return False
         if not source.is_file():
             record.error = JobError(code="artifact_missing", message="Worker completed without an artifact")
             return False
+        manifest_payload = (record.result or {}).get("artifact_manifest")
+        if not isinstance(manifest_payload, dict):
+            record.error = JobError(code="artifact_manifest_missing", message="Worker completed without an artifact manifest")
+            return False
+        try:
+            manifest = ExportArtifactManifest.model_validate(manifest_payload)
+        except ValueError as exc:
+            record.error = JobError(code="artifact_manifest_invalid", message=str(exc))
+            return False
+        if record.export_format is not None and manifest.format is not record.export_format:
+            record.error = JobError(code="artifact_manifest_mismatch", message="Artifact manifest format does not match the requested export")
+            return False
+        if record.project_revision is not None and manifest.project_revision != record.project_revision:
+            record.error = JobError(code="artifact_manifest_mismatch", message="Artifact manifest revision does not match the requested export")
+            return False
+        try:
+            self._validate_staged_artifact(source, manifest)
+        except (OSError, RuntimeError, ValueError) as exc:
+            record.error = JobError(code="artifact_validation_failed", message=str(exc))
+            return False
+        temporary_destination = record.artifact_destination.with_name(
+            f".{record.artifact_destination.name}.{record.job_id}.tmp"
+        )
         try:
             record.artifact_destination.parent.mkdir(parents=True, exist_ok=True)
-            source.replace(record.artifact_destination)
+            shutil.copy2(source, temporary_destination)
+            os.replace(temporary_destination, record.artifact_destination)
         except OSError as exc:
+            with suppress(OSError):
+                temporary_destination.unlink()
             record.error = JobError(code="artifact_publish_failed", message=str(exc))
             return False
         record.result = record.result or {}
         record.result["artifact_name"] = record.artifact_filename or record.artifact_destination.name
+        record.artifact = manifest
         return True
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _validate_staged_artifact(
+        source: Path,
+        manifest: ExportArtifactManifest,
+    ) -> None:
+        if manifest.layout.value == "file":
+            if len(manifest.files) != 1 or manifest.files[0].path != source.name:
+                raise RuntimeError("File artifact manifest does not describe the staged artifact")
+            declared = manifest.files[0]
+            if declared.size_bytes != source.stat().st_size or declared.sha256 != sha256_file(source):
+                raise RuntimeError("Staged artifact hash or size does not match its manifest")
+            return
+        with zipfile.ZipFile(source) as archive:
+            names = set(archive.namelist())
+            if "manifest.json" not in names:
+                raise RuntimeError("Archive artifact is missing manifest.json")
+            for declared in manifest.files:
+                path = declared.path.replace("\\", "/")
+                if not path or path.startswith("/") or ".." in Path(path).parts or path not in names:
+                    raise RuntimeError(f"Archive artifact is missing declared file '{declared.path}'")
+                payload = archive.read(path)
+                if len(payload) != declared.size_bytes or hashlib.sha256(payload).hexdigest() != declared.sha256:
+                    raise RuntimeError(f"Archive file '{declared.path}' does not match its manifest")
 
     # -------------------------------------------------------------------------
     def _response(self, record: _JobRecord) -> JobResponse:
@@ -590,12 +719,7 @@ class RuntimeController:
             ),
             diagnostics=JobDiagnostics.model_validate(record.diagnostics),
             result=record.result,
-            artifact_available=(
-                record.operation is JobOperation.KERAS_EXPORT
-                and record.state is JobState.SUCCEEDED
-                and record.artifact_destination is not None
-                and record.artifact_destination.is_file()
-            ),
+            artifact=record.artifact,
             error=record.error,
         )
 
@@ -679,11 +803,24 @@ class RuntimeController:
                 self._remove_job_workspace(path)
 
     # -------------------------------------------------------------------------
-    def _run_probe(self, backend: ExecutionBackend) -> subprocess.CompletedProcess[str]:
+    def _run_probe(
+        self,
+        backend: ExecutionBackend,
+        api: RuntimeApi,
+    ) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()
         environment.pop("KERAS_BACKEND", None)
         return subprocess.run(
-            [sys.executable, "-m", "models.ml_worker", "--probe", "--backend", backend.value],
+            [
+                sys.executable,
+                "-m",
+                "models.ml_worker",
+                "--probe",
+                "--backend",
+                backend.value,
+                "--api",
+                api.value,
+            ],
             cwd=self._server_root,
             env=environment,
             capture_output=True,

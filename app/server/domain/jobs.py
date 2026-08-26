@@ -7,13 +7,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from domain.exports import ExportArtifactManifest, ExportFormat, ExportOptions
 from domain.graph import ModelGraph
 from domain.runtime import DeviceLeaseStatus, WorkerConfiguration
+
 
 ###############################################################################
 class JobOperation(StrEnum):
     SMOKE_INFERENCE = "smoke_inference"
-    KERAS_EXPORT = "keras_export"
+    MODEL_EXPORT = "model_export"
 
 ###############################################################################
 class JobState(StrEnum):
@@ -34,15 +36,18 @@ class SmokeInferenceOperation(BaseModel):
     graph: ModelGraph
 
 ###############################################################################
-class KerasExportOperation(BaseModel):
+class ModelExportOperation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal[JobOperation.KERAS_EXPORT] = JobOperation.KERAS_EXPORT
+    type: Literal[JobOperation.MODEL_EXPORT] = JobOperation.MODEL_EXPORT
     project_id: UUID
+    format: ExportFormat
+    filename_stem: str | None = Field(default=None, min_length=1, max_length=160)
+    options: ExportOptions = Field(default_factory=ExportOptions)
 
 ###############################################################################
 JobOperationRequest = Annotated[
-    SmokeInferenceOperation | KerasExportOperation,
+    SmokeInferenceOperation | ModelExportOperation,
     Field(discriminator="type"),
 ]
 
@@ -93,5 +98,5 @@ class JobResponse(BaseModel):
     progress: JobProgress = Field(default_factory=JobProgress)
     diagnostics: JobDiagnostics = Field(default_factory=JobDiagnostics)
     result: dict[str, Any] | None = None
-    artifact_available: bool = False
+    artifact: ExportArtifactManifest | None = None
     error: JobError | None = None

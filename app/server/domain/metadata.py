@@ -6,6 +6,7 @@ from domain.compilation_catalog import CompilationCatalog, get_compilation_catal
 from domain.enums import ExecutionBackend
 from domain.runtime import RuntimeApiStatus, RuntimeDevice
 
+
 ###############################################################################
 class HealthResponse(BaseModel):
     status: str
@@ -38,3 +39,4 @@ class ExecutionBackendStatus(BaseModel):
     accelerator: str | None = None
     device_name: str | None = None
     devices: list[RuntimeDevice] = Field(default_factory=list)
+    runtime_apis: list[RuntimeApiStatus] = Field(default_factory=list)

@@ -108,6 +108,32 @@ def execution_worker(client: httpx.Client) -> dict[str, object]:
 
 
 ###############################################################################
+def native_execution_worker(client: httpx.Client) -> dict[str, object]:
+    metadata = client.get("/api/metadata").json()
+    status = next(
+        item for item in metadata["execution_backends"] if item["id"] == "pytorch"
+    )
+    native_status = next(
+        item for item in status.get("runtime_apis", []) if item["id"] == "native"
+    )
+    if not native_status["available"]:
+        pytest.skip("Operational native PyTorch runtime is unavailable")
+    device = next(
+        (item for item in status.get("devices", []) if item.get("available", True)),
+        None,
+    )
+    if device is None:
+        pytest.skip("No operational PyTorch device is available")
+    return {
+        "api": "native",
+        "backend": "pytorch",
+        "device_id": device["device_id"],
+        "memory_policy": {"kind": "default"},
+        "precision": "float32",
+    }
+
+
+###############################################################################
 def test_project_revision_workflow_invalidates_generated_source_and_rejects_stale_save(
     client: httpx.Client,
 ) -> None:
@@ -174,12 +200,12 @@ def test_project_revision_workflow_invalidates_generated_source_and_rejects_stal
 
 
 ###############################################################################
-def test_keras_export_publishes_only_verified_artifact(client: httpx.Client) -> None:
+def test_model_export_publishes_only_verified_artifact(client: httpx.Client) -> None:
     project = client.post("/api/projects", json=project_payload()).json()
     response = client.post(
         "/api/execution/jobs",
         json={
-            "operation": {"type": "keras_export", "project_id": project["id"]},
+            "operation": {"type": "model_export", "project_id": project["id"], "format": "keras"},
             "worker": execution_worker(client),
         },
     )
@@ -198,7 +224,8 @@ def test_keras_export_publishes_only_verified_artifact(client: httpx.Client) -> 
 
     assert job is not None
     assert job["state"] == "succeeded", job
-    assert job["artifact_available"] is True
+    assert job["artifact"] is not None
+    assert job["artifact"]["format"] == "keras"
 
     artifact = client.get(f"/api/execution/jobs/{job_id}/artifact")
     assert artifact.status_code == 200
@@ -206,7 +233,7 @@ def test_keras_export_publishes_only_verified_artifact(client: httpx.Client) -> 
 
 
 ###############################################################################
-def test_keras_export_rejects_invalid_graph_before_worker_start(
+def test_model_export_rejects_invalid_graph_before_worker_start(
     client: httpx.Client,
 ) -> None:
     payload = project_payload()
@@ -218,7 +245,7 @@ def test_keras_export_rejects_invalid_graph_before_worker_start(
     response = client.post(
         "/api/execution/jobs",
         json={
-            "operation": {"type": "keras_export", "project_id": project["id"]},
+            "operation": {"type": "model_export", "project_id": project["id"], "format": "keras"},
             "worker": {
                 "api": "keras",
                 "backend": "pytorch",
@@ -231,6 +258,81 @@ def test_keras_export_rejects_invalid_graph_before_worker_start(
 
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "model_validation_failed"
+
+
+###############################################################################
+def test_export_capabilities_expose_matrix_and_explicit_reasons(
+    client: httpx.Client,
+) -> None:
+    project = client.post("/api/projects", json=project_payload()).json()
+
+    response = client.get(f"/api/exports/{project['id']}/capabilities")
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    formats = {item["format"]: item for item in payload["formats"]}
+    assert payload["project_revision"] == project["current_revision"]
+    assert formats["project_bundle"]["available"] is True
+    assert formats["source"]["available"] is True
+    assert formats["keras"]["available"] is True
+    assert formats["pytorch_exported_program"]["available"] is False
+    assert formats["pytorch_exported_program"]["reason_code"] == "keras_enabled"
+    assert {item["id"] for item in formats["onnx"]["options"]} >= {
+        "filename_stem",
+        "opset_version",
+        "dynamic_batch",
+        "external_data",
+    }
+
+
+###############################################################################
+def test_legacy_keras_export_operation_is_rejected(client: httpx.Client) -> None:
+    project = client.post("/api/projects", json=project_payload()).json()
+    response = client.post(
+        "/api/execution/jobs",
+        json={
+            "operation": {"type": "keras_export", "project_id": project["id"]},
+            "worker": execution_worker(client),
+        },
+    )
+
+    assert response.status_code == 422
+
+
+###############################################################################
+def test_native_model_export_publishes_pt2_artifact(client: httpx.Client) -> None:
+    payload = project_payload()
+    payload["keras_enabled"] = False
+    project = client.post("/api/projects", json=payload).json()
+    response = client.post(
+        "/api/execution/jobs",
+        json={
+            "operation": {
+                "type": "model_export",
+                "project_id": project["id"],
+                "format": "pytorch_exported_program",
+                "filename_stem": "native-model",
+            },
+            "worker": native_execution_worker(client),
+        },
+    )
+    assert response.status_code == 202, response.text
+
+    job_id = response.json()["id"]
+    job: dict[str, Any] | None = None
+    for _ in range(600):
+        job = cast(dict[str, Any], client.get(f"/api/execution/jobs/{job_id}").json())
+        if job["state"] in {"succeeded", "terminated", "failed"}:
+            break
+        time.sleep(0.05)
+
+    assert job is not None
+    assert job["state"] == "succeeded", job
+    assert job["artifact"]["format"] == "pytorch_exported_program"
+    assert job["artifact"]["filename"] == "native-model.pt2"
+    artifact = client.get(f"/api/execution/jobs/{job_id}/artifact")
+    assert artifact.status_code == 200
+    assert artifact.content[:2] == b"PK"
 
 
 ###############################################################################

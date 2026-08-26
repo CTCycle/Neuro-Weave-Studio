@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 from domain.enums import ExecutionBackend, keras_backend_value
+from domain.exports import ExportFormat, ExportOptions
 from domain.graph import ModelGraph
 from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 
@@ -43,7 +44,11 @@ class BackendWorker(Protocol):
         self,
         graph: ModelGraph,
         destination: Path,
+        export_format: ExportFormat,
+        options: ExportOptions,
         checkpoint: Callable[[], None],
+        project_id: str | None = None,
+        project_revision: int | None = None,
     ) -> dict[str, object]: ...
 
     def cleanup(self) -> None: ...
@@ -59,9 +64,12 @@ _BACKEND_MODULES = {
 def configure_startup_environment(config: WorkerConfiguration) -> None:
     """Set process-wide visibility before the selected backend module is loaded."""
 
-    if config.api is RuntimeApi.NATIVE:
-        raise RuntimeError("Native framework inference is not implemented")
-    os.environ["KERAS_BACKEND"] = keras_backend_value(config.backend)
+    if config.api is RuntimeApi.KERAS:
+        os.environ["KERAS_BACKEND"] = keras_backend_value(config.backend)
+    else:
+        # A native worker must not inherit a Keras backend selection from the
+        # server process. Native modules import only their framework API.
+        os.environ.pop("KERAS_BACKEND", None)
 
     if config.device_id == "auto":
         os.environ.pop("CUDA_VISIBLE_DEVICES", None)
@@ -149,40 +157,85 @@ def run_keras_smoke(
     }
 
 ###############################################################################
-def run_keras_export(
+def run_native_smoke(
     graph: ModelGraph,
-    destination: Path,
     *,
-    keras_module: Any,
-    build_model: Callable[..., Any],
-    compile_model: Callable[..., Any],
+    backend: ExecutionBackend,
     capabilities: dict[str, object],
     scope: AbstractContextManager[Any],
     synchronize: Callable[[list[Any]], None],
     checkpoint: Callable[[], None],
 ) -> dict[str, object]:
+    """Run a smoke pass through the raw framework implementation only."""
+
+    from models.native_runtime import build_native_model, forward_native
+
+    started = time.perf_counter()
     checkpoint()
     with scope:
-        model = build_model(graph, checkpoint=checkpoint)
+        handle = build_native_model(graph, backend, checkpoint=checkpoint)
         checkpoint()
-        compile_model(model, graph)
+        actual_outputs = forward_native(handle)
+        synchronize(actual_outputs)
         checkpoint()
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        model.save(destination)
-        checkpoint()
-        _verify_saved_model(
-            destination,
-            expected_output_count=len(model.outputs),
-            keras_module=keras_module,
-            synchronize=synchronize,
-            checkpoint=checkpoint,
-        )
+    input_nodes = [node for node in graph.nodes if node.definition_id.startswith("input.")]
+    output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
     return {
-        "artifact_name": destination.name,
-        "parameter_count": int(model.count_params()),
+        "status": "succeeded",
         "accelerator": capabilities.get("accelerator", "cpu"),
         "device_name": capabilities.get("device_name", "CPU"),
+        "inputs": [
+            {
+                "node_id": node.id,
+                "shape": _concrete_shape(tensor),
+                "dtype": _dtype_name(tensor),
+            }
+            for node, tensor in zip(input_nodes, handle.inputs, strict=False)
+        ],
+        "outputs": [
+            {
+                "node_id": node.id,
+                "shape": _concrete_shape(tensor),
+                "dtype": _dtype_name(tensor),
+            }
+            for node, tensor in zip(output_nodes, actual_outputs, strict=False)
+        ],
+        "parameter_count": handle.parameter_count(),
+        "duration_ms": round((time.perf_counter() - started) * 1000, 1),
     }
+
+###############################################################################
+def run_model_export(
+    graph: ModelGraph,
+    destination: Path,
+    *,
+    export_format: ExportFormat,
+    options: ExportOptions,
+    backend: ExecutionBackend,
+    api: RuntimeApi,
+    capabilities: dict[str, object],
+    scope: AbstractContextManager[Any],
+    synchronize: Callable[[list[Any]], None],
+    checkpoint: Callable[[], None],
+    project_id: str | None = None,
+    project_revision: int | None = None,
+) -> dict[str, object]:
+    from models.export_runtime import run_model_export as execute_export
+
+    return execute_export(
+        graph,
+        destination,
+        export_format=export_format,
+        options=options,
+        backend=backend,
+        api=api,
+        capabilities=capabilities,
+        scope=scope,
+        synchronize=synchronize,
+        checkpoint=checkpoint,
+        project_id=project_id,
+        project_revision=project_revision,
+    )
 
 ###############################################################################
 def _dummy_inputs(keras_module: Any, model: Any) -> list[Any]:
@@ -190,31 +243,6 @@ def _dummy_inputs(keras_module: Any, model: Any) -> list[Any]:
         keras_module.ops.zeros(_concrete_shape(tensor), dtype=_dtype_name(tensor))
         for tensor in model.inputs
     ]
-
-###############################################################################
-def _forward(keras_module: Any, model: Any) -> list[Any]:
-    input_values = _dummy_inputs(keras_module, model)
-    model_input: Any = input_values[0] if len(input_values) == 1 else input_values
-    output_values = model(model_input, training=False)
-    return list(output_values) if isinstance(output_values, (list, tuple)) else [output_values]
-
-###############################################################################
-def _verify_saved_model(
-    destination: Path,
-    *,
-    expected_output_count: int,
-    keras_module: Any,
-    synchronize: Callable[[list[Any]], None],
-    checkpoint: Callable[[], None],
-) -> None:
-    checkpoint()
-    loaded = keras_module.saving.load_model(destination, compile=True)
-    checkpoint()
-    actual_outputs = _forward(keras_module, loaded)
-    synchronize(actual_outputs)
-    checkpoint()
-    if len(actual_outputs) != expected_output_count:
-        raise RuntimeError("Reloaded Keras model returned an unexpected output count")
 
 ###############################################################################
 def _concrete_shape(tensor: Any) -> list[int]:

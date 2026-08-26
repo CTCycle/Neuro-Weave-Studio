@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Any, cast
 
 from common.process_control import process_rss_bytes
+from domain.exports import ExportFormat, ExportOptions, export_suffix
 from domain.graph import ModelGraph
-from domain.runtime import RuntimeApi, WorkerConfiguration
+from domain.runtime import WorkerConfiguration
 from models.worker_backend import BackendWorker
 
 
@@ -88,12 +89,13 @@ def run_job(
     payload: dict[str, Any],
     worker: BackendWorker,
 ) -> dict[str, object]:
-    if context.config.api is not RuntimeApi.KERAS:
-        raise RuntimeError("Native framework inference is not implemented")
-    context.checkpoint("importing", "Configuring the selected backend", 5)
+    context.checkpoint("preflight", "Configuring the selected backend", 5)
     worker.configure(context.config)
-    context.checkpoint("importing", "Importing Keras and the selected backend", 15)
-    context.checkpoint("initializing", "Applying device and memory policy", 25)
+    context.checkpoint(
+        "building",
+        "Importing the selected framework API and applying the device policy",
+        15,
+    )
     operation = cast(dict[str, object], payload["operation"])
     operation_type = str(operation.get("type"))
     graph = ModelGraph.model_validate(operation.get("graph"))
@@ -106,14 +108,28 @@ def run_job(
 
     if operation_type == "smoke_inference":
         result = worker.run_smoke(graph, model_checkpoint)
-        context.checkpoint("publishing", "Forward pass completed", 90)
-    elif operation_type == "keras_export":
+        context.checkpoint("validating", "Forward pass completed", 90)
+    elif operation_type == "model_export":
+        export_format = ExportFormat(str(operation.get("format")))
+        options = ExportOptions.model_validate(operation.get("options") or {})
+        artifact_filename = str(operation.get("artifact_filename") or "")
+        if not artifact_filename:
+            stem = str(operation.get("filename_stem") or "model")
+            artifact_filename = f"{stem}{export_suffix(export_format, options)}"
         result = worker.run_export(
             graph,
-            context.job_dir / "artifact.keras",
+            context.job_dir / artifact_filename,
+            export_format,
+            options,
             model_checkpoint,
+            project_id=str(operation.get("project_id")) if operation.get("project_id") else None,
+            project_revision=(
+                int(operation["project_revision"])
+                if isinstance(operation.get("project_revision"), int)
+                else None
+            ),
         )
-        context.checkpoint("publishing", "Artifact verification completed", 95)
+        context.checkpoint("validating", "Artifact verification completed", 95)
     else:
         raise RuntimeError(f"Unsupported operation '{operation_type}'")
 

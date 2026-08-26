@@ -14,6 +14,7 @@ from common.catalogs.loader import get_node_catalog
 from compilation.compiler import compile_to_ir
 from configurations.settings import get_settings
 from domain.enums import ExecutionBackend, keras_backend_value
+from domain.exports import ExportFormat
 from domain.graph import (
     EdgeInstance,
     ModelConfiguration,
@@ -24,7 +25,7 @@ from domain.graph import (
 from domain.jobs import (
     JobResponse,
     JobSubmitRequest,
-    KerasExportOperation,
+    ModelExportOperation,
     SmokeInferenceOperation,
 )
 from domain.runtime import WorkerConfiguration
@@ -162,7 +163,10 @@ def export_job(
             return None
         job = controller.submit(
             JobSubmitRequest(
-                operation=KerasExportOperation(project_id=uuid4()),
+                operation=ModelExportOperation(
+                    project_id=uuid4(),
+                    format=ExportFormat.KERAS,
+                ),
                 worker=worker,
             ),
             graph=graph,
@@ -171,7 +175,7 @@ def export_job(
         )
         result = wait_for_runtime_job(controller, job.id)
         assert result.state.value == "succeeded", result
-        assert result.artifact_available
+        assert result.artifact is not None
         return destination
     finally:
         controller.shutdown()
