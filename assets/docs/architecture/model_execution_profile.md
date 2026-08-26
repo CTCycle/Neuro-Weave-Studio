@@ -1,6 +1,6 @@
 # Model Execution Profile
 
-Last updated: 2026-08-21
+Last updated: 2026-08-26
 
 ## Purpose
 
@@ -25,6 +25,8 @@ flowchart LR
 ## Keras-enabled execution
 
 When keras_enabled is true, the canonical graph is validated against the Keras implementation mapping. The selected execution_backend is passed into the isolated worker as KERAS_BACKEND before Keras is imported. This supports portable Keras operations against TensorFlow, PyTorch, or JAX when the dependency and node capability probes are operational.
+
+The isolated dispatcher resolves that profile to the matching backend worker (`tensorflow_worker.py`, `pytorch_worker.py`, or `jax_worker.py`). The profile selects the worker implementation; it is never inferred from a request-local preference or a fallback after the worker starts.
 
 ```mermaid
 flowchart TD

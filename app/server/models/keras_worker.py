@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import contextlib
-import time
-from importlib import import_module
-from pathlib import Path
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 import keras
 from keras import layers
@@ -15,20 +11,14 @@ from keras import layers
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from domain.graph import ModelGraph
 from models.keras_layers import SinusoidalPositionalEncoding
-from models.keras_runtime import compile_model, layer_option, prepare_runtime
+from models.keras_runtime import layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
 
-_checkpoint_callback: Callable[[], None] | None = None
 
 ###############################################################################
-def set_checkpoint(callback: Callable[[], None] | None) -> None:
-    global _checkpoint_callback
-    _checkpoint_callback = callback
-
-###############################################################################
-def checkpoint() -> None:
-    if _checkpoint_callback is not None:
-        _checkpoint_callback()
+def _checkpoint(callback: Callable[[], None] | None) -> None:
+    if callback is not None:
+        callback()
 
 ###############################################################################
 def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, Any]) -> Any:
@@ -92,14 +82,19 @@ def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, 
     return current
 
 ###############################################################################
-def build_model(graph: ModelGraph, catalog: NodeCatalog | None = None) -> keras.Model:
-    checkpoint()
+def build_model(
+    graph: ModelGraph,
+    catalog: NodeCatalog | None = None,
+    *,
+    checkpoint: Callable[[], None] | None = None,
+) -> keras.Model:
+    _checkpoint(checkpoint)
     prepare_runtime(graph)
     catalog = catalog or get_node_catalog()
     nodes = {node.id: node for node in graph.nodes}
     tensors: dict[str, Any] = {}
     for node_id in topological_order(graph):
-        checkpoint()
+        _checkpoint(checkpoint)
         node = nodes[node_id]
         manifest = catalog.get(node.definition_id, node.definition_version)
         inputs = [
@@ -289,155 +284,3 @@ def build_model(graph: ModelGraph, catalog: NodeCatalog | None = None) -> keras.
     inputs = [tensors[node.id] for node in graph.nodes if node.definition_id.startswith("input.")]
     outputs = [tensors[node.id] for node in graph.nodes if node.definition_id.startswith("output.")]
     return keras.Model(inputs=inputs, outputs=outputs, name="neuro_weave_model")
-
-###############################################################################
-def backend_capabilities() -> dict[str, object]:
-    backend = str(keras.backend.backend())
-    accelerator = "cpu"
-    device_name = "CPU"
-    if backend == "torch":
-        torch = import_module("torch")
-
-        if bool(torch.cuda.is_available()):
-            accelerator = "cuda"
-            device_name = str(torch.cuda.get_device_name(0))
-        elif hasattr(torch, "xpu") and bool(torch.xpu.is_available()):
-            accelerator = "xpu"
-            device_name = str(torch.xpu.get_device_name(0))
-        elif hasattr(torch.backends, "mps") and bool(torch.backends.mps.is_available()):
-            accelerator = "mps"
-            device_name = "Apple Metal Performance Shaders"
-    elif backend == "tensorflow":
-        tf = import_module("tensorflow")
-
-        devices = tf.config.list_physical_devices("GPU")
-        if devices:
-            accelerator = "cuda"
-            device_name = str(devices[0].name)
-    elif backend == "jax":
-        jax = import_module("jax")
-
-        devices = list(jax.devices())
-        if devices:
-            platform = str(devices[0].platform)
-            if platform not in {"cpu", ""}:
-                accelerator = platform
-            device_name = str(devices[0])
-    return {
-        "backend": backend,
-        "available": True,
-        "accelerator": accelerator,
-        "device_name": device_name,
-    }
-
-###############################################################################
-def _concrete_shape(tensor: Any) -> list[int]:
-    shape = getattr(tensor, "shape", ())
-    result: list[int] = []
-    for dimension in shape:
-        try:
-            value = int(dimension)
-        except (TypeError, ValueError):
-            value = 1
-        result.append(value if value > 0 else 1)
-    return result
-
-###############################################################################
-def _dtype_name(tensor: Any) -> str:
-    dtype = getattr(tensor, "dtype", "float32")
-    name = str(getattr(dtype, "name", dtype))
-    return name.rsplit(".", 1)[-1]
-
-###############################################################################
-def device_scope(capabilities: dict[str, object]) -> Any:
-    if capabilities.get("accelerator") in {"cuda", "gpu", "rocm", "xpu", "mps"}:
-        return keras.device("gpu:0")
-    return contextlib.nullcontext()
-
-###############################################################################
-def _dummy_inputs(model: keras.Model) -> list[Any]:
-    return [
-        keras.ops.zeros(_concrete_shape(tensor), dtype=_dtype_name(tensor))
-        for tensor in model.inputs
-    ]
-
-###############################################################################
-def _forward(model: keras.Model) -> list[Any]:
-    input_values = _dummy_inputs(model)
-    model_input: Any = input_values[0] if len(input_values) == 1 else input_values
-    output_values = model(model_input, training=False)
-    return list(output_values) if isinstance(output_values, (list, tuple)) else [output_values]
-
-###############################################################################
-def _synchronize(values: list[Any]) -> None:
-    """Wait for asynchronous accelerator work before observing or finishing."""
-
-    for value in values:
-        block_until_ready = getattr(value, "block_until_ready", None)
-        if callable(block_until_ready):
-            block_until_ready()
-    if keras.backend.backend() == "torch":
-        try:
-            import torch  # pyright: ignore[reportMissingImports,reportMissingTypeStubs]
-
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
-        except (ImportError, RuntimeError):
-            pass
-
-###############################################################################
-def verify_saved_model(destination: Path, expected_output_count: int) -> None:
-    checkpoint()
-    loaded = keras.saving.load_model(destination, compile=True)
-    checkpoint()
-    actual_outputs = _forward(cast(keras.Model, loaded))
-    _synchronize(actual_outputs)
-    checkpoint()
-    if len(actual_outputs) != expected_output_count:
-        raise RuntimeError("Reloaded Keras model returned an unexpected output count")
-
-###############################################################################
-def smoke_test(graph: ModelGraph) -> dict[str, object]:
-    started = time.perf_counter()
-    checkpoint()
-    capabilities = backend_capabilities()
-    scope = device_scope(capabilities)
-    with scope:
-        checkpoint()
-        model = build_model(graph)
-        checkpoint()
-        compile_model(model, graph)
-        input_values = _dummy_inputs(model)
-        model_input: Any = input_values[0] if len(input_values) == 1 else input_values
-        output_values = model(model_input, training=False)
-        checkpoint()
-
-    actual_outputs = list(output_values) if isinstance(output_values, (list, tuple)) else [output_values]
-    _synchronize(actual_outputs)
-    input_nodes = [node for node in graph.nodes if node.definition_id.startswith("input.")]
-    output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
-    inputs = [
-        {
-            "node_id": node.id,
-            "shape": _concrete_shape(tensor),
-            "dtype": _dtype_name(tensor),
-        }
-        for node, tensor in zip(input_nodes, input_values, strict=False)
-    ]
-    outputs = [
-        {
-            "node_id": node.id,
-            "shape": _concrete_shape(tensor),
-            "dtype": _dtype_name(tensor),
-        }
-        for node, tensor in zip(output_nodes, actual_outputs, strict=False)
-    ]
-    return {
-        "status": "succeeded",
-        "accelerator": capabilities["accelerator"],
-        "device_name": capabilities["device_name"],
-        "inputs": inputs,
-        "outputs": outputs,
-        "parameter_count": int(model.count_params()),
-        "duration_ms": round((time.perf_counter() - started) * 1000, 1),
-    }

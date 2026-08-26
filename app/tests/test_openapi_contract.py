@@ -15,6 +15,8 @@ EXPECTED_SCHEMAS = {
     "ProjectDocument",
     "ProjectExportBundle",
     "ProjectUpdate",
+    "KerasArchitectureImportRequest",
+    "KerasArchitectureImportResponse",
     "ValidationRequest",
     "ValidationResult",
     "CompilationRequest",
@@ -86,6 +88,14 @@ def test_openapi_uses_named_schemas_for_stable_contracts() -> None:
     assert paths["/api/projects/import"]["post"]["requestBody"]["content"][
         "application/json"
     ]["schema"] == {"$ref": "#/components/schemas/ProjectExportBundle"}
+
+    import_body = paths["/api/imports/keras-architecture"]["post"]
+    assert import_body["requestBody"]["content"]["application/vnd.keras.zip"]["schema"] == {
+        "$ref": "#/components/schemas/KerasArchitectureImportRequest"
+    }
+    assert import_body["responses"]["201"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/KerasArchitectureImportResponse"
+    }
 
     validation_body = paths["/api/validation"]["post"]["requestBody"]
     assert validation_body["content"]["application/json"]["schema"] == {

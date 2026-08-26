@@ -25,8 +25,9 @@ from common import path as common_path
 from common.catalogs.loader import get_node_catalog
 from common.logging_config import configure_logging
 from configurations.settings import Settings, get_database_settings, get_settings
-from models.runtime_controller import RuntimeController
 from repositories.session import create_repository_context
+from services.runtime_controller import RuntimeController
+
 
 ###############################################################################
 @asynccontextmanager
@@ -41,7 +42,6 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     application.state.repository_context = repository_context
     application.state.runtime_controller = runtime_controller
     runtime_controller.probe_statuses()
-    application.state.backend_statuses = runtime_controller.backend_statuses
     try:
         yield
     finally:

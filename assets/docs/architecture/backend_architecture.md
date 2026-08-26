@@ -1,14 +1,14 @@
 # Backend Architecture
 
-Last updated: 2026-08-21
+Last updated: 2026-08-26
 
-`app/server/app.py` is the FastAPI application factory. Routers translate HTTP contracts, services own validation, import, export, and repository transactions, and the domain models define the graph, execution profile, runtime, and job contracts. Lifespan creates the catalog, repository context, and one application-scoped `RuntimeController`; the controller is shut down and joined before repositories are disposed.
+`app/server/app.py` is the FastAPI application factory. Routers translate HTTP contracts, services own validation, import, export, repository transactions, and runtime orchestration, and the domain models define the graph, execution profile, runtime, and job contracts. Lifespan creates the catalog, repository context, and one application-scoped `services.runtime_controller.RuntimeController`; the controller is shut down and joined before repositories are disposed.
 
 `ModelExecutionProfile` is the backend authority for a project: `execution_backend` selects TensorFlow, PyTorch, or JAX and `keras_enabled` selects the Keras implementation versus the native implementation. The compiler and validator receive this pair explicitly, derive the manifest implementation key, and never recover a different backend from a worker preference or request-local fallback.
 
 ## Process-isolated runtime
 
-The server process never imports Keras, TensorFlow, JAX, or PyTorch. `RuntimeController` discovers capabilities with short-lived probe workers and starts a new `models.ml_worker` interpreter for every smoke-inference or Keras-export job. The worker sets `KERAS_BACKEND` and allocator/device environment variables before importing Keras-dependent modules. This boundary avoids inherited accelerator state and unsafe framework reuse.
+The server process never imports Keras, TensorFlow, JAX, or PyTorch. `RuntimeController` discovers capabilities with short-lived probe workers and starts a new `models.ml_worker` interpreter for every smoke-inference or Keras-export job. The dispatcher applies common process environment configuration, loads only the selected backend worker, and delegates lifecycle work to `models.worker_core`. `models.worker_backend.BackendWorker` defines the shared device inventory, startup configuration, metrics, synchronization, execution, and cleanup contract; `tensorflow_worker.py`, `pytorch_worker.py`, and `jax_worker.py` contain the explicit framework imports and backend-specific operations. `keras_worker.py` is limited to Keras model construction and receives checkpoint callbacks explicitly. The worker sets `KERAS_BACKEND` and allocator/device environment variables before importing Keras-dependent modules. This boundary avoids inherited accelerator state and unsafe framework reuse.
 
 `WorkerConfiguration` is frozen and contains `api` (`keras` or `native`), the profile backend, normalized physical `device_id`, backend-specific memory policy, and graph-derived precision. Keras is operational when its selected backend probe succeeds. Native inference is deliberately represented as unavailable with `reason_code=not_implemented`; no native runtime fallback to Keras occurs.
 

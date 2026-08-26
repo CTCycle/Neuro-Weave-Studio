@@ -1,3 +1,5 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false
+
 from __future__ import annotations
 
 import json
@@ -9,6 +11,8 @@ from zipfile import BadZipFile, ZipFile
 
 from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position, ProjectCreate
+from domain.imports import KerasArchitectureImportResponse
+from services.project_service import ProjectService
 
 MAX_ARCHIVE_BYTES = 50 * 1024 * 1024
 MAX_CONFIG_BYTES = 5 * 1024 * 1024
@@ -46,6 +50,30 @@ class KerasArchitectureImportError(ValueError):
 class ParsedKerasArchitecture:
     payload: ProjectCreate
     warnings: list[str]
+
+###############################################################################
+class KerasImportService:
+    """Coordinates safe architecture parsing and canonical project creation."""
+
+    # -------------------------------------------------------------------------
+    def __init__(self, projects: ProjectService) -> None:
+        self._projects = projects
+
+    # -------------------------------------------------------------------------
+    def import_architecture(
+        self,
+        payload: bytes,
+        *,
+        execution_backend: ExecutionBackend,
+        name_override: str | None,
+    ) -> KerasArchitectureImportResponse:
+        parsed = parse_keras_architecture(
+            payload,
+            execution_backend=execution_backend,
+            name_override=name_override,
+        )
+        project = self._projects.create(parsed.payload)
+        return KerasArchitectureImportResponse(project=project, warnings=parsed.warnings)
 
 ###############################################################################
 def parse_keras_architecture(

@@ -9,6 +9,7 @@ from uuid import UUID
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import ModelGraph
 
+
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class ProjectMetadata:
@@ -37,6 +38,10 @@ class RepositoryRevisionConflictError(RuntimeError):
         super().__init__(f"Revision conflict: expected {expected_revision}, current {current_revision}")
         self.expected_revision = expected_revision
         self.current_revision = current_revision
+
+###############################################################################
+class RepositoryIntegrityError(RuntimeError):
+    """Persistence integrity failure translated from the ORM boundary."""
 
 ###############################################################################
 class ProjectRepositoryProtocol(Protocol):

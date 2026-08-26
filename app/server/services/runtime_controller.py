@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable, Mapping
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -435,10 +436,8 @@ class RuntimeController:
                         record.state = JobState.STOPPING
                         record.forced_termination = True
                         terminate_process_tree(record.pid or -1, force=True)
-                        try:
+                        with suppress(OSError):
                             process.kill()
-                        except OSError:
-                            pass
                 elif time.monotonic() - timeout_started >= self._settings.ml_worker_timeout_seconds:
                     record.cancellation_requested = True
                     record.stop_started_at = time.monotonic()
@@ -488,9 +487,12 @@ class RuntimeController:
         if not status:
             return
         state = str(status.get("state", ""))
-        if not record.cancellation_requested:
-            if state == "running" and record.state is JobState.STARTING:
-                record.state = JobState.RUNNING
+        if (
+            not record.cancellation_requested
+            and state == "running"
+            and record.state is JobState.STARTING
+        ):
+            record.state = JobState.RUNNING
         record.progress_phase = str(status.get("phase", record.progress_phase))
         record.progress_message = str(status.get("message", record.progress_message))
         percent = status.get("percent")
@@ -533,7 +535,7 @@ class RuntimeController:
                         message="The project changed while the artifact was being generated",
                     )
                     return False
-            except Exception as exc:  # noqa: BLE001 - service boundary becomes a job failure
+            except Exception as exc:
                 record.error = JobError(code="revision_check_failed", message=str(exc))
                 return False
         source = record.job_dir / "artifact.keras"

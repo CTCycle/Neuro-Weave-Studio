@@ -106,6 +106,4 @@ def import_project(
     payload: ProjectExportBundle,
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectDocument:
-    if payload.format != "neuro-weave-project" or payload.format_version != 3:
-        raise HTTPException(status_code=422, detail="Unsupported project bundle version")
     return service.create(payload.project)

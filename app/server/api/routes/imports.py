@@ -1,30 +1,30 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
-from api.dependencies import get_project_service
+from api.dependencies import get_keras_import_service
 from domain.enums import ExecutionBackend
-from domain.imports import KerasArchitectureImportResponse
-from services.keras_import_service import KerasArchitectureImportError, parse_keras_architecture
-from services.project_service import ProjectService
+from domain.imports import KerasArchitectureImportRequest, KerasArchitectureImportResponse
+from services.keras_import_service import KerasArchitectureImportError, KerasImportService
 
 router = APIRouter(prefix="/api/imports", tags=["imports"])
 
 ###############################################################################
 @router.post("/keras-architecture", response_model=KerasArchitectureImportResponse, status_code=201)
-async def import_keras_architecture(
-    request: Request,
+def import_keras_architecture(
+    payload: KerasArchitectureImportRequest = Body(
+        ...,
+        media_type="application/vnd.keras.zip",
+    ),
     execution_backend: ExecutionBackend = Query(default=ExecutionBackend.PYTORCH),
     name: str | None = Query(default=None, max_length=160),
-    service: ProjectService = Depends(get_project_service),
+    service: KerasImportService = Depends(get_keras_import_service),
 ) -> KerasArchitectureImportResponse:
     try:
-        parsed = parse_keras_architecture(
-            await request.body(),
+        return service.import_architecture(
+            payload.root,
             execution_backend=execution_backend,
             name_override=name,
         )
-        project = service.create(parsed.payload)
-        return KerasArchitectureImportResponse(project=project, warnings=parsed.warnings)
     except KerasArchitectureImportError as exc:
         raise HTTPException(status_code=422, detail={"code": exc.code, "message": exc.message}) from exc

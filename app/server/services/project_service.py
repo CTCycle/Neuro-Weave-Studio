@@ -3,8 +3,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from uuid import UUID
 
-from sqlalchemy.exc import IntegrityError
-
 from common.timestamps import utc_now
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import (
@@ -19,6 +17,7 @@ from domain.graph import (
 from domain.metadata import ExecutionBackendStatus
 from repositories.contracts import (
     ProjectMetadata,
+    RepositoryIntegrityError,
     RepositoryRevisionConflictError,
     UnitOfWorkFactory,
     UnitOfWorkProtocol,
@@ -28,6 +27,7 @@ from services.errors import (
     RevisionConflictError,
 )
 from services.validation_service import ValidationService
+
 
 ###############################################################################
 class ProjectService:
@@ -109,7 +109,7 @@ class ProjectService:
                 document = self._document(uow, metadata)
                 uow.commit()
                 return document
-        except IntegrityError as exc:
+        except RepositoryIntegrityError as exc:
             raise GraphPersistenceError(
                 "Project graph conflicts with the relational schema"
             ) from exc
@@ -149,7 +149,7 @@ class ProjectService:
                 document = self._document(uow, metadata)
                 uow.commit()
                 return document
-        except IntegrityError as exc:
+        except RepositoryIntegrityError as exc:
             raise GraphPersistenceError(
                 "Project graph conflicts with the relational schema"
             ) from exc
