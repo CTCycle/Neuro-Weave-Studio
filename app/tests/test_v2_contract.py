@@ -8,7 +8,6 @@ import httpx
 from common.catalogs.loader import get_node_catalog
 from domain.enums import ExecutionBackend
 
-
 ###############################################################################
 def test_all_manifests_expose_complete_safe_parameter_contract() -> None:
     catalog = get_node_catalog()

@@ -11,6 +11,7 @@ from domain.enums import ExecutionBackend
 from services.keras_import_service import KerasArchitectureImportError, parse_keras_architecture
 
 
+###############################################################################
 def keras_archive(document: dict[str, object]) -> bytes:
     buffer = io.BytesIO()
     with ZipFile(buffer, "w", ZIP_DEFLATED) as archive:
@@ -19,6 +20,7 @@ def keras_archive(document: dict[str, object]) -> bytes:
     return buffer.getvalue()
 
 
+###############################################################################
 def test_import_reconstructs_allowlisted_functional_architecture_without_weights() -> None:
     payload = keras_archive(
         {
@@ -44,6 +46,7 @@ def test_import_reconstructs_allowlisted_functional_architecture_without_weights
     assert any("weights" in warning for warning in parsed.warnings)
 
 
+###############################################################################
 def test_import_rejects_executable_or_unknown_layers() -> None:
     payload = keras_archive(
         {
@@ -60,6 +63,7 @@ def test_import_rejects_executable_or_unknown_layers() -> None:
         parse_keras_architecture(payload, execution_backend=ExecutionBackend.PYTORCH)
 
 
+###############################################################################
 def test_import_endpoint_creates_a_keras_enabled_project(client: TestClient) -> None:
     payload = keras_archive(
         {

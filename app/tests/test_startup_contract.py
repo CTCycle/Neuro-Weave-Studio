@@ -57,6 +57,8 @@ def test_launcher_owns_the_interactive_startup_contract() -> None:
     assert "[string]$Acceleration" in source
     assert "Invoke-OptionalBackendSetup" in source
     assert "backend-installation.json" in source
+    assert "models.ml_worker --probe --backend $backend" in source
+    assert "models.keras_worker --probe" not in source
     assert "--locked" in source
     assert "Read-InstallationType" in source
     assert "ALWAYS_REBUILD" not in source

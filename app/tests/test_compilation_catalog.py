@@ -3,6 +3,7 @@ from domain.graph import ModelConfiguration, ModelGraph
 from validation.compile_configuration import validate_model_configuration
 
 
+###############################################################################
 def test_compilation_catalog_describes_runtime_supported_options() -> None:
     catalog = get_compilation_catalog()
 
@@ -15,6 +16,7 @@ def test_compilation_catalog_describes_runtime_supported_options() -> None:
     assert all(item.description for item in [*catalog.optimizers, *catalog.losses, *catalog.metrics])
 
 
+###############################################################################
 def test_extended_optimizer_parameters_share_validation_boundary() -> None:
     graph = ModelGraph(
         model_configuration=ModelConfiguration(

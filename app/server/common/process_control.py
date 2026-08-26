@@ -32,6 +32,7 @@ def _windows_process_rss(pid: int) -> int | None:
         if not handle:
             return None
 
+        ###############################################################################
         class ProcessMemoryCounters(ctypes.Structure):
             _fields_ = [
                 ("cb", ctypes.c_ulong),

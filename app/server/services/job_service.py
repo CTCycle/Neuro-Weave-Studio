@@ -19,6 +19,7 @@ from models.runtime_controller import RuntimeController
 class JobService:
     """Validates graph/project inputs before handing immutable work to the controller."""
 
+    # -------------------------------------------------------------------------
     def __init__(
         self,
         catalog: NodeCatalog,

@@ -24,6 +24,7 @@ if config.config_file_name is not None and not config.attributes.get(
 target_metadata = Base.metadata
 
 
+###############################################################################
 def _configure_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
@@ -36,6 +37,7 @@ def _configure_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
+###############################################################################
 def run_migrations_offline() -> None:
     settings = get_database_settings()
     context.configure(
@@ -51,6 +53,7 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+###############################################################################
 def run_migrations_online() -> None:
     supplied_connection = cast(Connection | None, config.attributes.get("connection"))
     if supplied_connection is not None:

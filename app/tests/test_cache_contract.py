@@ -12,7 +12,6 @@ SERVER_PROJECT = REPOSITORY_ROOT / "app" / "server" / "pyproject.toml"
 CLIENT_ROOT = REPOSITORY_ROOT / "app" / "client"
 PYTEST_CONFIG = REPOSITORY_ROOT / "pytest.ini"
 
-
 ###############################################################################
 def test_python_development_tools_use_the_central_cache_root() -> None:
     project = tomllib.loads(SERVER_PROJECT.read_text(encoding="utf-8"))
@@ -27,7 +26,6 @@ def test_python_development_tools_use_the_central_cache_root() -> None:
     assert pytest_config["pytest"]["pythonpath"] == "app/server"
     conftest = (REPOSITORY_ROOT / "app" / "tests" / "conftest.py").read_text(encoding="utf-8")
     assert '"app" / "tests" / "cache" / "pytest-tmp"' in conftest
-
 
 ###############################################################################
 def test_frontend_development_tools_use_the_central_cache_root() -> None:

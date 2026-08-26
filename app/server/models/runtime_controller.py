@@ -53,6 +53,8 @@ def _empty_diagnostics() -> dict[str, int | None]:
 
 ###############################################################################
 class RuntimeControllerError(RuntimeError):
+
+    # -------------------------------------------------------------------------
     def __init__(self, code: str, message: str, *, details: dict[str, Any] | None = None) -> None:
         self.code = code
         self.details = details or {}
@@ -96,6 +98,7 @@ class _JobRecord:
 class RuntimeController:
     """Owns short-lived ML workers, leases, lifecycle state, and diagnostics."""
 
+    # -------------------------------------------------------------------------
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._server_root = Path(__file__).resolve().parents[1]
