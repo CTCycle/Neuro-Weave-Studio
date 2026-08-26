@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Box, Copy, Download, FileCode2, GitBranch, Info, Play, Settings2, Trash2, UploadCloud } from 'lucide-react'
+import { ArrowLeft, Box, Copy, FileCode2, GitBranch, Info, Play, Settings2, Trash2, UploadCloud } from 'lucide-react'
 import { Link, NavLink, Outlet, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { ApiError, api } from '../api/client'
 import { CompilationStatusBadge, ValidationStatusBadge } from '../components/ModelStatusBadge'
+import { ModelExportModal } from '../components/ModelExportModal'
 import { ReadOnlyGraphPreview } from '../components/ReadOnlyGraphPreview'
 import type { ProjectDocument } from '../domain/types'
 import { implementationLabel } from '../domain/types'
@@ -21,6 +22,7 @@ export function ModelWorkspacePage() {
   const [error, setError] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const navigate = useNavigate()
 
   const refresh = async () => {
@@ -67,20 +69,6 @@ export function ModelWorkspacePage() {
     }
   }
 
-  const exportJson = async () => {
-    if (!project) return
-    try {
-      const bundle = await api.exportProject(project.id)
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = `${safeFilename(project.name)}.neuro-weave.json`
-      anchor.click()
-      URL.revokeObjectURL(url)
-    } catch (reason) { setError(`Export failed: ${messageFor(reason)}`) }
-  }
-
   if (loading) return <section className="page-state panel"><span className="eyebrow">MODEL WORKSPACE</span><h1>Loading model…</h1></section>
   if (error || !project) return <section className="page-state panel"><span className="eyebrow">MODEL WORKSPACE</span><h1>Model unavailable</h1><p>{error ?? 'The requested model could not be found.'}</p><Link className="primary inline-action" to="/models">Back to models</Link></section>
 
@@ -92,7 +80,8 @@ export function ModelWorkspacePage() {
       <nav className="workspace-tabs" aria-label="Model workspace sections"><NavLink to={`/models/${project.id}`} end>Overview</NavLink><NavLink to={`/models/${project.id}/compilation`}>Compilation</NavLink><NavLink to={`/models/${project.id}/inference`}>Inference</NavLink></nav>
     </header>
     <div className="workspace-body"><Outlet context={{ project, refresh } satisfies ModelWorkspaceContext} /></div>
-    <div className="workspace-footer-actions"><button className="secondary" onClick={exportJson}><Download size={15} />Export JSON</button><Link className="secondary inline-action" to={`/models/${project.id}/compilation`}><UploadCloud size={15} />Open compilation</Link></div>
+    <div className="workspace-footer-actions"><button className="secondary" onClick={() => setExportOpen(true)}><UploadCloud size={15} />Export model</button><Link className="secondary inline-action" to={`/models/${project.id}/compilation`}><FileCode2 size={15} />Open compilation</Link></div>
+    {exportOpen && <ModelExportModal project={project} onClose={() => setExportOpen(false)} />}
     {deleteOpen && <div className="dialog-backdrop"><section className="confirm-dialog panel" role="alertdialog" aria-modal="true" aria-labelledby="delete-model-title"><span className="eyebrow">DELETE MODEL</span><h2 id="delete-model-title">Delete “{project.name}”?</h2><p>This permanently removes the saved architecture, revisions, and generated snapshots. This action cannot be undone.</p><div className="dialog-actions"><button className="secondary" onClick={() => setDeleteOpen(false)} disabled={deleteBusy}>Cancel</button><button className="primary danger-action" onClick={remove} disabled={deleteBusy}>{deleteBusy ? 'Deleting…' : 'Delete permanently'}</button></div></section></div>}
   </div>
 }
@@ -109,5 +98,4 @@ export function ModelOverviewPage() {
   </div>
 }
 
-function safeFilename(value: string): string { return value.replaceAll(/[^a-zA-Z0-9_-]/g, '_') || 'model' }
 function messageFor(error: unknown): string { return error instanceof ApiError ? error.message : error instanceof Error ? error.message : String(error) }
