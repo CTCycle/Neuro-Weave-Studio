@@ -2,10 +2,34 @@
 
 Last updated: 2026-08-26
 
-Backend unit and contract tests cover frozen worker configuration, strict backend-policy validation, framework-free server imports, live metadata, OpenAPI job schemas, per-device lease contention/concurrency, lifecycle transitions, idempotent stop, escalation, crash recovery, shutdown, bounded history, artifact revision conflicts, and temporary-workspace cleanup. Deterministic fake workers exercise pause/crash/cancel paths without optional frameworks. The existing Keras smoke/export checks run through fresh workers and skip only when no operational backend is installed.
+NeuroWeave's automated suite is intentionally risk-oriented. Tests exist for behavior whose failure can corrupt saved models, produce invalid generated models, violate execution safety, or break an important user workflow. Tooling layout, source-tree shape, presentation details, and framework behavior are not unit-tested merely to increase coverage.
 
-All worker modules, including the backend-specific TensorFlow, PyTorch, and JAX implementations, are subject to the repository-wide Python structure contract. No worker file is exempt from top-level-import and top-level-definition checks; optional framework imports remain isolated by the fresh worker dispatcher.
+## Backend
 
-Frontend tests cover runtime API/backend/device/policy controls, active-worker diagnostics, stop/switch decisions, job polling, artifact gating, graph validation, and existing Builder/catalog behavior. UI workflows are verified with the in-app Browser at desktop and mobile sizes; captures and lifecycle logs belong under `assets/QA/`.
+Retained regression coverage focuses on:
 
-The real-runtime matrix is conditional: repeat smoke/export cycles and backend/device switching only when the corresponding installed runtime and hardware are available. Native inference, training, datasets, checkpoints, and unsupported TensorFlow/JAX GPU combinations remain explicit skips/deferred outcomes, never passing capability claims. uv, npm, and other runtime/download caches are configured below `runtimes/cache`; pytest, Ruff, Vite, TypeScript, lint, Python bytecode, coverage, and generated frontend artifacts are configured below `app/tests/cache`; `assets/QA` remains reserved for QA evidence. Before handoff run affected backend tests, frontend test/lint/build, focused Ruff/type checks, and a process/port cleanup check.
+- graph validation plus shape and parameter inference for DAGs, unsafe expressions, merge, convolution, attention, and unsupported implementation contracts;
+- project revision workflows, stale-save rejection, generated-source invalidation, project import/export, and transactional rollback;
+- SQLite migration locking and rollback, unsupported database rejection, foreign-key aggregate integrity, and cascades;
+- safe Keras architecture import through the explicit layer allowlist;
+- generated Keras and native PyTorch source for representative non-trivial graphs;
+- binary Keras export reload for serialized custom layers;
+- runtime preflight validation, device lease exclusivity, idempotent cancellation, and worker/workspace cleanup.
+
+Real framework availability is conditional. Runtime tests skip when the required execution backend is not installed and operational. Controller lifecycle tests use deterministic fake worker processes so lease, cancellation, and cleanup behavior remains testable without optional ML frameworks.
+
+## Frontend
+
+Frontend tests are deliberately limited to state and interaction contracts that can corrupt or block model editing:
+
+- graph cycle prevention plus preservation of graph metadata and undo/redo history;
+- isolated multi-tab editor sessions;
+- the Node Catalog drag payload consumed by the model canvas.
+
+Presentation details, button inventories, clipboard status, basic filtering, and collapsible UI behavior are covered by static checks and product QA rather than dedicated unit tests.
+
+## Verification
+
+Backend changes should run pytest, Ruff, and Pyright. Frontend changes should run Vitest, ESLint, and the TypeScript/Vite production build.
+
+Coverage percentage is not a release goal. Regression signal, business-risk protection, execution safety, and maintainability are the criteria for retaining tests.
