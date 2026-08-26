@@ -10,6 +10,7 @@ param(
     [string]$Acceleration = 'Auto',
     [ValidateSet('Standard', 'Development')]
     [string]$InstallationType = 'Development',
+    [switch]$ExportTools,
     [switch]$NoBrowser
 )
 
@@ -377,6 +378,7 @@ function Set-BackendInstallationState {
         [Parameter(Mandatory = $true)][string]$Acceleration,
         [string[]]$ResolvedExtras = @(),
         [string[]]$Failures = @(),
+        [switch]$ExportTools,
         [bool]$SetupCompleted = $true,
         [bool]$RestartRequired = $false
     )
@@ -385,10 +387,11 @@ function Set-BackendInstallationState {
     $venvPython = Get-VenvPython
     if (Test-Path -LiteralPath $venvPython) { $pythonVersion = (& $venvPython --version 2>$null).Trim() }
     [ordered]@{
-        schema_version = 2
+        schema_version = 3
         setup_completed = $SetupCompleted
         requested_backends = @($Backends)
         resolved_extras = @($ResolvedExtras)
+        export_tools = $ExportTools
         acceleration = $Acceleration
         python_version = $pythonVersion
         platform = "$env:OS/$env:PROCESSOR_ARCHITECTURE"
@@ -579,6 +582,7 @@ function Sync-Dependencies {
         [switch]$IncludeTests,
         [string[]]$BackendExtras = @(),
         [switch]$ExplicitBackendSet,
+        [switch]$IncludeExportTools,
         [switch]$SkipFrontend
     )
 
@@ -591,6 +595,7 @@ function Sync-Dependencies {
     if (Test-Path -LiteralPath (Join-Path $script:ServerDir 'uv.lock')) { $uvArguments += '--locked' }
     if ($IncludeTests) { $uvArguments += @('--extra', 'test') }
     foreach ($extra in $BackendExtras) { $uvArguments += @('--extra', $extra) }
+    if ($IncludeExportTools) { $uvArguments += @('--extra', 'export') }
     Push-Location $script:ServerDir
     try {
         Write-Step 'Synchronizing backend dependencies.'
@@ -653,7 +658,10 @@ function Assert-ApplicationStopped {
 }
 
 function Invoke-BackendReconciliation {
-    param([AllowNull()][AllowEmptyCollection()][string[]]$RequestedBackends = @())
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$RequestedBackends = @(),
+        [switch]$IncludeExportTools
+    )
 
     $RequestedBackends = @($RequestedBackends | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     $previousState = Get-BackendInstallationState
@@ -671,7 +679,7 @@ function Invoke-BackendReconciliation {
 
     Write-Step "Synchronizing the requested execution environment: $(if ($RequestedBackends.Count) { $RequestedBackends -join ', ' } else { 'none (core/Keras only)' })."
     try {
-        Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $targetExtras -ExplicitBackendSet -SkipFrontend
+        Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $targetExtras -ExplicitBackendSet -IncludeExportTools:$IncludeExportTools -SkipFrontend
         $succeeded = $true
     } catch {
         $failureMessage = $_.Exception.Message
@@ -680,7 +688,7 @@ function Invoke-BackendReconciliation {
             try {
                 $script:Acceleration = 'CPU'
                 $targetExtras = @(Resolve-BackendExtras -Backends $RequestedBackends)
-                Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $targetExtras -ExplicitBackendSet -SkipFrontend
+                Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $targetExtras -ExplicitBackendSet -IncludeExportTools:$IncludeExportTools -SkipFrontend
                 $failures.Add("PyTorch CUDA was unavailable; installed the CPU wheel instead.")
                 $succeeded = $true
                 Write-Ok 'PyTorch CPU fallback installed.'
@@ -693,19 +701,19 @@ function Invoke-BackendReconciliation {
     if (-not $succeeded) {
         $restoreMessage = 'No previous backend set was available.'
         try {
-            Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $previousExtras -ExplicitBackendSet -SkipFrontend
+            Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $previousExtras -ExplicitBackendSet -IncludeExportTools:$IncludeExportTools -SkipFrontend
             $restoreMessage = 'The previous environment was restored.'
         } catch {
             $restoreMessage = "Automatic restoration also failed: $($_.Exception.Message)"
         }
         $failures.Add($failureMessage)
         Set-BackendInstallationState -Backends $RequestedBackends -Acceleration $script:Acceleration `
-            -ResolvedExtras $targetExtras -Failures @($failures.ToArray()) -SetupCompleted:$false -RestartRequired:$true
+            -ResolvedExtras $targetExtras -Failures @($failures.ToArray()) -ExportTools:$IncludeExportTools -SetupCompleted:$false -RestartRequired:$true
         throw "Backend update failed: $failureMessage $restoreMessage"
     }
 
     Set-BackendInstallationState -Backends $RequestedBackends -Acceleration $script:Acceleration `
-        -ResolvedExtras $targetExtras -Failures @($failures.ToArray()) -SetupCompleted:$true -RestartRequired:$true
+        -ResolvedExtras $targetExtras -Failures @($failures.ToArray()) -ExportTools:$IncludeExportTools -SetupCompleted:$true -RestartRequired:$true
     Write-BackendCapabilitySummary
 }
 
@@ -713,6 +721,12 @@ function Invoke-BackendManagement {
     Ensure-PortableRuntimes
     Import-DotEnv
     Assert-BackendManagementEnvironmentStopped
+    $state = Get-BackendInstallationState
+    $includeExportTools = [bool]$ExportTools
+    if ($null -ne $state -and $state.schema_version -ge 2 -and
+        @($state.PSObject.Properties.Name) -contains 'export_tools') {
+        $includeExportTools = $includeExportTools -or [bool]$state.export_tools
+    }
     if (-not (Test-DependenciesReady)) {
         Write-Info 'Core dependencies are missing or use another Python version; installing the base environment first.'
         Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras @() -ExplicitBackendSet -SkipFrontend
@@ -720,13 +734,16 @@ function Invoke-BackendManagement {
     $selection = if ([string]::IsNullOrWhiteSpace($Backends)) { @(Read-BackendSelection) } else {
         @(ConvertTo-BackendExtras -Selection $Backends)
     }
-    Invoke-BackendReconciliation -RequestedBackends $selection
+    Invoke-BackendReconciliation -RequestedBackends $selection -IncludeExportTools:$includeExportTools
     Write-Ok 'Compute backend configuration saved. Relaunch NeuroWeave to use the updated environment.'
 }
 
 function Invoke-OptionalBackendSetup {
     $state = Get-BackendInstallationState
-    if ([string]::IsNullOrWhiteSpace($Backends) -and $null -ne $state -and $state.schema_version -ge 2 -and $state.setup_completed -and @($state.failures).Count -eq 0) {
+    $hasExportTools = $null -ne $state -and
+        @($state.PSObject.Properties.Name) -contains 'export_tools' -and
+        [bool]$state.export_tools
+    if ([string]::IsNullOrWhiteSpace($Backends) -and -not $ExportTools -and $null -ne $state -and $state.schema_version -ge 2 -and $state.setup_completed -and @($state.failures).Count -eq 0) {
         Write-Ok 'Backend setup is already complete; verified the live environment instead of reinstalling packages.'
         Write-BackendCapabilitySummary
         return
@@ -737,11 +754,19 @@ function Invoke-OptionalBackendSetup {
         Write-Warn 'The previous backend setup was incomplete. Choose a corrected backend set or none to retry.'
     }
 
-    $selection = if ([string]::IsNullOrWhiteSpace($Backends)) { @(Read-BackendSelection) } else {
+    $selection = if (-not [string]::IsNullOrWhiteSpace($Backends)) {
         @(ConvertTo-BackendExtras -Selection $Backends)
+    } elseif ($ExportTools -and $null -ne $state -and $state.schema_version -ge 2) {
+        @($state.requested_backends)
+    } else {
+        @(Read-BackendSelection)
+    }
+    $includeExportTools = [bool]$ExportTools -or $hasExportTools
+    if (-not [string]::IsNullOrWhiteSpace($Backends) -and -not $includeExportTools) {
+        $includeExportTools = $false
     }
     Assert-BackendManagementEnvironmentStopped
-    Invoke-BackendReconciliation -RequestedBackends $selection
+    Invoke-BackendReconciliation -RequestedBackends $selection -IncludeExportTools:$includeExportTools
 }
 
 function Test-DevelopmentDependenciesInstalled {
@@ -1006,7 +1031,10 @@ function Invoke-Launch {
         $backendExtras = if ($null -ne $state -and $state.schema_version -ge 2 -and $state.setup_completed) {
             @($state.resolved_extras)
         } else { @() }
-        Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras $backendExtras -ExplicitBackendSet
+        $includeExportTools = $null -ne $state -and
+            @($state.PSObject.Properties.Name) -contains 'export_tools' -and
+            [bool]$state.export_tools
+        Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras $backendExtras -ExplicitBackendSet -IncludeExportTools:$includeExportTools
     } else {
         Write-Ok 'Application environments are ready; skipped dependency installation.'
     }
@@ -1096,13 +1124,17 @@ function Invoke-Install {
     } else {
         @()
     }
+    $includeExportTools = [bool]$ExportTools
+    if ($null -ne $state -and @($state.PSObject.Properties.Name) -contains 'export_tools') {
+        $includeExportTools = $includeExportTools -or [bool]$state.export_tools
+    }
     $includeTests = $selectedInstallationType -eq 'Development'
     Write-Status -Level INFO -Message "Installation profile: $selectedInstallationType"
-    Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $backendSelection -ExplicitBackendSet
+    Sync-Dependencies -IncludeTests:$includeTests -BackendExtras $backendSelection -ExplicitBackendSet -IncludeExportTools:$includeExportTools
     Invoke-DatabaseInitialization
     $resolvedExtras = @(Resolve-BackendExtras -Backends $backendSelection)
     Set-BackendInstallationState -Backends $backendSelection -Acceleration $script:Acceleration `
-        -ResolvedExtras $resolvedExtras -RestartRequired:$true
+        -ResolvedExtras $resolvedExtras -ExportTools:$includeExportTools -RestartRequired:$true
     Write-BackendCapabilitySummary
     Invoke-FrontendBuild
 }
