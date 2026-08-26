@@ -231,6 +231,7 @@ export interface ExecutionBackendStatus {
   accelerator?: string | null
   device_name?: string | null
   devices?: RuntimeDevice[]
+  runtime_apis?: RuntimeApiStatus[]
 }
 
 export interface RuntimeApiStatus {
@@ -265,7 +266,106 @@ export interface WorkerConfiguration {
   precision: 'float32' | 'mixed_float16' | 'mixed_bfloat16'
 }
 
-export type JobOperation = 'smoke_inference' | 'keras_export'
+export type ExportFormat =
+  | 'project_bundle'
+  | 'source'
+  | 'keras'
+  | 'keras_weights'
+  | 'tensorflow_saved_model'
+  | 'onnx'
+  | 'pytorch_exported_program'
+  | 'torchscript'
+  | 'safetensors'
+  | 'tensorflow_checkpoint'
+  | 'flax_checkpoint'
+
+export type ExportCategory = 'project' | 'source' | 'native' | 'interchange' | 'checkpoint'
+export type ExportLayout = 'file' | 'archive'
+export type ExportPayload = 'project' | 'source' | 'full_model' | 'weights_only'
+export type ExportConversion = 'canonical' | 'native' | 'keras' | 'bridge'
+export type ExportOptionType = 'string' | 'integer' | 'boolean' | 'choice' | 'number'
+
+export interface ExportVerification {
+  structural: boolean
+  reload: boolean
+  inference: boolean
+  semantic_equivalence: 'verified' | 'not_claimed' | 'not_applicable'
+  notes: string[]
+}
+
+export interface ExportArtifactFile {
+  path: string
+  size_bytes: number
+  sha256: string
+  media_type: string
+}
+
+export interface ExportArtifactManifest {
+  format: ExportFormat
+  filename: string
+  layout: ExportLayout
+  payload: ExportPayload
+  conversion: ExportConversion
+  execution_backend: ExecutionBackend
+  runtime_api?: RuntimeApi | null
+  project_id?: string | null
+  project_revision?: number | null
+  graph_sha256?: string | null
+  files: ExportArtifactFile[]
+  inputs: Array<Record<string, unknown>>
+  outputs: Array<Record<string, unknown>>
+  tool_versions: Record<string, string>
+  verification: ExportVerification
+}
+
+export interface ExportOptionDefinition {
+  id: string
+  label: string
+  type: ExportOptionType
+  default?: unknown
+  choices: unknown[]
+  description: string
+}
+
+export interface ExportCapability {
+  format: ExportFormat
+  label: string
+  category: ExportCategory
+  available: boolean
+  reason_code?: string | null
+  reason?: string | null
+  execution_backend?: ExecutionBackend | null
+  runtime_api?: RuntimeApi | null
+  conversion: ExportConversion
+  layout: ExportLayout
+  extension: string
+  payload: ExportPayload
+  inference_only: boolean
+  training_state: 'unavailable' | 'not_preserved'
+  compatibility: string
+  limitations: string[]
+  dependencies: string[]
+  options: ExportOptionDefinition[]
+}
+
+export interface ExportCapabilitiesResponse {
+  project_id: string
+  project_revision: number
+  execution_backend: ExecutionBackend
+  keras_enabled: boolean
+  valid: boolean
+  diagnostics: Array<Record<string, unknown>>
+  formats: ExportCapability[]
+}
+
+export interface ExportOptions {
+  opset_version: number
+  dynamic_batch: boolean
+  external_data: 'auto' | 'always' | 'never'
+  max_shard_size_gb?: number | null
+}
+
+export type JobOperation = 'smoke_inference' | 'model_export'
 export type JobState = 'starting' | 'running' | 'stop_requested' | 'stopping' | 'succeeded' | 'terminated' | 'failed'
 
 export interface JobProgress {
@@ -312,7 +412,7 @@ export interface JobResponse {
   progress: JobProgress
   diagnostics: JobDiagnostics
   result?: Record<string, unknown> | null
-  artifact_available: boolean
+  artifact?: ExportArtifactManifest | null
   error?: JobError | null
 }
 

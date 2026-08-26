@@ -1,5 +1,8 @@
 import type {
   CompilationResult,
+  ExportCapabilitiesResponse,
+  ExportFormat,
+  ExportOptions,
   MetadataResponse,
   ModelGraph,
   NodeManifest,
@@ -141,10 +144,10 @@ export const api = {
       body: JSON.stringify({ operation: { type: 'smoke_inference', project_id, graph }, worker }),
     })
   },
-  submitKerasExport(project_id: string, worker: WorkerConfiguration): Promise<JobResponse> {
+  submitModelExport(project_id: string, format: ExportFormat, filename_stem: string, options: ExportOptions, worker: WorkerConfiguration): Promise<JobResponse> {
     return request('/execution/jobs', {
       method: 'POST',
-      body: JSON.stringify({ operation: { type: 'keras_export', project_id }, worker }),
+      body: JSON.stringify({ operation: { type: 'model_export', project_id, format, filename_stem, options }, worker }),
     })
   },
   listJobs(active_only = false): Promise<JobResponse[]> {
@@ -164,5 +167,8 @@ export const api = {
   },
   sourceForProject(id: string): Promise<{ code: string }> {
     return request(`/exports/${id}/source`)
+  },
+  exportCapabilities(id: string): Promise<ExportCapabilitiesResponse> {
+    return request(`/exports/${id}/capabilities`)
   },
 }

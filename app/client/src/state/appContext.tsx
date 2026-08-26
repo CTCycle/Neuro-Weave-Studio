@@ -53,7 +53,7 @@ export function AppResourcesProvider({ children }: { children: ReactNode }) {
         const statuses = metadataResult.value.execution_backends
         setBackendStatuses(statuses)
         setCompilationCatalog(metadataResult.value.configuration.compilation_catalog)
-        setRuntimeApis(metadataResult.value.runtime_apis ?? [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'not_implemented' }])
+        setRuntimeApis(metadataResult.value.runtime_apis ?? [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'runtime_unavailable' }])
         setRuntimePreferences((current) => {
           const next = { ...current }
           for (const status of statuses.filter((item) => item.available)) {

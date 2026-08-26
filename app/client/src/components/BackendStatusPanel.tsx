@@ -53,6 +53,25 @@ export function BackendStatusPanel() {
     setPendingSelection(null)
   }
 
+  const selectRuntimeApi = (apiId: RuntimeApi) => {
+    const preferredStatus = runtimePreferenceBackend ? backendStatuses.find((item) => item.id === runtimePreferenceBackend) : undefined
+    const target = [preferredStatus, ...backendStatuses.filter((item) => item.id !== preferredStatus?.id)].find((item) => item?.available && (item.runtime_apis?.find((api) => api.id === apiId)?.available ?? true))
+    if (!target) return
+    const existing = runtimePreferences[target.id]
+    const devices = target.devices?.length ? target.devices : [fallbackDevice()]
+    const device = existing ? devices.find((item) => item.device_id === existing.device_id && item.available) : undefined
+    const selectedDevice = device ?? devices.find((item) => item.available)
+    if (!selectedDevice) return
+    const memoryPolicy = existing && selectedDevice.supported_memory_policies.includes(existing.memory_policy.kind) ? existing.memory_policy : policyFromKind(selectedDevice.supported_memory_policies[0] ?? 'default')
+    requestSelection({
+      api: apiId,
+      backend: target.id,
+      device_id: selectedDevice.device_id,
+      memory_policy: memoryPolicy,
+      precision: existing?.precision ?? 'float32',
+    })
+  }
+
   const stopAndSwitch = async () => {
     if (!pendingSelection) return
     setStopping(true)
@@ -81,7 +100,7 @@ export function BackendStatusPanel() {
         <span className="backend-status-command"><Terminal size={13} />isolated worker controller</span>
       </div>
       <div className="runtime-api-controls" aria-label="Runtime API">
-        {runtimeApiStatuses.map((status) => <button key={status.id} type="button" className={`runtime-api-option ${runtimeSelection?.api === status.id ? 'selected' : ''}`} disabled={!status.available || status.id !== 'keras'} onClick={() => runtimeSelection && requestSelection({ ...runtimeSelection, api: status.id })}><strong>{apiLabels[status.id]}</strong><span>{status.available ? 'Operational' : status.reason_code === 'not_implemented' ? 'Deferred' : 'Unavailable'}</span></button>)}
+        {runtimeApiStatuses.map((status) => <button key={status.id} type="button" className={`runtime-api-option ${runtimeSelection?.api === status.id ? 'selected' : ''}`} disabled={!status.available} onClick={() => selectRuntimeApi(status.id)}><strong>{apiLabels[status.id]}</strong><span>{status.available ? 'Operational' : status.reason_code === 'not_implemented' ? 'Deferred' : 'Unavailable'}</span></button>)}
       </div>
       <div className="backend-status-grid">
         {backendStatuses.map((status) => <BackendStatusCard key={status.id} status={status} selected={runtimePreferenceBackend === status.id} runtimeSelection={runtimePreferences[status.id] ?? null} onSelect={requestSelection} />)}
@@ -98,13 +117,16 @@ function BackendStatusCard({ status, selected, runtimeSelection, onSelect }: { s
   const devices = status.devices ?? []
   const selectableDevices = devices.length ? devices : [{ device_id: 'cpu', lease_key: 'cpu', kind: 'cpu', name: 'CPU', accelerator: 'cpu', available: true, supported_memory_policies: ['default'] as MemoryPolicyKind[] }]
   const selectedDevice = selectableDevices.find((device) => device.device_id === runtimeSelection?.device_id) ?? selectableDevices[0]
+  const selectedApi: RuntimeApi = runtimeSelection?.api && (status.runtime_apis?.some((item) => item.id === runtimeSelection.api && item.available) ?? true)
+    ? runtimeSelection.api
+    : status.runtime_apis?.find((item) => item.available)?.id ?? 'keras'
   const detail = status.available
     ? `${devices.length || 1} device${devices.length === 1 ? '' : 's'}${status.device_name ? ` · ${status.device_name}` : ''}`
     : status.installed ? formatReason(status.reason_code) : 'Not installed'
   const selectedPolicy = runtimeSelection?.backend === status.id ? runtimeSelection.memory_policy : { kind: 'default' as MemoryPolicyKind }
-  const selectDevice = (device: RuntimeDevice) => onSelect({ api: 'keras', backend: status.id, device_id: device.device_id, memory_policy: policyFromKind(device.supported_memory_policies[0] ?? 'default'), precision: runtimeSelection?.precision ?? 'float32' })
-  const selectPolicy = (kind: MemoryPolicyKind) => onSelect({ api: 'keras', backend: status.id, device_id: selectedDevice?.device_id ?? 'cpu', memory_policy: policyFromKind(kind), precision: runtimeSelection?.precision ?? 'float32' })
-  const updatePolicyValue = (value: number) => onSelect({ api: 'keras', backend: status.id, device_id: selectedDevice?.device_id ?? 'cpu', memory_policy: selectedPolicy.kind === 'tensorflow_limit_mb' ? { kind: selectedPolicy.kind, limit_mb: value } : { kind: selectedPolicy.kind, fraction: value }, precision: runtimeSelection?.precision ?? 'float32' })
+  const selectDevice = (device: RuntimeDevice) => onSelect({ api: selectedApi, backend: status.id, device_id: device.device_id, memory_policy: policyFromKind(device.supported_memory_policies[0] ?? 'default'), precision: runtimeSelection?.precision ?? 'float32' })
+  const selectPolicy = (kind: MemoryPolicyKind) => onSelect({ api: selectedApi, backend: status.id, device_id: selectedDevice?.device_id ?? 'cpu', memory_policy: policyFromKind(kind), precision: runtimeSelection?.precision ?? 'float32' })
+  const updatePolicyValue = (value: number) => onSelect({ api: selectedApi, backend: status.id, device_id: selectedDevice?.device_id ?? 'cpu', memory_policy: selectedPolicy.kind === 'tensorflow_limit_mb' ? { kind: selectedPolicy.kind, limit_mb: value } : { kind: selectedPolicy.kind, fraction: value }, precision: runtimeSelection?.precision ?? 'float32' })
 
   return <div className={`backend-status-card-container ${selected ? 'selected' : ''}`}><button type="button" className={`backend-status-card ${state} ${selected ? 'selected' : ''}`} disabled={!status.available} aria-pressed={selected} onClick={() => selectedDevice && selectDevice(selectedDevice)}><div className="backend-status-card-top"><span className="backend-status-name"><Cpu size={14} />{labels[status.id]}</span><span className="backend-status-state"><StateIcon size={13} />{status.available ? 'Usable' : status.installed ? 'Installed' : 'Missing'}</span></div><strong>{status.version ? `v${status.version}` : 'Optional framework'}</strong><span>{detail}</span></button>{status.available && <div className="runtime-fields"><label>Device<select value={selectedDevice?.device_id ?? ''} onChange={(event) => { const device = selectableDevices.find((item) => item.device_id === event.target.value); if (device) selectDevice(device) }}>{selectableDevices.map((device) => <option key={device.device_id} value={device.device_id}>{device.device_id} · {device.name}</option>)}</select></label><label>Memory policy<select value={selectedPolicy.kind} onChange={(event) => selectPolicy(event.target.value as MemoryPolicyKind)}>{(selectedDevice?.supported_memory_policies ?? ['default']).map((policy) => <option key={policy} value={policy}>{policy}</option>)}</select></label>{selectedPolicy.kind === 'tensorflow_limit_mb' && <label>Limit (MB)<input type="number" min="1" value={selectedPolicy.limit_mb ?? 1024} onChange={(event) => updatePolicyValue(Number(event.target.value))} /></label>}{(selectedPolicy.kind === 'jax_preallocate_fraction' || selectedPolicy.kind === 'pytorch_fraction') && <label>Fraction<input type="number" min="0.01" max="1" step="0.01" value={selectedPolicy.fraction ?? 0.5} onChange={(event) => updatePolicyValue(Number(event.target.value))} /></label>}</div>}</div>
 }
@@ -124,7 +146,11 @@ function policyFromKind(kind: MemoryPolicyKind): WorkerConfiguration['memory_pol
   return { kind }
 }
 
-const fallbackRuntimeApis: RuntimeApiStatus[] = [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'not_implemented' }]
+const fallbackRuntimeApis: RuntimeApiStatus[] = [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'runtime_unavailable' }]
+
+function fallbackDevice(): RuntimeDevice {
+  return { device_id: 'cpu', lease_key: 'cpu', kind: 'cpu', name: 'CPU', accelerator: 'cpu', available: true, supported_memory_policies: ['default'] }
+}
 
 function formatReason(reason: string | null | undefined): string {
   if (reason === 'dependency_missing') return 'Installed package could not be imported'

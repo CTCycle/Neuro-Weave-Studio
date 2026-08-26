@@ -505,6 +505,84 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .dialog-actions button { min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
 .dialog-actions .danger-action { border-color: var(--error); background: var(--error); color: #1b0d0f; }
 
+/* Unified model export center. The catalog stays visible while a selected format is configured. */
+.model-export-backdrop { z-index: 90; }
+.model-export-modal { display: grid; width: min(1120px, calc(100vw - 40px)); height: min(760px, calc(100vh - 40px)); max-width: 100%; max-height: calc(100dvh - 40px); grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; box-shadow: 0 22px 70px rgba(0,0,0,.62); }
+.model-export-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
+.model-export-header h2 { margin: 5px 0 4px; font-size: 21px; }
+.model-export-header p { margin: 0; color: var(--muted); font: 500 10px 'IBM Plex Mono', Consolas, monospace; }
+.model-export-body { display: grid; min-height: 0; grid-template-columns: minmax(0, 1.35fr) minmax(260px, .7fr); gap: 14px; padding: 14px 20px 16px; overflow: hidden; }
+.model-export-catalog { min-width: 0; min-height: 0; overflow: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+.model-export-catalog::-webkit-scrollbar { width: 8px; }
+.model-export-catalog::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border: 2px solid transparent; border-radius: 999px; background-clip: padding-box; }
+.export-category + .export-category { margin-top: 16px; }
+.export-category-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.export-category-heading h3 { margin: 4px 0 0; font-size: 14px; }
+.export-category-heading > .muted { font: 500 9px 'IBM Plex Mono', Consolas, monospace; white-space: nowrap; }
+.export-format-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.export-format-option { display: flex; min-width: 0; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px; border: 1px solid var(--border); border-radius: 7px; background: rgba(17,26,34,.78); color: var(--text); text-align: left; cursor: pointer; }
+.export-format-option:hover:not(:disabled), .export-format-option.selected { border-color: var(--cyan); background: rgba(23,43,49,.82); }
+.export-format-option.selected { box-shadow: inset 0 0 0 1px rgba(101,201,212,.16); }
+.export-format-option.unavailable { cursor: not-allowed; opacity: .64; }
+.export-format-option:disabled { color: var(--text); }
+.export-format-top { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 7px; }
+.export-format-top strong { min-width: 0; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.export-format-top svg { flex: 0 0 auto; color: var(--success); }
+.export-format-option.unavailable .export-format-top svg { color: var(--warning); }
+.export-badge-row { display: flex; min-height: 17px; flex-wrap: wrap; gap: 4px; }
+.export-badge { display: inline-flex; min-height: 17px; align-items: center; padding: 2px 5px; border: 1px solid rgba(101,201,212,.28); border-radius: 999px; color: var(--cyan); background: rgba(101,201,212,.07); font: 500 7px 'IBM Plex Mono', Consolas, monospace; white-space: nowrap; }
+.export-format-option.unavailable .export-badge { border-color: rgba(229,183,95,.28); color: var(--warning); }
+.export-format-description { display: -webkit-box; min-height: 27px; overflow: hidden; color: var(--muted); font-size: 9px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.model-export-config { min-width: 0; min-height: 0; align-self: start; padding: 14px; background: rgba(13,21,28,.86); }
+.model-export-config h3 { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.export-field { display: flex; flex-direction: column; gap: 5px; margin-top: 14px; color: var(--muted); font: 500 9px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; letter-spacing: .04em; }
+.export-field input, .export-field select { min-width: 0; min-height: 34px; padding: 0 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); font: 500 10px 'IBM Plex Mono', Consolas, monospace; text-transform: none; letter-spacing: 0; }
+.export-help { display: block; margin-top: 6px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.export-preview-name, .export-worker-summary { display: flex; min-width: 0; flex-direction: column; gap: 4px; margin-top: 12px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; background: #0d151c; }
+.export-preview-name span, .export-worker-summary span { color: var(--muted); font: 500 8px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; letter-spacing: .08em; }
+.export-preview-name strong, .export-worker-summary strong { overflow: hidden; color: var(--text); font: 500 10px 'IBM Plex Mono', Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.export-option-stack { margin-top: 12px; padding-top: 2px; border-top: 1px solid var(--border); }
+.export-checkbox { display: flex; align-items: center; gap: 7px; margin-top: 13px; color: var(--text); font-size: 10px; }
+.export-checkbox input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); }
+.export-detail-list { display: flex; flex-direction: column; gap: 0; margin-top: 14px; }
+.export-detail-list > div { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+.export-detail-list span { color: var(--muted); font-size: 9px; }
+.export-detail-list strong { color: var(--text); font: 500 9px 'IBM Plex Mono', Consolas, monospace; text-align: right; }
+.model-export-state { display: flex; min-height: 160px; align-items: center; justify-content: center; gap: 9px; padding: 20px; color: var(--muted); font-size: 11px; }
+.model-export-state.export-error { justify-content: flex-start; align-items: flex-start; margin: 16px 20px; padding: 14px; border: 1px solid rgba(229,183,95,.4); border-radius: 7px; color: var(--warning); }
+.model-export-state.export-error > div { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
+.model-export-state.export-error strong { color: var(--text); font-size: 11px; }
+.model-export-state.export-error span { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.model-export-state.export-error button { align-self: flex-start; min-height: 30px; margin-top: 4px; }
+.model-export-job { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 20px 12px; padding: 10px 12px; border: 1px solid rgba(101,201,212,.34); border-radius: 7px; background: rgba(23,43,49,.72); }
+.model-export-job.failed { border-color: rgba(239,106,114,.42); background: rgba(56,24,29,.42); }
+.model-export-job.succeeded { border-color: rgba(103,201,139,.4); }
+.model-export-job > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.model-export-job strong { color: var(--text); font-size: 10px; }
+.model-export-job small { overflow: hidden; color: var(--muted); font: 500 9px 'IBM Plex Mono', Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.model-export-job button { flex: 0 0 auto; min-height: 30px; }
+.model-export-notice { margin: 0 20px 12px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+.model-export-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 60px; margin-top: 0; padding: 10px 20px 12px; border-top: 1px solid var(--border); }
+.model-export-footer > div { display: flex; flex: 0 0 auto; gap: 7px; }
+.model-export-footer-note { min-width: 0; overflow: hidden; color: var(--muted); font-size: 9px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .model-export-modal { width: min(760px, calc(100vw - 24px)); height: min(820px, calc(100vh - 24px)); max-height: calc(100dvh - 24px); }
+  .model-export-body { grid-template-columns: 1fr; overflow-y: auto; }
+  .model-export-catalog { overflow: visible; }
+  .model-export-config { align-self: auto; }
+}
+@media (max-width: 560px) {
+  .model-export-modal { width: calc(100vw - 14px); height: calc(100dvh - 14px); max-height: calc(100dvh - 14px); }
+  .model-export-header, .model-export-body { padding-inline: 14px; }
+  .model-export-footer { align-items: stretch; flex-direction: column; padding-inline: 14px; }
+  .model-export-footer-note { white-space: normal; }
+  .model-export-footer > div { width: 100%; }
+  .model-export-footer > div button { flex: 1; }
+  .model-export-job, .model-export-notice { margin-inline: 14px; }
+  .export-format-list { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 1199px) {
   .builder-toolbar { gap: 4px; padding-inline: 5px; }
   .builder-toolbar-heading { display: none; }
