@@ -26,6 +26,7 @@ HEAD_REVISION = "20260821_execution_profile"
 ALEMBIC_VERSION_TABLE = "alembic_version"
 
 
+###############################################################################
 def _alembic_config(connection: Connection) -> Config:
     config = Config(str(ALEMBIC_CONFIG_PATH))
     config.attributes["connection"] = connection
@@ -33,6 +34,7 @@ def _alembic_config(connection: Connection) -> Config:
     return config
 
 
+###############################################################################
 def _script_directory(config: Config) -> tuple[ScriptDirectory, str]:
     script = ScriptDirectory.from_config(config)
     heads = script.get_heads()
@@ -44,11 +46,13 @@ def _script_directory(config: Config) -> tuple[ScriptDirectory, str]:
     return script, heads[0]
 
 
+###############################################################################
 def _current_heads(connection: Connection) -> tuple[str, ...]:
     migration_context = MigrationContext.configure(connection)
     return tuple(migration_context.get_current_heads())
 
 
+###############################################################################
 def _validate_known_revisions(
     current_heads: tuple[str, ...], script: ScriptDirectory
 ) -> None:
@@ -67,6 +71,7 @@ def _validate_known_revisions(
             ) from exc
 
 
+###############################################################################
 def _run_migrations(connection: Connection) -> None:
     config = _alembic_config(connection)
     script, expected_head = _script_directory(config)
@@ -117,6 +122,7 @@ def _run_migrations(connection: Connection) -> None:
     LOGGER.info("Database schema verified at Alembic head %s", expected_head)
 
 
+###############################################################################
 def initialize_database(settings: DatabaseSettings) -> SQLiteBackend:
     """Create or upgrade the current SQLite schema with no legacy adoption."""
 

@@ -34,6 +34,7 @@ class MemoryPolicy(BaseModel):
     limit_mb: int | None = Field(default=None, ge=1, le=2_000_000)
     fraction: float | None = Field(default=None, gt=0, le=1)
 
+    # -------------------------------------------------------------------------
     @model_validator(mode="after")
     def validate_parameters(self) -> MemoryPolicy:
         needs_limit = self.kind is MemoryPolicyKind.TENSORFLOW_LIMIT_MB

@@ -34,6 +34,8 @@ SUPPORTED_LAYERS = {
 
 ###############################################################################
 class KerasArchitectureImportError(ValueError):
+
+    # -------------------------------------------------------------------------
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
@@ -87,6 +89,7 @@ def parse_keras_architecture(
     )
 
 
+###############################################################################
 def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
     if not isinstance(document, dict):
         raise KerasArchitectureImportError("invalid_config", "Keras config.json must contain an object")
@@ -178,6 +181,7 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
     return ModelGraph(nodes=nodes, edges=[EdgeInstance(**edge) for edge in edges]), str(config.get("name") or "Imported Keras architecture")
 
 
+###############################################################################
 def _map_layer(class_name: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     if class_name == "InputLayer":
         raw_shape = config.get("batch_shape") or config.get("batch_input_shape") or config.get("input_shape")
@@ -218,6 +222,7 @@ def _map_layer(class_name: str, config: dict[str, Any]) -> tuple[str, dict[str, 
     return definition_id, parameters
 
 
+###############################################################################
 def _shape(value: Any) -> list[int | None] | None:
     if not _is_scalar_list(value) or not value:
         return None
@@ -232,10 +237,12 @@ def _shape(value: Any) -> list[int | None] | None:
     return shape
 
 
+###############################################################################
 def _is_scalar_list(value: Any) -> bool:
     return isinstance(value, list) and all(item is None or isinstance(item, (str, int, float, bool)) for item in value)
 
 
+###############################################################################
 def _unique_ids(layers: dict[str, dict[str, Any]]) -> dict[str, str]:
     used: set[str] = set()
     result: dict[str, str] = {}
@@ -245,6 +252,7 @@ def _unique_ids(layers: dict[str, dict[str, Any]]) -> dict[str, str]:
     return result
 
 
+###############################################################################
 def _unique_id(value: str, used: set[str]) -> str:
     candidate = _ID_PATTERN.sub("_", value).strip("_.-") or "node"
     if not candidate[0].isalpha():
@@ -258,6 +266,7 @@ def _unique_id(value: str, used: set[str]) -> str:
     return candidate
 
 
+###############################################################################
 def _visit_inbound_names(item: Any, names: list[str]) -> None:
     if isinstance(item, dict):
         config = item.get("config")
@@ -275,12 +284,14 @@ def _visit_inbound_names(item: Any, names: list[str]) -> None:
             _visit_inbound_names(child, names)
 
 
+###############################################################################
 def _inbound_names(value: Any) -> list[str]:
     names: list[str] = []
     _visit_inbound_names(value, names)
     return list(dict.fromkeys(names))
 
 
+###############################################################################
 def _model_output_names(config: dict[str, Any], class_name: str, layer_names: list[str]) -> list[str]:
     raw = config.get("output_layers")
     names = _inbound_names(raw) if raw is not None else []

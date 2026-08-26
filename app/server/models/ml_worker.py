@@ -30,6 +30,8 @@ class WorkerCancelled(RuntimeError):
 
 ###############################################################################
 class WorkerContext:
+
+    # -------------------------------------------------------------------------
     def __init__(self, job_dir: Path, config: WorkerConfiguration) -> None:
         self.job_dir = job_dir
         self.config = config
@@ -37,6 +39,7 @@ class WorkerContext:
         self.status_file = job_dir / "status.json"
         self.started = time.time()
 
+    # -------------------------------------------------------------------------
     def checkpoint(self, phase: str, message: str, percent: int | None = None) -> None:
         self.write_status(
             phase=phase,
@@ -53,6 +56,7 @@ class WorkerContext:
             )
             raise WorkerCancelled("Worker cancellation requested")
 
+    # -------------------------------------------------------------------------
     def write_status(
         self,
         *,

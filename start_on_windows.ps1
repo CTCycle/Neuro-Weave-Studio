@@ -509,16 +509,9 @@ function Get-BackendCapabilityReport {
     Push-Location $script:ServerDir
     try {
         foreach ($backend in $backends) {
-            $previous = [Environment]::GetEnvironmentVariable('KERAS_BACKEND', 'Process')
-            try {
-                $value = if ($backend -eq 'pytorch') { 'torch' } else { $backend }
-                $env:KERAS_BACKEND = $value
-                $raw = (& $venvPython -m models.keras_worker --probe 2>$null | Select-Object -Last 1)
-                if ($raw) {
-                    try { $reports.Add(($raw | ConvertFrom-Json)) } catch { }
-                }
-            } finally {
-                if ($null -eq $previous) { Remove-Item Env:KERAS_BACKEND -ErrorAction SilentlyContinue } else { $env:KERAS_BACKEND = $previous }
+            $raw = (& $venvPython -m models.ml_worker --probe --backend $backend 2>$null | Select-Object -Last 1)
+            if ($raw) {
+                try { $reports.Add(($raw | ConvertFrom-Json)) } catch { }
             }
         }
     } finally { Pop-Location }

@@ -5,12 +5,14 @@ from pydantic import BaseModel
 from domain.enums import ExecutionBackend
 
 
+###############################################################################
 class ModelExecutionProfile(BaseModel):
     """The persisted architecture choice for one NeuroWeave model."""
 
     execution_backend: ExecutionBackend
     keras_enabled: bool = True
 
+    # -------------------------------------------------------------------------
     @property
     def implementation_key(self) -> str:
         return "keras" if self.keras_enabled else self.execution_backend.value

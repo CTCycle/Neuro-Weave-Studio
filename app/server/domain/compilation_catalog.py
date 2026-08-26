@@ -33,6 +33,7 @@ class CompilationCatalog(BaseModel):
     constraints: list[str] = Field(default_factory=list)
 
 
+###############################################################################
 def _number(
     identifier: str,
     label: str,
@@ -57,6 +58,7 @@ def _number(
     )
 
 
+###############################################################################
 def _optimizer(
     identifier: str,
     label: str,
@@ -66,6 +68,7 @@ def _optimizer(
     return CompilationOption(id=identifier, label=label, description=description, parameters=parameters)
 
 
+###############################################################################
 def get_compilation_catalog() -> CompilationCatalog:
     return CompilationCatalog(
         optimizers=[
