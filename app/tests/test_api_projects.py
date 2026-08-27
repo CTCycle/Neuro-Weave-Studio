@@ -134,6 +134,17 @@ def native_execution_worker(client: httpx.Client) -> dict[str, object]:
 
 
 ###############################################################################
+def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
+    deadline = time.monotonic() + 300
+    while time.monotonic() < deadline:
+        job = cast(dict[str, Any], client.get(f"/api/execution/jobs/{job_id}").json())
+        if job["state"] in {"succeeded", "terminated", "failed"}:
+            return job
+        time.sleep(0.05)
+    pytest.fail(f"job {job_id} did not reach a terminal state")
+
+
+###############################################################################
 def test_project_revision_workflow_invalidates_generated_source_and_rejects_stale_save(
     client: httpx.Client,
 ) -> None:
@@ -212,17 +223,7 @@ def test_model_export_publishes_only_verified_artifact(client: httpx.Client) -> 
     assert response.status_code == 202, response.text
 
     job_id = response.json()["id"]
-    job: dict[str, Any] | None = None
-    for _ in range(240):
-        job = cast(
-            dict[str, Any],
-            client.get(f"/api/execution/jobs/{job_id}").json(),
-        )
-        if job["state"] in {"succeeded", "terminated", "failed"}:
-            break
-        time.sleep(0.05)
-
-    assert job is not None
+    job = wait_for_job(client, job_id)
     assert job["state"] == "succeeded", job
     assert job["artifact"] is not None
     assert job["artifact"]["format"] == "keras"
@@ -319,14 +320,7 @@ def test_native_model_export_publishes_pt2_artifact(client: httpx.Client) -> Non
     assert response.status_code == 202, response.text
 
     job_id = response.json()["id"]
-    job: dict[str, Any] | None = None
-    for _ in range(600):
-        job = cast(dict[str, Any], client.get(f"/api/execution/jobs/{job_id}").json())
-        if job["state"] in {"succeeded", "terminated", "failed"}:
-            break
-        time.sleep(0.05)
-
-    assert job is not None
+    job = wait_for_job(client, job_id)
     assert job["state"] == "succeeded", job
     assert job["artifact"]["format"] == "pytorch_exported_program"
     assert job["artifact"]["filename"] == "native-model.pt2"
