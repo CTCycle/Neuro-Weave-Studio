@@ -229,7 +229,9 @@ class ExportService:
         )
 
         onnx_dependencies = ["onnx", "onnxruntime", "onnxscript"]
-        if execution_backend is not ExecutionBackend.PYTORCH:
+        if execution_backend is ExecutionBackend.JAX and keras_enabled:
+            onnx_dependencies.append("jax2onnx")
+        elif execution_backend is not ExecutionBackend.PYTORCH:
             onnx_dependencies.append("tf2onnx")
         onnx_missing = _missing_packages(onnx_dependencies)
         native_jax_bridge_unverified = (

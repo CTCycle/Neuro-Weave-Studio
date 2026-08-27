@@ -42,9 +42,9 @@ def package_directory(
     if not directory.is_dir():
         raise RuntimeError(f"Expected export directory '{directory}'")
     write_json(directory / "manifest.json", manifest)
-    files = _relative_files(directory)
-    _write_zip(directory, destination, archive_root, files)
-    return [f"{archive_root}/{path.as_posix()}" for path in files]
+    files = [path for path in _relative_files(directory) if path.as_posix() != "manifest.json"]
+    _write_zip(directory, destination, archive_root, files, manifest)
+    return ["manifest.json", *[f"{archive_root}/{path.as_posix()}" for path in files]]
 
 ###############################################################################
 def package_files(
@@ -60,7 +60,7 @@ def package_files(
         raise RuntimeError("Export package contains duplicate file names")
     temporary = destination.with_suffix(destination.suffix + ".tmp")
     with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("manifest.json", json.dumps(manifest, sort_keys=True, indent=2))
+        archive.writestr(_zip_info("manifest.json"), json.dumps(manifest, sort_keys=True, indent=2))
         for source, name in sorted(normalized, key=lambda item: item[1]):
             if not source.is_file():
                 raise RuntimeError(f"Export package file is missing: {source.name}")
@@ -105,10 +105,17 @@ def _relative_files(directory: Path) -> list[Path]:
     return files
 
 ###############################################################################
-def _write_zip(directory: Path, destination: Path, archive_root: str, files: list[Path]) -> None:
+def _write_zip(
+    directory: Path,
+    destination: Path,
+    archive_root: str,
+    files: list[Path],
+    manifest: dict[str, Any],
+) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(destination.suffix + ".tmp")
     with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(_zip_info("manifest.json"), json.dumps(manifest, sort_keys=True, indent=2))
         for relative in sorted(files, key=lambda item: item.as_posix()):
             archive_name = _safe_archive_path(f"{archive_root}/{relative.as_posix()}")
             archive.writestr(_zip_info(archive_name), (directory / relative).read_bytes())

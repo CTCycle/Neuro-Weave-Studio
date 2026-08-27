@@ -879,7 +879,10 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
                 dynamo=True,
                 dynamic_axes=dynamic_axes,
             )
-        except (TypeError, RuntimeError, ValueError):
+        except Exception:
+            # PyTorch 2.8 can reject dynamic_axes with the dynamo exporter
+            # before producing an ONNX graph. Retry with the stable legacy
+            # exporter; the artifact remains direct native PyTorch ONNX.
             torch.onnx.export(
                 wrapper,
                 args,
@@ -888,6 +891,7 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
                 output_names=output_ids,
                 opset_version=options.opset_version,
                 dynamic_axes=dynamic_axes,
+                dynamo=False,
             )
         import onnx
 
