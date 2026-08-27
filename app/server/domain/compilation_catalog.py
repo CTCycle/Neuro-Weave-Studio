@@ -4,16 +4,17 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-CompilationParameterType = Literal["number", "integer", "boolean"]
+CompilationParameterType = Literal["number", "integer", "boolean", "enum"]
 
 ###############################################################################
 class CompilationParameter(BaseModel):
     id: str
     label: str
     type: CompilationParameterType
-    default: float | int | bool
+    default: float | int | bool | str
     description: str
-    constraints: dict[str, float | int | bool] = Field(default_factory=dict)
+    options: list[str] = Field(default_factory=list)
+    constraints: dict[str, float | int | bool | str] = Field(default_factory=dict)
 
 ###############################################################################
 class CompilationOption(BaseModel):

@@ -4,13 +4,13 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from common.timestamps import utc_now
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.tensor import TensorSpec
 
-GRAPH_SCHEMA_VERSION = 2
+GRAPH_SCHEMA_VERSION = 3
 
 ###############################################################################
 class Position(BaseModel):
@@ -35,7 +35,9 @@ class EdgeInstance(BaseModel):
     target_port_id: str
 
 ###############################################################################
-class ModelConfiguration(BaseModel):
+class KerasCompilationConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     optimizer: str = "adam"
     optimizer_parameters: dict[str, Any] = Field(default_factory=lambda: {"learning_rate": 0.001})
     losses: dict[str, str] = Field(default_factory=dict)
@@ -46,6 +48,47 @@ class ModelConfiguration(BaseModel):
     mixed_precision: bool = False
     random_seed: int | None = 42
 
+
+###############################################################################
+class TensorFlowNativeConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    jit_compile: bool = False
+
+
+###############################################################################
+class PyTorchNativeConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    compile_enabled: bool = False
+    mode: str = "default"
+    fullgraph: bool = False
+    dynamic: bool = False
+
+
+###############################################################################
+class JaxNativeConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    jit_enabled: bool = False
+
+
+###############################################################################
+class NativeCompilationConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tensorflow: TensorFlowNativeConfiguration = Field(default_factory=TensorFlowNativeConfiguration)
+    pytorch: PyTorchNativeConfiguration = Field(default_factory=PyTorchNativeConfiguration)
+    jax: JaxNativeConfiguration = Field(default_factory=JaxNativeConfiguration)
+
+
+###############################################################################
+class ModelConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    keras: KerasCompilationConfiguration = Field(default_factory=KerasCompilationConfiguration)
+    native: NativeCompilationConfiguration = Field(default_factory=NativeCompilationConfiguration)
+
 ###############################################################################
 class ExportSettings(BaseModel):
     include_comments: bool = True
@@ -54,7 +97,7 @@ class ExportSettings(BaseModel):
 
 ###############################################################################
 class ModelGraph(BaseModel):
-    schema_version: Literal[2] = GRAPH_SCHEMA_VERSION
+    schema_version: Literal[3] = GRAPH_SCHEMA_VERSION
     nodes: list[NodeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     edges: list[EdgeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     model_configuration: ModelConfiguration = Field(default_factory=ModelConfiguration)
@@ -131,7 +174,7 @@ class ProjectDuplicateRequest(BaseModel):
 ###############################################################################
 class ProjectExportBundle(BaseModel):
     format: Literal["neuro-weave-project"] = "neuro-weave-project"
-    format_version: Literal[3] = 3
+    format_version: Literal[4] = 4
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
 

@@ -72,6 +72,10 @@ class TensorFlowWorker:
         }
 
     # -------------------------------------------------------------------------
+    def native_compilation_capabilities(self) -> dict[str, bool]:
+        return {"tensorflow_jit": callable(getattr(tensorflow, "function", None))}
+
+    # -------------------------------------------------------------------------
     def device_inventory(self) -> list[dict[str, object]]:
         devices: list[dict[str, object]] = [
             {

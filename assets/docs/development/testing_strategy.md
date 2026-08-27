@@ -11,8 +11,9 @@ Retained regression coverage focuses on:
 - graph validation plus shape and parameter inference for DAGs, unsafe expressions, merge, convolution, attention, and unsupported implementation contracts;
 - project revision workflows, stale-save rejection, generated-source invalidation, project import/export, and transactional rollback;
 - SQLite migration locking and rollback, unsupported database rejection, foreign-key aggregate integrity, and cascades;
+- canonical model-configuration round trips, v2-to-v3 migration/downgrade behavior, capability metadata, and explicit invalid native compiler diagnostics;
 - safe Keras architecture import through the explicit layer allowlist;
-- generated Keras and native PyTorch source for representative non-trivial graphs;
+- generated Keras and native TensorFlow/PyTorch/JAX source with backend-specific compiler settings for representative graphs;
 - native TensorFlow/PyTorch/JAX parity for deterministic common-subset graphs, including representative multi-input/multi-output cases;
 - capability discovery, clean-break `model_export` submission, format option validation, bridge availability, artifact manifests, reload/inference verification, stale revisions, cancellation, conversion failure, and atomic publication;
 - binary Keras, native, ONNX, SafeTensors, and checkpoint export reload/restore coverage where the optional dependency is operational;
@@ -26,6 +27,7 @@ Frontend tests are deliberately limited to state and interaction contracts that 
 
 - graph cycle prevention plus preservation of graph metadata and undo/redo history;
 - isolated multi-tab editor sessions;
+- description metadata editing, capability-driven compilation configuration, backend/Keras switching, and minimap/focus-mode state contracts;
 - the Node Catalog drag payload consumed by the model canvas;
 - Model Export center capability grouping, explicit disabled reasons, format-specific options, job polling, cancellation, retry, and verified download.
 

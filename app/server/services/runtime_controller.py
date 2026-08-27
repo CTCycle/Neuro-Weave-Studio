@@ -28,6 +28,7 @@ from common.process_control import (
 )
 from common.timestamps import utc_now
 from configurations.settings import Settings
+from domain.compilation_capabilities import get_native_compilation_capabilities
 from domain.enums import ExecutionBackend, keras_backend_value
 from domain.exports import ExportArtifactManifest, ExportFormat, export_suffix
 from domain.graph import ModelGraph
@@ -183,6 +184,12 @@ class RuntimeController:
                 RuntimeApi.KERAS,
             )
             available, reason, capabilities = api_results[selected_api]
+            native_capabilities = api_results[RuntimeApi.NATIVE][2].get("native_compilers", {})
+            native_compilers = (
+                {str(key): bool(value) for key, value in cast(dict[object, object], native_capabilities).items()}
+                if isinstance(native_capabilities, dict)
+                else {}
+            )
             raw_devices = capabilities.get("devices", [])
             device_items = cast(list[object], raw_devices) if isinstance(raw_devices, list) else []
             devices = [
@@ -219,6 +226,7 @@ class RuntimeController:
                 device_name=(str(capabilities.get("device_name")) if available else None),
                 devices=devices,
                 runtime_apis=runtime_api_statuses,
+                native_compilers=native_compilers,
             )
             with self._lock:
                 self._backend_statuses[backend] = status
@@ -239,14 +247,6 @@ class RuntimeController:
         with self._lock:
             if self._shutting_down:
                 raise RuntimeControllerError("controller_shutting_down", "The ML runtime is shutting down")
-            device = self._validate_worker(request.worker)
-            lease_key = device.lease_key
-            if lease_key in self._leases:
-                raise RuntimeControllerError(
-                    "device_busy",
-                    f"Device '{lease_key}' already has an active ML job",
-                    details={"device_id": device.device_id, "job_id": self._leases[lease_key]},
-                )
             if isinstance(request.operation, SmokeInferenceOperation):
                 operation = JobOperation.SMOKE_INFERENCE
                 if graph is None:
@@ -257,6 +257,15 @@ class RuntimeController:
                     raise RuntimeControllerError(
                         "missing_graph_snapshot", "Model export submission requires a graph snapshot"
                     )
+            device = self._validate_worker(request.worker)
+            self._validate_native_compiler(request.worker, graph)
+            lease_key = device.lease_key
+            if lease_key in self._leases:
+                raise RuntimeControllerError(
+                    "device_busy",
+                    f"Device '{lease_key}' already has an active ML job",
+                    details={"device_id": device.device_id, "job_id": self._leases[lease_key]},
+                )
             export_format = (
                 request.operation.format
                 if isinstance(request.operation, ModelExportOperation)
@@ -422,11 +431,6 @@ class RuntimeController:
     def _validate_worker(self, worker: WorkerConfiguration) -> RuntimeDevice:
         status = self._backend_statuses.get(worker.backend)
         api_status = self._api_statuses.get((worker.backend, worker.api))
-        # Keep controller fixtures and previously persisted status snapshots
-        # usable for the default Keras API while native execution remains
-        # explicitly gated by its own probe result.
-        if api_status is None and worker.api is RuntimeApi.KERAS and status is not None:
-            api_status = RuntimeApiStatus(id=RuntimeApi.KERAS, available=status.available)
         if api_status is None or not api_status.available:
             reason_code = api_status.reason_code if api_status is not None else "unknown_api"
             raise RuntimeControllerError(
@@ -454,6 +458,36 @@ class RuntimeController:
                 details={"backend": worker.backend.value, "device_id": worker.device_id},
             )
         return device
+
+    # -------------------------------------------------------------------------
+    def _validate_native_compiler(
+        self, worker: WorkerConfiguration, graph: ModelGraph | None
+    ) -> None:
+        if worker.api is not RuntimeApi.NATIVE or graph is None:
+            return
+        capability = get_native_compilation_capabilities().get(worker.backend)
+        if capability is None:
+            return
+        backend_configuration = getattr(graph.model_configuration.native, worker.backend.value)
+        enabled_field = {
+            ExecutionBackend.TENSORFLOW: "jit_compile",
+            ExecutionBackend.PYTORCH: "compile_enabled",
+            ExecutionBackend.JAX: "jit_enabled",
+        }[worker.backend]
+        if not bool(getattr(backend_configuration, enabled_field)):
+            return
+        status = self._backend_statuses.get(worker.backend)
+        if status is not None and status.native_compilers.get(capability.compiler_id, False):
+            return
+        raise RuntimeControllerError(
+            "native_compiler_unavailable",
+            f"{capability.compiler} is not operational for {worker.backend.value}",
+            details={
+                "backend": worker.backend.value,
+                "compiler": capability.compiler_id,
+                "reason_code": "compiler_unavailable",
+            },
+        )
 
     # -------------------------------------------------------------------------
     def _start_process(self, job_dir: Path) -> subprocess.Popen[bytes]:

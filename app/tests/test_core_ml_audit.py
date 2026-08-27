@@ -9,7 +9,6 @@ from typing import Any, Literal
 from uuid import uuid4
 
 import pytest
-
 from common.catalogs.loader import get_node_catalog
 from compilation.compiler import compile_to_ir
 from configurations.settings import get_settings
@@ -270,8 +269,10 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
             edge("e2", "dense", "output"),
         ],
         model_configuration=ModelConfiguration(
-            losses={"__default__": "mean_squared_error"},
-            metrics={"__default__": ["mean_squared_error"]},
+            keras={
+                "losses": {"__default__": "mean_squared_error"},
+                "metrics": {"__default__": ["mean_squared_error"]},
+            },
         ),
     )
     assert validate(graph).valid
@@ -348,12 +349,14 @@ def test_multi_output_compile_selectors_generate_executable_transformer_source(
             edge("e3", "encoder", "output_b"),
         ],
         model_configuration=ModelConfiguration(
-            optimizer="adamw",
-            losses={
-                "tokens": "mean_squared_error",
-                "output_b": "mean_absolute_error",
+            keras={
+                "optimizer": "adamw",
+                "losses": {
+                    "tokens": "mean_squared_error",
+                    "output_b": "mean_absolute_error",
+                },
+                "metrics": {"__default__": ["mean_squared_error"]},
             },
-            metrics={"__default__": ["mean_squared_error"]},
         ),
     )
     assert validate(graph).valid
@@ -419,10 +422,12 @@ def test_keras_export_reloads_custom_layer_in_clean_process(
             edge("e2", "position", "output"),
         ],
         model_configuration=ModelConfiguration(
-            optimizer="adamw",
-            losses={"__default__": "mean_squared_error"},
-            metrics={"__default__": ["mean_squared_error"]},
-            random_seed=123,
+            keras={
+                "optimizer": "adamw",
+                "losses": {"__default__": "mean_squared_error"},
+                "metrics": {"__default__": ["mean_squared_error"]},
+                "random_seed": 123,
+            },
         ),
     )
     assert validate(graph).valid

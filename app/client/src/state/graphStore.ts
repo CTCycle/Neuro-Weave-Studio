@@ -72,7 +72,7 @@ interface GraphState {
   reset: () => void
   toGraph: () => ModelGraph
   applyShapeSummaries: (summaries: ShapeSummary[]) => void
-  updateConfiguration: (configuration: Partial<ModelConfiguration>) => void
+  updateConfiguration: (configuration: ModelConfiguration) => void
   autoLayout: (nodes: EditorNode[], edges: EditorEdge[]) => void
 }
 
@@ -282,7 +282,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   toGraph: () => {
     const state = get()
     return {
-      schema_version: 2,
+      schema_version: 3,
       nodes: state.nodes.map((node) => ({
         id: node.id,
         definition_id: node.data.manifest.id,
@@ -315,7 +315,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   updateConfiguration: (configuration) => set((state) => ({
     past: [...state.past, snapshot(state)].slice(-50),
     future: [],
-    modelConfiguration: { ...state.modelConfiguration, ...configuration },
+    modelConfiguration: structuredClone(configuration),
   })),
   autoLayout: (nodes, edges) => set((state) => ({ nodes, edges, past: [...state.past, snapshot(state)].slice(-50), future: [] })),
 }))

@@ -6,6 +6,7 @@ import keras
 
 from domain.graph import ModelGraph
 
+
 ###############################################################################
 def option(value: Any) -> Any:
     """Convert the catalog's explicit ``none`` option into Keras ``None``."""
@@ -23,7 +24,7 @@ def layer_option(
 
     if key in parameters:
         return option(parameters[key])
-    configuration = graph.model_configuration
+    configuration = graph.model_configuration.keras
     if "initializer" in key:
         return option(configuration.default_initializer)
     if "regularizer" in key:
@@ -34,10 +35,10 @@ def layer_option(
 
 ###############################################################################
 def prepare_runtime(graph: ModelGraph) -> None:
-    if graph.model_configuration.random_seed is not None:
-        keras.utils.set_random_seed(graph.model_configuration.random_seed)
+    if graph.model_configuration.keras.random_seed is not None:
+        keras.utils.set_random_seed(graph.model_configuration.keras.random_seed)
     keras.mixed_precision.set_global_policy(
-        "mixed_float16" if graph.model_configuration.mixed_precision else "float32"
+        "mixed_float16" if graph.model_configuration.keras.mixed_precision else "float32"
     )
 
 ###############################################################################
@@ -98,7 +99,7 @@ def _optimizer(name: str, parameters: dict[str, Any]) -> keras.optimizers.Optimi
 
 ###############################################################################
 def compile_model(model: keras.Model, graph: ModelGraph) -> keras.Model:
-    configuration = graph.model_configuration
+    configuration = graph.model_configuration.keras
     losses = _configured_values(graph, configuration.losses, default=None)
     metrics = _configured_values(graph, configuration.metrics, default=[])
     model.compile(

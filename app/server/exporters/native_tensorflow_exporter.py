@@ -221,7 +221,12 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(f"        self.{name}_kernel = tf.Variable(tf.zeros([{input_size + units}, {units * gate_count}], tf.float32), name={name + '_kernel'!r})")
                 lines.append(f"        self.{name}_bias = tf.Variable(tf.zeros([{units * gate_count}], tf.float32), name={name + '_bias'!r})" if bool(params.get("use_bias", True)) else f"        self.{name}_bias = None")
 
-        lines.extend(["", "    @tf.function", "    def __call__(self, inputs):"])
+        jit_compile = graph.model_configuration.native.tensorflow.jit_compile
+        lines.extend([
+            "",
+            f"    @tf.function(jit_compile={jit_compile!r})",
+            "    def __call__(self, inputs):",
+        ])
         variables: dict[str, str] = {}
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]

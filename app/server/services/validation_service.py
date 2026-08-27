@@ -13,6 +13,7 @@ from validation.graph_utils import nodes_reaching, reachable_nodes, topological_
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
 
+
 ###############################################################################
 def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     if value is None:
@@ -59,7 +60,7 @@ class ValidationService:
         diagnostics: list[ValidationDiagnostic] = []
         nodes = {node.id: node for node in graph.nodes}
         manifests: dict[str, NodeManifest] = {}
-        diagnostics.extend(validate_model_configuration(graph, keras_enabled))
+        diagnostics.extend(validate_model_configuration(graph, execution_backend, keras_enabled))
         implementation_key = "keras" if keras_enabled else execution_backend.value
         implementation_label = "Keras" if keras_enabled else f"native {execution_backend.value}"
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type DragEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -10,15 +10,27 @@ import {
   type Connection,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { Map as MapIcon, Maximize2, Minimize2, Save } from 'lucide-react'
 import { ModelNode } from './ModelNode'
 import type { EditorEdge } from '../domain/types'
 import { useGraphStore } from '../state/graphStore'
 
 const nodeTypes = { modelNode: ModelNode }
 
-function CanvasInner() {
+interface Props {
+  fullCanvas: boolean
+  modelName: string
+  dirty: boolean
+  busy: boolean
+  onEnterFocus: () => void
+  onExitFocus: () => void
+  onSave: () => void
+}
+
+function CanvasInner({ fullCanvas, modelName, dirty, busy, onEnterFocus, onExitFocus, onSave }: Props) {
   const wrapper = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition, fitView } = useReactFlow()
+  const [minimapVisible, setMinimapVisible] = useState(true)
   const nodes = useGraphStore((state) => state.nodes)
   const edges = useGraphStore((state) => state.edges)
   const manifests = useGraphStore((state) => state.manifests)
@@ -131,23 +143,21 @@ function CanvasInner() {
         deleteKeyCode={null}
         minZoom={0.2}
         maxZoom={2.5}
+        proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} />
-        <MiniMap
-          zoomable
-          pannable
-          nodeColor="#315866"
-          nodeStrokeColor="#82d3d9"
-          nodeStrokeWidth={2}
-          maskColor="rgba(5, 10, 14, .72)"
-        />
+        {minimapVisible && <MiniMap zoomable pannable nodeColor="#315866" nodeStrokeColor="#82d3d9" nodeStrokeWidth={2} maskColor="rgba(5, 10, 14, .72)" />}
         <Controls showInteractive={false} />
+        <div className={`canvas-editor-tools ${fullCanvas ? 'is-focus-mode' : ''}`} role="toolbar" aria-label="Graph editor controls">
+          <button type="button" className="canvas-tool" onClick={() => setMinimapVisible((visible) => !visible)} aria-label={minimapVisible ? 'Hide minimap' : 'Show minimap'} title={minimapVisible ? 'Hide minimap' : 'Show minimap'}><MapIcon size={14} /><span>{minimapVisible ? 'Hide map' : 'Show map'}</span></button>
+          {fullCanvas ? <div className="canvas-focus-bar"><span className="canvas-focus-model">{modelName}</span><span className={`canvas-focus-draft ${dirty ? 'is-dirty' : ''}`}>{busy ? 'Saving…' : dirty ? 'Draft' : 'Saved'}</span><button type="button" className="canvas-tool canvas-focus-save" onClick={onSave} disabled={busy} title="Save model"><Save size={14} /><span>Save</span></button><button type="button" className="canvas-tool canvas-focus-exit" onClick={onExitFocus} title="Exit full canvas"><Minimize2 size={14} /><span>Exit full canvas</span></button></div> : <button type="button" className="canvas-tool" onClick={onEnterFocus} aria-label="Enter full canvas" title="Enter full canvas"><Maximize2 size={14} /><span>Focus</span></button>}
+        </div>
         <div className="canvas-hint">Drop a node to build the model • Ctrl+L auto-layout</div>
       </ReactFlow>
     </div>
   )
 }
 
-export function GraphCanvas() {
-  return <ReactFlowProvider><CanvasInner /></ReactFlowProvider>
+export function GraphCanvas(props: Props) {
+  return <ReactFlowProvider><CanvasInner {...props} /></ReactFlowProvider>
 }

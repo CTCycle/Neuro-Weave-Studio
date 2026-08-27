@@ -70,6 +70,10 @@ class PyTorchWorker:
         }
 
     # -------------------------------------------------------------------------
+    def native_compilation_capabilities(self) -> dict[str, bool]:
+        return {"torch_compile": callable(getattr(torch, "compile", None))}
+
+    # -------------------------------------------------------------------------
     def device_inventory(self) -> list[dict[str, object]]:
         devices: list[dict[str, object]] = [
             {

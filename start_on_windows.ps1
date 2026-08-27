@@ -330,6 +330,35 @@ function Get-InstalledExecutionBackends {
     )
 }
 
+function Get-DependencyRepairBackends {
+    param([AllowNull()][object]$State)
+
+    $backendIds = @('tensorflow', 'pytorch', 'jax')
+    $candidates = [System.Collections.Generic.List[string]]::new()
+    $stateProperties = if ($null -ne $State) { @($State.PSObject.Properties.Name) } else { @() }
+    if ($stateProperties -contains 'schema_version' -and
+        [int]$State.schema_version -ge 2 -and
+        $stateProperties -contains 'setup_completed' -and
+        [bool]$State.setup_completed -and
+        $stateProperties -contains 'requested_backends') {
+        foreach ($backend in @($State.requested_backends)) {
+            $candidates.Add([string]$backend)
+        }
+    }
+    foreach ($backend in @(Get-InstalledExecutionBackends)) {
+        $candidates.Add([string]$backend)
+    }
+
+    $preserved = [System.Collections.Generic.List[string]]::new()
+    foreach ($candidate in $candidates) {
+        $normalized = $candidate.Trim().ToLowerInvariant()
+        if ($normalized -in $backendIds -and -not $preserved.Contains($normalized)) {
+            $preserved.Add($normalized)
+        }
+    }
+    return @($preserved.ToArray())
+}
+
 function Get-NvidiaCudaInfo {
     $nvidiaSmi = Get-Command nvidia-smi -ErrorAction SilentlyContinue
     if ($null -eq $nvidiaSmi) {
@@ -729,7 +758,8 @@ function Invoke-BackendManagement {
     }
     if (-not (Test-DependenciesReady)) {
         Write-Info 'Core dependencies are missing or use another Python version; installing the base environment first.'
-        Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras @() -ExplicitBackendSet -SkipFrontend
+        $repairBackends = @(Get-DependencyRepairBackends -State $state)
+        Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras $repairBackends -ExplicitBackendSet -SkipFrontend
     }
     $selection = if ([string]::IsNullOrWhiteSpace($Backends)) { @(Read-BackendSelection) } else {
         @(ConvertTo-BackendExtras -Selection $Backends)
@@ -1028,9 +1058,7 @@ function Invoke-Launch {
     Set-LauncherEnvironment
     if (-not (Test-DependenciesReady)) {
         $state = Get-BackendInstallationState
-        $backendExtras = if ($null -ne $state -and $state.schema_version -ge 2 -and $state.setup_completed) {
-            @($state.resolved_extras)
-        } else { @() }
+        $backendExtras = @(Get-DependencyRepairBackends -State $state)
         $includeExportTools = $null -ne $state -and
             @($state.PSObject.Properties.Name) -contains 'export_tools' -and
             [bool]$state.export_tools
@@ -1041,11 +1069,9 @@ function Invoke-Launch {
     Invoke-OptionalBackendSetup
     $backendLogsVisible = Get-BooleanEnvironmentValue -Name 'BACKEND_LOGS_VISIBLE' -Default $true
     if (-not (Test-Path -LiteralPath $script:FrontendDistIndex)) {
-        Write-Info 'Frontend build output is missing after dependency recovery; rebuilding before launch.'
-        Invoke-FrontendBuild
-    } else {
-        Write-Ok 'Frontend build output is ready; reused the existing build.'
+        throw "Frontend build output is missing. Run '.\start_on_windows.ps1 -Action RebuildFrontend' before launching the application."
     }
+    Write-Ok 'Frontend build output is ready; reused the existing build.'
 
     $backendHost = [Environment]::GetEnvironmentVariable('FASTAPI_HOST', 'Process')
     $backendPort = Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'
@@ -1119,10 +1145,8 @@ function Invoke-Install {
     $state = Get-BackendInstallationState
     $backendSelection = if (-not [string]::IsNullOrWhiteSpace($Backends)) {
         @(ConvertTo-BackendExtras -Selection $Backends)
-    } elseif ($null -ne $state -and $state.schema_version -ge 2 -and $state.setup_completed) {
-        @($state.requested_backends)
     } else {
-        @()
+        @(Get-DependencyRepairBackends -State $state)
     }
     $includeExportTools = [bool]$ExportTools
     if ($null -ne $state -and @($state.PSObject.Properties.Name) -contains 'export_tools') {

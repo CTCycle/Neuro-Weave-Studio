@@ -9,14 +9,19 @@ from typing import cast
 from uuid import uuid4
 
 import pytest
-
 from common.process_control import process_start_options
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from domain.jobs import JobResponse, JobSubmitRequest, SmokeInferenceOperation
 from domain.metadata import ExecutionBackendStatus
-from domain.runtime import MemoryPolicyKind, RuntimeDevice, WorkerConfiguration
+from domain.runtime import (
+    MemoryPolicyKind,
+    RuntimeApi,
+    RuntimeApiStatus,
+    RuntimeDevice,
+    WorkerConfiguration,
+)
 from services.runtime_controller import RuntimeController, RuntimeControllerError
 
 
@@ -87,6 +92,12 @@ def controller(
     )
     runtime._backend_statuses = {  # pyright: ignore[reportPrivateUsage]
         ExecutionBackend.PYTORCH: status(cpu, gpu)
+    }
+    runtime._api_statuses = {  # pyright: ignore[reportPrivateUsage]
+        (ExecutionBackend.PYTORCH, RuntimeApi.KERAS): RuntimeApiStatus(
+            id=RuntimeApi.KERAS,
+            available=True,
+        )
     }
     monkeypatch.setattr(
         runtime,

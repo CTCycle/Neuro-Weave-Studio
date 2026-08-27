@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONPATH: app
+  NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-ml
+  PYTEST_ADDOPTS: "--basetemp=${{ runner.temp }}/neuro-weave-pytest"
+
+jobs:
+  backend:
+    name: Python quality and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.7"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.30"
+          enable-cache: true
+          cache-dependency-glob: app/server/uv.lock
+      - name: Install locked test dependencies
+        run: uv sync --locked --project app/server --extra test
+      - name: Compile backend
+        run: uv run --project app/server python -m compileall app/server
+      - name: Ruff
+        run: uv run --project app/server ruff check app/server app/tests
+      - name: Pyright
+        working-directory: app/server
+        run: uv run pyright
+      - name: Backend tests
+        run: uv run --project app/server python -m pytest app/tests -q
+      - name: Upload backend diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: neuro-backend-diagnostics-${{ github.run_id }}
+          retention-days: 3
+          if-no-files-found: ignore
+          path: |
+            app/tests/cache/
+            .ci-logs/
+
+  frontend:
+    name: React quality, tests, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.0"
+          cache: npm
+          cache-dependency-path: app/client/package-lock.json
+      - name: Install locked dependencies
+        working-directory: app/client
+        run: npm ci --no-audit --no-fund
+      - name: Lint
+        working-directory: app/client
+        run: npm run lint
+      - name: Unit tests
+        working-directory: app/client
+        run: npm test
+      - name: Production build
+        working-directory: app/client
+        run: npm run build
+      - name: Upload frontend diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: neuro-frontend-diagnostics-${{ github.run_id }}
+          retention-days: 3
+          if-no-files-found: ignore
+          path: |
+            app/client/coverage/
+            app/client/dist/

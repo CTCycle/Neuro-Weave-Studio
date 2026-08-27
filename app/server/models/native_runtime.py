@@ -20,12 +20,14 @@ from exporters.pytorch_exporter import PyTorchSourceExporter
 class NativeModelHandle:
     backend: ExecutionBackend
     model: Any
+    execution_model: Any
     variables: Any
     model_input: Any
     inputs: list[Any]
     outputs: list[Any]
     ir: CanonicalModelIR
     source: str
+    apply: Callable[[Any, Any], Any] | None = None
 
     def parameter_count(self) -> int:
         if self.backend is ExecutionBackend.PYTORCH:
@@ -52,10 +54,20 @@ def build_native_model(
     source = exporter.generate(graph, ir)
     module = types.ModuleType(f"neuro_weave_native_{backend.value}")
     exec(compile(source, f"<neuro-weave-{backend.value}-source>", "exec"), module.__dict__)
-    factory = module.__dict__.get("build_model") or module.__dict__.get("GeneratedModel")
+    factory = (
+        module.__dict__.get("build_raw_model")
+        or module.__dict__.get("build_model")
+        or module.__dict__.get("GeneratedModel")
+    )
     if factory is None:
         raise RuntimeError(f"Native {backend.value} source did not define a model factory")
     model = cast(Any, factory)()
+    compile_factory = module.__dict__.get("compile_model")
+    execution_model = (
+        cast(Callable[[Any], Any], compile_factory)(model)
+        if backend is ExecutionBackend.PYTORCH and callable(compile_factory)
+        else model
+    )
     inputs = _dummy_inputs(graph, backend, ir.input_node_ids)
     model_input: Any = inputs[0] if len(inputs) == 1 else {
         node.id: value
@@ -66,38 +78,48 @@ def build_native_model(
         )
     }
     variables: Any = None
+    apply: Callable[[Any, Any], Any] | None = None
     if backend is ExecutionBackend.PYTORCH:
-        model.eval()
-        outputs = _as_list(model(model_input))
+        execution_model.eval()
+        outputs = _as_list(execution_model(model_input))
         _zero_pytorch_parameters(model)
-        outputs = _as_list(model(model_input))
+        outputs = _as_list(execution_model(model_input))
     elif backend is ExecutionBackend.TENSORFLOW:
-        outputs = _as_list(model(model_input))
+        outputs = _as_list(execution_model(model_input))
     else:
         import jax
 
         variables = model.init(jax.random.PRNGKey(0), model_input)
         variables = _zero_jax_variables(variables)
-        outputs = _as_list(model.apply(variables, model_input))
+        apply_factory = module.__dict__.get("build_apply")
+        apply = (
+            cast(Callable[[Any], Callable[[Any, Any], Any]], apply_factory)(model)
+            if callable(apply_factory)
+            else model.apply
+        )
+        outputs = _as_list(apply(variables, model_input))
     _checkpoint(checkpoint)
     return NativeModelHandle(
         backend=backend,
         model=model,
+        execution_model=execution_model,
         variables=variables,
         model_input=model_input,
         inputs=inputs,
         outputs=outputs,
         ir=ir,
         source=source,
+        apply=apply,
     )
 
 ###############################################################################
 def forward_native(handle: NativeModelHandle) -> list[Any]:
     if handle.backend is ExecutionBackend.PYTORCH:
-        return _as_list(handle.model(handle.model_input))
+        return _as_list(handle.execution_model(handle.model_input))
     if handle.backend is ExecutionBackend.TENSORFLOW:
-        return _as_list(handle.model(handle.model_input))
-    return _as_list(handle.model.apply(handle.variables, handle.model_input))
+        return _as_list(handle.execution_model(handle.model_input))
+    apply = handle.apply or handle.model.apply
+    return _as_list(apply(handle.variables, handle.model_input))
 
 ###############################################################################
 def _dummy_inputs(

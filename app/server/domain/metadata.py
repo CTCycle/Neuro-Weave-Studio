@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
+from domain.compilation_capabilities import CompilationCapabilities
 from domain.enums import ExecutionBackend
 from domain.runtime import RuntimeApiStatus, RuntimeDevice
 
@@ -13,12 +13,7 @@ class HealthResponse(BaseModel):
 
 ###############################################################################
 class MetadataConfiguration(BaseModel):
-    compilation_catalog: CompilationCatalog = Field(default_factory=get_compilation_catalog)
-    optimizers: list[str] = Field(default_factory=lambda: [item.id for item in get_compilation_catalog().optimizers])
-    losses: list[str] = Field(default_factory=lambda: [item.id for item in get_compilation_catalog().losses])
-    metrics: list[str] = Field(default_factory=lambda: [item.id for item in get_compilation_catalog().metrics])
-    initializers: list[str] = Field(default_factory=lambda: get_compilation_catalog().initializers)
-    regularizers: list[str] = Field(default_factory=lambda: get_compilation_catalog().regularizers)
+    compilation_capabilities: CompilationCapabilities
 
 ###############################################################################
 class MetadataResponse(BaseModel):
@@ -40,3 +35,4 @@ class ExecutionBackendStatus(BaseModel):
     device_name: str | None = None
     devices: list[RuntimeDevice] = Field(default_factory=list)
     runtime_apis: list[RuntimeApiStatus] = Field(default_factory=list)
+    native_compilers: dict[str, bool] = Field(default_factory=dict)

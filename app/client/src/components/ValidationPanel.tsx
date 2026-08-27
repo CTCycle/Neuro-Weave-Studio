@@ -28,7 +28,7 @@ export function ValidationPanel({ result, supplementalDiagnostics = [], expanded
     <section className={`validation-panel panel ${result || supplementalDiagnostics.length ? 'has-result' : 'idle'}`}>
       <button type="button" className="validation-summary" aria-expanded={isExpanded} onClick={toggleExpanded}>
         <span><span className="eyebrow">GRAPH HEALTH</span><strong>Validation</strong>{(result || supplementalDiagnostics.length > 0) && <small>{diagnostics.length ? `${diagnostics.length} finding${diagnostics.length === 1 ? '' : 's'}` : 'No findings'}</small>}</span>
-        <span className="validation-summary-status">{result || supplementalDiagnostics.length ? <span className={`status-pill ${valid ? 'valid' : 'invalid'}`}>{valid ? <CheckCircle2 size={15} /> : <XCircle size={15} />}{valid ? 'Ready' : 'Blocked'}</span> : <small>Not run</small>}<ChevronDown className={isExpanded ? 'expanded' : ''} size={16} /></span>
+        <span className="validation-summary-status">{result || supplementalDiagnostics.length ? <span className={`status-indicator ${valid ? 'valid' : 'invalid'}`}>{valid ? <CheckCircle2 size={15} /> : <XCircle size={15} />}{valid ? 'Ready' : 'Blocked'}</span> : <small>Not run</small>}<ChevronDown className={isExpanded ? 'expanded' : ''} size={16} /></span>
       </button>
       {!result && !supplementalDiagnostics.length && <p className="muted">Run validation to inspect graph, parameters, shapes, source generation, runtime, and backend compatibility.</p>}
       {(result || supplementalDiagnostics.length > 0) && isExpanded && <div className="validation-body">

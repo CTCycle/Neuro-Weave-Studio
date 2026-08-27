@@ -1,8 +1,8 @@
 # Model Catalog, Builder, and Workspaces
 
-Last updated: 2026-08-21
+Last updated: 2026-08-27
 
-The model catalog is the application home at `/models`. It is a library of persisted models backed by the `Project` aggregate and `/api/projects` endpoints. Catalog cards are summary-only: they show name, description, updated time, revision, execution backend, Keras/native mode, node/edge counts, validation state, and whether source exists for the current revision. Search and compiled/validation filters operate on that in-memory summary list. JSON project import and `.keras` architecture import are explicit catalog actions.
+The model catalog is the application home at `/models`. It is a library of persisted models backed by the `Project` aggregate and `/api/projects` endpoints. Catalog cards are summary-only: they show name, description, updated time, revision, restrained backend/API metadata rows, node/edge counts, flat validation/compilation indicators, and whether source exists for the current revision. Search and compiled/validation segmented filters operate on that in-memory summary list. JSON project import and `.keras` architecture import are explicit catalog actions.
 
 ## Responsibilities
 

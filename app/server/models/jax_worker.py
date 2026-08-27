@@ -58,6 +58,10 @@ class JaxWorker:
         }
 
     # -------------------------------------------------------------------------
+    def native_compilation_capabilities(self) -> dict[str, bool]:
+        return {"jax_jit": callable(getattr(jax, "jit", None))}
+
+    # -------------------------------------------------------------------------
     def device_inventory(self) -> list[dict[str, object]]:
         devices = list(jax.devices())
         inventory: list[dict[str, object]] = []

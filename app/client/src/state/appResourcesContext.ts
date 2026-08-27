@@ -1,12 +1,12 @@
 import { createContext } from 'react'
-import type { CompilationCatalog, ExecutionBackend, ExecutionBackendStatus, NodeManifest, ProjectSummary, RuntimeApiStatus, WorkerConfiguration } from '../domain/types'
+import type { CompilationCapabilities, ExecutionBackend, ExecutionBackendStatus, NodeManifest, ProjectSummary, RuntimeApiStatus, WorkerConfiguration } from '../domain/types'
 
 export interface AppResources {
   manifests: NodeManifest[]
   projects: ProjectSummary[]
   backendStatuses: ExecutionBackendStatus[]
   runtimeApis: RuntimeApiStatus[]
-  compilationCatalog?: CompilationCatalog | null
+  compilationCapabilities?: CompilationCapabilities | null
   runtimePreferences: Partial<Record<ExecutionBackend, WorkerConfiguration>>
   runtimePreferenceBackend: ExecutionBackend | null
   loading: boolean

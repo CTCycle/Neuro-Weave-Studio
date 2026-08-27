@@ -28,7 +28,7 @@ describe('graph metadata persistence', () => {
   it('preserves export and future-training metadata through edit saves', () => {
     const project = {
       graph: {
-        schema_version: 2,
+        schema_version: 3,
         nodes: [],
         edges: [],
         model_configuration: emptyModelConfiguration(),
@@ -42,7 +42,10 @@ describe('graph metadata persistence', () => {
     } as unknown as ProjectDocument
 
     useGraphStore.getState().replaceGraph(project)
-    useGraphStore.getState().updateConfiguration({ optimizer: 'sgd' })
+    useGraphStore.getState().updateConfiguration({
+      ...emptyModelConfiguration(),
+      keras: { ...emptyModelConfiguration().keras, optimizer: 'sgd' },
+    })
 
     expect(useGraphStore.getState().toGraph()).toMatchObject({
       export_settings: project.graph.export_settings,
@@ -57,7 +60,7 @@ describe('graph metadata persistence', () => {
     expect(useGraphStore.getState().toGraph()).toMatchObject({
       export_settings: project.graph.export_settings,
       future_training_configuration: project.graph.future_training_configuration,
-      model_configuration: { optimizer: 'sgd' },
+      model_configuration: { keras: { optimizer: 'sgd' } },
     })
   })
 })
