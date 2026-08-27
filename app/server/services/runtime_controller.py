@@ -461,6 +461,10 @@ class RuntimeController:
         log_handle = log_path.open("wb")
         environment = os.environ.copy()
         environment.pop("KERAS_BACKEND", None)
+        # Torch ONNX diagnostics can contain Unicode symbols on Windows. Keep
+        # worker logs UTF-8 so a diagnostic cannot turn a valid export into a
+        # locale-dependent encoding failure.
+        environment["PYTHONIOENCODING"] = "utf-8"
         try:
             process = subprocess.Popen(
                 [sys.executable, "-m", "models.ml_worker", "--job-dir", str(job_dir)],
@@ -521,10 +525,21 @@ class RuntimeController:
             record.finished_at = utc_now()
             record.updated_at = utc_now()
             if record.exit_code == 0 and status.get("state") == "succeeded" and not record.forced_termination:
-                if record.operation is JobOperation.MODEL_EXPORT and not self._publish_artifact(record):
-                    record.state = JobState.FAILED
+                if record.operation is JobOperation.MODEL_EXPORT:
+                    record.progress_phase = "publishing"
+                    record.progress_message = "Publishing verified artifact"
+                    if self._publish_artifact(record):
+                        record.state = JobState.SUCCEEDED
+                        record.progress_phase = "completed"
+                        record.progress_message = "Export completed and published"
+                        record.progress_percent = 100
+                    else:
+                        record.state = JobState.FAILED
                 else:
                     record.state = JobState.SUCCEEDED
+                    record.progress_phase = "completed"
+                    record.progress_message = "Worker completed successfully"
+                    record.progress_percent = 100
             elif record.cancellation_requested or record.exit_code == 20 or status.get("state") == "terminated":
                 record.state = JobState.TERMINATED
                 if record.error is None:

@@ -116,6 +116,7 @@ def run_job(
         if not artifact_filename:
             stem = str(operation.get("filename_stem") or "model")
             artifact_filename = f"{stem}{export_suffix(export_format, options)}"
+        context.checkpoint("serializing", f"Serializing {export_format.value} artifact", 60)
         result = worker.run_export(
             graph,
             context.job_dir / artifact_filename,

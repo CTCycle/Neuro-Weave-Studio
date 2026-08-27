@@ -1,13 +1,23 @@
 # Export Pipeline
 
-Last updated: 2026-08-21
+Last updated: 2026-08-27
 
-NeuroWeave JSON export is the lossless project representation and is available for a valid current schema. Generated source requires graph, parameter, shape, and execution-profile compatibility validation. The profile chooses either the portable Keras implementation or a native backend implementation; Keras is the model API layer, not a fourth execution backend.
+`ExportService` is the single capability and publication boundary. `GET /api/exports/{project_id}/capabilities` validates the current graph and returns only profile-compatible methods, runtime/dependency reasons, option definitions, payload/conversion badges, and limitations. The reusable Model Export center consumes that matrix from both workspace and compilation views. Project JSON and generated source remain the canonical synchronous representations.
 
-The core dependency is `keras`; `tensorflow`, `torch`, and the bounded `jax`/`flax` extra are selected by the launcher. `RuntimeController` probes each execution backend in a short-lived worker and starts a new worker for every Keras export. `POST /api/execution/jobs` carries a discriminated `keras_export` operation plus the persisted model backend and immutable device/memory selection, so concurrent jobs do not share mutable server-wide backend state. Unknown policies, unavailable API/backend/device, occupied leases, missing projects, and incompatible graphs return structured submission errors; accepted failures remain on the job record.
+`POST /api/execution/jobs` accepts the clean-break `model_export` operation with a persisted project revision, server-validated filename stem, format, options, and immutable worker selection. `RuntimeController` probes Keras and native APIs independently, starts an isolated worker, reports preflight/building/serializing/validating/publishing phases, and keeps the prior published artifact when any check, cancellation, revision guard, or packaging step fails. Publication is staged and atomic; the returned `ExportArtifactManifest` contains deterministic file paths, hashes, signatures, dependency versions, and verification results.
 
-Native PyTorch source export records inferred `TensorSpec` summaries in the canonical IR. The generated model derives dense/recurrent feature widths from connected shapes, uses explicit NHWC/NCHW conversion around Conv2D and pooling, and supports rank-aware normalization, embedding, dropout, and common merge nodes. Recurrent `input_size` is derived from the connected tensor and is not a user-authored v2 parameter. Native TensorFlow and JAX/Flax source paths remain unavailable where the manifests report incomplete parity.
+The model profile determines the implementation: Keras-enabled projects use the Keras API against the selected TensorFlow, PyTorch, or JAX backend; native projects use raw TensorFlow, PyTorch, or JAX/Flax code. Keras is an API layer, not a fourth backend, and a native worker never falls back to Keras. TensorFlow and JAX native manifests are restricted to the verified common 27-node subset: inputs/outputs, dense, activation, dropout, flatten, embedding, batch/layer normalization, Conv2D, MaxPool2D, LSTM, GRU, add/residual/skip, and concatenate. Attention and transformer nodes remain Keras-only.
 
-Binary `.keras` export is available only when `keras_enabled=true`. It creates an initialized, untrained Keras model through the documented supported subset. The worker compiles the model from the metadata-driven configuration catalog, saves to a unique temporary artifact, reloads it with `keras.saving.load_model(..., compile=True)`, runs inference, and the controller atomically replaces the destination only after those checks and a final project-revision check succeed. `.h5`, weights, trained artifacts, ONNX, cross-framework conversion, and native-framework inference are not claimed by the MVP.
+Supported artifact families are:
 
-`.keras` architecture import is intentionally separate from binary export. `POST /api/imports/keras-architecture` reads only standard Keras configuration JSON from the ZIP, maps an allowlisted layer subset to canonical NeuroWeave nodes and edges, creates a project with an explicit execution profile, and returns warnings that weights and custom code were not imported. It does not execute or deserialize arbitrary Python.
+| Category | Formats | Contract |
+| --- | --- | --- |
+| Project/source | `.neuro-weave.json`, `.py` | Canonical graph/profile or generated source; no weights in the project bundle |
+| Keras | `.keras`, `.weights.h5` | Keras-enabled profiles; initialized inference model or weights-only |
+| Native | `.savedmodel.zip`, `.pt2`, `.pt` | TensorFlow SavedModel; PyTorch ExportedProgram; legacy trace-based TorchScript |
+| Interchange | `.onnx`, `.onnx.zip` | Named inputs/outputs, default opset 18, dynamic batch, optional deterministic external-data package |
+| Weights/checkpoint | `.safetensors.zip`, `.tf-checkpoint.zip`, `.flax-checkpoint.zip` | Explicit weights-only package with graph/profile manifest; not universally loadable |
+
+All binary artifacts are initialized and untrained. No method claims optimizer or training-state preservation. ONNX uses a verified native PyTorch path, TensorFlow `tf2onnx` bridge, or Keras path; native JAX ONNX remains disabled until its `jax2tf`/`tf2onnx` bridge passes parity verification. Missing optional tooling disables only its affected capability with an actionable reason.
+
+`.keras` architecture import remains separate from export. `POST /api/imports/keras-architecture` reads allowlisted configuration metadata, maps it to canonical nodes and edges, and never deserializes arbitrary Python, custom code, or weights.

@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Last updated: 2026-08-26
+Last updated: 2026-08-27
 
 NeuroWeave's automated suite is intentionally risk-oriented. Tests exist for behavior whose failure can corrupt saved models, produce invalid generated models, violate execution safety, or break an important user workflow. Tooling layout, source-tree shape, presentation details, and framework behavior are not unit-tested merely to increase coverage.
 
@@ -13,7 +13,9 @@ Retained regression coverage focuses on:
 - SQLite migration locking and rollback, unsupported database rejection, foreign-key aggregate integrity, and cascades;
 - safe Keras architecture import through the explicit layer allowlist;
 - generated Keras and native PyTorch source for representative non-trivial graphs;
-- binary Keras export reload for serialized custom layers;
+- native TensorFlow/PyTorch/JAX parity for deterministic common-subset graphs, including representative multi-input/multi-output cases;
+- capability discovery, clean-break `model_export` submission, format option validation, bridge availability, artifact manifests, reload/inference verification, stale revisions, cancellation, conversion failure, and atomic publication;
+- binary Keras, native, ONNX, SafeTensors, and checkpoint export reload/restore coverage where the optional dependency is operational;
 - runtime preflight validation, device lease exclusivity, idempotent cancellation, and worker/workspace cleanup.
 
 Real framework availability is conditional. Runtime tests skip when the required execution backend is not installed and operational. Controller lifecycle tests use deterministic fake worker processes so lease, cancellation, and cleanup behavior remains testable without optional ML frameworks.
@@ -24,7 +26,8 @@ Frontend tests are deliberately limited to state and interaction contracts that 
 
 - graph cycle prevention plus preservation of graph metadata and undo/redo history;
 - isolated multi-tab editor sessions;
-- the Node Catalog drag payload consumed by the model canvas.
+- the Node Catalog drag payload consumed by the model canvas;
+- Model Export center capability grouping, explicit disabled reasons, format-specific options, job polling, cancellation, retry, and verified download.
 
 Presentation details, button inventories, clipboard status, basic filtering, and collapsible UI behavior are covered by static checks and product QA rather than dedicated unit tests.
 

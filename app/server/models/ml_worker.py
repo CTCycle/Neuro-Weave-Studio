@@ -66,7 +66,7 @@ def _run_job_process(job_dir: Path) -> None:
         )
         result = run_job(context, payload, worker)
         context.write_status(
-            phase="finished",
+            phase="completed",
             message="Worker completed successfully",
             state="succeeded",
             percent=100,
