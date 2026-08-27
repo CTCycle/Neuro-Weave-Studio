@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from configurations.settings import Settings
 from domain.compilation_capabilities import get_compilation_capabilities
-from domain.compilation_catalog import get_compilation_catalog
+from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
 from domain.enums import ExecutionBackend
 from domain.graph import GRAPH_SCHEMA_VERSION
 from domain.metadata import (
@@ -22,9 +22,11 @@ class RuntimeService:
         self,
         settings: Settings,
         backend_statuses: dict[ExecutionBackend, ExecutionBackendStatus],
+        compilation_catalog_provider: CompilationCatalogProvider | None = None,
     ) -> None:
         self._settings = settings
         self._backend_statuses = backend_statuses
+        self._compilation_catalog_provider = compilation_catalog_provider or get_compilation_catalog_provider()
 
     # -------------------------------------------------------------------------
     def health(self) -> HealthResponse:
@@ -32,7 +34,7 @@ class RuntimeService:
 
     # -------------------------------------------------------------------------
     def metadata(self) -> MetadataResponse:
-        catalog = get_compilation_catalog()
+        catalog = self._compilation_catalog_provider.get()
         backend_statuses = dict(self._backend_statuses)
         runtime_apis = [
             RuntimeApiStatus(

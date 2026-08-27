@@ -2,35 +2,10 @@ from __future__ import annotations
 
 import math
 
-from domain.compilation_catalog import get_compilation_catalog
+from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
-
-_CATALOG = get_compilation_catalog()
-SUPPORTED_OPTIMIZERS = frozenset(item.id for item in _CATALOG.optimizers)
-SUPPORTED_LOSSES = frozenset(item.id for item in _CATALOG.losses)
-SUPPORTED_METRICS = frozenset(item.id for item in _CATALOG.metrics)
-OPTIMIZER_PARAMETERS = {
-    item.id: {parameter.id: parameter for parameter in item.parameters}
-    for item in _CATALOG.optimizers
-}
-SUPPORTED_INITIALIZERS = frozenset(
-    {
-        "uniform",
-        "glorot_uniform",
-        "glorot_normal",
-        "he_uniform",
-        "he_normal",
-        "zeros",
-        "ones",
-        "random_normal",
-        "random_uniform",
-        "orthogonal",
-    }
-)
-SUPPORTED_REGULARIZERS = frozenset({"none", "l1", "l2", "l1_l2"})
-SUPPORTED_CONSTRAINTS = frozenset({"none", "max_norm", "min_max_norm", "non_neg", "unit_norm"})
 
 ###############################################################################
 def _error(code: str, message: str) -> ValidationDiagnostic:
@@ -54,8 +29,21 @@ def validate_model_configuration(
     graph: ModelGraph,
     execution_backend: ExecutionBackend,
     keras_enabled: bool,
+    catalog: CompilationCatalog | None = None,
 ) -> list[ValidationDiagnostic]:
     """Validate the selected backend's canonical compilation configuration."""
+
+    catalog = catalog or get_compilation_catalog()
+    supported_optimizers = frozenset(item.id for item in catalog.optimizers)
+    supported_losses = frozenset(item.id for item in catalog.losses)
+    supported_metrics = frozenset(item.id for item in catalog.metrics)
+    optimizer_parameters = {
+        item.id: {parameter.id: parameter for parameter in item.parameters}
+        for item in catalog.optimizers
+    }
+    supported_initializers = frozenset(catalog.initializers)
+    supported_regularizers = frozenset(catalog.regularizers)
+    supported_constraints = frozenset(catalog.constraints)
 
     if not keras_enabled:
         configuration = graph.model_configuration.native
@@ -73,7 +61,7 @@ def validate_model_configuration(
 
     configuration = graph.model_configuration.keras
     diagnostics: list[ValidationDiagnostic] = []
-    if configuration.optimizer not in SUPPORTED_OPTIMIZERS:
+    if configuration.optimizer not in supported_optimizers:
         diagnostics.append(
             _error(
                 "invalid_compile_optimizer",
@@ -81,7 +69,7 @@ def validate_model_configuration(
             )
         )
 
-    allowed_parameters = OPTIMIZER_PARAMETERS.get(configuration.optimizer, {})
+    allowed_parameters = optimizer_parameters.get(configuration.optimizer, {})
     unknown_optimizer_parameters = set(configuration.optimizer_parameters) - set(allowed_parameters)
     if unknown_optimizer_parameters:
         diagnostics.append(
@@ -117,7 +105,7 @@ def validate_model_configuration(
                     f"Loss configuration references unknown output '{output_selector}'",
                 )
             )
-        if loss not in SUPPORTED_LOSSES:
+        if loss not in supported_losses:
             diagnostics.append(
                 _error(
                     "invalid_compile_loss",
@@ -133,7 +121,7 @@ def validate_model_configuration(
                 )
             )
         for metric in metrics:
-            if metric not in SUPPORTED_METRICS:
+            if metric not in supported_metrics:
                 diagnostics.append(
                     _error(
                         "invalid_compile_metric",
@@ -141,21 +129,21 @@ def validate_model_configuration(
                     )
                 )
 
-    if configuration.default_initializer not in SUPPORTED_INITIALIZERS:
+    if configuration.default_initializer not in supported_initializers:
         diagnostics.append(
             _error(
                 "invalid_default_initializer",
                 f"Initializer '{configuration.default_initializer}' is not supported",
             )
         )
-    if configuration.default_regularizer not in SUPPORTED_REGULARIZERS:
+    if configuration.default_regularizer not in supported_regularizers:
         diagnostics.append(
             _error(
                 "invalid_default_regularizer",
                 f"Regularizer '{configuration.default_regularizer}' is not supported",
             )
         )
-    if configuration.default_constraint not in SUPPORTED_CONSTRAINTS:
+    if configuration.default_constraint not in supported_constraints:
         diagnostics.append(
             _error(
                 "invalid_default_constraint",

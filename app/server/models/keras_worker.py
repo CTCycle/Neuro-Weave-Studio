@@ -9,6 +9,7 @@ import keras
 from keras import layers
 
 from common.catalogs.loader import NodeCatalog, get_node_catalog
+from common.catalogs.operation_emitter import apply_runtime_operation
 from domain.graph import ModelGraph
 from models.keras_layers import SinusoidalPositionalEncoding
 from models.keras_runtime import layer_option, prepare_runtime
@@ -19,6 +20,26 @@ from validation.graph_utils import ordered_incoming_edges, topological_order
 def _checkpoint(callback: Callable[[], None] | None) -> None:
     if callback is not None:
         callback()
+
+###############################################################################
+def _keras_operation_functions(catalog: NodeCatalog) -> dict[str, Callable[..., Any]]:
+    symbols = {"keras.ops.shape"}
+    for manifest in catalog.manifests:
+        mapping = manifest.implementations.get("keras")
+        if manifest.operation is None or mapping is None:
+            continue
+        if mapping.symbol is not None:
+            symbols.add(mapping.symbol)
+        symbols.update(mapping.variant_symbols.values())
+    functions: dict[str, Callable[..., Any]] = {}
+    for symbol in symbols:
+        prefix, _, name = symbol.rpartition(".")
+        if prefix != "keras.ops" or not name.isidentifier():
+            continue
+        function = getattr(keras.ops, name, None)
+        if callable(function):
+            functions[symbol] = function
+    return functions
 
 ###############################################################################
 def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, Any]) -> Any:
@@ -104,7 +125,15 @@ def build_model(
         source = inputs[0] if inputs else None
         params = node.parameters
         definition = node.definition_id
-        if definition.startswith("input."):
+        if manifest.operation is not None:
+            tensors[node_id] = apply_runtime_operation(
+                manifest,
+                "keras",
+                inputs,
+                params,
+                _keras_operation_functions(catalog),
+            )
+        elif definition.startswith("input."):
             shape = list(params.get("shape", [None, 1]))
             feature_shape = shape[1:] if shape and shape[0] is None else shape
             tensors[node_id] = keras.Input(
@@ -181,6 +210,26 @@ def build_model(
                 embeddings_constraint=layer_option(params, "embeddings_constraint", graph, "none"),
                 mask_zero=params.get("mask_zero", False),
                 lora_rank=params.get("lora_rank"),
+                name=node.id,
+            )(source)
+        elif definition == "conv.conv1d":
+            tensors[node_id] = layers.Conv1D(
+                params.get("filters", 32),
+                params.get("kernel_size", [3]),
+                strides=params.get("strides", [1]),
+                padding=params.get("padding", "same"),
+                data_format=params.get("data_format", "channels_last"),
+                dilation_rate=params.get("dilation_rate", [1]),
+                groups=params.get("groups", 1),
+                activation=params.get("activation", "linear"),
+                use_bias=params.get("use_bias", True),
+                kernel_initializer=layer_option(params, "kernel_initializer", graph, "glorot_uniform"),
+                bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
+                kernel_regularizer=layer_option(params, "kernel_regularizer", graph, "none"),
+                bias_regularizer=layer_option(params, "bias_regularizer", graph, "none"),
+                activity_regularizer=layer_option(params, "activity_regularizer", graph, "none"),
+                kernel_constraint=layer_option(params, "kernel_constraint", graph, "none"),
+                bias_constraint=layer_option(params, "bias_constraint", graph, "none"),
                 name=node.id,
             )(source)
         elif definition == "conv.conv2d":

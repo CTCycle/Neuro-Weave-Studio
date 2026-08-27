@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from common.catalogs.loader import NodeCatalog, get_node_catalog
+from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
@@ -78,7 +80,13 @@ class KerasSourceExporter(SourceExporter):
         return ", ".join(f"{key}={value!r}" for key, value in parameters.items())
 
     # -------------------------------------------------------------------------
-    def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
+    def generate(
+        self,
+        graph: ModelGraph,
+        ir: CanonicalModelIR,
+        catalog: NodeCatalog | None = None,
+    ) -> str:
+        catalog = catalog or get_node_catalog()
         nodes = {node.id: node for node in graph.nodes}
         backend = (
             "torch"
@@ -134,7 +142,12 @@ class KerasSourceExporter(SourceExporter):
             inputs = [variables[source_id] for source_id in item.input_node_ids]
             source = inputs[0] if inputs else ""
             definition = item.definition_id
-            if definition.startswith("input."):
+            manifest = catalog.get(definition, node.definition_version)
+            if manifest.operation is not None:
+                lines.append(
+                    f"    {variable} = {emit_operation_source(manifest, 'keras', inputs, parameters)}"
+                )
+            elif definition.startswith("input."):
                 shape = list(parameters.get("shape", [None, 1]))
                 feature_shape = shape[1:] if shape and shape[0] is None else shape
                 lines.append(
@@ -167,6 +180,10 @@ class KerasSourceExporter(SourceExporter):
             elif definition == "layer.embedding":
                 lines.append(
                     f"    {variable} = layers.Embedding({parameters.get('vocabulary_size', 10000)!r}, {parameters.get('embedding_dim', 128)!r}, embeddings_initializer={self._layer_option(parameters, 'embeddings_initializer', graph, 'uniform')!r}, embeddings_regularizer={self._layer_option(parameters, 'embeddings_regularizer', graph, 'none')!r}, activity_regularizer={self._layer_option(parameters, 'activity_regularizer', graph, 'none')!r}, embeddings_constraint={self._layer_option(parameters, 'embeddings_constraint', graph, 'none')!r}, mask_zero={parameters.get('mask_zero', False)!r}, lora_rank={parameters.get('lora_rank')!r}, name={node.id!r})({source})"
+                )
+            elif definition == "conv.conv1d":
+                lines.append(
+                    f"    {variable} = layers.Conv1D({parameters.get('filters', 32)!r}, {parameters.get('kernel_size', [3])!r}, strides={parameters.get('strides', [1])!r}, padding={parameters.get('padding', 'same')!r}, data_format={parameters.get('data_format', 'channels_last')!r}, dilation_rate={parameters.get('dilation_rate', [1])!r}, groups={parameters.get('groups', 1)!r}, activation={parameters.get('activation', 'linear')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, kernel_regularizer={self._layer_option(parameters, 'kernel_regularizer', graph, 'none')!r}, bias_regularizer={self._layer_option(parameters, 'bias_regularizer', graph, 'none')!r}, activity_regularizer={self._layer_option(parameters, 'activity_regularizer', graph, 'none')!r}, kernel_constraint={self._layer_option(parameters, 'kernel_constraint', graph, 'none')!r}, bias_constraint={self._layer_option(parameters, 'bias_constraint', graph, 'none')!r}, name={node.id!r})({source})"
                 )
             elif definition == "conv.conv2d":
                 lines.append(

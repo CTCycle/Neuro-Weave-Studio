@@ -50,7 +50,7 @@ class CompilationService:
             self._catalog,
             shape_summaries=validation.shape_summaries,
         )
-        code = self._exporters[(keras_enabled, execution_backend)].generate(graph, ir)
+        code = self._exporters[(keras_enabled, execution_backend)].generate(graph, ir, self._catalog)
         return CompilationResult(
             valid=True,
             execution_backend=execution_backend,

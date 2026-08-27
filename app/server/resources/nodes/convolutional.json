@@ -47,7 +47,10 @@
           ],
           "required": false,
           "options": [],
-          "constraints": {}
+          "constraints": {
+            "length": 1,
+            "item_min": 1
+          }
         },
         {
           "id": "padding",
@@ -104,25 +107,31 @@
       },
       "implementations": {
         "keras": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "supported": true,
+          "symbol": "layers.Conv1D",
           "execution_backends": {
-            "tensorflow": false,
-            "pytorch": false,
-            "jax": false
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
           }
         },
         "tensorflow": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "symbol": "tf.nn.conv1d",
+          "adapter": "conv1d",
+          "notes": "Native TensorFlow adapter uses explicit layout conversion and grouped convolution composition."
         },
         "pytorch": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "symbol": "torch.nn.Conv1d",
+          "adapter": "conv1d",
+          "notes": "Native PyTorch adapter uses explicit layout conversion and SAME padding."
         },
         "jax": {
-          "supported": false,
-          "notes": "Native JAX implementation is not available for this node."
+          "supported": true,
+          "symbol": "nn.Conv",
+          "adapter": "conv1d",
+          "notes": "Native Flax adapter uses a feature-grouped one-dimensional convolution."
         }
       },
       "ui": {

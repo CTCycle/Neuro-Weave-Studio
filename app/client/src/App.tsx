@@ -6,6 +6,7 @@ import { ModelCompilationPage } from './pages/ModelCompilationPage'
 import { ModelInferencePage } from './pages/ModelInferencePage'
 import { ModelOverviewPage, ModelWorkspacePage } from './pages/ModelWorkspacePage'
 import { EnvironmentPage } from './pages/EnvironmentPage'
+import { MetricsPage } from './pages/MetricsPage'
 import { AppResourcesProvider } from './state/appContext'
 
 const router = createBrowserRouter([
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
       { path: 'builder', element: <ModelBuilderPage /> },
       { path: 'builder/:modelId', element: <ModelBuilderPage /> },
       { path: 'environment', element: <EnvironmentPage /> },
+      { path: 'metrics', element: <MetricsPage /> },
       { path: '*', element: <Navigate to="/models" replace /> },
     ],
   },

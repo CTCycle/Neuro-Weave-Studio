@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from common.catalogs.loader import NodeCatalog, get_node_catalog
+from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
 from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
@@ -60,7 +62,13 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         return axes
 
     # -------------------------------------------------------------------------
-    def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
+    def generate(
+        self,
+        graph: ModelGraph,
+        ir: CanonicalModelIR,
+        catalog: NodeCatalog | None = None,
+    ) -> str:
+        catalog = catalog or get_node_catalog()
         nodes = {node.id: node for node in graph.nodes}
         summaries = self._summary_map(ir)
         lines = [
@@ -100,6 +108,28 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             "    current = tf.nn.conv2d(current, kernel, strides=[1, strides[0], strides[1], 1], dilations=[1, dilation[0], dilation[1], 1], padding='VALID' if padding == 'same' else padding.upper())",
             "    if bias is not None: current = tf.nn.bias_add(current, bias)",
             "    return tf.transpose(current, [0, 3, 1, 2]) if channels_first else current",
+            "",
+            "",
+            "def _same_pad_1d(value, kernel_size, stride, dilation, fill_value=0.0):",
+            "    length = tf.shape(value)[1]",
+            "    output_length = (length + stride - 1) // stride",
+            "    effective_kernel = dilation * (kernel_size - 1) + 1",
+            "    total = tf.maximum((output_length - 1) * stride + effective_kernel - length, 0)",
+            "    left = total // 2",
+            "    paddings = [[0, 0], [left, total - left], [0, 0]]",
+            "    return tf.pad(value, paddings, constant_values=tf.cast(fill_value, value.dtype))",
+            "",
+            "",
+            "def _conv1d(value, kernel, bias, stride, dilation, padding, data_format, groups):",
+            "    channels_first = data_format == 'channels_first'",
+            "    current = tf.transpose(value, [0, 2, 1]) if channels_first else value",
+            "    if padding == 'same': current = _same_pad_1d(current, kernel.shape[0], stride, dilation)",
+            "    if groups == 1:",
+            "        current = tf.nn.conv1d(current, kernel, stride=stride, dilations=dilation, padding='VALID' if padding == 'same' else padding.upper(), data_format='NWC')",
+            "    else:",
+            "        current = tf.concat([tf.nn.conv1d(part, kernel_part, stride=stride, dilations=dilation, padding='VALID' if padding == 'same' else padding.upper(), data_format='NWC') for part, kernel_part in zip(tf.split(current, groups, axis=2), tf.split(kernel, groups, axis=2))], axis=2)",
+            "    if bias is not None: current = tf.nn.bias_add(current, bias, data_format='NWC')",
+            "    return tf.transpose(current, [0, 2, 1]) if channels_first else current",
             "",
             "",
             "def _max_pool2d(value, pool_size, strides, padding, data_format):",
@@ -193,6 +223,24 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(f"        self.{name}_broadcast = {broadcast!r}")
                 lines.append(f"        self.{name}_gamma = tf.Variable(tf.ones({normalized_shape!r}, tf.float32), name={name + '_gamma'!r})" if bool(params.get("scale", True)) else f"        self.{name}_gamma = None")
                 lines.append(f"        self.{name}_beta = tf.Variable(tf.zeros({normalized_shape!r}, tf.float32), name={name + '_beta'!r})" if bool(params.get("center", True)) else f"        self.{name}_beta = None")
+            elif definition == "conv.conv1d":
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"TensorFlow Conv1D node {node.id} requires a rank-3 input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = 2 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                if input_channels is None:
+                    raise ValueError(f"TensorFlow Conv1D node {node.id} requires known input channels")
+                kernel_size = params.get("kernel_size", [3])
+                if not isinstance(kernel_size, list) or len(kernel_size) != 1:
+                    raise ValueError("TensorFlow Conv1D expects one kernel_size value")
+                filters = int(params.get("filters", 32))
+                groups = int(params.get("groups", 1))
+                if input_channels % groups != 0 or filters % groups != 0:
+                    raise ValueError("TensorFlow Conv1D channels and filters must be divisible by groups")
+                kernel = int(kernel_size[0])
+                lines.append(f"        self.{name}_kernel = tf.Variable(tf.zeros([{kernel}, {input_channels // groups}, {filters}], tf.float32), name={name + '_kernel'!r})")
+                lines.append(f"        self.{name}_bias = tf.Variable(tf.zeros([{filters}], tf.float32), name={name + '_bias'!r})" if bool(params.get("use_bias", True)) else f"        self.{name}_bias = None")
             elif definition == "conv.conv2d":
                 if source_spec is None or source_spec.rank != 4:
                     raise ValueError(f"TensorFlow Conv2D node {node.id} requires a rank-4 input")
@@ -235,7 +283,12 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             params = node.parameters
             source_vars = [variables[source_id] for source_id in item.input_node_ids]
             source = source_vars[0] if source_vars else ""
-            if definition.startswith("input."):
+            manifest = catalog.get(definition, node.definition_version)
+            if manifest.operation is not None:
+                lines.append(
+                    f"        {name} = {emit_operation_source(manifest, 'tensorflow', source_vars, params)}"
+                )
+            elif definition.startswith("input."):
                 expression = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{node.id!r}]"
                 lines.append(f"        {name} = {expression}")
             elif definition == "layer.dense":
@@ -265,6 +318,17 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             elif definition == "layer.layer_norm":
                 lines.append(f"        {name}_mean, {name}_variance = tf.nn.moments({source}, axes=self.{name}_axes, keepdims=True)")
                 lines.append(f"        {name} = tf.nn.batch_normalization({source}, {name}_mean, {name}_variance, self.{name}_beta, self.{name}_gamma, self.{name}_epsilon)")
+            elif definition == "conv.conv1d":
+                kernel_size = int(params.get("kernel_size", [3])[0])
+                strides = int(params.get("strides", [1])[0])
+                dilation = int(params.get("dilation_rate", [1])[0])
+                padding = str(params.get("padding", "same"))
+                data_format = str(params.get("data_format", "channels_last"))
+                groups = int(params.get("groups", 1))
+                lines.append(f"        {name} = _conv1d({source}, self.{name}_kernel, self.{name}_bias, {strides!r}, {dilation!r}, {padding!r}, {data_format!r}, {groups!r})")
+                activation = str(params.get("activation", "linear"))
+                if activation != "linear":
+                    lines.append(f"        {name} = _activation({name}, {activation!r})")
             elif definition == "conv.conv2d":
                 kernel_size = self._spatial_tuple(params, "kernel_size", [3, 3])
                 strides = self._spatial_tuple(params, "strides", [1, 1])
