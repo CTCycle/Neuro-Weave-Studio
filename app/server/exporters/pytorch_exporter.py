@@ -7,6 +7,7 @@ from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 
+
 ###############################################################################
 class PyTorchSourceExporter(SourceExporter):
 
@@ -355,4 +356,29 @@ class PyTorchSourceExporter(SourceExporter):
         outputs = [variables[node_id] for node_id in ir.output_node_ids]
         result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
         lines.append(f"        return {result}")
+        native = graph.model_configuration.native.pytorch
+        lines.extend(
+            [
+                "",
+                "",
+                "def build_raw_model() -> GeneratedModel:",
+                "    return GeneratedModel()",
+                "",
+                "",
+                "def compile_model(model: GeneratedModel) -> GeneratedModel:",
+                f"    if not {native.compile_enabled!r}:",
+                "        return model",
+                "    return torch.compile(",
+                "        model,",
+                f"        mode={native.mode!r},",
+                f"        fullgraph={native.fullgraph!r},",
+                f"        dynamic={native.dynamic!r},",
+                "    )",
+                "",
+                "",
+                "def build_model() -> GeneratedModel:",
+                "    return compile_model(build_raw_model())",
+                "",
+            ]
+        )
         return "\n".join(lines) + "\n"

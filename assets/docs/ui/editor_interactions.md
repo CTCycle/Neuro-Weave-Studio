@@ -1,6 +1,6 @@
 # Editor Interactions
 
-Last updated: 2026-08-21
+Last updated: 2026-08-27
 
 Users drag catalog items onto the canvas, connect typed handles, select nodes or edges, edit node properties, and delete the current selection. The canvas supports pan, zoom, fit view, a minimap, snap-to-grid placement, and automatic layered layout. Connection attempts that would create a cycle, violate port kinds, or overfill a single-input port are rejected before the edge is created.
 
@@ -8,6 +8,6 @@ Copy and paste duplicate the selected node. Undo and redo cover node creation, c
 
 The Builder keeps open models in a tab bar. Each tab owns a graph snapshot, metadata snapshot, saved baseline, and dirty state; switching tabs restores the selected session without losing another model's draft. Closing a dirty tab requires confirmation. New tabs create isolated drafts and never duplicate a persisted project ID.
 
-The toolbar edits model name and description, selects the persisted execution backend, toggles Keras-enabled versus native implementation, and exposes Validate, Save & compile, Save model, undo, redo, and workspace actions. Keras is shown as an implementation mode, not as a competing backend.
+The toolbar edits the model name, opens a compact canonical description popover, selects the persisted native execution backend, explicitly toggles the optional Keras API layer, and exposes Validate, Save & compile, Save model, undo, redo, and workspace actions. The backend selector remains the native execution choice; Keras is an optional abstraction over it, not a competing backend.
 
-The fixed editor workspace is a three-column layout: Node catalog, center workspace, and Inspector. The center contains the compilation summary, canvas, and bottom Validation panel. The validation splitter changes the panel height continuously while preserving a minimum canvas height; diagnostics scroll inside the panel instead of growing the document.
+The fixed editor workspace is a three-column layout: Node catalog, center workspace, and Inspector. The center contains a compact capability-driven compilation summary, canvas, and bottom Validation panel. The minimap can be hidden locally so it releases its canvas area. Focus mode keeps the same graph/editor instance mounted, hides nonessential surrounding panels, and restores the normal layout with Escape or Exit full canvas without fitting or resetting the viewport. The validation splitter changes the panel height continuously while preserving a minimum canvas height; diagnostics scroll inside the panel instead of growing the document.

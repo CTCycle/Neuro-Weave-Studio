@@ -1,13 +1,14 @@
 # Model Execution Profile
 
-Last updated: 2026-08-26
+Last updated: 2026-08-27
 
 ## Purpose
 
-NeuroWeave has one model identity and one execution decision. A persisted model stores the canonical graph together with two profile fields:
+NeuroWeave has one model identity and one execution decision. A persisted model stores the canonical graph together with two profile fields and one versioned model configuration:
 
 - **execution_backend**: tensorflow, pytorch, or jax.
 - **keras_enabled**: true when the canonical graph is implemented through Keras; false when the selected backend-native implementation is used.
+- **model_configuration**: one nested value with `keras` compilation metadata and independent `native` TensorFlow, PyTorch, and JAX compiler settings. Native compiler options are disabled by default and remain preserved when the selected backend changes.
 
 Keras is the model API layer. It is not a fourth execution backend. The profile is persisted on the project, revision, and generated-source snapshot so validation, source generation, and runtime jobs cannot silently select a different backend.
 
@@ -37,11 +38,11 @@ flowchart TD
   W --> T[Dummy tensor smoke test or artifact export]
 ```
 
-Keras compilation uses the metadata-driven compilation catalog. Optimizers, losses, metrics, initializers, regularizers, constraints, and trusted formula metadata are exposed through /api/metadata. Compilation settings are useful for source and binary export, but there is no training loop, checkpoint manager, or native optimizer runtime.
+Keras compilation uses the Keras branch of the metadata-driven capability catalog. Optimizers, losses, metrics, initializers, regularizers, constraints, and trusted formula metadata are exposed through `/api/metadata`. Native compilation is independent of Keras: TensorFlow exposes `tf.function(jit_compile=...)`, PyTorch exposes `torch.compile(...)` options, and JAX exposes `jax.jit(...)`. Each capability is live-probed and unavailable runtimes show an explicit reason. These settings do not add a training loop, checkpoint manager, or native optimizer runtime.
 
 ## Native execution
 
-When keras_enabled is false, the persisted execution_backend resolves directly to the matching native implementation mapping. Native PyTorch source generation is available for the verified subset. Native TensorFlow and JAX/Flax capabilities remain unavailable where parity is incomplete. Native runtime inference is explicitly reported as not_implemented; it never falls back to Keras.
+When keras_enabled is false, the persisted execution_backend resolves directly to the matching native implementation mapping. Native TensorFlow, PyTorch, and JAX/Flax source and runtime paths are available for the verified common subset. Native compiler settings are applied only when the selected worker reports the corresponding compiler; an unavailable compiler blocks that configured runtime job with a typed diagnostic rather than silently falling back to Keras.
 
 ```mermaid
 flowchart TD
@@ -67,11 +68,11 @@ flowchart LR
   G --> V[Resizable validation region]
 ```
 
-The toolbar edits model name and description, selects the execution backend, toggles Keras mode, and exposes Validate, Save & compile, Save model, undo, redo, and workspace actions. The center column keeps the compilation summary, canvas, and validation region within the viewport. Catalog and Inspector become explicit drawers at narrow widths.
+The toolbar edits the model name and opens the canonical model description metadata popover, selects the native execution backend, explicitly toggles the optional Keras API layer, and exposes Validate, Save & compile, Save model, undo, redo, and workspace actions. The center column keeps the compact compilation summary, canvas, and validation region within the viewport. A local minimap toggle and same-editor focus mode recover canvas space without recreating graph state; Escape exits focus mode immediately. Catalog and Inspector become explicit drawers at narrow widths.
 
 ## Validation pipeline
 
-Static validation is synchronous and profile-aware. It covers graph topology, typed ports, node parameters, cycle prevention, shape propagation, compilation configuration, implementation support, and source-generation eligibility. Runtime validation is isolated and only applies to the Keras worker path currently implemented by NeuroWeave.
+Static validation is synchronous and profile-aware. It covers graph topology, typed ports, node parameters, cycle prevention, shape propagation, the selected Keras or native compilation branch, implementation support, and source-generation eligibility. Runtime validation is isolated and applies to the selected Keras or native worker path; compiler availability is a separate live capability gate.
 
 ```mermaid
 flowchart TD
@@ -79,9 +80,9 @@ flowchart TD
   S --> D{Static result}
   D -->|errors| P[Blocking diagnostics]
   D -->|valid and Keras enabled| R[Keras runtime smoke or export]
-  D -->|valid and native| N[Native source boundary]
+  D -->|valid and native| N[Native source and runtime boundary]
   R --> Q[Runtime diagnostics and verified artifact]
-  N --> U[Runtime inference unavailable]
+  N --> Q
 ```
 
 The frontend combines backend diagnostics with local graph diagnostics in one bottom panel. The splitter changes its height continuously, the diagnostic list scrolls inside the panel, and selecting an actionable finding focuses the related node or edge.
@@ -102,7 +103,7 @@ flowchart LR
 
 ## .keras binary export
 
-Binary export is available only for keras_enabled models with an operational persisted backend. The worker builds an initialized, untrained Keras model from the canonical graph, applies the validated compilation configuration, saves a temporary artifact, reloads it, runs an inference check, and publishes it only after the project revision is still current. The artifact contains no trained weights.
+Keras `.keras` binary export is available for Keras-enabled models with an operational persisted backend. The worker builds an initialized, untrained Keras model from the canonical graph, applies the validated Keras configuration, saves a temporary artifact, reloads it, runs an inference check, and publishes it only after the project revision is still current. Native binary/checkpoint formats use the raw native model where the artifact format requires an inspectable framework module; compiler caches are not claimed as serializable artifact state. Artifacts contain no trained weights.
 
 ```mermaid
 flowchart TD

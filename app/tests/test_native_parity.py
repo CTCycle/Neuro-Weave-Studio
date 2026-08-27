@@ -4,7 +4,6 @@ from typing import Any
 
 import numpy as np
 import pytest
-
 from common.catalogs.loader import get_node_catalog
 from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position

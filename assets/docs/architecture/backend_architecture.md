@@ -1,6 +1,6 @@
 # Backend Architecture
 
-Last updated: 2026-08-26
+Last updated: 2026-08-27
 
 `app/server/app.py` is the FastAPI application factory. Routers translate HTTP contracts, services own validation, import, export, repository transactions, and runtime orchestration, and the domain models define the graph, execution profile, runtime, and job contracts. Lifespan creates the catalog, repository context, and one application-scoped `services.runtime_controller.RuntimeController`; the controller is shut down and joined before repositories are disposed.
 
@@ -10,7 +10,7 @@ Last updated: 2026-08-26
 
 The server process never imports Keras, TensorFlow, JAX, or PyTorch. `RuntimeController` discovers capabilities with short-lived probe workers and starts a new `models.ml_worker` interpreter for every smoke-inference or Keras-export job. The dispatcher applies common process environment configuration, loads only the selected backend worker, and delegates lifecycle work to `models.worker_core`. `models.worker_backend.BackendWorker` defines the shared device inventory, startup configuration, metrics, synchronization, execution, and cleanup contract; `tensorflow_worker.py`, `pytorch_worker.py`, and `jax_worker.py` contain the explicit framework imports and backend-specific operations. `keras_worker.py` is limited to Keras model construction and receives checkpoint callbacks explicitly. The worker sets `KERAS_BACKEND` and allocator/device environment variables before importing Keras-dependent modules. This boundary avoids inherited accelerator state and unsafe framework reuse.
 
-`WorkerConfiguration` is frozen and contains `api` (`keras` or `native`), the profile backend, normalized physical `device_id`, backend-specific memory policy, and graph-derived precision. Keras is operational when its selected backend probe succeeds. Native inference is deliberately represented as unavailable with `reason_code=not_implemented`; no native runtime fallback to Keras occurs.
+`WorkerConfiguration` is frozen and contains `api` (`keras` or `native`), the profile backend, normalized physical `device_id`, session-scoped memory policy, and session-scoped precision. Keras is operational when its selected backend probe succeeds. Native workers execute the selected TensorFlow, PyTorch, or JAX implementation directly; compiler settings are validated against the worker probe and unavailable compilers return explicit diagnostics. No native runtime path falls back to Keras.
 
 The controller owns one lease per normalized physical device (`cpu`, `cuda:0`, `rocm:0`, `mps:0`, or `xpu:0`). Jobs on different leases may run concurrently. States are `starting`, `running`, `stop_requested`, `stopping`, `succeeded`, `terminated`, and `failed`. A lease is released only after the worker PID has been waited on and any termination escalation has completed.
 
@@ -22,4 +22,4 @@ Keras export writes a temporary `.keras` file in the job workspace. Reload/infer
 
 Metadata is live probe output: API capability, installed/operational backend, discovered devices, supported memory policies, and normalized lease keys. Workers report PID, immutable configuration, lifecycle phase, exit code, cancellation/escalation state, restart reason, process RSS, and nullable framework/device metrics. Cleanup (`clear_session`, JAX cache clearing, PyTorch synchronization/cache cleanup, and garbage collection) is best effort and does not replace process teardown. PyTorch allocated versus reserved/cached memory and framework/device metrics are intentionally shown separately.
 
-Training, checkpoints, datasets, and native-framework inference are outside this runtime boundary. Installing or removing optional packages still requires an application restart. Normal backend/device/policy changes only affect the next fresh worker; an operating-system restart is exceptional recovery for driver/runtime faults.
+Training, checkpoints, and datasets are outside this runtime boundary. Installing or removing optional packages still requires an application restart. Normal backend/device/policy changes only affect the next fresh worker; an operating-system restart is exceptional recovery for driver/runtime faults.

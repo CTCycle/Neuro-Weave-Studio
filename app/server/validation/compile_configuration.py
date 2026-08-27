@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import math
-from typing import Any
 
 from domain.compilation_catalog import get_compilation_catalog
 from domain.diagnostics import ValidationDiagnostic
-from domain.enums import DiagnosticSeverity
+from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
 
 _CATALOG = get_compilation_catalog()
@@ -53,19 +52,26 @@ def _output_selectors(graph: ModelGraph) -> set[str]:
 ###############################################################################
 def validate_model_configuration(
     graph: ModelGraph,
+    execution_backend: ExecutionBackend,
     keras_enabled: bool,
 ) -> list[ValidationDiagnostic]:
-    """Validate the compile settings used by the Keras runtime.
-
-    Native implementations do not consume Keras compile settings; Keras is the
-    executable model API and the only implementation that uses this configuration
-    in the current product boundary.
-    """
+    """Validate the selected backend's canonical compilation configuration."""
 
     if not keras_enabled:
+        configuration = graph.model_configuration.native
+        if execution_backend is ExecutionBackend.TENSORFLOW:
+            if not isinstance(configuration.tensorflow.jit_compile, bool):
+                return [_error("invalid_native_compilation", "TensorFlow jit_compile must be boolean")]
+            return []
+        if execution_backend is ExecutionBackend.PYTORCH:
+            if configuration.pytorch.mode not in {"default", "reduce-overhead", "max-autotune"}:
+                return [_error("invalid_native_compilation", "PyTorch compile mode is unsupported")]
+            return []
+        if not isinstance(configuration.jax.jit_enabled, bool):
+            return [_error("invalid_native_compilation", "JAX jit_enabled must be boolean")]
         return []
 
-    configuration = graph.model_configuration
+    configuration = graph.model_configuration.keras
     diagnostics: list[ValidationDiagnostic] = []
     if configuration.optimizer not in SUPPORTED_OPTIMIZERS:
         diagnostics.append(
@@ -97,7 +103,7 @@ def validate_model_configuration(
             continue
         minimum = parameter.constraints.get("min")
         maximum = parameter.constraints.get("max")
-        if isinstance(minimum, int | float) and value < minimum or isinstance(maximum, int | float) and value > maximum:
+        if (isinstance(minimum, int | float) and value < minimum) or (isinstance(maximum, int | float) and value > maximum):
             diagnostics.append(_error("invalid_optimizer_parameter", f"optimizer_parameters.{parameter_id} is outside its supported range"))
         if parameter_id == "learning_rate" and value <= 0:
             diagnostics.append(_error("invalid_optimizer_learning_rate", "optimizer_parameters.learning_rate must be a finite positive number"))

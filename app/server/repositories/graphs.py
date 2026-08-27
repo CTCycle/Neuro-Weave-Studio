@@ -22,6 +22,7 @@ from repositories.models import (
     ProjectNodeRecord,
 )
 
+
 ###############################################################################
 class GraphRepository:
 
@@ -47,7 +48,7 @@ class GraphRepository:
             .order_by(ProjectEdgeRecord.ordinal)
         ).all()
         return ModelGraph(
-            schema_version=cast(Literal[2], graph_schema_version),
+            schema_version=cast(Literal[3], graph_schema_version),
             nodes=[
                 NodeInstance(
                     id=node.node_id,
@@ -69,17 +70,7 @@ class GraphRepository:
                 )
                 for edge in edges
             ],
-            model_configuration=ModelConfiguration(
-                optimizer=settings.optimizer,
-                optimizer_parameters=settings.optimizer_parameters_json,
-                losses=settings.losses_json,
-                metrics=settings.metrics_json,
-                default_initializer=settings.default_initializer,
-                default_regularizer=settings.default_regularizer,
-                default_constraint=settings.default_constraint,
-                mixed_precision=settings.mixed_precision,
-                random_seed=settings.random_seed,
-            ),
+            model_configuration=ModelConfiguration.model_validate(settings.model_configuration_json),
             export_settings=ExportSettings(
                 include_comments=settings.include_comments,
                 include_shape_assertions=settings.include_shape_assertions,
@@ -132,15 +123,7 @@ class GraphRepository:
         self._session.add(
             ProjectGraphSettingsRecord(
                 project_id=project_key,
-                optimizer=graph.model_configuration.optimizer,
-                optimizer_parameters_json=graph.model_configuration.optimizer_parameters,
-                losses_json=graph.model_configuration.losses,
-                metrics_json=graph.model_configuration.metrics,
-                default_initializer=graph.model_configuration.default_initializer,
-                default_regularizer=graph.model_configuration.default_regularizer,
-                default_constraint=graph.model_configuration.default_constraint,
-                mixed_precision=graph.model_configuration.mixed_precision,
-                random_seed=graph.model_configuration.random_seed,
+                model_configuration_json=graph.model_configuration.model_dump(mode="json"),
                 include_comments=graph.export_settings.include_comments,
                 include_shape_assertions=graph.export_settings.include_shape_assertions,
                 preferred_binary_format=graph.export_settings.preferred_binary_format,

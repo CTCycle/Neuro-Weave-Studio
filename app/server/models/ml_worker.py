@@ -37,6 +37,7 @@ def _probe(backend: ExecutionBackend, api: RuntimeApi) -> None:
         capabilities = worker.capabilities()
         payload["accelerator"] = capabilities.get("accelerator", "cpu")
         payload["device_name"] = capabilities.get("device_name", "CPU")
+        payload["native_compilers"] = worker.native_compilation_capabilities()
         print(json.dumps(payload), flush=True)
     finally:
         worker.cleanup()

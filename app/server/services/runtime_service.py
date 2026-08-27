@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from configurations.settings import Settings
+from domain.compilation_capabilities import get_compilation_capabilities
 from domain.compilation_catalog import get_compilation_catalog
 from domain.enums import ExecutionBackend
 from domain.graph import GRAPH_SCHEMA_VERSION
@@ -32,6 +33,7 @@ class RuntimeService:
     # -------------------------------------------------------------------------
     def metadata(self) -> MetadataResponse:
         catalog = get_compilation_catalog()
+        backend_statuses = dict(self._backend_statuses)
         runtime_apis = [
             RuntimeApiStatus(
                 id=api,
@@ -69,15 +71,11 @@ class RuntimeService:
                     device_name=status.device_name,
                     devices=status.devices,
                     runtime_apis=status.runtime_apis,
+                    native_compilers=status.native_compilers,
                 )
-                for backend, status in self._backend_statuses.items()
+                for backend, status in backend_statuses.items()
             ],
             configuration=MetadataConfiguration(
-                compilation_catalog=catalog,
-                optimizers=[item.id for item in catalog.optimizers],
-                losses=[item.id for item in catalog.losses],
-                metrics=[item.id for item in catalog.metrics],
-                initializers=catalog.initializers,
-                regularizers=catalog.regularizers,
+                compilation_capabilities=get_compilation_capabilities(catalog, backend_statuses),
             ),
         )

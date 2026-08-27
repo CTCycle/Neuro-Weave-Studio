@@ -6,7 +6,7 @@ import { useBuilderTabsStore } from './builderTabsStore'
 const session = (label: string): GraphEditorSession => ({
   nodes: [],
   edges: [],
-  modelConfiguration: { ...emptyModelConfiguration(), optimizer: label },
+  modelConfiguration: { ...emptyModelConfiguration(), keras: { ...emptyModelConfiguration().keras, optimizer: label } },
   exportSettings: {
     include_comments: true,
     include_shape_assertions: true,
@@ -87,12 +87,12 @@ describe('builder tabs store', () => {
 
     const first = useBuilderTabsStore.getState().tabs.find((item) => item.id === firstId)
     const second = useBuilderTabsStore.getState().tabs.find((item) => item.id === secondId)
-    expect(first?.graph.modelConfiguration.optimizer).toBe('first-edited')
+    expect(first?.graph.modelConfiguration.keras.optimizer).toBe('first-edited')
     expect(first?.graph.selectedNodeId).toBe('node-first')
     expect(first?.validation?.diagnostics[0].code).toBe('FIRST')
     expect(first?.validationExpanded).toBe(true)
     expect(first?.validationHeight).toBe(240)
-    expect(second?.graph.modelConfiguration.optimizer).toBe('second-edited')
+    expect(second?.graph.modelConfiguration.keras.optimizer).toBe('second-edited')
     expect(second?.graph.selectedNodeId).toBe('node-second')
     expect(second?.validation?.diagnostics[0].code).toBe('SECOND')
     expect(second?.validationExpanded).toBe(false)

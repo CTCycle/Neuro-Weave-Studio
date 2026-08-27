@@ -7,7 +7,7 @@ from configurations.settings import Settings
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity
 from domain.exports import ExportFormat, ExportOptions, export_suffix
-from domain.graph import ModelGraph, ProjectDocument
+from domain.graph import ProjectDocument
 from domain.jobs import JobResponse, JobSubmitRequest, ModelExportOperation, SmokeInferenceOperation
 from domain.runtime import RuntimeApi, WorkerConfiguration
 from services.errors import CompilationRejectedError, ProjectNotFoundError
@@ -49,9 +49,8 @@ class JobService:
             )
             if not validation.valid:
                 raise CompilationRejectedError(validation.diagnostics)
-            worker = self._with_graph_precision(request.worker, graph)
             return self._controller.submit(
-                request.model_copy(update={"worker": worker}),
+                request,
                 graph=graph,
             )
 
@@ -91,7 +90,6 @@ class JobService:
             )
         self._validate_export_options(operation.format, operation.options)
         stem = self._resolve_filename_stem(project.name, operation.filename_stem)
-        worker = self._with_graph_precision(request.worker, project.graph)
         export_operation = operation.model_copy(update={"filename_stem": stem})
         destination_root = (self._settings.export_root / str(project_id)).resolve()
         destination = (
@@ -108,7 +106,7 @@ class JobService:
                 ]
             )
         return self._controller.submit(
-            request.model_copy(update={"worker": worker, "operation": export_operation}),
+            request.model_copy(update={"operation": export_operation}),
             graph=project.graph,
             artifact_destination=destination,
             artifact_filename=destination.name,
@@ -160,17 +158,6 @@ class JobService:
     def _project_revision_is_current(self, project_id: UUID, revision: int) -> bool:
         project = self._projects.get(project_id)
         return project is not None and project.current_revision == revision
-
-    # -------------------------------------------------------------------------
-    @staticmethod
-    def _with_graph_precision(
-        worker: WorkerConfiguration, graph: ModelGraph
-    ) -> WorkerConfiguration:
-        if worker.precision != "float32":
-            return worker
-        if graph.model_configuration.mixed_precision:
-            return worker.model_copy(update={"precision": "mixed_float16"})
-        return worker
 
     # -------------------------------------------------------------------------
     @staticmethod

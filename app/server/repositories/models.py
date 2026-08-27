@@ -37,7 +37,7 @@ class ProjectRecord(Base):
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     graph_schema_version: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=1
+        Integer, nullable=False, default=3
     )
     execution_backend: Mapped[str] = mapped_column(
         String(32), nullable=False, default=ExecutionBackend.PYTORCH.value
@@ -105,34 +105,8 @@ class ProjectGraphSettingsRecord(Base):
     project_id: Mapped[str] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
     )
-    optimizer: Mapped[str] = mapped_column(
-        String(120), nullable=False, default="adam"
-    )
-    optimizer_parameters_json: Mapped[dict[str, object]] = mapped_column(
+    model_configuration_json: Mapped[dict[str, object]] = mapped_column(
         JSON, nullable=False, default=dict
-    )
-    losses_json: Mapped[dict[str, str]] = mapped_column(
-        JSON, nullable=False, default=dict
-    )
-    metrics_json: Mapped[dict[str, list[str]]] = mapped_column(
-        JSON, nullable=False, default=dict
-    )
-    default_initializer: Mapped[str] = mapped_column(
-        String(120), nullable=False, default="glorot_uniform"
-    )
-    default_regularizer: Mapped[str] = mapped_column(
-        String(120), nullable=False, default="none"
-    )
-    default_constraint: Mapped[str] = mapped_column(
-        String(120), nullable=False, default="none"
-    )
-    mixed_precision: Mapped[bool] = mapped_column(
-        Boolean(create_constraint=True, name="ck_project_graph_settings_mixed_precision"),
-        nullable=False,
-        default=False,
-    )
-    random_seed: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, default=42
     )
     include_comments: Mapped[bool] = mapped_column(
         Boolean(create_constraint=True, name="ck_project_graph_settings_include_comments"),

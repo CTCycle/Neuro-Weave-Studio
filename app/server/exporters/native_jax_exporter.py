@@ -125,5 +125,21 @@ class NativeJaxSourceExporter(SourceExporter):
             variables[item.node_id] = name
         outputs = [variables[node_id] for node_id in ir.output_node_ids]
         lines.append(f"        return {outputs[0] if len(outputs) == 1 else '(' + ', '.join(outputs) + ')'}")
-        lines.extend(["", "", "def build_model() -> GeneratedModel:", "    return GeneratedModel()", ""])
+        jit_enabled = graph.model_configuration.native.jax.jit_enabled
+        lines.extend(
+            [
+                "",
+                "",
+                "def build_model() -> GeneratedModel:",
+                "    return GeneratedModel()",
+                "",
+                "",
+                "def build_apply(model: GeneratedModel):",
+                f"    if {jit_enabled!r}:",
+                "        import jax",
+                "        return jax.jit(model.apply)",
+                "    return model.apply",
+                "",
+            ]
+        )
         return "\n".join(lines)

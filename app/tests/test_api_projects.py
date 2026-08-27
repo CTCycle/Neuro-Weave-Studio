@@ -5,7 +5,6 @@ from typing import Any, cast
 
 import httpx
 import pytest
-
 from repositories.graphs import GraphRepository
 
 
@@ -22,7 +21,7 @@ def project_payload() -> dict[str, object]:
         "execution_backend": "pytorch",
         "keras_enabled": True,
         "graph": {
-            "schema_version": 2,
+            "schema_version": 3,
             "nodes": [
                 {
                     "id": "input",
@@ -67,12 +66,15 @@ def project_payload() -> dict[str, object]:
                 },
             ],
             "model_configuration": {
-                "optimizer": "adam",
-                "optimizer_parameters": {"learning_rate": 0.001},
-                "losses": {},
-                "metrics": {},
-                "mixed_precision": False,
-                "random_seed": 42,
+                "keras": {
+                    "optimizer": "adam",
+                    "optimizer_parameters": {"learning_rate": 0.001},
+                    "losses": {},
+                    "metrics": {},
+                    "mixed_precision": False,
+                    "random_seed": 42,
+                },
+                "native": {},
             },
             "export_settings": {
                 "include_comments": True,

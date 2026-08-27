@@ -7,6 +7,7 @@ from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
+
 ###############################################################################
 class KerasSourceExporter(SourceExporter):
 
@@ -26,7 +27,7 @@ class KerasSourceExporter(SourceExporter):
     ) -> object:
         if key in parameters:
             return cls._option(parameters[key])
-        configuration = graph.model_configuration
+        configuration = graph.model_configuration.keras
         if "initializer" in key:
             return cls._option(configuration.default_initializer)
         if "regularizer" in key:
@@ -68,10 +69,10 @@ class KerasSourceExporter(SourceExporter):
             "adamw": {"learning_rate", "weight_decay", "beta_1", "beta_2", "epsilon"},
             "sgd": {"learning_rate", "momentum", "nesterov"},
             "rmsprop": {"learning_rate", "rho", "momentum", "epsilon", "centered"},
-        }[graph.model_configuration.optimizer]
+        }[graph.model_configuration.keras.optimizer]
         parameters = {
             key: value
-            for key, value in graph.model_configuration.optimizer_parameters.items()
+            for key, value in graph.model_configuration.keras.optimizer_parameters.items()
             if key in accepted
         }
         return ", ".join(f"{key}={value!r}" for key, value in parameters.items())
@@ -117,11 +118,11 @@ class KerasSourceExporter(SourceExporter):
                 ]
             )
         lines.extend(["", "", "def build_model() -> keras.Model:"])
-        if graph.model_configuration.random_seed is not None:
+        if graph.model_configuration.keras.random_seed is not None:
             lines.append(
-                f"    keras.utils.set_random_seed({graph.model_configuration.random_seed!r})"
+                f"    keras.utils.set_random_seed({graph.model_configuration.keras.random_seed!r})"
             )
-        policy = "mixed_float16" if graph.model_configuration.mixed_precision else "float32"
+        policy = "mixed_float16" if graph.model_configuration.keras.mixed_precision else "float32"
         lines.append(f"    keras.mixed_precision.set_global_policy({policy!r})")
 
         variables: dict[str, str] = {}
@@ -275,9 +276,9 @@ class KerasSourceExporter(SourceExporter):
         lines.append(
             f"    model = keras.Model(inputs=[{input_variables}], outputs=[{output_variables}], name='neuro_weave_model')"
         )
-        optimizer_name = self._optimizer_name(graph.model_configuration.optimizer)
-        loss = self._compile_mapping(graph, graph.model_configuration.losses, None)
-        metrics = self._compile_mapping(graph, graph.model_configuration.metrics, [])
+        optimizer_name = self._optimizer_name(graph.model_configuration.keras.optimizer)
+        loss = self._compile_mapping(graph, graph.model_configuration.keras.losses, None)
+        metrics = self._compile_mapping(graph, graph.model_configuration.keras.metrics, [])
         optimizer_parameters = self._optimizer_parameters(graph)
         lines.extend(
             [

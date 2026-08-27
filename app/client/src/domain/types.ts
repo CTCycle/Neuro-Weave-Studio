@@ -85,7 +85,7 @@ export interface GraphEdgeInstance {
   target_port_id: string
 }
 
-export interface ModelConfiguration {
+export interface KerasCompilationConfiguration {
   optimizer: string
   optimizer_parameters: Record<string, unknown>
   losses: Record<string, string>
@@ -97,15 +97,42 @@ export interface ModelConfiguration {
   random_seed?: number | null
 }
 
-export type CompilationParameterType = 'number' | 'integer' | 'boolean'
+export interface TensorFlowNativeConfiguration {
+  jit_compile: boolean
+}
+
+export interface PyTorchNativeConfiguration {
+  compile_enabled: boolean
+  mode: 'default' | 'reduce-overhead' | 'max-autotune'
+  fullgraph: boolean
+  dynamic: boolean
+}
+
+export interface JaxNativeConfiguration {
+  jit_enabled: boolean
+}
+
+export interface NativeCompilationConfiguration {
+  tensorflow: TensorFlowNativeConfiguration
+  pytorch: PyTorchNativeConfiguration
+  jax: JaxNativeConfiguration
+}
+
+export interface ModelConfiguration {
+  keras: KerasCompilationConfiguration
+  native: NativeCompilationConfiguration
+}
+
+export type CompilationParameterType = 'number' | 'integer' | 'boolean' | 'enum'
 
 export interface CompilationParameter {
   id: string
   label: string
   type: CompilationParameterType
-  default: number | boolean
+  default: number | boolean | string
   description: string
-  constraints: Record<string, number | boolean>
+  options?: string[]
+  constraints: Record<string, number | boolean | string>
 }
 
 export interface CompilationOption {
@@ -123,6 +150,21 @@ export interface CompilationCatalog {
   initializers: string[]
   regularizers: string[]
   constraints: string[]
+}
+
+export interface NativeCompilationCapability {
+  backend: ExecutionBackend
+  compiler_id: string
+  available: boolean
+  compiler: string
+  reason_code?: string | null
+  reason?: string | null
+  parameters: CompilationParameter[]
+}
+
+export interface CompilationCapabilities {
+  keras: CompilationCatalog
+  native: Record<ExecutionBackend, NativeCompilationCapability>
 }
 
 export interface ModelGraph {
@@ -213,12 +255,7 @@ export interface MetadataResponse {
   runtime_apis?: RuntimeApiStatus[]
   execution_backends: ExecutionBackendStatus[]
   configuration: {
-    compilation_catalog: CompilationCatalog
-    optimizers: string[]
-    losses: string[]
-    metrics: string[]
-    initializers: string[]
-    regularizers: string[]
+    compilation_capabilities: CompilationCapabilities
   }
 }
 
@@ -232,6 +269,7 @@ export interface ExecutionBackendStatus {
   device_name?: string | null
   devices?: RuntimeDevice[]
   runtime_apis?: RuntimeApiStatus[]
+  native_compilers?: Record<string, boolean>
 }
 
 export interface RuntimeApiStatus {
@@ -473,7 +511,7 @@ export type EditorEdge = Edge
 
 export interface ProjectExportBundle {
   format: 'neuro-weave-project'
-  format_version: 3
+  format_version: 4
   exported_at: string
   project: {
     name: string
@@ -490,15 +528,22 @@ export interface KerasArchitectureImportResponse {
 }
 
 export const emptyModelConfiguration = (): ModelConfiguration => ({
-  optimizer: 'adam',
-  optimizer_parameters: { learning_rate: 0.001 },
-  losses: { __default__: 'categorical_crossentropy' },
-  metrics: { __default__: ['accuracy'] },
-  default_initializer: 'glorot_uniform',
-  default_regularizer: 'none',
-  default_constraint: 'none',
-  mixed_precision: false,
-  random_seed: 42,
+  keras: {
+    optimizer: 'adam',
+    optimizer_parameters: { learning_rate: 0.001 },
+    losses: { __default__: 'categorical_crossentropy' },
+    metrics: { __default__: ['accuracy'] },
+    default_initializer: 'glorot_uniform',
+    default_regularizer: 'none',
+    default_constraint: 'none',
+    mixed_precision: false,
+    random_seed: 42,
+  },
+  native: {
+    tensorflow: { jit_compile: false },
+    pytorch: { compile_enabled: false, mode: 'default', fullgraph: false, dynamic: false },
+    jax: { jit_enabled: false },
+  },
 })
 
 export const editorNodeFromGraph = (node: GraphNodeInstance, manifest: NodeManifest): EditorNode => ({
