@@ -73,7 +73,15 @@ class WorkerContext:
         }
         temporary = self.status_file.with_suffix(".tmp")
         temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
-        os.replace(temporary, self.status_file)
+        for attempt in range(20):
+            try:
+                os.replace(temporary, self.status_file)
+                break
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                # Windows can briefly keep the controller's status read open.
+                time.sleep(0.01)
 
 ###############################################################################
 def read_request(job_dir: Path) -> tuple[WorkerContext, dict[str, Any]]:

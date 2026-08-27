@@ -1141,6 +1141,8 @@ def _tool_versions(
         names.extend(["onnx", "onnxruntime"])
         if backend is not ExecutionBackend.PYTORCH:
             names.append("tf2onnx")
+        if backend is ExecutionBackend.JAX and api is RuntimeApi.KERAS:
+            names.append("jax2onnx")
     if export_format is ExportFormat.SAFETENSORS:
         names.append("safetensors")
     if export_format is ExportFormat.FLAX_CHECKPOINT:
