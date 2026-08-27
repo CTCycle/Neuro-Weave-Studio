@@ -7,6 +7,7 @@ from typing import Any, cast
 from domain.manifests import NodeManifest
 
 RESOURCE_ROOT = Path(__file__).resolve().parents[2] / "resources" / "nodes"
+CATALOG_EXTENSION_PATH = RESOURCE_ROOT.parent / "catalog_extensions.json"
 
 _INITIALIZER_OPTIONS = [
     "uniform",
@@ -22,65 +23,6 @@ _INITIALIZER_OPTIONS = [
 ]
 _REGULARIZER_OPTIONS = ["none", "l1", "l2", "l1_l2"]
 _CONSTRAINT_OPTIONS = ["none", "max_norm", "min_max_norm", "non_neg", "unit_norm"]
-
-_NATIVE_PARITY_NODE_IDS = frozenset(
-    {
-        "layer.dense",
-        "layer.activation",
-        "layer.dropout",
-        "layer.flatten",
-        "layer.embedding",
-        "layer.batch_norm",
-        "layer.layer_norm",
-        "conv.conv2d",
-        "conv.max_pool2d",
-        "recurrent.lstm",
-        "recurrent.gru",
-        "merge.add",
-        "merge.residual",
-        "merge.skip",
-        "merge.concatenate",
-        "input.tensor",
-        "input.image",
-        "input.sequence",
-        "input.tabular",
-        "input.token",
-        "input.mask",
-        "output.classification",
-        "output.regression",
-        "output.segmentation",
-        "output.sequence",
-        "output.multi_head",
-        "output.custom",
-    }
-)
-
-_NATIVE_UNSUPPORTED_PARAMETERS = {
-    "kernel_initializer": "Native inference uses deterministic worker-owned parameters.",
-    "bias_initializer": "Native inference uses deterministic worker-owned parameters.",
-    "recurrent_initializer": "Native inference uses deterministic worker-owned parameters.",
-    "bias_regularizer": "Regularizers are not part of generated inference modules.",
-    "kernel_regularizer": "Regularizers are not part of generated inference modules.",
-    "activity_regularizer": "Regularizers are not part of generated inference modules.",
-    "embeddings_initializer": "Native inference uses deterministic worker-owned parameters.",
-    "embeddings_regularizer": "Regularizers are not part of generated inference modules.",
-    "beta_initializer": "Native inference uses deterministic worker-owned parameters.",
-    "gamma_initializer": "Native inference uses deterministic worker-owned parameters.",
-    "moving_mean_initializer": "Native inference uses deterministic worker-owned parameters.",
-    "moving_variance_initializer": "Native inference uses deterministic worker-owned parameters.",
-    "beta_regularizer": "Regularizers are not part of generated inference modules.",
-    "gamma_regularizer": "Regularizers are not part of generated inference modules.",
-    "beta_constraint": "Constraints are not part of generated inference modules.",
-    "gamma_constraint": "Constraints are not part of generated inference modules.",
-    "kernel_constraint": "Constraints are not part of generated inference modules.",
-    "bias_constraint": "Constraints are not part of generated inference modules.",
-    "seed": "Native parity is inference-only and does not apply stochastic dropout.",
-    "return_state": "Native parity exposes the primary tensor output only.",
-    "go_backwards": "Native recurrent parity uses forward sequence order.",
-    "stateful": "Native parity uses stateless inference.",
-    "unroll": "Native recurrent parity controls its own sequence loop.",
-    "recurrent_dropout": "Native parity is inference-only and does not apply stochastic dropout.",
-}
 
 ###############################################################################
 def _parameter(
@@ -161,23 +103,24 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
     ]
     if node_id == "layer.dense":
         return shared_kernel_controls
-    if node_id == "conv.conv2d":
+    if node_id in {"conv.conv1d", "conv.conv2d"}:
+        dimensions = 1 if node_id == "conv.conv1d" else 2
         return [
             _parameter(
                 "strides",
                 "Strides",
                 "shape",
-                [1, 1],
+                [1] * dimensions,
                 group="Spatial configuration",
-                constraints={"length": 2, "item_min": 1},
+                constraints={"length": dimensions, "item_min": 1},
             ),
             _parameter(
                 "dilation_rate",
                 "Dilation rate",
                 "shape",
-                [1, 1],
+                [1] * dimensions,
                 group="Spatial configuration",
-                constraints={"length": 2, "item_min": 1},
+                constraints={"length": dimensions, "item_min": 1},
             ),
             _parameter(
                 "groups",
@@ -346,51 +289,167 @@ def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
     return item
 
 ###############################################################################
-def _enable_native_parity(raw: dict[str, Any]) -> dict[str, Any]:
-    """Expose the deliberately bounded native target set to validation/UI."""
+def _merge_manifest_data(
+    raw: dict[str, Any],
+    override: dict[str, Any] | None,
+    shared_parameter_capabilities: dict[str, dict[str, Any]] | None = None,
+    default_implementation_adapters: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Apply checked-in declarative capability/operation data to a node."""
 
     item = dict(raw)
-    node_id = str(item.get("id", ""))
-    if node_id not in _NATIVE_PARITY_NODE_IDS:
-        return item
-    implementations = dict(item.get("implementations", {}))
+    raw_parameters = raw.get("parameters", [])
+    parameter_items = [*cast(list[Any], raw_parameters)] if isinstance(raw_parameters, list) else []
+    parameter_items.extend(_safe_layer_parameters(str(raw.get("id", ""))))
     known_parameter_ids = {
-        str(parameter.get("id", ""))
-        for parameter in [*item.get("parameters", []), *_safe_layer_parameters(node_id)]
+        str(cast(dict[str, Any], parameter).get("id", ""))
+        for parameter in parameter_items
         if isinstance(parameter, dict)
     }
-    for backend in ("tensorflow", "jax"):
-        mapping = dict(implementations.get(backend, {}))
-        mapping["supported"] = True
-        mapping["notes"] = "Verified native inference/export adapter for the common parity subset."
+    implementations = dict(item.get("implementations", {}))
+    for implementation, capabilities in (shared_parameter_capabilities or {}).items():
+        mapping = dict(implementations.get(implementation, {}))
         parameters = dict(mapping.get("parameters", {}))
-        for parameter_id, notes in _NATIVE_UNSUPPORTED_PARAMETERS.items():
-            if parameter_id in known_parameter_ids:
-                parameters.setdefault(
-                    parameter_id,
-                    {"supported": False, "notes": notes},
-                )
-        if node_id == "conv.conv2d":
-            parameters["groups"] = {"allowed_values": [1], "notes": "Native parity currently supports one feature group."}
-        if node_id == "layer.flatten":
-            parameters["data_format"] = {"allowed_values": ["channels_last"], "notes": "Native parity uses channel-last flatten ordering."}
-        if node_id == "layer.embedding":
-            parameters["mask_zero"] = {"allowed_values": [False], "notes": "Native parity does not propagate masks."}
-            parameters["lora_rank"] = {"allowed_values": [None], "notes": "Native parity does not apply LoRA adapters."}
-        if node_id == "layer.layer_norm":
-            parameters["axis"] = {"allowed_values": [[-1]], "notes": "Native parity normalizes the trailing axis."}
-        if node_id in {"recurrent.lstm", "recurrent.gru"}:
-            parameters["activation"] = {"allowed_values": ["tanh"], "notes": "Native parity uses the canonical tanh activation."}
-            parameters["recurrent_activation"] = {"allowed_values": ["sigmoid"], "notes": "Native parity uses the canonical sigmoid activation."}
-            parameters["dropout"] = {"allowed_values": [0.0], "notes": "Native parity is inference-only."}
-            if node_id == "recurrent.gru" and "reset_after" in known_parameter_ids:
-                parameters["reset_after"] = {"allowed_values": [True], "notes": "Native parity uses the canonical reset-after GRU form."}
-            if node_id == "recurrent.lstm" and "unit_forget_bias" in known_parameter_ids:
-                parameters["unit_forget_bias"] = {"allowed_values": [True], "notes": "Native parity uses the canonical LSTM forget bias."}
-        mapping["parameters"] = parameters
-        implementations[backend] = mapping
-    item["implementations"] = implementations
+        parameters.update(
+            {
+                parameter_id: capability
+                for parameter_id, capability in capabilities.items()
+                if parameter_id in known_parameter_ids
+            }
+        )
+        if parameters:
+            mapping["parameters"] = parameters
+        implementations[implementation] = mapping
+    for implementation, adapter in (default_implementation_adapters or {}).items():
+        mapping = dict(implementations.get(implementation, {}))
+        if mapping.get("supported", True) and not mapping.get("symbol") and not mapping.get("adapter"):
+            mapping["adapter"] = adapter
+        implementations[implementation] = mapping
+    if implementations:
+        item["implementations"] = implementations
+    if not override:
+        return item
+    for key, value in override.items():
+        if key != "implementations":
+            item[key] = value
+            continue
+        implementations = dict(item.get("implementations", {}))
+        for implementation, raw_mapping in value.items():
+            mapping = dict(implementations.get(implementation, {}))
+            for mapping_key, mapping_value in raw_mapping.items():
+                if mapping_key in {"parameters", "variant_symbols"}:
+                    merged = dict(mapping.get(mapping_key, {}))
+                    merged.update(mapping_value)
+                    mapping[mapping_key] = merged
+                else:
+                    mapping[mapping_key] = mapping_value
+            implementations[implementation] = mapping
+        item["implementations"] = implementations
     return item
+
+###############################################################################
+def _expand_operation_spec(spec: dict[str, Any]) -> dict[str, Any]:
+    """Expand compact declarative operation metadata into a normal manifest."""
+
+    family = str(spec["family"])
+    variadic = bool(spec.get("variadic", False))
+    accepts_multiple = variadic or family in {"binary", "elementwise"}
+    input_definition = {
+        "id": "inputs" if accepts_multiple else "input",
+        "display_name": "Inputs" if accepts_multiple else "Input",
+        "kind": "tensor_list" if accepts_multiple else "tensor",
+        "required": True,
+        "accepts_multiple": accepts_multiple,
+        "rank": None,
+    }
+    shape_behavior = str(
+        spec.get("shape_behavior", "reduce" if family == "reduction" else "preserve")
+    )
+    shape_rule = "concatenate" if shape_behavior in {"concatenate", "stack"} else "operation"
+    implementations: dict[str, dict[str, Any]] = {}
+    symbols = cast(dict[str, str], spec["symbols"])
+    for implementation, symbol in symbols.items():
+        mapping: dict[str, Any] = {"supported": True, "symbol": symbol}
+        if spec.get("adapter"):
+            mapping["adapter"] = spec["adapter"]
+        if implementation == "keras":
+            mapping["execution_backends"] = {
+                "tensorflow": True,
+                "pytorch": True,
+                "jax": True,
+            }
+        implementations[implementation] = mapping
+    return {
+        "id": spec["id"],
+        "version": 1,
+        "display_name": spec["display_name"],
+        "category": spec.get("category", "mathematical"),
+        "description": spec.get("description", f"{spec['display_name']} operation."),
+        "inputs": [input_definition],
+        "outputs": [{
+            "id": "output",
+            "display_name": "Output",
+            "kind": "tensor",
+            "required": True,
+            "accepts_multiple": False,
+            "rank": None,
+        }],
+        "parameters": spec.get("parameters", []),
+        "shape_rule": {"kind": shape_rule, "config": {}},
+        "operation": {
+            "family": family,
+            "shape_behavior": shape_behavior,
+            "output_dtype": spec.get("output_dtype", "same"),
+            "arity": int(spec.get("arity", 1)),
+            "variadic": variadic,
+            "arguments": spec.get("arguments", []),
+            "keywords": spec.get("keywords", []),
+        },
+        "implementations": implementations,
+        "ui": {
+            "icon": spec.get("icon", "Sigma"),
+            "accent": spec.get("accent", "amber"),
+            "width": 250,
+            "height": 120,
+        },
+        "deprecated": False,
+        "documentation_ref": "assets/docs/nodes/mathematical_operations.md",
+    }
+
+###############################################################################
+def _catalog_extensions() -> dict[str, Any]:
+    if not CATALOG_EXTENSION_PATH.exists():
+        return {"nodes": [], "overrides": {}}
+    raw = json.loads(CATALOG_EXTENSION_PATH.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise RuntimeError("Catalog extension data must be an object")
+    return cast(dict[str, Any], raw)
+
+###############################################################################
+def _combined_override(
+    capability: dict[str, Any] | None,
+    override: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not capability and not override:
+        return None
+    result = dict(capability or {})
+    for key, value in (override or {}).items():
+        if key != "implementations":
+            result[key] = value
+            continue
+        implementations = dict(result.get("implementations", {}))
+        for implementation, mapping in value.items():
+            existing = dict(implementations.get(implementation, {}))
+            for mapping_key, mapping_value in mapping.items():
+                if mapping_key in {"parameters", "variant_symbols"}:
+                    merged = dict(existing.get(mapping_key, {}))
+                    merged.update(mapping_value)
+                    existing[mapping_key] = merged
+                else:
+                    existing[mapping_key] = mapping_value
+            implementations[implementation] = existing
+        result["implementations"] = implementations
+    return result
 
 ###############################################################################
 class NodeCatalog:
@@ -414,6 +473,15 @@ class NodeCatalog:
 
 ###############################################################################
 def get_node_catalog() -> NodeCatalog:
+    extensions = _catalog_extensions()
+    overrides = cast(dict[str, dict[str, Any]], extensions.get("overrides", {}))
+    capabilities = cast(dict[str, dict[str, Any]], extensions.get("capabilities", {}))
+    shared_parameter_capabilities = cast(
+        dict[str, dict[str, Any]], extensions.get("shared_parameter_capabilities", {})
+    )
+    default_implementation_adapters = cast(
+        dict[str, str], extensions.get("default_implementation_adapters", {})
+    )
     manifests: list[NodeManifest] = []
     for path in sorted(RESOURCE_ROOT.glob("*.json")):
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -421,9 +489,28 @@ def get_node_catalog() -> NodeCatalog:
             list[dict[str, Any]], raw if isinstance(raw, list) else raw["nodes"]
         )
         manifests.extend(
-            NodeManifest.model_validate(_enrich_manifest_parameters(_enable_native_parity(item)))
+            NodeManifest.model_validate(
+                _enrich_manifest_parameters(
+                    _merge_manifest_data(
+                        item,
+                        _combined_override(
+                            capabilities.get(str(item.get("id", ""))),
+                            overrides.get(str(item.get("id", ""))),
+                        ),
+                        shared_parameter_capabilities,
+                        default_implementation_adapters,
+                    )
+                )
+            )
             for item in items
         )
+    extension_nodes = cast(list[dict[str, Any]], extensions.get("nodes", []))
+    operation_specs = cast(list[dict[str, Any]], extensions.get("operation_specs", []))
+    extension_nodes.extend(_expand_operation_spec(spec) for spec in operation_specs)
+    manifests.extend(
+        NodeManifest.model_validate(_enrich_manifest_parameters(item))
+        for item in extension_nodes
+    )
     if not manifests:
         raise RuntimeError(f"No node manifests found under {RESOURCE_ROOT}")
     keys = [(manifest.id, manifest.version) for manifest in manifests]

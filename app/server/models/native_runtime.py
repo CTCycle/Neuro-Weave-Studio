@@ -51,7 +51,7 @@ def build_native_model(
         ExecutionBackend.PYTORCH: PyTorchSourceExporter(),
         ExecutionBackend.JAX: NativeJaxSourceExporter(),
     }[backend]
-    source = exporter.generate(graph, ir)
+    source = exporter.generate(graph, ir, catalog)
     module = types.ModuleType(f"neuro_weave_native_{backend.value}")
     exec(compile(source, f"<neuro-weave-{backend.value}-source>", "exec"), module.__dict__)
     factory = (
@@ -92,12 +92,13 @@ def build_native_model(
         variables = model.init(jax.random.PRNGKey(0), model_input)
         variables = _zero_jax_variables(variables)
         apply_factory = module.__dict__.get("build_apply")
-        apply = (
+        apply_callable = (
             cast(Callable[[Any], Callable[[Any, Any], Any]], apply_factory)(model)
             if callable(apply_factory)
-            else model.apply
+            else cast(Callable[[Any, Any], Any], model.apply)
         )
-        outputs = _as_list(apply(variables, model_input))
+        apply = apply_callable
+        outputs = _as_list(apply_callable(variables, model_input))
     _checkpoint(checkpoint)
     return NativeModelHandle(
         backend=backend,

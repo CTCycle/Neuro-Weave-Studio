@@ -4,6 +4,7 @@ from collections import Counter
 from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog
+from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
 from domain.diagnostics import ValidationDiagnostic, ValidationResult
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph, NodeInstance
@@ -47,8 +48,13 @@ class ValidationService:
     """Application-facing graph validation service."""
 
     # -------------------------------------------------------------------------
-    def __init__(self, catalog: NodeCatalog) -> None:
+    def __init__(
+        self,
+        catalog: NodeCatalog,
+        compilation_catalog_provider: CompilationCatalogProvider | None = None,
+    ) -> None:
         self._catalog = catalog
+        self._compilation_catalog_provider = compilation_catalog_provider or get_compilation_catalog_provider()
 
     # -------------------------------------------------------------------------
     def validate(
@@ -60,7 +66,14 @@ class ValidationService:
         diagnostics: list[ValidationDiagnostic] = []
         nodes = {node.id: node for node in graph.nodes}
         manifests: dict[str, NodeManifest] = {}
-        diagnostics.extend(validate_model_configuration(graph, execution_backend, keras_enabled))
+        diagnostics.extend(
+            validate_model_configuration(
+                graph,
+                execution_backend,
+                keras_enabled,
+                self._compilation_catalog_provider.get(),
+            )
+        )
         implementation_key = "keras" if keras_enabled else execution_backend.value
         implementation_label = "Keras" if keras_enabled else f"native {execution_backend.value}"
 

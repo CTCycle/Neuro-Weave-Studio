@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -21,17 +21,36 @@ class CompilationOption(BaseModel):
     id: str
     label: str
     description: str
-    parameters: list[CompilationParameter] = Field(default_factory=list)
+    parameters: list[CompilationParameter] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     formula: str | None = None
 
 ###############################################################################
 class CompilationCatalog(BaseModel):
-    optimizers: list[CompilationOption] = Field(default_factory=list)
-    losses: list[CompilationOption] = Field(default_factory=list)
-    metrics: list[CompilationOption] = Field(default_factory=list)
+    optimizers: list[CompilationOption] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    losses: list[CompilationOption] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    metrics: list[CompilationOption] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     initializers: list[str] = Field(default_factory=list)
     regularizers: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
+
+
+###############################################################################
+class CompilationCatalogProvider(Protocol):
+    """Boundary for the future user-editable compilation catalog."""
+
+    def get(self) -> CompilationCatalog:
+        ...
+
+
+###############################################################################
+class StaticCompilationCatalogProvider:
+    def __init__(self) -> None:
+        self._catalog: CompilationCatalog | None = None
+
+    def get(self) -> CompilationCatalog:
+        if self._catalog is None:
+            self._catalog = _build_compilation_catalog()
+        return self._catalog
 
 
 ###############################################################################
@@ -44,7 +63,7 @@ def _number(
     minimum: float | None = None,
     maximum: float | None = None,
 ) -> CompilationParameter:
-    constraints: dict[str, float] = {}
+    constraints: dict[str, float | int | bool | str] = {}
     if minimum is not None:
         constraints["min"] = minimum
     if maximum is not None:
@@ -70,7 +89,7 @@ def _optimizer(
 
 
 ###############################################################################
-def get_compilation_catalog() -> CompilationCatalog:
+def _build_compilation_catalog() -> CompilationCatalog:
     return CompilationCatalog(
         optimizers=[
             _optimizer(
@@ -144,3 +163,14 @@ def get_compilation_catalog() -> CompilationCatalog:
         regularizers=["none", "l1", "l2", "l1_l2"],
         constraints=["none", "max_norm", "min_max_norm", "non_neg", "unit_norm"],
     )
+
+
+_COMPILATION_CATALOG_PROVIDER = StaticCompilationCatalogProvider()
+
+
+def get_compilation_catalog_provider() -> CompilationCatalogProvider:
+    return _COMPILATION_CATALOG_PROVIDER
+
+
+def get_compilation_catalog() -> CompilationCatalog:
+    return get_compilation_catalog_provider().get()

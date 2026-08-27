@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import ast
 from math import ceil, floor, prod
 from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog
 from domain.enums import DataType
 from domain.graph import ModelGraph, ShapeSummary
-from domain.tensor import TensorSpec
+from domain.tensor import Dimension, TensorSpec
 from validation.graph_utils import ordered_incoming_edges, topological_order
+from validation.safe_expression import SafeExpressionError, validate_safe_expression
 
 ###############################################################################
 class ShapeInferenceError(ValueError):
@@ -16,7 +18,7 @@ class ShapeInferenceError(ValueError):
 ###############################################################################
 def _int_parameter(parameters: dict[str, Any], key: str, default: int | None = None) -> int:
     value = parameters.get(key, default)
-    if not isinstance(value, int):
+    if not isinstance(value, int) or isinstance(value, bool):
         raise ShapeInferenceError(f"Parameter '{key}' must be an integer")
     return value
 
@@ -198,6 +200,253 @@ def _attention_parameter_count(
     )
 
 ###############################################################################
+def _operation_dtype(source: TensorSpec, output_dtype: str, parameters: dict[str, Any]) -> DataType:
+    if output_dtype == "bool":
+        return DataType.BOOL
+    if output_dtype == "int64":
+        return DataType.INT64
+    if output_dtype == "parameter":
+        value = parameters.get("dtype", source.dtype)
+        try:
+            return DataType(value)
+        except ValueError as exc:
+            raise ShapeInferenceError(f"Unsupported operation dtype '{value}'") from exc
+    return source.dtype
+
+
+def _slice_integer_literal(node: ast.AST) -> int | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+        return int(node.value)
+    if (
+        isinstance(node, ast.UnaryOp)
+        and isinstance(node.op, (ast.UAdd, ast.USub))
+        and isinstance(node.operand, ast.Constant)
+        and isinstance(node.operand.value, int)
+        and not isinstance(node.operand.value, bool)
+    ):
+        value = int(node.operand.value)
+        return value if isinstance(node.op, ast.UAdd) else -value
+    return None
+
+
+def _slice_expression_shape(source: TensorSpec, expression: str) -> TensorSpec:
+    try:
+        validate_safe_expression(expression)
+        tree = ast.parse(expression, mode="eval")
+    except (SafeExpressionError, SyntaxError) as exc:
+        raise ShapeInferenceError(str(exc)) from exc
+    if not isinstance(tree.body, ast.Subscript):
+        return TensorSpec(shape=list(source.shape), dtype=source.dtype)
+    slice_node = tree.body.slice
+    items = list(slice_node.elts) if isinstance(slice_node, ast.Tuple) else [slice_node]
+    ellipsis_indices = [index for index, item in enumerate(items) if isinstance(item, ast.Constant) and item.value is Ellipsis]
+    if len(ellipsis_indices) > 1:
+        raise ShapeInferenceError("A slice expression may contain at most one ellipsis")
+    if ellipsis_indices:
+        ellipsis_index = ellipsis_indices[0]
+        fill_count = source.rank - (len(items) - 1)
+        if fill_count < 0:
+            raise ShapeInferenceError("Slice expression has more indices than the input rank")
+        items = [
+            *items[:ellipsis_index],
+            *[ast.Slice() for _ in range(fill_count)],
+            *items[ellipsis_index + 1 :],
+        ]
+    if len(items) > source.rank:
+        raise ShapeInferenceError("Slice expression has more indices than the input rank")
+    items.extend(ast.Slice() for _ in range(source.rank - len(items)))
+    output_shape: list[Dimension] = []
+    for dimension, item in zip(source.shape, items, strict=True):
+        index = _slice_integer_literal(item)
+        if index is not None:
+            if isinstance(dimension, int) and not -dimension <= index < dimension:
+                raise ShapeInferenceError("Slice index is outside the input dimension")
+            continue
+        if not isinstance(item, ast.Slice):
+            raise ShapeInferenceError("Slice expression contains an unsupported index")
+        step = _slice_integer_literal(item.step) if item.step is not None else None
+        if step == 0:
+            raise ShapeInferenceError("Slice step cannot be zero")
+        if isinstance(dimension, int):
+            lower = _slice_integer_literal(item.lower) if item.lower is not None else None
+            upper = _slice_integer_literal(item.upper) if item.upper is not None else None
+            start, stop, stride = slice(lower, upper, step).indices(dimension)
+            output_shape.append(len(range(start, stop, stride)))
+        else:
+            output_shape.append(None)
+    return TensorSpec(shape=output_shape, dtype=source.dtype)
+
+
+###############################################################################
+def _operation_shape(
+    node_id: str,
+    manifest: Any,
+    input_specs: list[TensorSpec],
+    parameters: dict[str, Any],
+) -> TensorSpec:
+    operation = manifest.operation
+    if operation is None:
+        raise ShapeInferenceError(f"{node_id} is not an operation manifest")
+    if not input_specs:
+        raise ShapeInferenceError(f"{node_id} requires an input")
+    source = input_specs[0]
+    family = operation.family
+    if family == "unary":
+        return TensorSpec(
+            shape=list(source.shape),
+            dtype=_operation_dtype(source, operation.output_dtype, parameters),
+        )
+    if family in {"binary", "elementwise"}:
+        if len(input_specs) < 2:
+            raise ShapeInferenceError(f"{node_id} requires at least two inputs")
+        if operation.shape_behavior == "matmul":
+            left, right = input_specs[0], input_specs[1]
+            if left.rank < 2 or right.rank < 2:
+                raise ShapeInferenceError("Matrix multiplication requires rank-2 or higher inputs")
+            left_inner, right_inner = left.shape[-1], right.shape[-2]
+            if isinstance(left_inner, int) and isinstance(right_inner, int) and left_inner != right_inner:
+                raise ShapeInferenceError("Matrix multiplication inner dimensions must match")
+            if left.shape[:-2] != right.shape[:-2] and any(
+                isinstance(left_value, int)
+                and isinstance(right_value, int)
+                and left_value != right_value
+                for left_value, right_value in zip(left.shape[:-2], right.shape[:-2], strict=False)
+            ):
+                raise ShapeInferenceError("Matrix multiplication batch dimensions must match")
+            shape = [*left.shape[:-2], left.shape[-2], right.shape[-1]]
+            return TensorSpec(
+                shape=shape,
+                dtype=_operation_dtype(left, operation.output_dtype, parameters),
+            )
+        if any(not source.compatible_with(spec) for spec in input_specs[1:]):
+            raise ShapeInferenceError("Element-wise operation inputs must have compatible shapes")
+        return TensorSpec(
+            shape=list(source.shape),
+            dtype=_operation_dtype(source, operation.output_dtype, parameters),
+        )
+    if family == "reduction":
+        axis = _normalize_axis(_int_parameter(parameters, "axis", -1), source.rank)
+        shape = list(source.shape)
+        if bool(parameters.get("keepdims", False)):
+            shape[axis] = 1
+        else:
+            shape = [dimension for index, dimension in enumerate(shape) if index != axis]
+        return TensorSpec(
+            shape=shape,
+            dtype=_operation_dtype(source, operation.output_dtype, parameters),
+        )
+
+    behavior = operation.shape_behavior
+    if behavior == "reshape":
+        target_shape = parameters.get("target_shape", [-1])
+        if not isinstance(target_shape, list):
+            raise ShapeInferenceError("target_shape must be a list")
+        target_dimensions = cast(list[Any], target_shape)
+        if sum(dimension == -1 for dimension in target_dimensions) > 1:
+            raise ShapeInferenceError("target_shape can contain at most one inferred dimension")
+        if any(
+            not isinstance(dimension, int)
+            or isinstance(dimension, bool)
+            or dimension == 0
+            or dimension < -1
+            for dimension in target_dimensions
+        ):
+            raise ShapeInferenceError("target_shape dimensions must be positive integers or one -1")
+        resolved: list[int | None] = [None if dimension == -1 else int(dimension) for dimension in target_dimensions]
+        if -1 in target_dimensions:
+            source_dimensions = source.shape[1:]
+            known_source = [dimension for dimension in source_dimensions if isinstance(dimension, int)]
+            known_target = prod(dimension for dimension in target_dimensions if dimension != -1)
+            if len(known_source) == len(source_dimensions):
+                source_size = prod(known_source)
+                if source_size % known_target != 0:
+                    raise ShapeInferenceError("target_shape is incompatible with the input element count")
+                resolved[target_dimensions.index(-1)] = source_size // known_target
+        return TensorSpec(shape=[source.shape[0], *resolved], dtype=_operation_dtype(source, operation.output_dtype, parameters))
+    if behavior == "transpose":
+        axes = parameters.get("axes", [])
+        if axes == []:
+            axes = list(reversed(range(source.rank)))
+        if not isinstance(axes, list):
+            raise ShapeInferenceError("Transpose axes must contain integers")
+        axis_items = cast(list[Any], axes)
+        if any(not isinstance(axis, int) or isinstance(axis, bool) for axis in axis_items):
+            raise ShapeInferenceError("Transpose axes must contain integers")
+        integer_axes = [int(axis) for axis in axis_items]
+        if sorted(integer_axes) != list(range(source.rank)):
+            raise ShapeInferenceError("Transpose axes must be a permutation of the input rank")
+        return TensorSpec(shape=[source.shape[axis] for axis in integer_axes], dtype=source.dtype)
+    if behavior == "expand_dims":
+        axis = _normalize_axis(_int_parameter(parameters, "axis", -1), source.rank, allow_endpoint=True)
+        shape = list(source.shape)
+        shape.insert(axis, 1)
+        return TensorSpec(shape=shape, dtype=source.dtype)
+    if behavior == "squeeze":
+        axis = _normalize_axis(_int_parameter(parameters, "axis", -1), source.rank)
+        dimension = source.shape[axis]
+        if isinstance(dimension, int) and dimension != 1:
+            raise ShapeInferenceError("Squeeze axis must have dimension 1")
+        return TensorSpec(shape=[value for index, value in enumerate(source.shape) if index != axis], dtype=source.dtype)
+    if behavior == "flatten":
+        dimensions = source.shape[1:]
+        known_dimensions = [dimension for dimension in dimensions if isinstance(dimension, int)]
+        flat = prod(known_dimensions) if len(known_dimensions) == len(dimensions) else None
+        return TensorSpec(shape=[source.shape[0], flat], dtype=source.dtype)
+    if behavior == "repeat":
+        axis = _normalize_axis(_int_parameter(parameters, "axis", -1), source.rank)
+        repeats = _optional_positive_int(parameters, "repeats", 1)
+        shape = list(source.shape)
+        dimension = shape[axis]
+        shape[axis] = int(dimension) * repeats if isinstance(dimension, int) else None
+        return TensorSpec(shape=shape, dtype=source.dtype)
+    if behavior == "tile":
+        multiples = parameters.get("multiples", [])
+        if not isinstance(multiples, list):
+            raise ShapeInferenceError(f"multiples must contain exactly {source.rank} values")
+        multiple_items = cast(list[Any], multiples)
+        if len(multiple_items) != source.rank:
+            raise ShapeInferenceError(f"multiples must contain exactly {source.rank} values")
+        if any(not isinstance(value, int) or isinstance(value, bool) or value <= 0 for value in multiple_items):
+            raise ShapeInferenceError("multiples must contain positive integers")
+        shape: list[Dimension] = [
+            dimension * int(multiple) if isinstance(dimension, int) else None
+            for dimension, multiple in zip(source.shape, multiple_items, strict=True)
+        ]
+        return TensorSpec(shape=shape, dtype=source.dtype)
+    if behavior == "cast":
+        return TensorSpec(shape=list(source.shape), dtype=_operation_dtype(source, operation.output_dtype, parameters))
+    if behavior in {"concatenate", "stack"}:
+        if len(input_specs) < 2:
+            raise ShapeInferenceError(f"{node_id} requires at least two inputs")
+        rank = source.rank
+        axis = _int_parameter(parameters, "axis", -1 if behavior == "concatenate" else 0)
+        normalized_axis = _normalize_axis(axis, rank, allow_endpoint=behavior == "stack")
+        if any(spec.rank != rank or spec.dtype != source.dtype for spec in input_specs[1:]):
+            raise ShapeInferenceError("Tensor operation inputs must have equal rank and dtype")
+        for index in range(rank):
+            if index == normalized_axis:
+                continue
+            expected = source.shape[index]
+            if any(isinstance(expected, int) and isinstance(spec.shape[index], int) and expected != spec.shape[index] for spec in input_specs[1:]):
+                raise ShapeInferenceError("Tensor operation inputs must match on non-concatenated dimensions")
+        shape = list(source.shape)
+        if behavior == "stack":
+            shape.insert(normalized_axis, len(input_specs))
+        else:
+            sizes = [spec.shape[normalized_axis] for spec in input_specs]
+            shape[normalized_axis] = sum(size for size in sizes if isinstance(size, int)) if all(isinstance(size, int) for size in sizes) else None
+        return TensorSpec(shape=shape, dtype=source.dtype)
+    if behavior == "take":
+        axis = _normalize_axis(_int_parameter(parameters, "axis", -1), source.rank)
+        return TensorSpec(shape=[value for index, value in enumerate(source.shape) if index != axis], dtype=source.dtype)
+    if behavior == "expression":
+        expression = parameters.get("expression")
+        if not isinstance(expression, str):
+            raise ShapeInferenceError("Expression must be a string")
+        return _slice_expression_shape(source, expression)
+    raise ShapeInferenceError(f"No shape inference rule for operation behavior '{behavior}'")
+
+###############################################################################
 def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
     nodes = {node.id: node for node in graph.nodes}
     outputs_by_node: dict[str, dict[str, TensorSpec]] = {}
@@ -220,7 +469,10 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
         output: TensorSpec
         parameter_count: int | None = 0
 
-        if rule == "input":
+        if manifest.operation is not None:
+            output = _operation_shape(node_id, manifest, input_specs, parameters)
+            parameter_count = 0
+        elif rule == "input":
             shape = parameters.get("shape", [None, 1])
             if not isinstance(shape, list):
                 raise ShapeInferenceError("Input shape must be a list")

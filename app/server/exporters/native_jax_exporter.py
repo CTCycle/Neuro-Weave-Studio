@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from common.catalogs.loader import NodeCatalog, get_node_catalog
+from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
@@ -24,11 +26,18 @@ class NativeJaxSourceExporter(SourceExporter):
             raise ValueError(f"No native JAX activation adapter registered for {value}") from exc
 
     # -------------------------------------------------------------------------
-    def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
+    def generate(
+        self,
+        graph: ModelGraph,
+        ir: CanonicalModelIR,
+        catalog: NodeCatalog | None = None,
+    ) -> str:
+        catalog = catalog or get_node_catalog()
         nodes = {node.id: node for node in graph.nodes}
         lines = [
             "from __future__ import annotations",
             "",
+            "import jax",
             "import jax.numpy as jnp",
             "from flax import linen as nn",
             "",
@@ -45,7 +54,12 @@ class NativeJaxSourceExporter(SourceExporter):
             params = node.parameters
             source_vars = [variables[source_id] for source_id in item.input_node_ids]
             source = source_vars[0] if source_vars else ""
-            if definition.startswith("input."):
+            manifest = catalog.get(definition, node.definition_version)
+            if manifest.operation is not None:
+                lines.append(
+                    f"        {name} = {emit_operation_source(manifest, 'jax', source_vars, params)}"
+                )
+            elif definition.startswith("input."):
                 expression = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{node.id!r}]"
                 lines.append(f"        {name} = {expression}")
             elif definition == "layer.dense":
@@ -71,6 +85,28 @@ class NativeJaxSourceExporter(SourceExporter):
                 if not isinstance(axes, list) or axes != [-1]:
                     raise ValueError("Native JAX LayerNorm supports the trailing axis only")
                 lines.append(f"        {name} = nn.LayerNorm(use_scale={bool(params.get('scale', True))!r}, use_bias={bool(params.get('center', True))!r}, epsilon={float(params.get('epsilon', 0.001))!r}, name={name!r})({source})")
+            elif definition == "conv.conv1d":
+                data_format = str(params.get("data_format", "channels_last"))
+                if data_format == "channels_first":
+                    lines.append(f"        {name}_input = {source}.transpose(0, 2, 1)")
+                else:
+                    lines.append(f"        {name}_input = {source}")
+                kernel_size = params.get("kernel_size", [3])
+                strides = params.get("strides", [1])
+                dilation = params.get("dilation_rate", [1])
+                if not isinstance(kernel_size, list) or len(kernel_size) != 1:
+                    raise ValueError("Native JAX Conv1D expects one kernel_size value")
+                if not isinstance(strides, list) or len(strides) != 1:
+                    raise ValueError("Native JAX Conv1D expects one strides value")
+                if not isinstance(dilation, list) or len(dilation) != 1:
+                    raise ValueError("Native JAX Conv1D expects one dilation_rate value")
+                padding = str(params.get("padding", "same")).upper()
+                lines.append(f"        {name} = nn.Conv(features={int(params.get('filters', 32))}, kernel_size={(int(kernel_size[0]),)!r}, strides={(int(strides[0]),)!r}, kernel_dilation={(int(dilation[0]),)!r}, padding={padding!r}, feature_group_count={int(params.get('groups', 1))}, use_bias={bool(params.get('use_bias', True))!r}, name={name!r})({name}_input)")
+                if data_format == "channels_first":
+                    lines.append(f"        {name} = {name}.transpose(0, 2, 1)")
+                activation = str(params.get("activation", "linear"))
+                if activation != "linear":
+                    lines.append(f"        {name} = {self._activation(activation)}({name})")
             elif definition == "conv.conv2d":
                 data_format = str(params.get("data_format", "channels_last"))
                 if data_format == "channels_first":

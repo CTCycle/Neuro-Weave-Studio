@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from common.catalogs.loader import NodeCatalog, get_node_catalog
+from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
 from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
@@ -92,7 +94,13 @@ class PyTorchSourceExporter(SourceExporter):
         raise ValueError(f"PyTorch channel-last normalization does not support rank {rank}")
 
     # -------------------------------------------------------------------------
-    def generate(self, graph: ModelGraph, ir: CanonicalModelIR) -> str:
+    def generate(
+        self,
+        graph: ModelGraph,
+        ir: CanonicalModelIR,
+        catalog: NodeCatalog | None = None,
+    ) -> str:
+        catalog = catalog or get_node_catalog()
         nodes = {node.id: node for node in graph.nodes}
         summaries = self._summary_map(ir)
         lines = [
@@ -114,6 +122,15 @@ class PyTorchSourceExporter(SourceExporter):
             "    top = total_height // 2",
             "    left = total_width // 2",
             "    return F.pad(value, (left, total_width - left, top, total_height - top), value=fill_value)",
+            "",
+            "",
+            "def _same_pad_1d(value: Tensor, kernel_size: int, stride: int, dilation: int, fill_value: float = 0.0) -> Tensor:",
+            "    length = value.shape[-1]",
+            "    output_length = (length + stride - 1) // stride",
+            "    effective_kernel = dilation * (kernel_size - 1) + 1",
+            "    total = max((output_length - 1) * stride + effective_kernel - length, 0)",
+            "    left = total // 2",
+            "    return F.pad(value, (left, total - left), value=fill_value)",
             "",
             "",
             "def _set_lstm_forget_bias(layer: nn.LSTM) -> None:",
@@ -188,6 +205,34 @@ class PyTorchSourceExporter(SourceExporter):
                 lines.append(
                     f"        self.{name} = nn.Embedding({int(params.get('vocabulary_size', 10000))!r}, {int(params.get('embedding_dim', 128))!r})"
                 )
+            elif definition == "conv.conv1d":
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"PyTorch Conv1D node {node.id} requires a rank-3 input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = 2 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                kernel_size = params.get("kernel_size", [3])
+                strides = params.get("strides", [1])
+                dilation = params.get("dilation_rate", [1])
+                if not isinstance(kernel_size, list) or len(kernel_size) != 1:
+                    raise ValueError("PyTorch Conv1D expects one kernel_size value")
+                if not isinstance(strides, list) or len(strides) != 1:
+                    raise ValueError("PyTorch Conv1D expects one strides value")
+                if not isinstance(dilation, list) or len(dilation) != 1:
+                    raise ValueError("PyTorch Conv1D expects one dilation_rate value")
+                kernel = int(kernel_size[0])
+                stride = int(strides[0])
+                dilation_value = int(dilation[0])
+                filters = int(params.get("filters", 32))
+                groups = int(params.get("groups", 1))
+                bias = bool(params.get("use_bias", True))
+                if input_channels is None and groups != 1:
+                    raise ValueError("PyTorch LazyConv1d cannot infer grouped input channels")
+                module = "nn.Conv1d" if input_channels is not None else "nn.LazyConv1d"
+                constructor = f"{input_channels!r}, {filters!r}" if input_channels is not None else f"{filters!r}"
+                lines.append(
+                    f"        self.{name} = {module}({constructor}, kernel_size={kernel!r}, stride={stride!r}, padding=0, dilation={dilation_value!r}, groups={groups!r}, bias={bias!r})"
+                )
             elif definition == "conv.conv2d":
                 if source_spec is None or source_spec.rank != 4:
                     raise ValueError(f"PyTorch Conv2D node {node.id} requires a rank-4 input")
@@ -258,7 +303,13 @@ class PyTorchSourceExporter(SourceExporter):
             params = node.parameters
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
 
-            if definition.startswith("input."):
+            manifest = catalog.get(definition, node.definition_version)
+            if manifest.operation is not None:
+                lines.append(
+                    f"        {name} = {emit_operation_source(manifest, 'pytorch', source_vars, params)}"
+                )
+                variables[item.node_id] = name
+            elif definition.startswith("input."):
                 expression = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{node.id!r}]"
                 lines.append(f"        {name} = {expression}")
                 variables[item.node_id] = name
@@ -288,6 +339,28 @@ class PyTorchSourceExporter(SourceExporter):
                 variables[item.node_id] = name
             elif definition == "layer.embedding":
                 lines.append(f"        {name} = self.{name}({source}.long())")
+                variables[item.node_id] = name
+            elif definition == "conv.conv1d":
+                data_format = str(params.get("data_format", "channels_last"))
+                kernel_size = params.get("kernel_size", [3])
+                strides = params.get("strides", [1])
+                dilation = params.get("dilation_rate", [1])
+                kernel = int(kernel_size[0])
+                stride = int(strides[0])
+                dilation_value = int(dilation[0])
+                padding = str(params.get("padding", "same"))
+                conv_input = f"{name}_input"
+                lines.append(f"        {conv_input} = {source}")
+                if data_format == "channels_last":
+                    lines.append(f"        {conv_input} = {conv_input}.permute(0, 2, 1).contiguous()")
+                if padding == "same":
+                    lines.append(f"        {conv_input} = _same_pad_1d({conv_input}, {kernel!r}, {stride!r}, {dilation_value!r})")
+                lines.append(f"        {name} = self.{name}({conv_input})")
+                if data_format == "channels_last":
+                    lines.append(f"        {name} = {name}.permute(0, 2, 1).contiguous()")
+                activation = params.get("activation", "linear")
+                if activation != "linear":
+                    lines.append(f"        {name} = ({self._activation(str(activation))})({name})")
                 variables[item.node_id] = name
             elif definition == "conv.conv2d":
                 data_format = str(params.get("data_format", "channels_last"))

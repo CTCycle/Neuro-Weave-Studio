@@ -144,7 +144,8 @@ export function PropertiesInspector({ onClose, isOpen = true, executionBackend =
   const [drafts, setDrafts] = useState<Record<string, DraftValue>>({})
   const [invalid, setInvalid] = useState<Record<string, boolean>>({})
   useEffect(() => {
-    inspectorRef.current?.scrollTo({ top: 0 })
+    const inspector = inspectorRef.current
+    if (inspector && typeof inspector.scrollTo === 'function') inspector.scrollTo({ top: 0 })
     setDrafts({})
     setInvalid({})
   }, [selectedNodeId, isOpen])
@@ -190,7 +191,6 @@ export function PropertiesInspector({ onClose, isOpen = true, executionBackend =
           return <label key={definition.id} className="field"><span>{definition.display_name}{help && <small>{help}</small>}</span><input type={definition.type === 'number' || definition.type === 'integer' || definition.type === 'axis' ? 'number' : 'text'} value={String(value)} disabled={disabled} min={bounds.min} max={bounds.max} step={bounds.step} onChange={(event) => updateParameter(definition, event.target.value)} aria-invalid={invalid[definition.id]} />{invalid[definition.id] && <em className="field-error">Enter a complete value within the supported range.</em>}</label>
         })}</details>)}
       </div>
-      {node.data.shapeSummary && <div className="summary-card"><strong>Inferred output</strong>{Object.entries(node.data.shapeSummary.outputs).map(([port, spec]) => <div key={port}><span>{port}</span><code>{spec.shape.map((value) => value === null ? '?' : typeof value === 'object' ? value.name : value).join(' × ')}</code></div>)}<div><span>Parameters</span><code>{node.data.shapeSummary.parameter_count?.toLocaleString() ?? 'unknown'}</code></div></div>}
     </aside>
   )
 }

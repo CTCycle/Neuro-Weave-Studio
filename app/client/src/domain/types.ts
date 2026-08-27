@@ -42,9 +42,23 @@ export interface ParameterCapability {
 export interface ImplementationMapping {
   supported: boolean
   symbol?: string
+  adapter?: string
   notes?: string
   parameters?: Record<string, ParameterCapability>
+  variant_symbols?: Record<string, string>
   execution_backends?: Record<string, boolean>
+}
+
+export type OperationFamily = 'unary' | 'binary' | 'elementwise' | 'reduction' | 'tensor'
+
+export interface OperationMetadata {
+  family: OperationFamily
+  shape_behavior: 'preserve' | 'reduce' | 'reshape' | 'transpose' | 'expand_dims' | 'squeeze' | 'flatten' | 'repeat' | 'tile' | 'cast' | 'concatenate' | 'stack' | 'matmul' | 'take' | 'expression'
+  output_dtype: 'same' | 'bool' | 'int64' | 'parameter'
+  arity: number
+  variadic: boolean
+  arguments: string[]
+  keywords: string[]
 }
 
 export interface NodeManifest {
@@ -57,6 +71,7 @@ export interface NodeManifest {
   outputs: PortDefinition[]
   parameters: ParameterDefinition[]
   shape_rule: { kind: string; config: Record<string, unknown> }
+  operation?: OperationMetadata | null
   implementations: Record<string, ImplementationMapping>
   ui: { icon: string; accent: string; width: number; height: number }
   deprecated: boolean

@@ -95,20 +95,27 @@ def test_native_multi_input_multi_output_signatures_match(
 
 
 ###############################################################################
-def test_native_catalog_is_bounded_to_the_verified_common_subset() -> None:
+def test_native_catalog_is_capability_driven() -> None:
     catalog = get_node_catalog()
-    native_nodes = {
-        manifest.id
-        for manifest in catalog.manifests
-        if manifest.implementations.get("tensorflow")
-        and manifest.implementations["tensorflow"].supported
-        and manifest.implementations.get("jax")
-        and manifest.implementations["jax"].supported
-    }
 
-    assert len(native_nodes) == 27
-    assert "attention.multi_head" not in native_nodes
-    assert "transformer.encoder_block" not in native_nodes
+    for manifest in catalog.manifests:
+        for backend in ("tensorflow", "pytorch", "jax"):
+            mapping = manifest.implementations.get(backend)
+            if mapping is None or not mapping.supported:
+                continue
+            assert mapping.symbol or mapping.adapter, (
+                f"{manifest.id} has no declarative {backend} implementation"
+            )
+
+    assert catalog.get("conv.conv1d").implementations["tensorflow"].supported
+    assert catalog.get("conv.conv1d").implementations["pytorch"].supported
+    assert catalog.get("conv.conv1d").implementations["jax"].supported
+    assert "attention.multi_head" not in {
+        manifest.id for manifest in catalog.manifests if manifest.operation is not None
+    }
+    assert "transformer.encoder_block" not in {
+        manifest.id for manifest in catalog.manifests if manifest.operation is not None
+    }
 
 
 ###############################################################################

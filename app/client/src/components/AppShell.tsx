@@ -1,4 +1,4 @@
-import { BrainCircuit, Box, Cpu, Hammer, X } from 'lucide-react'
+import { Activity, BrainCircuit, Box, Cpu, Hammer, X } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAppResources } from '../state/useAppResources'
 
@@ -17,6 +17,7 @@ export function AppShell() {
           <NavLink to="/models" className={({ isActive }) => isActive ? 'active' : ''}><Box size={16} />Models</NavLink>
           <NavLink to="/builder" className={({ isActive }) => isActive ? 'active' : ''}><Hammer size={16} />Model Builder</NavLink>
           <NavLink to="/environment" className={({ isActive }) => isActive ? 'active' : ''}><Cpu size={16} />Environment</NavLink>
+          <NavLink to="/metrics" className={({ isActive }) => isActive ? 'active' : ''}><Activity size={16} />Metrics</NavLink>
         </nav>
       </header>
       <main className={`app-content ${isBuilder ? 'builder-content' : ''}`}><Outlet /></main>

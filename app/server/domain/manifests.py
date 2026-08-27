@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -9,6 +10,32 @@ from domain.enums import ExecutionBackend, PortKind
 ParameterType = Literal[
     "string", "integer", "number", "boolean", "enum", "shape", "axis", "list", "tuple", "expression"
 ]
+OperationFamily = Literal["unary", "binary", "elementwise", "reduction", "tensor"]
+OperationShapeBehavior = Literal[
+    "preserve",
+    "reduce",
+    "reshape",
+    "transpose",
+    "expand_dims",
+    "squeeze",
+    "flatten",
+    "repeat",
+    "tile",
+    "cast",
+    "concatenate",
+    "stack",
+    "matmul",
+    "take",
+    "expression",
+]
+OperationOutputDtype = Literal["same", "bool", "int64", "parameter"]
+_SYMBOL_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
+_OPERATION_SYMBOL_PREFIXES = {
+    "keras": ("keras.ops.",),
+    "tensorflow": ("tf.",),
+    "pytorch": ("torch.",),
+    "jax": ("jnp.", "jax.nn.", "jax.lax.", "jax.scipy.special."),
+}
 
 ###############################################################################
 class PortDefinition(BaseModel):
@@ -55,13 +82,43 @@ class ParameterCapability(BaseModel):
     notes: str | None = None
 
 ###############################################################################
+class OperationMetadata(BaseModel):
+    """Typed metadata for a single-output mathematical/tensor operation."""
+
+    family: OperationFamily
+    shape_behavior: OperationShapeBehavior = "preserve"
+    output_dtype: OperationOutputDtype = "same"
+    arity: int = Field(default=1, ge=1, le=16)
+    variadic: bool = False
+    arguments: list[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="after")
+    def validate_call_contract(self) -> OperationMetadata:
+        if self.family == "unary" and self.arity != 1:
+            raise ValueError("Unary operations must declare arity=1")
+        if self.family == "reduction" and self.arity != 1:
+            raise ValueError("Reduction operations must declare arity=1")
+        if self.family in {"binary", "elementwise"} and self.arity != 2:
+            raise ValueError("Binary and elementwise operations must declare arity=2")
+        if self.variadic and self.family not in {"binary", "elementwise", "tensor"}:
+            raise ValueError("Only binary, elementwise, and tensor operations may be variadic")
+        parameter_ids = [*self.arguments, *self.keywords]
+        if len(parameter_ids) != len(set(parameter_ids)):
+            raise ValueError("Operation call parameters must be unique")
+        return self
+
+###############################################################################
 class ImplementationMapping(BaseModel):
     """Capability metadata for one Keras or native node implementation."""
 
     supported: bool = True
     symbol: str | None = None
+    adapter: str | None = None
     notes: str | None = None
     parameters: dict[str, ParameterCapability] = Field(default_factory=dict)
+    variant_symbols: dict[str, str] = Field(default_factory=dict)
     execution_backends: dict[ExecutionBackend, bool] = Field(default_factory=dict)  # pyright: ignore[reportUnknownVariableType]
 
 ###############################################################################
@@ -88,6 +145,7 @@ class NodeManifest(BaseModel):
     parameters: list[ParameterDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     shape_rule: ShapeRule
     implementations: dict[str, ImplementationMapping]
+    operation: OperationMetadata | None = None
     ui: UiMetadata = Field(default_factory=UiMetadata)
     deprecated: bool = False
     documentation_ref: str
@@ -107,6 +165,15 @@ class NodeManifest(BaseModel):
             if len(ids) != len(set(ids)):
                 raise ValueError(f"Duplicate {label} identifiers in manifest {self.id}")
         known_parameter_ids = {parameter.id for parameter in parameters}
+        if self.operation is not None:
+            unknown_operation_parameters = sorted(
+                set([*self.operation.arguments, *self.operation.keywords]) - known_parameter_ids
+            )
+            if unknown_operation_parameters:
+                raise ValueError(
+                    f"Operation {self.id} references unknown parameters: "
+                    f"{', '.join(unknown_operation_parameters)}"
+                )
         for implementation, mapping in self.implementations.items():
             unknown_capabilities = sorted(set(mapping.parameters) - known_parameter_ids)
             if unknown_capabilities:
@@ -114,6 +181,30 @@ class NodeManifest(BaseModel):
                     f"Implementation mapping {implementation} for {self.id} references unknown "
                     f"parameters: {', '.join(unknown_capabilities)}"
                 )
+            if mapping.symbol is not None and not _SYMBOL_PATTERN.fullmatch(mapping.symbol):
+                raise ValueError(f"Implementation mapping {implementation} for {self.id} has an invalid symbol")
+            for variant, symbol in mapping.variant_symbols.items():
+                if not _SYMBOL_PATTERN.fullmatch(symbol):
+                    raise ValueError(
+                        f"Implementation mapping {implementation} for {self.id} has an invalid symbol for variant {variant}"
+                    )
+                if self.operation is not None:
+                    prefixes = _OPERATION_SYMBOL_PREFIXES.get(implementation)
+                    if prefixes and not symbol.startswith(prefixes):
+                        raise ValueError(
+                            f"Operation mapping {implementation} for {self.id} variant {variant} "
+                            "must use a validated backend symbol"
+                        )
+            if self.operation is not None and mapping.supported and mapping.symbol is None and mapping.adapter is None:
+                raise ValueError(
+                    f"Supported operation mapping {implementation} for {self.id} must identify a symbol or adapter"
+                )
+            if self.operation is not None and mapping.supported and mapping.symbol is not None:
+                prefixes = _OPERATION_SYMBOL_PREFIXES.get(implementation)
+                if prefixes and not mapping.symbol.startswith(prefixes):
+                    raise ValueError(
+                        f"Operation mapping {implementation} for {self.id} must use a validated backend symbol"
+                    )
         return self
 
 ###############################################################################
