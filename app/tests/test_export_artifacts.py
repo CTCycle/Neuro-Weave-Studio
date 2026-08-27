@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from configurations.settings import get_settings
+from configurations.settings import Settings
 from domain.enums import ExecutionBackend
 from domain.exports import ExportFormat
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
@@ -19,8 +19,14 @@ from services.runtime_controller import RuntimeController
 
 ###############################################################################
 @pytest.fixture(scope="module")
-def export_controller() -> RuntimeController:
-    controller = RuntimeController(get_settings())
+def export_controller(tmp_path_factory: pytest.TempPathFactory) -> RuntimeController:
+    runtime_root = tmp_path_factory.mktemp("export-controller")
+    controller = RuntimeController(
+        Settings(
+            ml_job_root=runtime_root / "jobs",
+            export_root=runtime_root / "exports",
+        )
+    )
     controller.probe_statuses()
     yield controller
     controller.shutdown()
