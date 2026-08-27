@@ -112,7 +112,8 @@ def create_project(
 
 ###############################################################################
 def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
-    for _ in range(240):
+    deadline = time.monotonic() + 300
+    while time.monotonic() < deadline:
         job = client.get(f"/api/execution/jobs/{job_id}").json()
         if job["state"] in {"succeeded", "terminated", "failed"}:
             return cast(dict[str, Any], job)
