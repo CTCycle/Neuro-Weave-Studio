@@ -23,7 +23,6 @@ if config.config_file_name is not None and not config.attributes.get(
 
 target_metadata = Base.metadata
 
-
 ###############################################################################
 def _configure_migrations(connection: Connection) -> None:
     context.configure(
@@ -35,7 +34,6 @@ def _configure_migrations(connection: Connection) -> None:
     )
     with context.begin_transaction():
         context.run_migrations()
-
 
 ###############################################################################
 def run_migrations_offline() -> None:
@@ -51,7 +49,6 @@ def run_migrations_offline() -> None:
     )
     with context.begin_transaction():
         context.run_migrations()
-
 
 ###############################################################################
 def run_migrations_online() -> None:

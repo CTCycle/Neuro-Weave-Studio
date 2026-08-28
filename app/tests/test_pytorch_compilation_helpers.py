@@ -22,7 +22,6 @@ from models.worker_backend import run_keras_smoke, run_native_smoke
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
 
-
 ###############################################################################
 def _node(node_id: str, definition_id: str, parameters: dict[str, Any] | None = None) -> NodeInstance:
     return NodeInstance(
@@ -31,7 +30,6 @@ def _node(node_id: str, definition_id: str, parameters: dict[str, Any] | None = 
         position=Position(x=0, y=0),
         parameters=parameters or {},
     )
-
 
 ###############################################################################
 def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
@@ -42,7 +40,6 @@ def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
         target_node_id=target,
         target_port_id="input",
     )
-
 
 ###############################################################################
 def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
@@ -120,7 +117,6 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
         ),
     }
 
-
 ###############################################################################
 def _configured_graph(graph: ModelGraph, api: str, task: str) -> ModelGraph:
     if task == "regression":
@@ -152,7 +148,6 @@ def _configured_graph(graph: ModelGraph, api: str, task: str) -> ModelGraph:
         )
     return graph.model_copy(update={"model_configuration": configuration})
 
-
 ###############################################################################
 @pytest.mark.parametrize("workflow", list(_workflow_graphs()))
 def test_native_pytorch_workflows_verify_forward_and_compilation_helpers(workflow: str) -> None:
@@ -171,7 +166,6 @@ def test_native_pytorch_workflows_verify_forward_and_compilation_helpers(workflo
     assert result["compilation"]["verified"] is True
     assert result["compilation"]["optimizer"] == {"id": "adamw", "instantiated": True}
     assert [tuple(item["shape"]) for item in result["outputs"]] == [expected_shape]
-
 
 ###############################################################################
 @pytest.mark.parametrize("workflow", list(_workflow_graphs()))
@@ -198,7 +192,6 @@ def test_keras_pytorch_backend_workflows_compile_and_forward(workflow: str) -> N
     assert result["compilation"]["verified"] is True
     assert [tuple(item["shape"]) for item in result["outputs"]] == [expected_shape]
 
-
 ###############################################################################
 def test_catalog_contains_complete_keras_and_native_pytorch_mappings() -> None:
     catalog = get_compilation_catalog()
@@ -208,7 +201,6 @@ def test_catalog_contains_complete_keras_and_native_pytorch_mappings() -> None:
     assert {option.id for option in catalog.losses} == {
         option.id for option in get_compilation_catalog().losses
     }
-
 
 ###############################################################################
 def test_native_configuration_rejects_incompatible_loss_metric_and_activation() -> None:
@@ -242,7 +234,6 @@ def test_native_configuration_rejects_incompatible_loss_metric_and_activation() 
     )
     assert any(item.code == "invalid_output_activation" for item in validate_model_configuration(graph, ExecutionBackend.PYTORCH, False))
 
-
 ###############################################################################
 def test_native_configured_graph_passes_full_static_validation() -> None:
     graph, _, task = _workflow_graphs()["multiclass_classification"]
@@ -250,7 +241,6 @@ def test_native_configured_graph_passes_full_static_validation() -> None:
     result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, False)
     assert result.valid
     assert result.shape_summaries
-
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -287,7 +277,6 @@ def test_native_optimizer_helpers_cover_catalog_variants(optimizer: str, paramet
     )
     assert result["compilation"]["optimizer"] == {"id": optimizer, "instantiated": True}
     assert result["compilation"]["losses"]["output"]["id"] == "mean_squared_error"
-
 
 ###############################################################################
 @pytest.mark.parametrize(

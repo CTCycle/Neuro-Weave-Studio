@@ -8,6 +8,7 @@ from domain.manifests import ImplementationMapping, NodeManifest
 from validation.safe_expression import validate_safe_expression
 
 
+###############################################################################
 class OperationEmissionError(ValueError):
     """Raised when a catalog operation cannot be emitted for a target."""
 
@@ -69,6 +70,7 @@ _BINARY_OPERATOR_SYMBOLS: dict[type[ast.operator], str] = {
 _UNARY_OPERATOR_SYMBOLS: dict[type[ast.unaryop], str] = {ast.UAdd: "+", ast.USub: "-"}
 
 
+###############################################################################
 def _mapping(manifest: NodeManifest, implementation_key: str) -> ImplementationMapping:
     mapping = manifest.implementations.get(implementation_key)
     if mapping is None or not mapping.supported:
@@ -82,12 +84,14 @@ def _mapping(manifest: NodeManifest, implementation_key: str) -> ImplementationM
     return mapping
 
 
+###############################################################################
 def _resolved_parameters(manifest: NodeManifest, parameters: Mapping[str, Any]) -> dict[str, Any]:
     resolved = {parameter.id: parameter.default for parameter in manifest.parameters}
     resolved.update(parameters)
     return resolved
 
 
+###############################################################################
 def _parameter_name(mapping: ImplementationMapping, parameter_id: str, backend: str) -> str:
     capability = mapping.parameters.get(parameter_id)
     if capability is not None and capability.mapping:
@@ -99,6 +103,7 @@ def _parameter_name(mapping: ImplementationMapping, parameter_id: str, backend: 
     return parameter_id
 
 
+###############################################################################
 def _literal(value: Any) -> str:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return repr(value)
@@ -108,6 +113,7 @@ def _literal(value: Any) -> str:
     raise OperationEmissionError("Operation parameters must be scalar or serializable lists")
 
 
+###############################################################################
 def _symbol(mapping: ImplementationMapping, parameters: Mapping[str, Any]) -> str:
     if mapping.adapter == "reduction":
         operation = str(parameters.get("operation", "sum"))
@@ -120,6 +126,7 @@ def _symbol(mapping: ImplementationMapping, parameters: Mapping[str, Any]) -> st
     return mapping.symbol
 
 
+###############################################################################
 def _keywords(
     manifest: NodeManifest,
     mapping: ImplementationMapping,
@@ -135,6 +142,7 @@ def _keywords(
     ]
 
 
+###############################################################################
 def _safe_expression_source(expression: str, source: str, backend: str) -> str:
     validate_safe_expression(expression)
     tree = ast.parse(expression, mode="eval")
@@ -193,6 +201,7 @@ def _safe_expression_source(expression: str, source: str, backend: str) -> str:
     return render(tree)
 
 
+###############################################################################
 def _dtype_literal(value: Any, backend: str) -> str:
     dtype = str(value)
     if backend == "keras":
@@ -201,6 +210,7 @@ def _dtype_literal(value: Any, backend: str) -> str:
     return f"{prefix}.{dtype}"
 
 
+###############################################################################
 def _binary_expression(symbol: str, inputs: Sequence[str]) -> str:
     if len(inputs) < 2:
         raise OperationEmissionError("Binary operations require at least two inputs")
@@ -210,6 +220,7 @@ def _binary_expression(symbol: str, inputs: Sequence[str]) -> str:
     return result
 
 
+###############################################################################
 def emit_operation_source(
     manifest: NodeManifest,
     implementation_key: str,
@@ -313,6 +324,7 @@ def emit_operation_source(
     raise OperationEmissionError(f"No source emitter for operation behavior '{behavior}'")
 
 
+###############################################################################
 def evaluate_safe_expression(
     expression: str,
     value: Any,
@@ -388,6 +400,7 @@ def evaluate_safe_expression(
     return evaluate(tree)
 
 
+###############################################################################
 def apply_runtime_operation(
     manifest: NodeManifest,
     implementation_key: str,

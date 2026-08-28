@@ -10,7 +10,6 @@ from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
-
 ###############################################################################
 class KerasSourceExporter(SourceExporter):
 

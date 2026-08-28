@@ -22,11 +22,11 @@ from models.worker_backend import (
     run_native_smoke,
 )
 
-
 ###############################################################################
 class JaxWorker:
     backend = ExecutionBackend.JAX
 
+    # -------------------------------------------------------------------------
     def __init__(self) -> None:
         self._config: WorkerConfiguration | None = None
 

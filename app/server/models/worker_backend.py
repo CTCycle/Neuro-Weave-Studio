@@ -15,33 +15,41 @@ from domain.exports import ExportFormat, ExportOptions
 from domain.graph import ModelGraph
 from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 
-
 ###############################################################################
 class BackendWorker(Protocol):
     """Common contract implemented by one isolated execution-backend worker."""
 
     backend: ExecutionBackend
 
+    # -------------------------------------------------------------------------
     def configure(self, config: WorkerConfiguration) -> None: ...
 
+    # -------------------------------------------------------------------------
     def capabilities(self) -> dict[str, object]: ...
 
+    # -------------------------------------------------------------------------
     def native_compilation_capabilities(self) -> dict[str, bool]: ...
 
+    # -------------------------------------------------------------------------
     def device_inventory(self) -> list[dict[str, object]]: ...
 
+    # -------------------------------------------------------------------------
     def memory_metrics(self) -> dict[str, int | None]: ...
 
+    # -------------------------------------------------------------------------
     def device_scope(self) -> AbstractContextManager[Any]: ...
 
+    # -------------------------------------------------------------------------
     def synchronize(self, values: list[Any]) -> None: ...
 
+    # -------------------------------------------------------------------------
     def run_smoke(
         self,
         graph: ModelGraph,
         checkpoint: Callable[[], None],
     ) -> dict[str, object]: ...
 
+    # -------------------------------------------------------------------------
     def run_export(
         self,
         graph: ModelGraph,
@@ -53,6 +61,7 @@ class BackendWorker(Protocol):
         project_revision: int | None = None,
     ) -> dict[str, object]: ...
 
+    # -------------------------------------------------------------------------
     def cleanup(self) -> None: ...
 
 

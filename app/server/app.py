@@ -28,7 +28,6 @@ from configurations.settings import Settings, get_database_settings, get_setting
 from repositories.session import create_repository_context
 from services.runtime_controller import RuntimeController
 
-
 ###############################################################################
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncGenerator[None]:

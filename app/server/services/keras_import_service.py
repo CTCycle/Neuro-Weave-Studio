@@ -116,7 +116,6 @@ def parse_keras_architecture(
         ],
     )
 
-
 ###############################################################################
 def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
     if not isinstance(document, dict):
@@ -208,7 +207,6 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
         )
     return ModelGraph(nodes=nodes, edges=[EdgeInstance(**edge) for edge in edges]), str(config.get("name") or "Imported Keras architecture")
 
-
 ###############################################################################
 def _map_layer(class_name: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     if class_name == "InputLayer":
@@ -249,7 +247,6 @@ def _map_layer(class_name: str, config: dict[str, Any]) -> tuple[str, dict[str, 
             raise KerasArchitectureImportError("unsupported_parameter", f"Keras layer parameter '{class_name}.{key}' is not a safe scalar value")
     return definition_id, parameters
 
-
 ###############################################################################
 def _shape(value: Any) -> list[int | None] | None:
     if not _is_scalar_list(value) or not value:
@@ -264,11 +261,9 @@ def _shape(value: Any) -> list[int | None] | None:
             raise KerasArchitectureImportError("unsupported_shape", "Keras input shapes must contain positive integers or null")
     return shape
 
-
 ###############################################################################
 def _is_scalar_list(value: Any) -> bool:
     return isinstance(value, list) and all(item is None or isinstance(item, (str, int, float, bool)) for item in value)
-
 
 ###############################################################################
 def _unique_ids(layers: dict[str, dict[str, Any]]) -> dict[str, str]:
@@ -278,7 +273,6 @@ def _unique_ids(layers: dict[str, dict[str, Any]]) -> dict[str, str]:
         result[name] = _unique_id(name, used)
         used.add(result[name])
     return result
-
 
 ###############################################################################
 def _unique_id(value: str, used: set[str]) -> str:
@@ -292,7 +286,6 @@ def _unique_id(value: str, used: set[str]) -> str:
         candidate = f"{base[: max(1, 120 - len(str(suffix)) - 1)]}_{suffix}"
         suffix += 1
     return candidate
-
 
 ###############################################################################
 def _visit_inbound_names(item: Any, names: list[str]) -> None:
@@ -311,13 +304,11 @@ def _visit_inbound_names(item: Any, names: list[str]) -> None:
         for child in item:
             _visit_inbound_names(child, names)
 
-
 ###############################################################################
 def _inbound_names(value: Any) -> list[str]:
     names: list[str] = []
     _visit_inbound_names(value, names)
     return list(dict.fromkeys(names))
-
 
 ###############################################################################
 def _model_output_names(config: dict[str, Any], class_name: str, layer_names: list[str]) -> list[str]:

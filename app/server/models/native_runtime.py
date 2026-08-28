@@ -14,7 +14,6 @@ from exporters.native_jax_exporter import NativeJaxSourceExporter
 from exporters.native_tensorflow_exporter import NativeTensorFlowSourceExporter
 from exporters.pytorch_exporter import PyTorchSourceExporter
 
-
 ###############################################################################
 @dataclass
 class NativeModelHandle:
@@ -30,6 +29,7 @@ class NativeModelHandle:
     apply: Callable[[Any, Any], Any] | None = None
     compilation: dict[str, Any] | None = None
 
+    # -------------------------------------------------------------------------
     def parameter_count(self) -> int:
         if self.backend is ExecutionBackend.PYTORCH:
             return int(sum(int(parameter.numel()) for parameter in self.model.parameters()))

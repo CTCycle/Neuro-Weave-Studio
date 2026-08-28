@@ -214,6 +214,7 @@ def _operation_dtype(source: TensorSpec, output_dtype: str, parameters: dict[str
     return source.dtype
 
 
+###############################################################################
 def _slice_integer_literal(node: ast.AST) -> int | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
         return int(node.value)
@@ -229,6 +230,7 @@ def _slice_integer_literal(node: ast.AST) -> int | None:
     return None
 
 
+###############################################################################
 def _slice_expression_shape(source: TensorSpec, expression: str) -> TensorSpec:
     try:
         validate_safe_expression(expression)
@@ -275,7 +277,6 @@ def _slice_expression_shape(source: TensorSpec, expression: str) -> TensorSpec:
         else:
             output_shape.append(None)
     return TensorSpec(shape=output_shape, dtype=source.dtype)
-
 
 ###############################################################################
 def _operation_shape(
