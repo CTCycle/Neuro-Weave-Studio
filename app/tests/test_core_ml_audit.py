@@ -32,7 +32,6 @@ from exporters.keras_exporter import KerasSourceExporter
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def node(
     node_id: str,
@@ -49,7 +48,6 @@ def node(
         parameters=parameters or {},
     )
 
-
 ###############################################################################
 def edge(
     edge_id: str,
@@ -65,7 +63,6 @@ def edge(
         target_port_id=target_port,
     )
 
-
 ###############################################################################
 def validate(graph: ModelGraph):
     return ValidationService(get_node_catalog()).validate(
@@ -74,13 +71,11 @@ def validate(graph: ModelGraph):
         True,
     )
 
-
 ###############################################################################
 def runtime_controller() -> RuntimeController:
     controller = RuntimeController(get_settings())
     controller.probe_statuses()
     return controller
-
 
 ###############################################################################
 def runtime_worker(
@@ -105,7 +100,6 @@ def runtime_worker(
         precision=precision,
     )
 
-
 ###############################################################################
 def available_backend() -> ExecutionBackend | None:
     controller = runtime_controller()
@@ -120,7 +114,6 @@ def available_backend() -> ExecutionBackend | None:
         )
     finally:
         controller.shutdown()
-
 
 ###############################################################################
 def run_smoke(
@@ -147,7 +140,6 @@ def run_smoke(
         return result.result or {}
     finally:
         controller.shutdown()
-
 
 ###############################################################################
 def export_job(
@@ -179,7 +171,6 @@ def export_job(
     finally:
         controller.shutdown()
 
-
 ###############################################################################
 def wait_for_runtime_job(
     controller: RuntimeController,
@@ -193,7 +184,6 @@ def wait_for_runtime_job(
         time.sleep(0.05)
     controller.stop(job_id)
     raise TimeoutError(f"ML worker job {job_id} timed out")
-
 
 ###############################################################################
 def test_attention_shape_and_parameter_contract_matches_runtime() -> None:
@@ -242,7 +232,6 @@ def test_attention_shape_and_parameter_contract_matches_runtime() -> None:
         }
     ]
     assert runtime["parameter_count"] == 522
-
 
 ###############################################################################
 def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
@@ -313,7 +302,6 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
     )
 
     assert completed.returncode == 0, completed.stderr
-
 
 ###############################################################################
 def test_multi_output_compile_selectors_generate_executable_transformer_source(
@@ -397,7 +385,6 @@ def test_multi_output_compile_selectors_generate_executable_transformer_source(
     )
 
     assert completed.returncode == 0, completed.stderr
-
 
 ###############################################################################
 def test_keras_export_reloads_custom_layer_in_clean_process(

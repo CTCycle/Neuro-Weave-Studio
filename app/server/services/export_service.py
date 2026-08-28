@@ -32,7 +32,6 @@ from services.project_service import ProjectService
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 class ExportService:
 
@@ -360,7 +359,6 @@ class ExportService:
         )
         return formats
 
-
 ###############################################################################
 def _filename_option() -> ExportOptionDefinition:
     return ExportOptionDefinition(
@@ -371,11 +369,9 @@ def _filename_option() -> ExportOptionDefinition:
         description="Server sanitizes the stem and derives the extension from the selected format.",
     )
 
-
 ###############################################################################
 def _backend_package(backend: ExecutionBackend) -> str:
     return {ExecutionBackend.PYTORCH: "torch", ExecutionBackend.TENSORFLOW: "tensorflow", ExecutionBackend.JAX: "jax"}[backend]
-
 
 ###############################################################################
 def _missing_packages(packages: list[str]) -> list[str]:
@@ -389,7 +385,6 @@ def _missing_packages(packages: list[str]) -> list[str]:
         if not installed:
             missing.append(package)
     return missing
-
 
 ###############################################################################
 def _runtime_reason(status: object, label: str) -> tuple[str, str]:

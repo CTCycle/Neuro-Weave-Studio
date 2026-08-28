@@ -16,7 +16,6 @@ from services.project_service import ProjectService
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 class JobService:
     """Validates graph/project inputs before handing immutable work to the controller."""

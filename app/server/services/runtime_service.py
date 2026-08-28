@@ -13,7 +13,6 @@ from domain.metadata import (
 )
 from domain.runtime import RuntimeApi, RuntimeApiStatus
 
-
 ###############################################################################
 class RuntimeService:
 

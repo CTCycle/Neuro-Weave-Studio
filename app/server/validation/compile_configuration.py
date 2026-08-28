@@ -12,7 +12,6 @@ from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
 
-
 ###############################################################################
 def _error(
     code: str,

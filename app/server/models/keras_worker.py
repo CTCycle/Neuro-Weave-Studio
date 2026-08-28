@@ -15,7 +15,6 @@ from models.keras_layers import SinusoidalPositionalEncoding
 from models.keras_runtime import layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
 
-
 ###############################################################################
 def _checkpoint(callback: Callable[[], None] | None) -> None:
     if callback is not None:

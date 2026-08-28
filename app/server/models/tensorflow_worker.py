@@ -22,11 +22,11 @@ from models.worker_backend import (
     run_native_smoke,
 )
 
-
 ###############################################################################
 class TensorFlowWorker:
     backend = ExecutionBackend.TENSORFLOW
 
+    # -------------------------------------------------------------------------
     def __init__(self) -> None:
         self._config: WorkerConfiguration | None = None
 

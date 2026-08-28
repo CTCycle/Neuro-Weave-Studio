@@ -9,7 +9,6 @@ import pytest
 from domain.enums import ExecutionBackend
 from services.keras_import_service import KerasArchitectureImportError, parse_keras_architecture
 
-
 ###############################################################################
 def keras_archive(document: dict[str, object]) -> bytes:
     buffer = io.BytesIO()
@@ -17,7 +16,6 @@ def keras_archive(document: dict[str, object]) -> bytes:
         archive.writestr("config.json", json.dumps(document))
         archive.writestr("metadata.json", json.dumps({"keras_version": "3"}))
     return buffer.getvalue()
-
 
 ###############################################################################
 def test_import_reconstructs_allowlisted_functional_architecture_without_weights() -> None:
@@ -47,7 +45,6 @@ def test_import_reconstructs_allowlisted_functional_architecture_without_weights
     ]
     assert len(parsed.payload.graph.edges) == 2
     assert any("weights" in warning for warning in parsed.warnings)
-
 
 ###############################################################################
 def test_import_rejects_executable_or_unknown_layers() -> None:

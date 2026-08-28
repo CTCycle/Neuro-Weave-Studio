@@ -53,25 +53,26 @@ class CompilationCatalog(BaseModel):
     regularizers: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
 
-
 ###############################################################################
 class CompilationCatalogProvider(Protocol):
     """Boundary for the future user-editable compilation catalog."""
 
+    # -------------------------------------------------------------------------
     def get(self) -> CompilationCatalog:
         ...
 
-
 ###############################################################################
 class StaticCompilationCatalogProvider:
+
+    # -------------------------------------------------------------------------
     def __init__(self) -> None:
         self._catalog: CompilationCatalog | None = None
 
+    # -------------------------------------------------------------------------
     def get(self) -> CompilationCatalog:
         if self._catalog is None:
             self._catalog = _build_compilation_catalog()
         return self._catalog
-
 
 ###############################################################################
 def _number(
@@ -96,7 +97,6 @@ def _number(
         description=description,
         constraints=constraints,
     )
-
 
 ###############################################################################
 def _optimizer(
@@ -144,7 +144,6 @@ def _mapped_option(
         target_contract=target_contract,
         activation_contract=activation_contract or [],
     )
-
 
 ###############################################################################
 def _build_compilation_catalog() -> CompilationCatalog:
@@ -226,10 +225,12 @@ def _build_compilation_catalog() -> CompilationCatalog:
 _COMPILATION_CATALOG_PROVIDER = StaticCompilationCatalogProvider()
 
 
+###############################################################################
 def get_compilation_catalog_provider() -> CompilationCatalogProvider:
     return _COMPILATION_CATALOG_PROVIDER
 
 
+###############################################################################
 def get_compilation_catalog() -> CompilationCatalog:
     return get_compilation_catalog_provider().get()
 

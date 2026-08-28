@@ -24,7 +24,6 @@ from domain.runtime import (
 )
 from services.runtime_controller import RuntimeController, RuntimeControllerError
 
-
 ###############################################################################
 def status(*devices: RuntimeDevice) -> ExecutionBackendStatus:
     return ExecutionBackendStatus(
@@ -35,7 +34,6 @@ def status(*devices: RuntimeDevice) -> ExecutionBackendStatus:
         accelerator="cpu",
         devices=list(devices),
     )
-
 
 ###############################################################################
 def fake_start(job_dir: Path, sleep_seconds: float) -> subprocess.Popen[bytes]:
@@ -56,7 +54,6 @@ def fake_start(job_dir: Path, sleep_seconds: float) -> subprocess.Popen[bytes]:
         **process_start_options(),
     )
     return cast(subprocess.Popen[bytes], process)
-
 
 ###############################################################################
 def controller(
@@ -106,7 +103,6 @@ def controller(
     )
     return runtime
 
-
 ###############################################################################
 def request(device_id: str = "cpu") -> JobSubmitRequest:
     return JobSubmitRequest(
@@ -117,7 +113,6 @@ def request(device_id: str = "cpu") -> JobSubmitRequest:
         ),
     )
 
-
 ###############################################################################
 def wait(runtime: RuntimeController, job_id: str) -> JobResponse:
     for _ in range(320):
@@ -126,7 +121,6 @@ def wait(runtime: RuntimeController, job_id: str) -> JobResponse:
             return job
         time.sleep(0.02)
     pytest.fail(f"job {job_id} did not finish")
-
 
 ###############################################################################
 def test_device_leases_are_exclusive_but_distinct_devices_can_run_concurrently(
@@ -149,7 +143,6 @@ def test_device_leases_are_exclusive_but_distinct_devices_can_run_concurrently(
     finally:
         runtime.shutdown()
 
-
 ###############################################################################
 def test_stop_is_idempotent_and_releases_lease_only_after_worker_exit(
     tmp_path: Path,
@@ -171,7 +164,6 @@ def test_stop_is_idempotent_and_releases_lease_only_after_worker_exit(
         wait(runtime, replacement.id)
     finally:
         runtime.shutdown()
-
 
 ###############################################################################
 def test_terminal_history_is_bounded_and_job_workspaces_are_removed(

@@ -9,11 +9,11 @@ from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 
-
 ###############################################################################
 class NativeTensorFlowSourceExporter(SourceExporter):
     """Generate a native TensorFlow ``tf.Module`` for the verified subset."""
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _summary_map(ir: CanonicalModelIR) -> dict[str, TensorSpec]:
         return {
@@ -22,6 +22,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             if summary.outputs
         }
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _static_dimension(spec: TensorSpec | None, index: int) -> int | None:
         if spec is None:
@@ -32,6 +33,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         value = shape[index]
         return value if isinstance(value, int) else None
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _spatial_tuple(parameters: dict[str, Any], key: str, default: list[int]) -> tuple[int, int]:
         value = parameters.get(key, default)
@@ -42,6 +44,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             raise ValueError(f"TensorFlow {key} expects positive integer values")
         return int(values[0]), int(values[1])
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _axis(value: object, rank: int) -> int:
         if not isinstance(value, int) or isinstance(value, bool):
@@ -51,6 +54,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             raise ValueError(f"Normalization axis {value} is outside rank {rank}")
         return axis
 
+    # -------------------------------------------------------------------------
     @classmethod
     def _normalization_axes(cls, value: object, rank: int) -> list[int]:
         if not isinstance(value, list) or not value:

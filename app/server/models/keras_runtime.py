@@ -7,7 +7,6 @@ import keras
 from domain.compilation_catalog import CompilationOption, get_compilation_catalog
 from domain.graph import ModelGraph
 
-
 ###############################################################################
 def option(value: Any) -> Any:
     """Convert the catalog's explicit ``none`` option into Keras ``None``."""
@@ -93,7 +92,6 @@ def _catalog_option(category: str, identifier: str) -> CompilationOption:
         raise ValueError(f"No Keras implementation registered for {category}.{identifier}")
     return option
 
-
 ###############################################################################
 def _optimizer(name: str, parameters: dict[str, Any]) -> keras.optimizers.Optimizer:
     option = _catalog_option("optimizers", name)
@@ -103,7 +101,6 @@ def _optimizer(name: str, parameters: dict[str, Any]) -> keras.optimizers.Optimi
     kwargs = {key: value for key, value in parameters.items() if key in accepted_parameters}
     return optimizer_type(**kwargs)
 
-
 ###############################################################################
 def _compile_option(category: str, identifier: str) -> Any:
     option = _catalog_option(category, identifier)
@@ -111,7 +108,6 @@ def _compile_option(category: str, identifier: str) -> Any:
     namespace = keras.losses if category == "losses" else keras.metrics
     factory = getattr(namespace, implementation.symbol or "")
     return factory()
-
 
 ###############################################################################
 def _resolve_compilation_values(values: dict[str, Any], category: str) -> dict[str, Any]:

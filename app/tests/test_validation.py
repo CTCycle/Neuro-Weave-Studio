@@ -4,7 +4,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from services.validation_service import ValidationService
 from validation.shape_inference import infer_shapes
 
-
 ###############################################################################
 def make_node(
     node_id: str,
@@ -17,7 +16,6 @@ def make_node(
         position=Position(x=0, y=0),
         parameters=parameters or {},
     )
-
 
 ###############################################################################
 def two_input_graph(
@@ -57,7 +55,6 @@ def two_input_graph(
             ),
         ],
     )
-
 
 ###############################################################################
 def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
@@ -103,7 +100,6 @@ def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
     assert result.total_parameters == 63
     dense = next(item for item in result.shape_summaries if item.node_id == "dense")
     assert dense.outputs["output"].shape == [None, 3]
-
 
 ###############################################################################
 def test_cycle_is_reported_as_error() -> None:
@@ -163,7 +159,6 @@ def test_cycle_is_reported_as_error() -> None:
         for item in result.diagnostics
     )
 
-
 ###############################################################################
 def test_unsafe_math_expression_is_rejected() -> None:
     graph = ModelGraph(
@@ -206,7 +201,6 @@ def test_unsafe_math_expression_is_rejected() -> None:
 
     assert not result.valid
     assert any(item.code == "unsafe_expression" for item in result.diagnostics)
-
 
 ###############################################################################
 def test_declared_parameter_contract_rejects_null_and_unknown_values() -> None:
@@ -259,7 +253,6 @@ def test_declared_parameter_contract_rejects_null_and_unknown_values() -> None:
         for item in unknown_result.diagnostics
     )
 
-
 ###############################################################################
 def test_native_backend_rejects_parameter_values_without_verified_mapping() -> None:
     graph = ModelGraph(
@@ -307,7 +300,6 @@ def test_native_backend_rejects_parameter_values_without_verified_mapping() -> N
         for item in result.diagnostics
     )
 
-
 ###############################################################################
 def test_merge_contracts_reject_incompatible_tensor_inputs() -> None:
     dtype_mismatch = two_input_graph(
@@ -339,7 +331,6 @@ def test_merge_contracts_reject_incompatible_tensor_inputs() -> None:
     assert any(
         "non-concatenated" in item.message for item in dimension_result.diagnostics
     )
-
 
 ###############################################################################
 def test_convolution_rejects_stride_and_dilation_combination() -> None:
@@ -389,7 +380,6 @@ def test_convolution_rejects_stride_and_dilation_combination() -> None:
     assert not result.valid
     assert any("strides > 1" in item.message for item in result.diagnostics)
 
-
 ###############################################################################
 def test_unreachable_model_input_is_rejected() -> None:
     graph = ModelGraph(
@@ -436,7 +426,6 @@ def test_unreachable_model_input_is_rejected() -> None:
         item.code == "unreachable_model_input" and item.node_id == "unused"
         for item in result.diagnostics
     )
-
 
 ###############################################################################
 def test_transposed_convolution_uses_declared_dimension_parameter() -> None:

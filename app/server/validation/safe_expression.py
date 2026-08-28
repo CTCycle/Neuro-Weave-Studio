@@ -17,6 +17,7 @@ _ALLOWED_BINARY_OPERATORS = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow, ast.M
 _ALLOWED_UNARY_OPERATORS = (ast.UAdd, ast.USub)
 
 
+###############################################################################
 def _integer_literal(node: ast.AST) -> int | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
         return int(node.value)
@@ -32,6 +33,7 @@ def _integer_literal(node: ast.AST) -> int | None:
     return None
 
 
+###############################################################################
 def _validate_slice(node: ast.AST) -> None:
     if isinstance(node, ast.Tuple):
         for element in node.elts:
@@ -51,6 +53,7 @@ def _validate_slice(node: ast.AST) -> None:
     raise SafeExpressionError("Slice indices must be integer literals, slices, or ellipsis")
 
 
+###############################################################################
 def _validate_expression_node(node: ast.AST) -> None:
     if isinstance(node, (ast.Expression, ast.Load)):
         if isinstance(node, ast.Expression):

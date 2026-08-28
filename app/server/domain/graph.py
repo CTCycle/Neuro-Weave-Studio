@@ -48,13 +48,11 @@ class KerasCompilationConfiguration(BaseModel):
     mixed_precision: bool = False
     random_seed: int | None = 42
 
-
 ###############################################################################
 class TensorFlowNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     jit_compile: bool = False
-
 
 ###############################################################################
 class PyTorchNativeConfiguration(BaseModel):
@@ -69,13 +67,11 @@ class PyTorchNativeConfiguration(BaseModel):
     fullgraph: bool = False
     dynamic: bool = False
 
-
 ###############################################################################
 class JaxNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     jit_enabled: bool = False
-
 
 ###############################################################################
 class NativeCompilationConfiguration(BaseModel):
@@ -84,7 +80,6 @@ class NativeCompilationConfiguration(BaseModel):
     tensorflow: TensorFlowNativeConfiguration = Field(default_factory=TensorFlowNativeConfiguration)
     pytorch: PyTorchNativeConfiguration = Field(default_factory=PyTorchNativeConfiguration)
     jax: JaxNativeConfiguration = Field(default_factory=JaxNativeConfiguration)
-
 
 ###############################################################################
 class ModelConfiguration(BaseModel):

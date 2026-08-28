@@ -6,7 +6,6 @@ from domain.compilation_capabilities import CompilationCapabilities
 from domain.enums import ExecutionBackend
 from domain.runtime import RuntimeApiStatus, RuntimeDevice
 
-
 ###############################################################################
 class HealthResponse(BaseModel):
     status: str

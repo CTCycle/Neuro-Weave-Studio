@@ -6,11 +6,11 @@ from domain.compilation import CanonicalModelIR
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
-
 ###############################################################################
 class NativeJaxSourceExporter(SourceExporter):
     """Generate a native Flax Linen module for the verified subset."""
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _activation(value: str) -> str:
         try:
