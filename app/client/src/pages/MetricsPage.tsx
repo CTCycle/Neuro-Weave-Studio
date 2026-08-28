@@ -1,6 +1,7 @@
 import { Activity, Info } from 'lucide-react'
 import type { CompilationOption } from '../domain/types'
 import { useAppResources } from '../state/useAppResources'
+import { MathFormula } from '../components/MathFormula'
 
 export function MetricsPage() {
   const { compilationCapabilities, loading } = useAppResources()
@@ -38,7 +39,7 @@ function CatalogSection({ title, eyebrow, items }: { title: string; eyebrow: str
     <section className="metrics-section panel" aria-labelledby={`metrics-${title.toLowerCase().replaceAll(' ', '-')}`}>
       <div className="section-heading"><div><span className="eyebrow">{eyebrow}</span><h2 id={`metrics-${title.toLowerCase().replaceAll(' ', '-')}`}>{title}</h2></div><span className="catalog-count">{items.length}</span></div>
       <div className="metrics-list">
-        {items.map((item) => <article className="metrics-card" key={item.id}><div className="metrics-card-heading"><div><strong>{item.label}</strong><code>{item.id}</code></div><span className="read-only-badge">READ ONLY</span></div><p>{item.description}</p>{item.formula && <div className="metrics-formula"><span>Formula</span><code>{item.formula}</code></div>}</article>)}
+        {items.map((item) => <article className="metrics-card" key={item.id}><div className="metrics-card-heading"><div><strong>{item.label}</strong><code>{item.id}</code></div><span className="read-only-badge">READ ONLY</span></div><div className={`metrics-card-body ${item.formula ? 'has-formula' : ''}`}><p>{item.description}</p>{item.formula && <div className="metrics-formula"><span>Formula</span><MathFormula formula={item.formula} /></div>}</div></article>)}
       </div>
     </section>
   )

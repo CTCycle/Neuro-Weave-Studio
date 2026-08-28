@@ -19,7 +19,7 @@ interface Props {
   onClose: () => void
 }
 
-type CompilationTab = 'optimizer' | 'objective' | 'metrics' | 'outputs' | 'advanced' | 'native'
+type CompilationTab = 'optimizer' | 'objective' | 'metrics' | 'outputs' | 'advanced' | 'native-optimizer' | 'native-objective' | 'native-metrics' | 'native-outputs' | 'native'
 
 interface CompilationTabDefinition {
   id: CompilationTab
@@ -38,19 +38,27 @@ function nativeBranch(configuration: ModelConfiguration, backend: ExecutionBacke
 }
 
 export function CompilationConfigurationModal({ configuration, kerasEnabled, kerasCatalog, nativeCapability, outputIds, onApply, onClose }: Props) {
+  const nativeCatalog = nativeCapability?.backend === 'pytorch' ? nativeCapability.catalog : undefined
+  const nativeFirstTab: CompilationTab = nativeCatalog ? 'native-optimizer' : 'native'
   const [draft, setDraft] = useState<ModelConfiguration>(() => structuredClone(configuration))
-  const [activeTab, setActiveTab] = useState<CompilationTab>(kerasEnabled ? 'optimizer' : 'native')
+  const [activeTab, setActiveTab] = useState<CompilationTab>(kerasEnabled ? 'optimizer' : nativeFirstTab)
   useEffect(() => setDraft(structuredClone(configuration)), [configuration])
-  useEffect(() => setActiveTab(kerasEnabled ? 'optimizer' : 'native'), [kerasEnabled])
+  useEffect(() => setActiveTab(kerasEnabled ? 'optimizer' : nativeFirstTab), [kerasEnabled, nativeFirstTab])
   useEffect(() => {
-    if (activeTab === 'outputs' && outputIds.length === 0) setActiveTab('optimizer')
-  }, [activeTab, outputIds.length])
+    if ((activeTab === 'outputs' || activeTab === 'native-outputs') && outputIds.length === 0) setActiveTab(kerasEnabled ? 'optimizer' : nativeFirstTab)
+  }, [activeTab, kerasEnabled, nativeFirstTab, outputIds.length])
 
   const optimizer = kerasCatalog?.optimizers.find((item) => item.id === draft.keras.optimizer) ?? kerasCatalog?.optimizers[0]
   const lossId = draft.keras.losses.__default__ ?? 'categorical_crossentropy'
   const loss = kerasCatalog?.losses.find((item) => item.id === lossId) ?? kerasCatalog?.losses[0]
   const selectedMetrics = draft.keras.metrics.__default__ ?? []
   const optimizerParameters = useMemo(() => optimizer?.parameters ?? [], [optimizer])
+  const nativePytorch = draft.native.pytorch
+  const nativeOptimizer = nativeCatalog?.optimizers.find((item) => item.id === nativePytorch.optimizer) ?? nativeCatalog?.optimizers[0]
+  const nativeLossId = nativePytorch.losses.__default__ ?? ''
+  const nativeLoss = nativeCatalog?.losses.find((item) => item.id === nativeLossId)
+  const selectedNativeMetrics = nativePytorch.metrics.__default__ ?? []
+  const nativeOptimizerParameters = useMemo(() => nativeOptimizer?.parameters ?? [], [nativeOptimizer])
   const tabs: CompilationTabDefinition[] = kerasEnabled
     ? [
         { id: 'optimizer', label: 'Optimizer', detail: optimizer?.label ?? 'Update rule' },
@@ -59,7 +67,15 @@ export function CompilationConfigurationModal({ configuration, kerasEnabled, ker
         ...(outputIds.length > 0 ? [{ id: 'outputs' as const, label: 'Outputs', detail: `${outputIds.length} available` }] : []),
         { id: 'advanced', label: 'Advanced', detail: 'Model defaults' },
       ]
-    : [{ id: 'native', label: 'Native compiler', detail: nativeCapability?.compiler ?? 'Backend settings' }]
+    : [
+        ...(nativeCatalog ? [
+          { id: 'native-optimizer' as const, label: 'Optimizer', detail: nativeOptimizer?.label ?? 'Update rule' },
+          { id: 'native-objective' as const, label: 'Loss', detail: nativeLoss?.label ?? 'Not configured' },
+          { id: 'native-metrics' as const, label: 'Metrics', detail: selectedNativeMetrics.length ? `${selectedNativeMetrics.length} selected` : 'None selected' },
+          ...(outputIds.length > 0 ? [{ id: 'native-outputs' as const, label: 'Outputs', detail: `${outputIds.length} available` }] : []),
+        ] : []),
+        { id: 'native', label: 'Native compiler', detail: nativeCapability?.compiler ?? 'Backend settings' },
+      ]
 
   const chooseOptimizer = (optimizerId: string) => {
     const next = kerasCatalog?.optimizers.find((item) => item.id === optimizerId)
@@ -89,6 +105,28 @@ export function CompilationConfigurationModal({ configuration, kerasEnabled, ker
     setKeras({ metrics: { ...draft.keras.metrics, __default__: metrics } })
   }
 
+  const chooseNativeOptimizer = (optimizerId: string) => {
+    const next = nativeCatalog?.optimizers.find((item) => item.id === optimizerId)
+    if (!next) return
+    const parameters = Object.fromEntries(next.parameters.map((parameter) => [parameter.id, nativePytorch.optimizer_parameters[parameter.id] ?? parameter.default]))
+    setDraft((current) => ({ ...current, native: { ...current.native, pytorch: { ...current.native.pytorch, optimizer: optimizerId, optimizer_parameters: parameters } } }))
+  }
+
+  const setNativePytorch = (patch: Partial<ModelConfiguration['native']['pytorch']>) => {
+    setDraft((current) => ({ ...current, native: { ...current.native, pytorch: { ...current.native.pytorch, ...patch } } }))
+  }
+
+  const setNativeOptimizerParameter = (id: string, value: string | boolean) => {
+    const parameter = nativeOptimizerParameters.find((item) => item.id === id)
+    const parsed = parameter?.type === 'boolean' ? value === true : Number(value)
+    setNativePytorch({ optimizer_parameters: { ...nativePytorch.optimizer_parameters, [id]: parsed } })
+  }
+
+  const toggleNativeMetric = (metricId: string, enabled: boolean) => {
+    const metrics = enabled ? [...new Set([...selectedNativeMetrics, metricId])] : selectedNativeMetrics.filter((item) => item !== metricId)
+    setNativePytorch({ metrics: { ...nativePytorch.metrics, __default__: metrics } })
+  }
+
   const setNativeParameter = (id: string, value: string | boolean) => {
     if (!nativeCapability) return
     const backend = nativeCapability.backend
@@ -114,7 +152,7 @@ export function CompilationConfigurationModal({ configuration, kerasEnabled, ker
           <div>
             <span className="eyebrow">COMPILATION CONFIGURATION</span>
             <h2 id="compilation-modal-title">{kerasEnabled ? 'Configure Keras compilation' : `Configure native ${nativeCapability?.backend ?? 'backend'}`}</h2>
-            <p>{kerasEnabled ? 'These controls are validated and serialized by the Keras catalogue.' : 'These controls map directly to the selected backend compiler.'}</p>
+            <p>{kerasEnabled ? 'These controls are validated and serialized by the Keras catalogue.' : nativeCatalog ? 'These controls configure native PyTorch helpers and torch.compile. Smoke checks remain inference-only.' : 'These controls map directly to the selected backend compiler.'}</p>
           </div>
           <button type="button" className="panel-close" onClick={onClose} aria-label="Close compilation configuration">×</button>
         </header>
@@ -153,7 +191,31 @@ export function CompilationConfigurationModal({ configuration, kerasEnabled, ker
               <div className="compilation-parameter-grid"><label className="field"><span>Initializer</span><select value={draft.keras.default_initializer} onChange={(event) => setKeras({ default_initializer: event.target.value })}>{kerasCatalog.initializers.map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label className="field"><span>Regularizer</span><select value={draft.keras.default_regularizer} onChange={(event) => setKeras({ default_regularizer: event.target.value })}>{kerasCatalog.regularizers.map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label className="field"><span>Constraint</span><select value={draft.keras.default_constraint} onChange={(event) => setKeras({ default_constraint: event.target.value })}>{kerasCatalog.constraints.map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label className="toggle-field"><span>Mixed precision</span><input type="checkbox" checked={draft.keras.mixed_precision} onChange={(event) => setKeras({ mixed_precision: event.target.checked })} /></label></div>
             </section>
           </>}
-          {!kerasEnabled && nativeCapability && <section id={tabPanelId('native')} role="tabpanel" tabIndex={0} aria-labelledby={tabButtonId('native')} className="compilation-section compilation-tab-panel">
+          {!kerasEnabled && nativeCatalog && <>
+            <section id={tabPanelId('native-optimizer')} role="tabpanel" tabIndex={0} aria-labelledby={tabButtonId('native-optimizer')} hidden={activeTab !== 'native-optimizer'} className="compilation-section compilation-tab-panel">
+              <div className="section-heading"><div><span className="eyebrow">NATIVE PYTORCH OPTIMIZER</span><h3>Runtime update rule</h3></div></div>
+              <p className="compilation-description">The optimizer is instantiated for helper verification only. No training step or weight update runs during inference.</p>
+              <label className="field"><span>Optimizer</span><select value={nativeOptimizer?.id ?? ''} onChange={(event) => chooseNativeOptimizer(event.target.value)}>{nativeCatalog.optimizers.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+              {nativeOptimizer && <p className="compilation-description">{nativeOptimizer.description}</p>}
+              <div className="compilation-parameter-grid">{nativeOptimizerParameters.map((parameter) => <label className="field" key={parameter.id}><span>{parameter.label}<small>{parameter.description}</small></span>{parameter.type === 'boolean' ? <input type="checkbox" checked={Boolean(nativePytorch.optimizer_parameters[parameter.id] ?? parameter.default)} onChange={(event) => setNativeOptimizerParameter(parameter.id, event.target.checked)} /> : <input type="number" value={String(nativePytorch.optimizer_parameters[parameter.id] ?? parameter.default)} min={typeof parameter.constraints.min === 'number' ? parameter.constraints.min : undefined} max={typeof parameter.constraints.max === 'number' ? parameter.constraints.max : undefined} step="any" onChange={(event) => setNativeOptimizerParameter(parameter.id, event.target.value)} />}</label>)}</div>
+            </section>
+            <section id={tabPanelId('native-objective')} role="tabpanel" tabIndex={0} aria-labelledby={tabButtonId('native-objective')} hidden={activeTab !== 'native-objective'} className="compilation-section compilation-tab-panel">
+              <div className="section-heading"><div><span className="eyebrow">NATIVE PYTORCH LOSS</span><h3>Default objective</h3></div></div>
+              <p className="compilation-description">Loss helpers are evaluated against synthetic targets during the isolated smoke check; they do not train the model.</p>
+              <label className="field"><span>Loss</span><select value={nativeLossId} onChange={(event) => { const losses = { ...nativePytorch.losses }; if (event.target.value) losses.__default__ = event.target.value; else delete losses.__default__; setNativePytorch({ losses }) }}><option value="">No default loss</option>{nativeCatalog.losses.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+              {nativeLoss?.description && <p className="compilation-description">{nativeLoss.description}</p>}
+              {nativeLoss?.formula && <MathFormula formula={nativeLoss.formula} />}
+            </section>
+            <section id={tabPanelId('native-metrics')} role="tabpanel" tabIndex={0} aria-labelledby={tabButtonId('native-metrics')} hidden={activeTab !== 'native-metrics'} className="compilation-section compilation-tab-panel">
+              <div className="section-heading"><div><span className="eyebrow">NATIVE PYTORCH METRICS</span><h3>Default measurements</h3></div></div>
+              <div className="compilation-option-grid">{nativeCatalog.metrics.map((metric) => <label className="compilation-option" key={metric.id}><input type="checkbox" checked={selectedNativeMetrics.includes(metric.id)} onChange={(event) => toggleNativeMetric(metric.id, event.target.checked)} /><span><strong>{metric.label}</strong><small>{metric.description}</small>{metric.formula && <MathFormula formula={metric.formula} />}</span></label>)}</div>
+            </section>
+            {outputIds.length > 0 && <section id={tabPanelId('native-outputs')} role="tabpanel" tabIndex={0} aria-labelledby={tabButtonId('native-outputs')} hidden={activeTab !== 'native-outputs'} className="compilation-section compilation-tab-panel">
+              <div className="section-heading"><div><span className="eyebrow">NATIVE OUTPUT OVERRIDES</span><h3>Per-output loss</h3></div></div>
+              {outputIds.map((outputId) => <label className="field" key={outputId}><span>{outputId}</span><select value={nativePytorch.losses[outputId] ?? ''} onChange={(event) => setDraft((current) => { const losses = { ...current.native.pytorch.losses }; if (event.target.value) losses[outputId] = event.target.value; else delete losses[outputId]; return { ...current, native: { ...current.native, pytorch: { ...current.native.pytorch, losses } } } })}><option value="">Use default loss</option>{nativeCatalog.losses.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>)}
+            </section>}
+          </>}
+          {!kerasEnabled && nativeCapability && <section id={tabPanelId('native')} role="tabpanel" tabIndex={0} aria-labelledby={tabButtonId('native')} hidden={activeTab !== 'native'} className="compilation-section compilation-tab-panel">
             <div className="section-heading"><div><span className="eyebrow">{nativeCapability.compiler}</span><h3>Backend-native execution</h3></div></div>
             {!nativeCapability.available && <p className="compilation-unavailable">{nativeCapability.reason ?? 'This compiler is not operational in the current environment. Settings can be saved for a later runtime.'}</p>}
             <div className="compilation-parameter-grid">{nativeCapability.parameters.map((parameter) => {

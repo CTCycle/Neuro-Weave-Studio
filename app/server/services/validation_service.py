@@ -66,14 +66,13 @@ class ValidationService:
         diagnostics: list[ValidationDiagnostic] = []
         nodes = {node.id: node for node in graph.nodes}
         manifests: dict[str, NodeManifest] = {}
-        diagnostics.extend(
-            validate_model_configuration(
-                graph,
-                execution_backend,
-                keras_enabled,
-                self._compilation_catalog_provider.get(),
-            )
+        configuration_diagnostics = validate_model_configuration(
+            graph,
+            execution_backend,
+            keras_enabled,
+            self._compilation_catalog_provider.get(),
         )
+        diagnostics.extend(configuration_diagnostics)
         implementation_key = "keras" if keras_enabled else execution_backend.value
         implementation_label = "Keras" if keras_enabled else f"native {execution_backend.value}"
 
@@ -532,7 +531,11 @@ class ValidationService:
 
         shape_summaries = []
         total_parameters: int | None = 0
-        if not any(item.severity == DiagnosticSeverity.ERROR for item in diagnostics):
+        configuration_diagnostic_ids = {id(item) for item in configuration_diagnostics}
+        if not any(
+            item.severity == DiagnosticSeverity.ERROR and id(item) not in configuration_diagnostic_ids
+            for item in diagnostics
+        ):
             try:
                 shape_summaries = infer_shapes(graph, self._catalog)
                 shape_by_port = {

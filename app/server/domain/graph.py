@@ -60,6 +60,10 @@ class TensorFlowNativeConfiguration(BaseModel):
 class PyTorchNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    optimizer: str = "adam"
+    optimizer_parameters: dict[str, Any] = Field(default_factory=lambda: {"learning_rate": 0.001})
+    losses: dict[str, str] = Field(default_factory=dict)
+    metrics: dict[str, list[str]] = Field(default_factory=dict)
     compile_enabled: bool = False
     mode: str = "default"
     fullgraph: bool = False

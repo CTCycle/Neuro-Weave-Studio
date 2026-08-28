@@ -92,6 +92,7 @@ class ExportArtifactManifest(BaseModel):
     files: list[ExportArtifactFile] = Field(min_length=1)
     inputs: list[dict[str, Any]] = Field(default_factory=list)
     outputs: list[dict[str, Any]] = Field(default_factory=list)
+    compilation: dict[str, Any] = Field(default_factory=dict)
     tool_versions: dict[str, str] = Field(default_factory=dict)
     verification: ExportVerification = Field(default_factory=ExportVerification)
 

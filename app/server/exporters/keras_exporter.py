@@ -5,6 +5,7 @@ from typing import Any
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
+from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
@@ -39,39 +40,69 @@ class KerasSourceExporter(SourceExporter):
         return cls._option(fallback)
 
     # -------------------------------------------------------------------------
-    @staticmethod
-    def _compile_mapping(
+    @classmethod
+    def _compile_mapping_source(
+        cls,
         graph: ModelGraph,
         configuration: dict[str, Any],
         default: Any,
+        category: str,
+        compilation_catalog: CompilationCatalog,
     ) -> Any:
         if not configuration:
-            return None
+            return "None"
         outputs = [node for node in graph.nodes if node.definition_id.startswith("output.")]
-        values: dict[str, Any] = {}
+        values: dict[str, str] = {}
         for node in outputs:
             value = configuration.get("__default__", default)
             if node.id in configuration:
                 value = configuration[node.id]
             elif node.label and node.label in configuration:
                 value = configuration[node.label]
-            values[node.id] = value
-        return next(iter(values.values())) if len(values) == 1 else values
+            if category == "losses":
+                if not isinstance(value, str):
+                    values[node.id] = "None"
+                else:
+                    option = cls._catalog_option(compilation_catalog, category, value)
+                    symbol = option.implementations["keras"].symbol
+                    values[node.id] = f"keras.losses.{symbol}()"
+            else:
+                metric_expressions = []
+                for metric in value if isinstance(value, list) else []:
+                    option = cls._catalog_option(compilation_catalog, category, metric)
+                    symbol = option.implementations["keras"].symbol
+                    metric_expressions.append(f"keras.metrics.{symbol}()")
+                values[node.id] = "[" + ", ".join(metric_expressions) + "]"
+        if len(values) == 1:
+            return next(iter(values.values()))
+        return "{" + ", ".join(f"{key!r}: {value}" for key, value in values.items()) + "}"
 
     # -------------------------------------------------------------------------
     @staticmethod
-    def _optimizer_name(name: str) -> str:
-        return {"adam": "Adam", "adamw": "AdamW", "sgd": "SGD", "rmsprop": "RMSprop"}[name]
+    def _catalog_option(catalog: CompilationCatalog, category: str, identifier: str) -> Any:
+        options = getattr(catalog, category)
+        option = next((item for item in options if item.id == identifier), None)
+        if option is None:
+            raise ValueError(f"No Keras catalog option registered for {category}.{identifier}")
+        implementation = option.implementations.get("keras")
+        if implementation is None or not implementation.supported or not implementation.symbol:
+            raise ValueError(f"No Keras implementation registered for {category}.{identifier}")
+        return option
 
     # -------------------------------------------------------------------------
-    @staticmethod
-    def _optimizer_parameters(graph: ModelGraph) -> str:
-        accepted = {
-            "adam": {"learning_rate", "beta_1", "beta_2", "epsilon"},
-            "adamw": {"learning_rate", "weight_decay", "beta_1", "beta_2", "epsilon"},
-            "sgd": {"learning_rate", "momentum", "nesterov"},
-            "rmsprop": {"learning_rate", "rho", "momentum", "epsilon", "centered"},
-        }[graph.model_configuration.keras.optimizer]
+    @classmethod
+    def _optimizer_name(cls, name: str, compilation_catalog: CompilationCatalog) -> str:
+        return cls._catalog_option(compilation_catalog, "optimizers", name).implementations["keras"].symbol or ""
+
+    # -------------------------------------------------------------------------
+    @classmethod
+    def _optimizer_parameters(cls, graph: ModelGraph, compilation_catalog: CompilationCatalog) -> str:
+        optimizer = cls._catalog_option(
+            compilation_catalog,
+            "optimizers",
+            graph.model_configuration.keras.optimizer,
+        )
+        accepted = {parameter.id for parameter in optimizer.parameters}
         parameters = {
             key: value
             for key, value in graph.model_configuration.keras.optimizer_parameters.items()
@@ -87,6 +118,7 @@ class KerasSourceExporter(SourceExporter):
         catalog: NodeCatalog | None = None,
     ) -> str:
         catalog = catalog or get_node_catalog()
+        compilation_catalog = get_compilation_catalog()
         nodes = {node.id: node for node in graph.nodes}
         backend = (
             "torch"
@@ -293,14 +325,26 @@ class KerasSourceExporter(SourceExporter):
         lines.append(
             f"    model = keras.Model(inputs=[{input_variables}], outputs=[{output_variables}], name='neuro_weave_model')"
         )
-        optimizer_name = self._optimizer_name(graph.model_configuration.keras.optimizer)
-        loss = self._compile_mapping(graph, graph.model_configuration.keras.losses, None)
-        metrics = self._compile_mapping(graph, graph.model_configuration.keras.metrics, [])
-        optimizer_parameters = self._optimizer_parameters(graph)
+        optimizer_name = self._optimizer_name(graph.model_configuration.keras.optimizer, compilation_catalog)
+        loss = self._compile_mapping_source(
+            graph,
+            graph.model_configuration.keras.losses,
+            None,
+            "losses",
+            compilation_catalog,
+        )
+        metrics = self._compile_mapping_source(
+            graph,
+            graph.model_configuration.keras.metrics,
+            [],
+            "metrics",
+            compilation_catalog,
+        )
+        optimizer_parameters = self._optimizer_parameters(graph, compilation_catalog)
         lines.extend(
             [
                 f"    optimizer = keras.optimizers.{optimizer_name}({optimizer_parameters})",
-                f"    model.compile(optimizer=optimizer, loss={loss!r}, metrics={metrics!r})",
+                f"    model.compile(optimizer=optimizer, loss={loss}, metrics={metrics})",
                 "    return model",
                 "",
                 "",

@@ -28,7 +28,7 @@ const resources = {
       regularizers: [],
       constraints: [],
       metrics: [{ id: 'accuracy', label: 'Accuracy', description: 'Classification accuracy.', parameters: [] }],
-      losses: [{ id: 'mse', label: 'Mean squared error', description: 'Squared prediction error.', parameters: [], formula: 'mean((y - ŷ)²)' }],
+    losses: [{ id: 'mse', label: 'Mean squared error', description: 'Squared prediction error.', parameters: [], formula: String.raw`\operatorname{MSE}=\frac{1}{n}\sum_i(y_i-\hat{y}_i)^2` }],
     },
     native: {},
   },
@@ -39,12 +39,15 @@ describe('MetricsPage', () => {
 
   it('exposes the shared read-only metrics and loss catalog sections', () => {
     mockedUseAppResources.mockReturnValue(resources)
-    render(<MetricsPage />)
+    const { container } = render(<MetricsPage />)
 
     expect(screen.getByRole('heading', { level: 1, name: 'Metrics' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Loss functions' })).toBeInTheDocument()
     expect(screen.getByText('Accuracy')).toBeInTheDocument()
     expect(screen.getByText('Mean squared error')).toBeInTheDocument()
     expect(screen.getAllByText('READ ONLY')).toHaveLength(2)
+    expect(container.querySelector('.metrics-formula .katex')).toBeInTheDocument()
+    expect(container.querySelector('.metrics-formula code')).not.toBeInTheDocument()
+    expect(container.textContent).not.toContain('\\operatorname')
   })
 })

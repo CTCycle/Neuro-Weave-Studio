@@ -146,3 +146,7 @@ flowchart TD
 ```
 
 Training loops, dataset management, checkpoint management, experiment tracking, native optimizer execution, and native runtime inference are not implied by the current editor or compilation configuration.
+
+## Native PyTorch compilation helpers
+
+Native PyTorch profiles persist canonical `optimizer`, `optimizer_parameters`, `losses`, and `metrics` selectors alongside the backend compiler settings. The server-owned compilation catalog supplies trusted PyTorch adapters, task/target/activation contracts, and formula metadata; generated native source exposes `build_optimizer(model)`, `configured_losses()`, `configured_metrics()`, and `build_compilation(model)`. Runtime smoke verification instantiates the optimizer and evaluates configured helpers against synthetic contract-matched targets, but never calls an optimizer step or runs a training loop. This parity slice is validated for PyTorch and Keras-on-PyTorch; TensorFlow and JAX are not part of that validation scope.

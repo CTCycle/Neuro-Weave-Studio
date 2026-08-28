@@ -7,7 +7,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
 from domain.exports import ExportFormat
@@ -95,6 +94,7 @@ def test_export_artifact_matrix(
     assert result.artifact.verification.structural
     assert result.artifact.verification.reload
     assert result.artifact.verification.inference
+    assert result.artifact.compilation["native"]["pytorch"]["optimizer"] == "adam"
 
     if result.artifact.layout.value == "archive":
         with zipfile.ZipFile(destination) as archive:

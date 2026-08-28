@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FlaskConical } from 'lucide-react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { ModelSmokeTestDrawer, type SmokeTestViewState } from '../components/ModelSmokeTestDrawer'
-import type { JobResponse, SmokeTestErrorDetail, SmokeTestResponse } from '../domain/types'
+import type { JobResponse, SmokeTestErrorDetail, SmokeTestResponse, WorkerConfiguration } from '../domain/types'
 import { useAppResources } from '../state/useAppResources'
 import type { ModelWorkspaceContext } from './ModelWorkspacePage'
 
@@ -11,7 +11,11 @@ export function ModelInferencePage() {
   const { project } = useOutletContext<ModelWorkspaceContext>()
   const { backendStatuses, runtimePreferences } = useAppResources()
   const backend = project.execution_backend
-  const runtimeSelection = runtimePreferences[backend] ?? null
+  const runtimePreference = runtimePreferences[backend]
+  const runtimeSelection = useMemo(
+    () => profileRuntimeSelection(project.keras_enabled, backend, backendStatuses, runtimePreference),
+    [backend, backendStatuses, project.keras_enabled, runtimePreference],
+  )
   const [state, setState] = useState<SmokeTestViewState>({ status: 'ready' })
   const mounted = useRef(true)
 
@@ -60,6 +64,20 @@ export function ModelInferencePage() {
   return <div className="workflow-page inference-page"><div className="workflow-intro"><div><span className="eyebrow">INFERENCE</span><h2>Run a safe model check</h2><p>This workspace creates compatible dummy inputs and performs one forward pass. It never trains or updates weights.</p></div><div className="backend-selection-summary workflow-backend-summary"><span>Model backend preference</span>{runtimeSelection ? <strong>{runtimeSelection.api} · {backend} · {runtimeSelection.device_id}</strong> : <Link to="/environment">Configure {backend} in Environment</Link>}</div></div><section className="inference-controls panel"><div className="inference-control-note"><FlaskConical size={18} /><span>Inference uses the model's persisted backend and its matching runtime preference. It never changes model data.</span></div><Link className="secondary environment-link" to="/environment">Configure runtime</Link></section><ModelSmokeTestDrawer backend={backend} backendStatus={backendStatuses.find((item) => item.id === backend)} state={state} onRun={run} onStop={stop} embedded /></div>
 }
 
+function profileRuntimeSelection(
+  kerasEnabled: boolean,
+  backend: JobResponse['worker']['backend'],
+  backendStatuses: ReturnType<typeof useAppResources>['backendStatuses'],
+  preference: WorkerConfiguration | undefined,
+): WorkerConfiguration | null {
+  const status = backendStatuses.find((item) => item.id === backend)
+  if (!status || !preference) return null
+  const api = kerasEnabled ? 'keras' : 'native'
+  const apiStatus = status.runtime_apis?.find((item) => item.id === api)
+  if (apiStatus && !apiStatus.available) return null
+  return { ...preference, api }
+}
+
 function smokeResult(job: JobResponse): SmokeTestResponse {
   const result = job.result ?? {}
   return {
@@ -71,5 +89,6 @@ function smokeResult(job: JobResponse): SmokeTestResponse {
     outputs: (result.outputs ?? []) as SmokeTestResponse['outputs'],
     parameter_count: Number(result.parameter_count ?? 0),
     duration_ms: Number(result.duration_ms ?? 0),
+    compilation: (result.compilation ?? null) as SmokeTestResponse['compilation'],
   }
 }

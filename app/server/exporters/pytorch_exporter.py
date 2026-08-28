@@ -5,6 +5,7 @@ from typing import Any, cast
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
+from domain.compilation_catalog import CompilationOption, get_compilation_catalog
 from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
@@ -101,8 +102,58 @@ class PyTorchSourceExporter(SourceExporter):
         catalog: NodeCatalog | None = None,
     ) -> str:
         catalog = catalog or get_node_catalog()
+        compilation_catalog = get_compilation_catalog()
         nodes = {node.id: node for node in graph.nodes}
         summaries = self._summary_map(ir)
+        native = graph.model_configuration.native.pytorch
+        output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
+
+        def selected_value(configuration: dict[str, Any], output: Any, default: Any) -> Any:
+            value = configuration.get("__default__", default)
+            for selector in (output.id, output.label):
+                if selector and selector in configuration:
+                    value = configuration[selector]
+                    break
+            return value
+
+        def option(options: list[CompilationOption], identifier: str) -> CompilationOption:
+            selected = next((item for item in options if item.id == identifier), None)
+            if selected is None:
+                raise ValueError(f"No compilation catalog option registered for {identifier}")
+            implementation = selected.implementations.get("pytorch")
+            if implementation is None or not implementation.supported or not implementation.adapter:
+                raise ValueError(f"No PyTorch compilation adapter registered for {identifier}")
+            return selected
+
+        optimizer_option = option(compilation_catalog.optimizers, native.optimizer)
+        optimizer_class = optimizer_option.implementations["pytorch"].adapter.rsplit(".", 1)[-1]  # type: ignore[union-attr]
+        resolved_losses: dict[str, tuple[str, str]] = {}
+        resolved_metrics: dict[str, list[tuple[str, str]]] = {}
+        target_contracts: dict[str, str] = {}
+        metric_target_contracts: dict[str, dict[str, str]] = {}
+        for output in output_nodes:
+            loss_id = selected_value(native.losses, output, None)
+            if isinstance(loss_id, str):
+                loss_option = option(compilation_catalog.losses, loss_id)
+                loss_adapter = loss_option.implementations["pytorch"].adapter
+                if loss_adapter is None:
+                    raise ValueError(f"No PyTorch loss adapter registered for {loss_id}")
+                resolved_losses[output.id] = (loss_id, loss_adapter)
+                if loss_option.target_contract is not None:
+                    target_contracts[output.id] = loss_option.target_contract
+            metric_values = selected_value(native.metrics, output, [])
+            if isinstance(metric_values, list):
+                resolved_metrics[output.id] = []
+                for metric_id in metric_values:
+                    if not isinstance(metric_id, str):
+                        continue
+                    metric_option = option(compilation_catalog.metrics, metric_id)
+                    metric_adapter = metric_option.implementations["pytorch"].adapter
+                    if metric_adapter is None:
+                        raise ValueError(f"No PyTorch metric adapter registered for {metric_id}")
+                    resolved_metrics[output.id].append((metric_id, metric_adapter))
+                    metric_target_contracts.setdefault(output.id, {})[metric_id] = metric_option.target_contract or "continuous_same_shape"
+                    target_contracts.setdefault(output.id, metric_option.target_contract or "continuous_same_shape")
         lines = [
             "from __future__ import annotations",
             "",
@@ -429,9 +480,173 @@ class PyTorchSourceExporter(SourceExporter):
         outputs = [variables[node_id] for node_id in ir.output_node_ids]
         result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
         lines.append(f"        return {result}")
-        native = graph.model_configuration.native.pytorch
+        optimizer_parameters = {
+            parameter.id: native.optimizer_parameters.get(parameter.id, parameter.default)
+            for parameter in optimizer_option.parameters
+        }
+        optimizer_kwargs = [
+            f"        lr={optimizer_parameters['learning_rate']!r},",
+        ]
+        if native.optimizer == "adam":
+            optimizer_kwargs.extend(
+                [
+                    f"        betas=({optimizer_parameters['beta_1']!r}, {optimizer_parameters['beta_2']!r}),",
+                    f"        eps={optimizer_parameters['epsilon']!r},",
+                ]
+            )
+        elif native.optimizer == "adamw":
+            optimizer_kwargs.extend(
+                [
+                    f"        betas=({optimizer_parameters['beta_1']!r}, {optimizer_parameters['beta_2']!r}),",
+                    f"        eps={optimizer_parameters['epsilon']!r},",
+                    f"        weight_decay={optimizer_parameters['weight_decay']!r},",
+                ]
+            )
+        elif native.optimizer == "sgd":
+            optimizer_kwargs.extend(
+                [
+                    f"        momentum={optimizer_parameters['momentum']!r},",
+                    f"        nesterov={optimizer_parameters['nesterov']!r},",
+                ]
+            )
+        elif native.optimizer == "rmsprop":
+            optimizer_kwargs.extend(
+                [
+                    f"        alpha={optimizer_parameters['rho']!r},",
+                    f"        momentum={optimizer_parameters['momentum']!r},",
+                    f"        eps={optimizer_parameters['epsilon']!r},",
+                    f"        centered={optimizer_parameters['centered']!r},",
+                ]
+            )
+
         lines.extend(
             [
+                "",
+                "",
+                "def _safe_probabilities(value: Tensor) -> Tensor:",
+                "    return value.to(torch.float32).clamp(min=1e-7, max=1.0 - 1e-7)",
+                "",
+                "",
+                "def _loss_mean_squared_error(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    return F.mse_loss(prediction, target.to(prediction.dtype))",
+                "",
+                "",
+                "def _loss_mean_absolute_error(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    return F.l1_loss(prediction, target.to(prediction.dtype))",
+                "",
+                "",
+                "def _loss_binary_crossentropy(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    return F.binary_cross_entropy(_safe_probabilities(prediction), target.to(torch.float32))",
+                "",
+                "",
+                "def _loss_categorical_crossentropy(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    probabilities = _safe_probabilities(prediction)",
+                "    return -(target.to(torch.float32) * probabilities.log()).sum(dim=-1).mean()",
+                "",
+                "",
+                "def _loss_sparse_categorical_crossentropy(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    probabilities = _safe_probabilities(prediction)",
+                "    log_probabilities = probabilities.log().reshape(-1, probabilities.shape[-1])",
+                "    return F.nll_loss(log_probabilities, target.to(torch.long).reshape(-1))",
+                "",
+                "",
+                "def _loss_huber(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    return F.huber_loss(prediction, target.to(prediction.dtype))",
+                "",
+                "",
+                "def _loss_kullback_leibler_divergence(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    probabilities = _safe_probabilities(prediction)",
+                "    distribution = target.to(torch.float32).clamp_min(1e-7)",
+                "    return F.kl_div(probabilities.log(), distribution, reduction='batchmean')",
+                "",
+                "",
+                "def _classification_labels(prediction: Tensor, target: Tensor) -> tuple[Tensor, Tensor]:",
+                "    if prediction.shape[-1] == 1:",
+                "        return (prediction >= 0.5).to(torch.long).reshape(-1), (target >= 0.5).to(torch.long).reshape(-1)",
+                "    predicted = prediction.argmax(dim=-1).reshape(-1)",
+                "    expected = target.argmax(dim=-1).reshape(-1) if target.shape == prediction.shape else target.to(torch.long).reshape(-1)",
+                "    return predicted, expected",
+                "",
+                "",
+                "def _metric_accuracy(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    predicted, expected = _classification_labels(prediction, target)",
+                "    return (predicted == expected).to(torch.float32).mean()",
+                "",
+                "",
+                "def _metric_binary_accuracy(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    predicted = (prediction >= 0.5).to(torch.long)",
+                "    expected = (target >= 0.5).to(torch.long)",
+                "    return (predicted == expected).to(torch.float32).mean()",
+                "",
+                "",
+                "def _metric_categorical_accuracy(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    return (prediction.argmax(dim=-1) == target.argmax(dim=-1)).to(torch.float32).mean()",
+                "",
+                "",
+                "def _metric_sparse_categorical_accuracy(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    return (prediction.argmax(dim=-1) == target.to(torch.long)).to(torch.float32).mean()",
+                "",
+                "",
+                "def _metric_precision(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    predicted, expected = _classification_labels(prediction, target)",
+                "    true_positive = ((predicted == 1) & (expected == 1)).to(torch.float32).sum()",
+                "    predicted_positive = (predicted == 1).to(torch.float32).sum()",
+                "    return true_positive / predicted_positive.clamp_min(1.0)",
+                "",
+                "",
+                "def _metric_recall(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    predicted, expected = _classification_labels(prediction, target)",
+                "    true_positive = ((predicted == 1) & (expected == 1)).to(torch.float32).sum()",
+                "    actual_positive = (expected == 1).to(torch.float32).sum()",
+                "    return true_positive / actual_positive.clamp_min(1.0)",
+                "",
+                "",
+                "def _metric_auc(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    scores = prediction[..., 0] if prediction.shape[-1] == 1 else prediction[..., 1]",
+                "    labels = target[..., 0] if target.shape[-1] == 1 else target.argmax(dim=-1).to(prediction.dtype)",
+                "    positive = scores[labels.reshape(-1) > 0.5]",
+                "    negative = scores[labels.reshape(-1) <= 0.5]",
+                "    if positive.numel() == 0 or negative.numel() == 0:",
+                "        return scores.new_tensor(0.5)",
+                "    comparisons = positive.reshape(-1, 1) - negative.reshape(1, -1)",
+                "    return (comparisons > 0).to(torch.float32).mean() + 0.5 * (comparisons == 0).to(torch.float32).mean()",
+                "",
+                "",
+                "def _metric_mean_absolute_error(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    return F.l1_loss(prediction, target.to(prediction.dtype))",
+                "",
+                "",
+                "def _metric_mean_squared_error(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    return F.mse_loss(prediction, target.to(prediction.dtype))",
+                "",
+                "",
+                "def _metric_root_mean_squared_error(prediction: Tensor, target: Tensor) -> Tensor:",
+                "    return F.mse_loss(prediction, target.to(prediction.dtype)).sqrt()",
+                "",
+                "",
+                "_LOSS_ADAPTERS = {",
+                "    'mean_squared_error': _loss_mean_squared_error,",
+                "    'mean_absolute_error': _loss_mean_absolute_error,",
+                "    'binary_crossentropy': _loss_binary_crossentropy,",
+                "    'categorical_crossentropy': _loss_categorical_crossentropy,",
+                "    'sparse_categorical_crossentropy': _loss_sparse_categorical_crossentropy,",
+                "    'huber': _loss_huber,",
+                "    'kullback_leibler_divergence': _loss_kullback_leibler_divergence,",
+                "}",
+                "",
+                "",
+                "_METRIC_ADAPTERS = {",
+                "    'accuracy': _metric_accuracy,",
+                "    'binary_accuracy': _metric_binary_accuracy,",
+                "    'categorical_accuracy': _metric_categorical_accuracy,",
+                "    'sparse_categorical_accuracy': _metric_sparse_categorical_accuracy,",
+                "    'precision': _metric_precision,",
+                "    'recall': _metric_recall,",
+                "    'auc': _metric_auc,",
+                "    'mean_absolute_error': _metric_mean_absolute_error,",
+                "    'mean_squared_error': _metric_mean_squared_error,",
+                "    'root_mean_squared_error': _metric_root_mean_squared_error,",
+                "}",
                 "",
                 "",
                 "def build_raw_model() -> GeneratedModel:",
@@ -447,6 +662,61 @@ class PyTorchSourceExporter(SourceExporter):
                 f"        fullgraph={native.fullgraph!r},",
                 f"        dynamic={native.dynamic!r},",
                 "    )",
+                "",
+                "",
+                "def build_optimizer(model: GeneratedModel) -> torch.optim.Optimizer | None:",
+                "    parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]",
+                "    if not parameters:",
+                "        return None",
+                f"    return torch.optim.{optimizer_class}(",
+                "        parameters,",
+                *optimizer_kwargs,
+                "    )",
+                "",
+                "",
+                "def configured_loss_ids() -> dict[str, str]:",
+                f"    return { {output_id: loss_id for output_id, (loss_id, _) in resolved_losses.items()}!r}",
+                "",
+                "",
+                "def configured_losses() -> dict[str, object]:",
+                f"    return {{output_id: _LOSS_ADAPTERS[loss_id] for output_id, loss_id in { {output_id: loss_id for output_id, (loss_id, _) in resolved_losses.items()}!r}.items()}}",
+                "",
+                "",
+                "def configured_metric_ids() -> dict[str, list[str]]:",
+                f"    return { {output_id: [metric_id for metric_id, _ in values] for output_id, values in resolved_metrics.items()}!r}",
+                "",
+                "",
+                "def configured_metrics() -> dict[str, dict[str, object]]:",
+                f"    return {{output_id: {{metric_id: _METRIC_ADAPTERS[metric_id] for metric_id in metric_ids}} for output_id, metric_ids in { {output_id: [metric_id for metric_id, _ in values] for output_id, values in resolved_metrics.items()}!r}.items()}}",
+                "",
+                "",
+                "def configured_target_contracts() -> dict[str, str]:",
+                f"    return {target_contracts!r}",
+                "",
+                "",
+                "def configured_metric_target_contracts() -> dict[str, dict[str, str]]:",
+                f"    return {metric_target_contracts!r}",
+                "",
+                "",
+                "def configured_compilation() -> dict[str, object]:",
+                "    return {",
+                f"        'optimizer_id': {native.optimizer!r},",
+                f"        'loss_ids': { {output_id: loss_id for output_id, (loss_id, _) in resolved_losses.items()}!r},",
+                f"        'metric_ids': { {output_id: [metric_id for metric_id, _ in values] for output_id, values in resolved_metrics.items()}!r},",
+                f"        'target_contracts': {target_contracts!r},",
+                f"        'metric_target_contracts': {metric_target_contracts!r},",
+                "        'training': 'not_run',",
+                "    }",
+                "",
+                "",
+                "def build_compilation(model: GeneratedModel) -> dict[str, object]:",
+                "    configuration = configured_compilation()",
+                "    configuration.update({",
+                "        'optimizer': build_optimizer(model),",
+                "        'losses': configured_losses(),",
+                "        'metrics': configured_metrics(),",
+                "    })",
+                "    return configuration",
                 "",
                 "",
                 "def build_model() -> GeneratedModel:",

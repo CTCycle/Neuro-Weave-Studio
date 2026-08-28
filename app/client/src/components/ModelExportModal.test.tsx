@@ -48,7 +48,7 @@ const project: ProjectDocument = {
       },
       native: {
         tensorflow: { jit_compile: false },
-        pytorch: { compile_enabled: false, mode: 'default', fullgraph: false, dynamic: false },
+        pytorch: { optimizer: 'adam', optimizer_parameters: { learning_rate: 0.001 }, losses: {}, metrics: {}, compile_enabled: false, mode: 'default', fullgraph: false, dynamic: false },
         jax: { jit_enabled: false },
       },
     },
