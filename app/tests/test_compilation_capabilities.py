@@ -101,6 +101,10 @@ def test_metadata_exposes_one_capability_tree_with_explicit_runtime_reasons() ->
     assert capabilities.native[ExecutionBackend.PYTORCH].reason_code == "compiler_unavailable"
     assert capabilities.native[ExecutionBackend.JAX].reason_code == "compiler_unavailable"
     assert capabilities.native[ExecutionBackend.PYTORCH].parameters[-1].type == "boolean"
+    assert capabilities.native[ExecutionBackend.PYTORCH].catalog.optimizers
+    assert capabilities.native[ExecutionBackend.PYTORCH].catalog.losses
+    assert capabilities.native[ExecutionBackend.PYTORCH].catalog.metrics
+    assert all("pytorch" in item.implementations for item in capabilities.native[ExecutionBackend.PYTORCH].catalog.losses)
 
 
 ###############################################################################
@@ -141,4 +145,7 @@ def test_native_compilation_source_uses_each_backend_native_compiler() -> None:
     assert "@tf.function(jit_compile=True)" in tensorflow.code
     assert "torch.compile(" in pytorch.code
     assert "mode='max-autotune'" in pytorch.code
+    assert "def build_optimizer" in pytorch.code
+    assert "def configured_losses" in pytorch.code
+    assert "def configured_metrics" in pytorch.code
     assert "return jax.jit(model.apply)" in jax.code

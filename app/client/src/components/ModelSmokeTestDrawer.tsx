@@ -59,7 +59,7 @@ function LoadingState({ job, onStop }: { job?: JobResponse; onStop?: () => void 
 }
 
 function SuccessState({ result }: { result: SmokeTestResponse }) {
-  return <div className="smoke-test-result"><div className="smoke-test-status success"><CheckCircle2 size={18} /><strong>Execution succeeded</strong><span>{result.duration_ms.toFixed(1)} ms</span></div><div className="smoke-test-stats"><Stat label="Status" value="Succeeded" /><Stat label="Device" value={`${result.accelerator.toUpperCase()} · ${result.device_name}`} /><Stat label="Parameters" value={result.parameter_count.toLocaleString()} /></div><TensorSection label="Input tensors" tensors={result.inputs} /><TensorSection label="Output tensors" tensors={result.outputs} /><p className="smoke-test-footnote">This result confirms model construction and inference only. Weights were not trained or updated.</p></div>
+  return <div className="smoke-test-result"><div className="smoke-test-status success"><CheckCircle2 size={18} /><strong>Execution succeeded</strong><span>{result.duration_ms.toFixed(1)} ms</span></div><div className="smoke-test-stats"><Stat label="Status" value="Succeeded" /><Stat label="Device" value={`${result.accelerator.toUpperCase()} · ${result.device_name}`} /><Stat label="Parameters" value={result.parameter_count.toLocaleString()} /></div><TensorSection label="Input tensors" tensors={result.inputs} /><TensorSection label="Output tensors" tensors={result.outputs} />{result.compilation && <CompilationSection summary={result.compilation} />}<p className="smoke-test-footnote">This result confirms model construction and inference only. Weights were not trained or updated.</p></div>
 }
 
 function ErrorState({ error, job, onRun }: { error: SmokeTestErrorDetail; job?: JobResponse; onRun: () => void }) {
@@ -72,4 +72,10 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function TensorSection({ label, tensors }: { label: string; tensors: TensorExecutionInfo[] }) {
   return <section className="tensor-section"><h3>{label}</h3>{tensors.length === 0 ? <p className="muted">No tensors reported.</p> : tensors.map((tensor) => <div className="tensor-row" key={tensor.node_id}><strong>{tensor.node_id}</strong><code>{`[${tensor.shape.join(', ')}]`}</code><span>{tensor.dtype}</span></div>)}</section>
+}
+
+function CompilationSection({ summary }: { summary: NonNullable<SmokeTestResponse['compilation']> }) {
+  const lossCount = Object.keys(summary.losses).length
+  const metricCount = Object.values(summary.metrics).reduce<number>((count, value) => count + (typeof value === 'object' && value !== null ? Object.keys(value).length : 0), 0)
+  return <section className="tensor-section compilation-result-section"><h3>Compilation helpers</h3><div className="smoke-test-context"><span>Verification</span><strong>{summary.verified ? 'Passed' : 'Failed'}</strong><span>Optimizer</span><strong>{summary.optimizer.id ?? 'Not configured'}{summary.optimizer.instantiated ? ' · instantiated' : ''}</strong><span>Helpers</span><strong>{lossCount} loss{lossCount === 1 ? '' : 'es'} · {metricCount} metric{metricCount === 1 ? '' : 's'}</strong></div></section>
 }

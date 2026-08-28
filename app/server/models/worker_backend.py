@@ -156,6 +156,7 @@ def run_keras_smoke(
         "outputs": outputs,
         "parameter_count": int(model.count_params()),
         "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+        "compilation": _configured_compilation_summary(graph, "keras"),
     }
 
 ###############################################################################
@@ -178,6 +179,7 @@ def run_native_smoke(
         handle = build_native_model(graph, backend, checkpoint=checkpoint)
         checkpoint()
         actual_outputs = forward_native(handle)
+        compilation = _verify_native_compilation(graph, handle, checkpoint)
         synchronize(actual_outputs)
         checkpoint()
     input_nodes = [node for node in graph.nodes if node.definition_id.startswith("input.")]
@@ -204,7 +206,122 @@ def run_native_smoke(
         ],
         "parameter_count": handle.parameter_count(),
         "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+        "compilation": compilation,
     }
+
+###############################################################################
+def _configured_compilation_summary(graph: ModelGraph, api: str) -> dict[str, object]:
+    configuration = graph.model_configuration.keras if api == "keras" else graph.model_configuration.native.pytorch
+    output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
+
+    def selected(values: dict[str, Any], output: Any, default: Any) -> Any:
+        value = values.get("__default__", default)
+        for selector in (output.id, output.label):
+            if selector and selector in values:
+                value = values[selector]
+                break
+        return value
+
+    return {
+        "verified": True,
+        "optimizer": {
+            "id": configuration.optimizer,
+            "instantiated": True,
+        },
+        "losses": {
+            output.id: selected(configuration.losses, output, None)
+            for output in output_nodes
+            if selected(configuration.losses, output, None) is not None
+        },
+        "metrics": {
+            output.id: selected(configuration.metrics, output, [])
+            for output in output_nodes
+            if selected(configuration.metrics, output, [])
+        },
+        "training": "not_run",
+    }
+
+###############################################################################
+def _verify_native_compilation(
+    graph: ModelGraph,
+    handle: Any,
+    checkpoint: Callable[[], None],
+) -> dict[str, object] | None:
+    """Instantiate and evaluate generated native PyTorch helpers without training."""
+
+    if handle.compilation is None:
+        return None
+    import torch
+
+    compilation = handle.compilation
+    output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
+    output_values = dict(zip((node.id for node in output_nodes), handle.outputs, strict=False))
+    loss_functions = compilation.get("losses", {})
+    loss_ids = compilation.get("loss_ids", {})
+    metric_functions = compilation.get("metrics", {})
+    target_contracts = compilation.get("target_contracts", {})
+    metric_target_contracts = compilation.get("metric_target_contracts", {})
+    loss_summary: dict[str, object] = {}
+    metric_summary: dict[str, object] = {}
+    with torch.no_grad():
+        for output_id, function in loss_functions.items():
+            prediction = output_values[output_id]
+            contract = str(target_contracts.get(output_id, "continuous_same_shape"))
+            value = function(prediction, _synthetic_target(prediction, contract))
+            _assert_finite_scalar(value, f"loss for output {output_id}")
+            loss_summary[output_id] = {
+                "id": loss_ids.get(output_id),
+                "value": float(value.detach().cpu().item()),
+                "target_contract": contract,
+            }
+            checkpoint()
+        for output_id, functions in metric_functions.items():
+            prediction = output_values[output_id]
+            contract = str(target_contracts.get(output_id, "continuous_same_shape"))
+            values: dict[str, object] = {}
+            for metric_id, function in functions.items():
+                metric_contract = str(
+                    metric_target_contracts.get(output_id, {}).get(metric_id, contract)
+                )
+                value = function(prediction, _synthetic_target(prediction, metric_contract))
+                _assert_finite_scalar(value, f"metric {metric_id} for output {output_id}")
+                values[metric_id] = float(value.detach().cpu().item())
+                checkpoint()
+            if values:
+                metric_summary[output_id] = values
+    optimizer = compilation.get("optimizer")
+    return {
+        "verified": True,
+        "optimizer": {
+            "id": compilation.get("optimizer_id"),
+            "instantiated": optimizer is not None,
+        },
+        "losses": loss_summary,
+        "metrics": metric_summary,
+        "training": "not_run",
+    }
+
+###############################################################################
+def _synthetic_target(prediction: Any, contract: str) -> Any:
+    import torch
+
+    if contract == "class_index":
+        return torch.zeros(prediction.shape[:-1], dtype=torch.long, device=prediction.device)
+    if contract == "one_hot_same_shape":
+        target = torch.zeros_like(prediction, dtype=torch.float32)
+        target[..., 0] = 1.0
+        return target
+    if contract == "probability_distribution_same_shape":
+        width = max(int(prediction.shape[-1]), 1)
+        return torch.full_like(prediction, 1.0 / width, dtype=torch.float32)
+    return torch.zeros_like(prediction, dtype=torch.float32)
+
+###############################################################################
+def _assert_finite_scalar(value: Any, description: str) -> None:
+    import torch
+
+    if not isinstance(value, torch.Tensor) or value.numel() != 1 or not bool(torch.isfinite(value).all()):
+        raise RuntimeError(f"Native PyTorch {description} did not return one finite scalar")
 
 ###############################################################################
 def run_model_export(

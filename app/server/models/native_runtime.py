@@ -28,6 +28,7 @@ class NativeModelHandle:
     ir: CanonicalModelIR
     source: str
     apply: Callable[[Any, Any], Any] | None = None
+    compilation: dict[str, Any] | None = None
 
     def parameter_count(self) -> int:
         if self.backend is ExecutionBackend.PYTORCH:
@@ -79,11 +80,15 @@ def build_native_model(
     }
     variables: Any = None
     apply: Callable[[Any, Any], Any] | None = None
+    compilation: dict[str, Any] | None = None
     if backend is ExecutionBackend.PYTORCH:
         execution_model.eval()
         outputs = _as_list(execution_model(model_input))
         _zero_pytorch_parameters(model)
         outputs = _as_list(execution_model(model_input))
+        compilation_factory = module.__dict__.get("build_compilation")
+        if callable(compilation_factory):
+            compilation = cast(Callable[[Any], dict[str, Any]], compilation_factory)(model)
     elif backend is ExecutionBackend.TENSORFLOW:
         outputs = _as_list(execution_model(model_input))
     else:
@@ -111,6 +116,7 @@ def build_native_model(
         ir=ir,
         source=source,
         apply=apply,
+        compilation=compilation,
     )
 
 ###############################################################################

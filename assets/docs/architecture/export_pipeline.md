@@ -21,3 +21,5 @@ Supported artifact families are:
 All binary artifacts are initialized and untrained. No method claims optimizer or training-state preservation. ONNX uses a verified native PyTorch path, TensorFlow `tf2onnx` bridge, or Keras path; native JAX ONNX remains disabled until its `jax2tf`/`tf2onnx` bridge passes parity verification. Missing optional tooling disables only its affected capability with an actionable reason.
 
 `.keras` architecture import remains separate from export. `POST /api/imports/keras-architecture` reads allowlisted configuration metadata, maps it to canonical nodes and edges, and never deserializes arbitrary Python, custom code, or weights.
+
+Native PyTorch source and project bundles include the canonical compilation configuration so an export can be audited for optimizer, loss, metric, and target-contract intent. Binary artifacts remain initialized inference artifacts: compilation metadata is not training state, and export never performs an optimizer step or claims trained weights.

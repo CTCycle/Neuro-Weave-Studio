@@ -270,8 +270,8 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
         ],
         model_configuration=ModelConfiguration(
             keras={
-                "losses": {"__default__": "mean_squared_error"},
-                "metrics": {"__default__": ["mean_squared_error"]},
+                "losses": {"__default__": "categorical_crossentropy"},
+                "metrics": {"__default__": ["categorical_accuracy"]},
             },
         ),
     )

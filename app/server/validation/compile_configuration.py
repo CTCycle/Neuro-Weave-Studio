@@ -1,18 +1,34 @@
 from __future__ import annotations
 
 import math
+from typing import Any
 
-from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
+from domain.compilation_catalog import (
+    CompilationCatalog,
+    get_compilation_catalog,
+    get_compilation_catalog_for_implementation,
+)
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
 
+
 ###############################################################################
-def _error(code: str, message: str) -> ValidationDiagnostic:
+def _error(
+    code: str,
+    message: str,
+    *,
+    node_id: str | None = None,
+    parameter_id: str | None = None,
+    details: dict[str, object] | None = None,
+) -> ValidationDiagnostic:
     return ValidationDiagnostic(
         code=code,
         severity=DiagnosticSeverity.ERROR,
         message=message,
+        node_id=node_id,
+        parameter_id=parameter_id,
+        details=details or {},
     )
 
 ###############################################################################
@@ -25,57 +41,34 @@ def _output_selectors(graph: ModelGraph) -> set[str]:
     }
 
 ###############################################################################
-def validate_model_configuration(
-    graph: ModelGraph,
-    execution_backend: ExecutionBackend,
-    keras_enabled: bool,
-    catalog: CompilationCatalog | None = None,
-) -> list[ValidationDiagnostic]:
-    """Validate the selected backend's canonical compilation configuration."""
+def _selected_value(configuration: dict[str, Any], output: Any, default: Any) -> Any:
+    value = configuration.get("__default__", default)
+    for selector in (output.id, output.label):
+        if selector and selector in configuration:
+            value = configuration[selector]
+            break
+    return value
 
-    catalog = catalog or get_compilation_catalog()
-    supported_optimizers = frozenset(item.id for item in catalog.optimizers)
-    supported_losses = frozenset(item.id for item in catalog.losses)
-    supported_metrics = frozenset(item.id for item in catalog.metrics)
-    optimizer_parameters = {
-        item.id: {parameter.id: parameter for parameter in item.parameters}
-        for item in catalog.optimizers
-    }
-    supported_initializers = frozenset(catalog.initializers)
-    supported_regularizers = frozenset(catalog.regularizers)
-    supported_constraints = frozenset(catalog.constraints)
-
-    if not keras_enabled:
-        configuration = graph.model_configuration.native
-        if execution_backend is ExecutionBackend.TENSORFLOW:
-            if not isinstance(configuration.tensorflow.jit_compile, bool):
-                return [_error("invalid_native_compilation", "TensorFlow jit_compile must be boolean")]
-            return []
-        if execution_backend is ExecutionBackend.PYTORCH:
-            if configuration.pytorch.mode not in {"default", "reduce-overhead", "max-autotune"}:
-                return [_error("invalid_native_compilation", "PyTorch compile mode is unsupported")]
-            return []
-        if not isinstance(configuration.jax.jit_enabled, bool):
-            return [_error("invalid_native_compilation", "JAX jit_enabled must be boolean")]
-        return []
-
-    configuration = graph.model_configuration.keras
+###############################################################################
+def _validate_optimizer(configuration: Any, catalog: CompilationCatalog, runtime_label: str) -> list[ValidationDiagnostic]:
     diagnostics: list[ValidationDiagnostic] = []
-    if configuration.optimizer not in supported_optimizers:
+    optimizer_by_id = {item.id: item for item in catalog.optimizers}
+    optimizer = optimizer_by_id.get(configuration.optimizer)
+    if optimizer is None:
         diagnostics.append(
             _error(
                 "invalid_compile_optimizer",
-                f"Optimizer '{configuration.optimizer}' is not supported by the Keras runtime",
+                f"Optimizer '{configuration.optimizer}' is not supported by {runtime_label}",
             )
         )
-
-    allowed_parameters = optimizer_parameters.get(configuration.optimizer, {})
-    unknown_optimizer_parameters = set(configuration.optimizer_parameters) - set(allowed_parameters)
-    if unknown_optimizer_parameters:
+        return diagnostics
+    allowed_parameters = {parameter.id: parameter for parameter in optimizer.parameters}
+    unknown_parameters = set(configuration.optimizer_parameters) - set(allowed_parameters)
+    if unknown_parameters:
         diagnostics.append(
             _error(
                 "unsupported_optimizer_parameter",
-                f"Optimizer '{configuration.optimizer}' does not support: {', '.join(sorted(unknown_optimizer_parameters))}",
+                f"Optimizer '{configuration.optimizer}' does not support: {', '.join(sorted(unknown_parameters))}",
             )
         )
     for parameter_id, value in configuration.optimizer_parameters.items():
@@ -84,18 +77,56 @@ def validate_model_configuration(
             continue
         if parameter.type == "boolean":
             if not isinstance(value, bool):
-                diagnostics.append(_error("invalid_optimizer_parameter", f"optimizer_parameters.{parameter_id} must be a boolean"))
+                diagnostics.append(
+                    _error(
+                        "invalid_optimizer_parameter",
+                        f"optimizer_parameters.{parameter_id} must be a boolean",
+                    )
+                )
             continue
         if not isinstance(value, int | float) or isinstance(value, bool) or not math.isfinite(float(value)):
-            diagnostics.append(_error("invalid_optimizer_parameter", f"optimizer_parameters.{parameter_id} must be a finite number"))
+            diagnostics.append(
+                _error(
+                    "invalid_optimizer_parameter",
+                    f"optimizer_parameters.{parameter_id} must be a finite number",
+                )
+            )
             continue
         minimum = parameter.constraints.get("min")
         maximum = parameter.constraints.get("max")
-        if (isinstance(minimum, int | float) and value < minimum) or (isinstance(maximum, int | float) and value > maximum):
-            diagnostics.append(_error("invalid_optimizer_parameter", f"optimizer_parameters.{parameter_id} is outside its supported range"))
+        if isinstance(minimum, int | float) and value < minimum:
+            diagnostics.append(
+                _error(
+                    "invalid_optimizer_parameter",
+                    f"optimizer_parameters.{parameter_id} is outside its supported range",
+                )
+            )
+        if isinstance(maximum, int | float) and value > maximum:
+            diagnostics.append(
+                _error(
+                    "invalid_optimizer_parameter",
+                    f"optimizer_parameters.{parameter_id} is outside its supported range",
+                )
+            )
         if parameter_id == "learning_rate" and value <= 0:
-            diagnostics.append(_error("invalid_optimizer_learning_rate", "optimizer_parameters.learning_rate must be a finite positive number"))
+            diagnostics.append(
+                _error(
+                    "invalid_optimizer_learning_rate",
+                    "optimizer_parameters.learning_rate must be a finite positive number",
+                )
+            )
+    return diagnostics
 
+###############################################################################
+def _validate_mappings(
+    graph: ModelGraph,
+    configuration: Any,
+    catalog: CompilationCatalog,
+    runtime_label: str,
+) -> list[ValidationDiagnostic]:
+    diagnostics = _validate_optimizer(configuration, catalog, runtime_label)
+    supported_losses = {item.id for item in catalog.losses}
+    supported_metrics = {item.id for item in catalog.metrics}
     selectors = _output_selectors(graph)
     for output_selector, loss in configuration.losses.items():
         if output_selector != "__default__" and output_selector not in selectors:
@@ -109,10 +140,10 @@ def validate_model_configuration(
             diagnostics.append(
                 _error(
                     "invalid_compile_loss",
-                    f"Loss '{loss}' is not supported by the Keras runtime",
+                    f"Loss '{loss}' is not supported by {runtime_label}",
                 )
             )
-    for output_selector, metrics in configuration.metrics.items():
+    for output_selector, metric_values in configuration.metrics.items():
         if output_selector != "__default__" and output_selector not in selectors:
             diagnostics.append(
                 _error(
@@ -120,15 +151,186 @@ def validate_model_configuration(
                     f"Metric configuration references unknown output '{output_selector}'",
                 )
             )
-        for metric in metrics:
+        for metric in metric_values:
             if metric not in supported_metrics:
                 diagnostics.append(
                     _error(
                         "invalid_compile_metric",
-                        f"Metric '{metric}' is not supported by the Keras runtime",
+                        f"Metric '{metric}' is not supported by {runtime_label}",
+                    )
+                )
+    return diagnostics
+
+###############################################################################
+def _terminal_head(graph: ModelGraph, output_id: str) -> tuple[str | None, int | None]:
+    """Find the final activation and class width feeding one output node."""
+
+    nodes = {node.id: node for node in graph.nodes}
+    incoming = {
+        edge.target_node_id: edge.source_node_id
+        for edge in graph.edges
+        if edge.target_port_id == "input"
+    }
+    current = incoming.get(output_id)
+    visited: set[str] = set()
+    while current is not None and current not in visited:
+        visited.add(current)
+        node = nodes.get(current)
+        if node is None:
+            return None, None
+        if node.definition_id == "layer.activation":
+            return str(node.parameters.get("activation", "linear")), None
+        if node.definition_id in {"layer.dense", "conv.conv1d", "conv.conv2d"}:
+            width_value = node.parameters.get("units", node.parameters.get("filters"))
+            width = width_value if isinstance(width_value, int) and not isinstance(width_value, bool) else None
+            return str(node.parameters.get("activation", "linear")), width
+        current = incoming.get(current)
+    return None, None
+
+###############################################################################
+def _output_task(output: Any, width: int | None) -> str | None:
+    if output.definition_id == "output.regression":
+        return "regression"
+    if output.definition_id == "output.classification":
+        return "binary_classification" if width == 1 else "multiclass_classification"
+    return None
+
+###############################################################################
+def _validate_semantics(
+    graph: ModelGraph,
+    configuration: Any,
+    catalog: CompilationCatalog,
+) -> list[ValidationDiagnostic]:
+    diagnostics: list[ValidationDiagnostic] = []
+    losses = {item.id: item for item in catalog.losses}
+    metrics = {item.id: item for item in catalog.metrics}
+    output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
+    for output in output_nodes:
+        activation, width = _terminal_head(graph, output.id)
+        task = _output_task(output, width)
+        if task is None:
+            continue
+        if task == "binary_classification":
+            if width is not None and width != 1:
+                diagnostics.append(
+                    _error(
+                        "invalid_binary_output_shape",
+                        "Binary classification outputs must have exactly one prediction value",
+                        node_id=output.id,
+                    )
+                )
+            expected_activation = "sigmoid"
+        elif task == "multiclass_classification":
+            if width is not None and width < 2:
+                diagnostics.append(
+                    _error(
+                        "invalid_multiclass_output_shape",
+                        "Multiclass classification outputs must expose at least two classes",
+                        node_id=output.id,
+                    )
+                )
+            expected_activation = "softmax"
+        else:
+            expected_activation = "linear"
+        if activation != expected_activation:
+            diagnostics.append(
+                _error(
+                    "invalid_output_activation",
+                    f"{output.definition_id} requires a final {expected_activation} activation; received {activation or 'none'}",
+                    node_id=output.id,
+                    details={"expected": expected_activation, "received": activation},
+                )
+            )
+
+        selected_loss = _selected_value(configuration.losses, output, None)
+        loss = losses.get(selected_loss) if isinstance(selected_loss, str) else None
+        if loss is not None:
+            if task not in loss.supported_tasks:
+                diagnostics.append(
+                    _error(
+                        "incompatible_compile_loss",
+                        f"Loss '{loss.id}' is incompatible with {output.definition_id}",
+                        node_id=output.id,
+                        details={
+                            "task": task,
+                            "supported_tasks": loss.supported_tasks,
+                            "target_contract": loss.target_contract,
+                        },
+                    )
+                )
+            if loss.activation_contract and activation not in loss.activation_contract:
+                diagnostics.append(
+                    _error(
+                        "invalid_loss_activation",
+                        f"Loss '{loss.id}' requires one of: {', '.join(loss.activation_contract)}",
+                        node_id=output.id,
+                        details={
+                            "loss": loss.id,
+                            "expected": loss.activation_contract,
+                            "received": activation,
+                        },
                     )
                 )
 
+        selected_metrics = _selected_value(configuration.metrics, output, [])
+        if isinstance(selected_metrics, list):
+            for metric_id in selected_metrics:
+                metric = metrics.get(metric_id)
+                if metric is not None and task not in metric.supported_tasks:
+                    diagnostics.append(
+                        _error(
+                            "incompatible_compile_metric",
+                            f"Metric '{metric.id}' is incompatible with {output.definition_id}",
+                            node_id=output.id,
+                            details={
+                                "task": task,
+                                "supported_tasks": metric.supported_tasks,
+                                "target_contract": metric.target_contract,
+                            },
+                        )
+                    )
+    return diagnostics
+
+###############################################################################
+def validate_model_configuration(
+    graph: ModelGraph,
+    execution_backend: ExecutionBackend,
+    keras_enabled: bool,
+    catalog: CompilationCatalog | None = None,
+) -> list[ValidationDiagnostic]:
+    """Validate the selected backend's canonical compilation configuration."""
+
+    catalog = catalog or get_compilation_catalog()
+    if not keras_enabled:
+        configuration = graph.model_configuration.native
+        if execution_backend is ExecutionBackend.TENSORFLOW:
+            if not isinstance(configuration.tensorflow.jit_compile, bool):
+                return [_error("invalid_native_compilation", "TensorFlow jit_compile must be boolean")]
+            return []
+        if execution_backend is ExecutionBackend.PYTORCH:
+            native = configuration.pytorch
+            native_catalog = get_compilation_catalog_for_implementation(catalog, "pytorch")
+            diagnostics = _validate_mappings(graph, native, native_catalog, "the native PyTorch runtime")
+            if native.mode not in {"default", "reduce-overhead", "max-autotune"}:
+                diagnostics.append(_error("invalid_native_compilation", "PyTorch compile mode is unsupported"))
+            for parameter_id, value in {
+                "compile_enabled": native.compile_enabled,
+                "fullgraph": native.fullgraph,
+                "dynamic": native.dynamic,
+            }.items():
+                if not isinstance(value, bool):
+                    diagnostics.append(_error("invalid_native_compilation", f"PyTorch {parameter_id} must be boolean"))
+            diagnostics.extend(_validate_semantics(graph, native, native_catalog))
+            return diagnostics
+        if not isinstance(configuration.jax.jit_enabled, bool):
+            return [_error("invalid_native_compilation", "JAX jit_enabled must be boolean")]
+        return []
+
+    configuration = graph.model_configuration.keras
+    diagnostics = _validate_mappings(graph, configuration, catalog, "the Keras runtime")
+    supported_initializers = frozenset(catalog.initializers)
+    supported_regularizers = frozenset(catalog.regularizers)
+    supported_constraints = frozenset(catalog.constraints)
     if configuration.default_initializer not in supported_initializers:
         diagnostics.append(
             _error(
@@ -150,4 +352,5 @@ def validate_model_configuration(
                 f"Constraint '{configuration.default_constraint}' is not supported",
             )
         )
+    diagnostics.extend(_validate_semantics(graph, configuration, catalog))
     return diagnostics

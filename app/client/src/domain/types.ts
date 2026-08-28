@@ -117,6 +117,10 @@ export interface TensorFlowNativeConfiguration {
 }
 
 export interface PyTorchNativeConfiguration {
+  optimizer: string
+  optimizer_parameters: Record<string, unknown>
+  losses: Record<string, string>
+  metrics: Record<string, string[]>
   compile_enabled: boolean
   mode: 'default' | 'reduce-overhead' | 'max-autotune'
   fullgraph: boolean
@@ -156,6 +160,18 @@ export interface CompilationOption {
   description: string
   parameters: CompilationParameter[]
   formula?: string | null
+  implementations?: Record<string, CompilationImplementation>
+  supported_tasks?: Array<'regression' | 'binary_classification' | 'multiclass_classification'>
+  target_contract?: 'continuous_same_shape' | 'binary_same_shape' | 'one_hot_same_shape' | 'class_index' | 'probability_distribution_same_shape' | null
+  activation_contract?: string[]
+}
+
+export interface CompilationImplementation {
+  supported: boolean
+  symbol?: string | null
+  adapter?: string | null
+  parameter_mapping?: Record<string, string>
+  notes?: string | null
 }
 
 export interface CompilationCatalog {
@@ -175,6 +191,7 @@ export interface NativeCompilationCapability {
   reason_code?: string | null
   reason?: string | null
   parameters: CompilationParameter[]
+  catalog?: CompilationCatalog
 }
 
 export interface CompilationCapabilities {
@@ -367,6 +384,7 @@ export interface ExportArtifactManifest {
   files: ExportArtifactFile[]
   inputs: Array<Record<string, unknown>>
   outputs: Array<Record<string, unknown>>
+  compilation?: ModelConfiguration
   tool_versions: Record<string, string>
   verification: ExportVerification
 }
@@ -484,6 +502,15 @@ export interface SmokeTestResponse {
   outputs: TensorExecutionInfo[]
   parameter_count: number
   duration_ms: number
+  compilation?: NativeCompilationSummary | null
+}
+
+export interface NativeCompilationSummary {
+  verified: boolean
+  optimizer: { id?: string | null; instantiated: boolean }
+  losses: Record<string, unknown>
+  metrics: Record<string, unknown>
+  training: 'not_run'
 }
 
 export interface SmokeTestErrorDetail {
@@ -556,7 +583,16 @@ export const emptyModelConfiguration = (): ModelConfiguration => ({
   },
   native: {
     tensorflow: { jit_compile: false },
-    pytorch: { compile_enabled: false, mode: 'default', fullgraph: false, dynamic: false },
+    pytorch: {
+      optimizer: 'adam',
+      optimizer_parameters: { learning_rate: 0.001 },
+      losses: {},
+      metrics: {},
+      compile_enabled: false,
+      mode: 'default',
+      fullgraph: false,
+      dynamic: false,
+    },
     jax: { jit_enabled: false },
   },
 })

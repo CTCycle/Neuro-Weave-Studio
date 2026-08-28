@@ -4,6 +4,7 @@ from typing import Any
 
 import keras
 
+from domain.compilation_catalog import CompilationOption, get_compilation_catalog
 from domain.graph import ModelGraph
 
 
@@ -81,27 +82,57 @@ def _compile_value(values: dict[str, Any], output_count: int) -> Any:
     return values
 
 ###############################################################################
+def _catalog_option(category: str, identifier: str) -> CompilationOption:
+    catalog = get_compilation_catalog()
+    options = getattr(catalog, category)
+    option = next((item for item in options if item.id == identifier), None)
+    if option is None:
+        raise ValueError(f"No Keras catalog option registered for {category}.{identifier}")
+    implementation = option.implementations.get("keras")
+    if implementation is None or not implementation.supported or not implementation.symbol:
+        raise ValueError(f"No Keras implementation registered for {category}.{identifier}")
+    return option
+
+
+###############################################################################
 def _optimizer(name: str, parameters: dict[str, Any]) -> keras.optimizers.Optimizer:
-    optimizer_types = {
-        "adam": keras.optimizers.Adam,
-        "adamw": keras.optimizers.AdamW,
-        "sgd": keras.optimizers.SGD,
-        "rmsprop": keras.optimizers.RMSprop,
-    }
-    accepted_parameters = {
-        "adam": {"learning_rate", "beta_1", "beta_2", "epsilon"},
-        "adamw": {"learning_rate", "weight_decay", "beta_1", "beta_2", "epsilon"},
-        "sgd": {"learning_rate", "momentum", "nesterov"},
-        "rmsprop": {"learning_rate", "rho", "momentum", "epsilon", "centered"},
-    }[name]
+    option = _catalog_option("optimizers", name)
+    implementation = option.implementations["keras"]
+    optimizer_type = getattr(keras.optimizers, implementation.symbol or "")
+    accepted_parameters = {parameter.id for parameter in option.parameters}
     kwargs = {key: value for key, value in parameters.items() if key in accepted_parameters}
-    return optimizer_types[name](**kwargs)
+    return optimizer_type(**kwargs)
+
+
+###############################################################################
+def _compile_option(category: str, identifier: str) -> Any:
+    option = _catalog_option(category, identifier)
+    implementation = option.implementations["keras"]
+    namespace = keras.losses if category == "losses" else keras.metrics
+    factory = getattr(namespace, implementation.symbol or "")
+    return factory()
+
+
+###############################################################################
+def _resolve_compilation_values(values: dict[str, Any], category: str) -> dict[str, Any]:
+    return {
+        output_id: (
+            _compile_option(category, value)
+            if category == "losses" and isinstance(value, str)
+            else [_compile_option(category, item) for item in value]
+            if category == "metrics" and isinstance(value, list)
+            else value
+        )
+        for output_id, value in values.items()
+    }
 
 ###############################################################################
 def compile_model(model: keras.Model, graph: ModelGraph) -> keras.Model:
     configuration = graph.model_configuration.keras
     losses = _configured_values(graph, configuration.losses, default=None)
     metrics = _configured_values(graph, configuration.metrics, default=[])
+    losses = _resolve_compilation_values(losses, "losses")
+    metrics = _resolve_compilation_values(metrics, "metrics")
     model.compile(
         optimizer=_optimizer(configuration.optimizer, configuration.optimizer_parameters),
         loss=_compile_value(losses, len(_output_names(graph))),

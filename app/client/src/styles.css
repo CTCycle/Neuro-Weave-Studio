@@ -340,11 +340,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .metrics-card-heading > div { min-width: 0; }
 .metrics-card strong { display: block; font-size: 12px; }
 .metrics-card-heading code { display: block; margin-top: 4px; color: var(--accent-bright); font: 500 9px 'IBM Plex Mono', Consolas, monospace; overflow-wrap: anywhere; }
-.metrics-card p { margin: 9px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.metrics-card-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 9px; }
+.metrics-card-body.has-formula { grid-template-columns: minmax(0, 1fr) minmax(180px, 1.15fr); align-items: center; }
+.metrics-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .read-only-badge { color: var(--muted); font: 500 8px 'IBM Plex Mono', Consolas, monospace; letter-spacing: .08em; white-space: nowrap; }
 .metrics-formula { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
 .metrics-formula span { color: var(--muted); font: 500 8px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; letter-spacing: .08em; }
-.metrics-formula code { color: var(--text); font: 400 10px 'IBM Plex Mono', Consolas, monospace; overflow-wrap: anywhere; }
+.metrics-formula { min-width: 0; margin-top: 0; padding: 8px 0 0; }
+.metrics-formula .math-formula { min-width: 0; color: var(--text); font-size: 14px; }
 .inline-action { text-decoration: none; }
 button, a { transition: border-color .15s ease, background .15s ease, color .15s ease, transform .15s ease; }
 .catalog-page, .model-workspace-page, .builder-page { max-width: 1540px; margin: 0 auto; }
@@ -664,6 +667,7 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
   .compilation-modal-header, .compilation-modal-body { padding-inline: 14px; }
   .compilation-modal > .dialog-actions { padding-inline: 14px; }
   .compilation-parameter-grid, .compilation-option-grid { grid-template-columns: 1fr; }
+  .metrics-card-body.has-formula { grid-template-columns: 1fr; }
   .configuration-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .inference-controls { align-items: stretch; flex-direction: column; }
   .environment-page .backend-status-grid { grid-template-columns: 1fr; }

@@ -4,7 +4,12 @@ from collections.abc import Mapping
 
 from pydantic import BaseModel, Field
 
-from domain.compilation_catalog import CompilationCatalog, CompilationParameter
+from domain.compilation_catalog import (
+    CompilationCatalog,
+    CompilationParameter,
+    get_compilation_catalog,
+    get_compilation_catalog_for_implementation,
+)
 from domain.enums import ExecutionBackend
 
 
@@ -17,6 +22,7 @@ class NativeCompilationCapability(BaseModel):
     reason_code: str | None = None
     reason: str | None = None
     parameters: list[CompilationParameter] = Field(default_factory=list)
+    catalog: CompilationCatalog = Field(default_factory=CompilationCatalog)
 
 
 ###############################################################################
@@ -28,6 +34,7 @@ class CompilationCapabilities(BaseModel):
 ###############################################################################
 def get_native_compilation_capabilities(
     statuses: Mapping[ExecutionBackend, object] | None = None,
+    catalog: CompilationCatalog | None = None,
 ) -> dict[ExecutionBackend, NativeCompilationCapability]:
     """Return the explicit native compiler controls for every backend.
 
@@ -36,6 +43,7 @@ def get_native_compilation_capabilities(
     cannot invent settings that a worker does not understand.
     """
 
+    compilation_catalog = catalog or get_compilation_catalog()
     definitions = {
         ExecutionBackend.TENSORFLOW: NativeCompilationCapability(
             backend=ExecutionBackend.TENSORFLOW,
@@ -86,6 +94,7 @@ def get_native_compilation_capabilities(
                     description="Allow torch.compile to model dynamic input shapes.",
                 ),
             ],
+            catalog=get_compilation_catalog_for_implementation(compilation_catalog, "pytorch"),
         ),
         ExecutionBackend.JAX: NativeCompilationCapability(
             backend=ExecutionBackend.JAX,
@@ -125,5 +134,5 @@ def get_compilation_capabilities(
 ) -> CompilationCapabilities:
     return CompilationCapabilities(
         keras=catalog,
-        native=get_native_compilation_capabilities(statuses),
+        native=get_native_compilation_capabilities(statuses, catalog),
     )

@@ -38,3 +38,5 @@ Presentation details, button inventories, clipboard status, basic filtering, and
 Backend changes should run pytest, Ruff, and Pyright. Frontend changes should run Vitest, ESLint, and the TypeScript/Vite production build.
 
 Coverage percentage is not a release goal. Regression signal, business-risk protection, execution safety, and maintainability are the criteria for retaining tests.
+
+The native compilation parity gate covers PyTorch and Keras-on-PyTorch representative dense, classification, recurrent, LSTM, and convolution graphs. It verifies catalog mappings, generated helper construction/evaluation, task/target/activation diagnostics, compilation summaries, forward shapes and dtypes, and supported native export reloads. Runtime evidence must state that helper verification is inference-only; TensorFlow and JAX validation remain out of scope for this gate. Browser acceptance uses the official launcher and records graph creation, validation, compilation, inference, export capability results, logs, network/console failures, and cleanup under `assets/QA/`.

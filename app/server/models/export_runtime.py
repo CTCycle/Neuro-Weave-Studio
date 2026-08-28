@@ -688,6 +688,7 @@ def _manifest(
         files=[ExportArtifactFile.model_validate(item) for item in files],
         inputs=_tensor_metadata(input_nodes, input_values),
         outputs=_tensor_metadata(output_nodes, outputs),
+        compilation=graph.model_configuration.model_dump(mode="json"),
         tool_versions=_tool_versions(backend, api, export_format),
         verification=verification,
     )
