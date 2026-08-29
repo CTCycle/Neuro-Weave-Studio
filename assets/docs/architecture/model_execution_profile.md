@@ -1,6 +1,6 @@
 # Model Execution Profile
 
-Last updated: 2026-08-27
+Last updated: 2026-08-29
 
 ## Purpose
 
@@ -38,7 +38,7 @@ flowchart TD
   W --> T[Dummy tensor smoke test or artifact export]
 ```
 
-Keras compilation uses the Keras branch of the metadata-driven capability catalog. Optimizers, losses, metrics, initializers, regularizers, constraints, and trusted formula metadata are exposed through `/api/metadata`. Native compilation is independent of Keras: TensorFlow exposes `tf.function(jit_compile=...)`, PyTorch exposes `torch.compile(...)` options, and JAX exposes `jax.jit(...)`. Each capability is live-probed and unavailable runtimes show an explicit reason. These settings do not add a training loop, checkpoint manager, or native optimizer runtime.
+Keras compilation uses the Keras branch of the metadata-driven capability catalog. Optimizers, losses, metrics, initializers, regularizers, constraints, and trusted formula metadata are exposed through `/api/metadata`. Native compilation is independent of Keras: TensorFlow exposes `tf.function(jit_compile=...)`, PyTorch exposes `torch.compile(...)` options, and JAX exposes `jax.jit(...)`. Runtime/compiler availability is discovered per API and unavailable runtimes show an explicit reason; matching discovery snapshots are reused until their environment fingerprint changes. These settings do not add a training loop, checkpoint manager, or native optimizer runtime.
 
 ## Native execution
 
@@ -56,19 +56,17 @@ The node manifest is capability truth. A node can be present in the catalog whil
 
 ## Editor architecture
 
-The Builder is a fixed-height authoring workspace. Each open tab owns an isolated graph session, model metadata snapshot, saved baseline, selection state, history, and dirty flag. Tabs never duplicate a persisted project ID, and closing a dirty tab requires confirmation.
+The Builder is a fixed-height authoring workspace. Each open tab owns an isolated graph session, model metadata snapshot, saved baseline, selection state, history, and dirty flag. Tabs never duplicate a persisted project ID, and closing a dirty tab requires confirmation. Compilation configuration is edited and saved from the dedicated model Compilation page, which validates the proposed graph/profile before its revision-aware update and source generation.
 
 ```mermaid
 flowchart LR
   T[Model tabs] --> C[Node catalog]
-  T --> S[Compilation summary]
   C --> G[Graph canvas]
-  S --> G
   G --> I[Parameter inspector]
   G --> V[Resizable validation region]
 ```
 
-The toolbar edits the model name and opens the canonical model description metadata popover, selects the native execution backend, explicitly toggles the optional Keras API layer, and exposes Validate, Save & compile, Save model, undo, redo, and workspace actions. The center column keeps the compact compilation summary, canvas, and validation region within the viewport. A local minimap toggle and same-editor focus mode recover canvas space without recreating graph state; Escape exits focus mode immediately. Catalog and Inspector become explicit drawers at narrow widths.
+The toolbar edits the model name and opens the canonical model description metadata popover, selects the native execution backend, explicitly toggles the optional Keras API layer, and exposes Validate, Save model, undo, redo, and workspace actions. The center column keeps the canvas and validation region within the viewport. A local minimap toggle and same-editor focus mode recover canvas space without recreating graph state; Escape exits focus mode immediately. Catalog and Inspector become explicit drawers at narrow widths.
 
 ## Validation pipeline
 
@@ -89,16 +87,18 @@ The frontend combines backend diagnostics with local graph diagnostics in one bo
 
 ## Export architecture
 
-NeuroWeave JSON is the canonical project representation. Generated source is a revision-scoped snapshot derived from the execution profile. Source download is honest about the selected implementation: Keras-enabled profiles use the Keras exporter, while native profiles use only a verified native exporter.
+NeuroWeave JSON is the canonical project representation. Generated source is a revision-scoped snapshot derived from the execution profile. The Compilation page owns configuration, validation, source generation, and source inspection/copy. The Export page owns project/source downloads and verified binary artifact jobs; Keras-enabled profiles use the Keras exporter, while native profiles use only a verified native exporter.
 
 ```mermaid
 flowchart LR
   J[NeuroWeave JSON] --> G[Canonical Graph]
   G --> P[Execution Profile]
   P --> V[Validation]
-  V --> E[Profile-derived exporter]
+  V --> E[Profile-derived source generator]
   E --> S[Generated source snapshot]
-  S --> D[Source download]
+  S --> C[Compilation source inspection/copy]
+  P --> X[Export capability matrix]
+  X --> D[Export workspace download/job]
 ```
 
 ## .keras binary export

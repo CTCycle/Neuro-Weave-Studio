@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Last updated: 2026-08-27
+Last updated: 2026-08-29
 
 NeuroWeave's automated suite is intentionally risk-oriented. Tests exist for behavior whose failure can corrupt saved models, produce invalid generated models, violate execution safety, or break an important user workflow. Tooling layout, source-tree shape, presentation details, and framework behavior are not unit-tested merely to increase coverage.
 
@@ -16,6 +16,7 @@ Retained regression coverage focuses on:
 - generated Keras and native TensorFlow/PyTorch/JAX source with backend-specific compiler settings for representative graphs;
 - native TensorFlow/PyTorch/JAX parity for deterministic common-subset graphs, including representative multi-input/multi-output cases;
 - capability discovery, clean-break `model_export` submission, format option validation, bridge availability, artifact manifests, reload/inference verification, stale revisions, cancellation, conversion failure, and atomic publication;
+- runtime discovery skips absent framework packages, records a fingerprinted environment snapshot, reuses matching snapshots, and invalidates them when package state changes;
 - binary Keras, native, ONNX, SafeTensors, and checkpoint export reload/restore coverage where the optional dependency is operational;
 - runtime preflight validation, device lease exclusivity, idempotent cancellation, and worker/workspace cleanup.
 
@@ -29,7 +30,8 @@ Frontend tests are deliberately limited to state and interaction contracts that 
 - isolated multi-tab editor sessions;
 - description metadata editing, capability-driven compilation configuration, backend/Keras switching, and minimap/focus-mode state contracts;
 - the Node Catalog drag payload consumed by the model canvas;
-- Model Export center capability grouping, explicit disabled reasons, format-specific options, job polling, cancellation, retry, and verified download.
+- Model Export page capability grouping, explicit disabled reasons, format-specific options, job polling, cancellation, retry, and verified download;
+- Builder keeps graph save/validation separate from Compilation configuration and source generation, while CodePreview remains inspection/copy-only there.
 
 Presentation details, button inventories, clipboard status, basic filtering, and collapsible UI behavior are covered by static checks and product QA rather than dedicated unit tests.
 

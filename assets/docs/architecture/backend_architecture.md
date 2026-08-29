@@ -1,6 +1,6 @@
 # Backend Architecture
 
-Last updated: 2026-08-27
+Last updated: 2026-08-29
 
 `app/server/app.py` is the FastAPI application factory. Routers translate HTTP contracts, services own validation, import, export, repository transactions, and runtime orchestration, and the domain models define the graph, execution profile, runtime, and job contracts. Lifespan creates the catalog, repository context, and one application-scoped `services.runtime_controller.RuntimeController`; the controller is shut down and joined before repositories are disposed.
 
@@ -20,6 +20,6 @@ Keras export writes a temporary `.keras` file in the job workspace. Reload/infer
 
 ## Runtime diagnostics and limits
 
-Metadata is live probe output: API capability, installed/operational backend, discovered devices, supported memory policies, and normalized lease keys. Workers report PID, immutable configuration, lifecycle phase, exit code, cancellation/escalation state, restart reason, process RSS, and nullable framework/device metrics. Cleanup (`clear_session`, JAX cache clearing, PyTorch synchronization/cache cleanup, and garbage collection) is best effort and does not replace process teardown. PyTorch allocated versus reserved/cached memory and framework/device metrics are intentionally shown separately.
+Metadata is runtime discovery output: API capability, installed/operational backend, discovered devices, supported memory policies, and normalized lease keys. Discovery skips absent frameworks and persists a fingerprinted snapshot so unchanged environments do not repeat worker imports; package, hardware, runtime-environment, or backend-installation changes invalidate it. Workers report PID, immutable configuration, lifecycle phase, exit code, cancellation/escalation state, restart reason, process RSS, and nullable framework/device metrics. Cleanup (`clear_session`, JAX cache clearing, PyTorch synchronization/cache cleanup, and garbage collection) is best effort and does not replace process teardown. PyTorch allocated versus reserved/cached memory and framework/device metrics are intentionally shown separately.
 
 Training, checkpoints, and datasets are outside this runtime boundary. Installing or removing optional packages still requires an application restart. Normal backend/device/policy changes only affect the next fresh worker; an operating-system restart is exceptional recovery for driver/runtime faults.
