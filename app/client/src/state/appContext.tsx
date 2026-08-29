@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from '../api/client'
 import type { CompilationCapabilities, ExecutionBackend, ExecutionBackendStatus, NodeManifest, ProjectSummary, RuntimeApiStatus, RuntimeDevice, WorkerConfiguration } from '../domain/types'
-import { AppResourcesContext, type AppResources } from './appResourcesContext'
+import { AppResourcesContext, type AppResources, type ResourceReadiness } from './appResourcesContext'
 
 function defaultPreference(status: ExecutionBackendStatus): WorkerConfiguration {
   const device: RuntimeDevice = status.devices?.[0] ?? {
@@ -35,37 +35,42 @@ export function AppResourcesProvider({ children }: { children: ReactNode }) {
   const [compilationCapabilities, setCompilationCapabilities] = useState<CompilationCapabilities | null>(null)
   const [runtimePreferences, setRuntimePreferences] = useState<Partial<Record<ExecutionBackend, WorkerConfiguration>>>({})
   const [runtimePreferenceBackend, setRuntimePreferenceBackend] = useState<ExecutionBackend | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [readiness, setReadiness] = useState<ResourceReadiness>({ catalog: false, projects: false, runtime: false })
+  const [resourceErrors, setResourceErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     let active = true
-    Promise.allSettled([api.catalog(), api.listProjects(), api.metadata()]).then((results) => {
+    const markReady = (resource: keyof ResourceReadiness) => {
+      if (active) setReadiness((current) => ({ ...current, [resource]: true }))
+    }
+    const recordError = (resource: keyof ResourceReadiness, message: string) => {
+      if (active) setResourceErrors((current) => ({ ...current, [resource]: message }))
+    }
+
+    void api.catalog().then((value) => {
+      if (active) setManifests(value)
+    }).catch(() => recordError('catalog', 'Node catalog unavailable.')).finally(() => markReady('catalog'))
+
+    void api.listProjects().then((value) => {
+      if (active) setProjects(value)
+    }).catch(() => recordError('projects', 'Model catalog unavailable.')).finally(() => markReady('projects'))
+
+    void api.metadata().then((value) => {
       if (!active) return
-      const [catalogResult, projectsResult, metadataResult] = results
-      const errors: string[] = []
-      if (catalogResult.status === 'fulfilled') {
-        setManifests(catalogResult.value)
-      } else errors.push('Node catalog unavailable.')
-      if (projectsResult.status === 'fulfilled') setProjects(projectsResult.value)
-      else errors.push('Model catalog unavailable.')
-      if (metadataResult.status === 'fulfilled') {
-        const statuses = metadataResult.value.execution_backends
-        setBackendStatuses(statuses)
-        setCompilationCapabilities(metadataResult.value.configuration.compilation_capabilities)
-        setRuntimeApis(metadataResult.value.runtime_apis ?? [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'runtime_unavailable' }])
-        setRuntimePreferences((current) => {
-          const next = { ...current }
-          for (const status of statuses.filter((item) => item.available)) {
-            if (!next[status.id]) next[status.id] = defaultPreference(status)
-          }
-          return next
-        })
-        setRuntimePreferenceBackend((current) => current && statuses.some((item) => item.id === current && item.available) ? current : preferredBackend(statuses))
-      } else errors.push('Runtime metadata unavailable.')
-      setError(errors.length ? errors.join(' ') : null)
-      setLoading(false)
-    })
+      const statuses = value.execution_backends
+      setBackendStatuses(statuses)
+      setCompilationCapabilities(value.configuration.compilation_capabilities)
+      setRuntimeApis(value.runtime_apis ?? [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'runtime_unavailable' }])
+      setRuntimePreferences((current) => {
+        const next = { ...current }
+        for (const status of statuses.filter((item) => item.available)) {
+          if (!next[status.id]) next[status.id] = defaultPreference(status)
+        }
+        return next
+      })
+      setRuntimePreferenceBackend((current) => current && statuses.some((item) => item.id === current && item.available) ? current : preferredBackend(statuses))
+    }).catch(() => recordError('runtime', 'Runtime metadata unavailable.')).finally(() => markReady('runtime'))
+
     return () => { active = false }
   }, [])
 
@@ -82,6 +87,7 @@ export function AppResourcesProvider({ children }: { children: ReactNode }) {
     setRuntimePreferenceBackend(selection.backend)
   }, [])
 
+  const error = Object.values(resourceErrors).join(' ') || null
   const value = useMemo<AppResources>(() => ({
     manifests,
     projects,
@@ -90,17 +96,17 @@ export function AppResourcesProvider({ children }: { children: ReactNode }) {
     compilationCapabilities,
     runtimePreferences,
     runtimePreferenceBackend,
-    loading,
+    readiness,
     error,
     refreshProjects: async () => {
       const next = await api.listProjects()
       setProjects(next)
       return next
     },
-    clearError: () => setError(null),
+    clearError: () => setResourceErrors({}),
     setRuntimePreferenceBackend: selectRuntimePreferenceBackend,
     setRuntimePreference,
-  }), [backendStatuses, compilationCapabilities, error, loading, manifests, projects, runtimeApis, runtimePreferences, runtimePreferenceBackend, selectRuntimePreferenceBackend, setRuntimePreference])
+  }), [backendStatuses, compilationCapabilities, error, manifests, projects, readiness, runtimeApis, runtimePreferences, runtimePreferenceBackend, selectRuntimePreferenceBackend, setRuntimePreference])
 
   return <AppResourcesContext.Provider value={value}>{children}</AppResourcesContext.Provider>
 }

@@ -13,7 +13,7 @@ const labels: Record<ExecutionBackendStatus['id'], string> = {
 const apiLabels: Record<RuntimeApi, string> = { keras: 'Keras', native: 'Native framework' }
 
 export function BackendStatusPanel() {
-  const { backendStatuses, runtimeApis, loading, runtimePreferences, runtimePreferenceBackend, setRuntimePreference, setRuntimePreferenceBackend } = useAppResources()
+  const { backendStatuses, runtimeApis, readiness, runtimePreferences, runtimePreferenceBackend, setRuntimePreference, setRuntimePreferenceBackend } = useAppResources()
   const runtimeSelection = runtimePreferenceBackend ? runtimePreferences[runtimePreferenceBackend] ?? null : null
   const [activeJobs, setActiveJobs] = useState<JobResponse[]>([])
   const [pendingSelection, setPendingSelection] = useState<WorkerConfiguration | null>(null)
@@ -37,7 +37,7 @@ export function BackendStatusPanel() {
   const operationalCount = backendStatuses.filter((item) => item.available).length
   const currentJobUsesSelection = useMemo(() => activeJobs.some((job) => sameWorker(job.worker, runtimeSelection)), [activeJobs, runtimeSelection])
 
-  if (loading || backendStatuses.length === 0) return null
+  if (!readiness.runtime || backendStatuses.length === 0) return null
 
   const requestSelection = (next: WorkerConfiguration) => {
     if (runtimeSelection && currentJobUsesSelection && !sameWorker(runtimeSelection, next)) {
@@ -95,7 +95,7 @@ export function BackendStatusPanel() {
         <div>
           <span className="eyebrow">COMPUTE ENVIRONMENT</span>
           <h2>Execution runtime</h2>
-          <p>{operationalCount ? `${operationalCount} operational backend${operationalCount === 1 ? '' : 's'}` : 'No operational backend'} · live worker probes · one lease per physical device</p>
+          <p>{operationalCount ? `${operationalCount} operational backend${operationalCount === 1 ? '' : 's'}` : 'No operational backend'} · isolated runtime discovery · one lease per physical device</p>
         </div>
         <span className="backend-status-command"><Terminal size={13} />isolated worker controller</span>
       </div>

@@ -4,10 +4,10 @@ import { useAppResources } from '../state/useAppResources'
 import { MathFormula } from '../components/MathFormula'
 
 export function MetricsPage() {
-  const { compilationCapabilities, loading } = useAppResources()
+  const { compilationCapabilities, readiness } = useAppResources()
   const catalog = compilationCapabilities?.keras
 
-  if (loading) {
+  if (!readiness.runtime) {
     return <section className="page-state panel"><span className="eyebrow">METRICS CATALOG</span><h1>Loading catalog…</h1></section>
   }
 

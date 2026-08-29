@@ -1,6 +1,12 @@
 import { createContext } from 'react'
 import type { CompilationCapabilities, ExecutionBackend, ExecutionBackendStatus, NodeManifest, ProjectSummary, RuntimeApiStatus, WorkerConfiguration } from '../domain/types'
 
+export interface ResourceReadiness {
+  catalog: boolean
+  projects: boolean
+  runtime: boolean
+}
+
 export interface AppResources {
   manifests: NodeManifest[]
   projects: ProjectSummary[]
@@ -9,7 +15,7 @@ export interface AppResources {
   compilationCapabilities?: CompilationCapabilities | null
   runtimePreferences: Partial<Record<ExecutionBackend, WorkerConfiguration>>
   runtimePreferenceBackend: ExecutionBackend | null
-  loading: boolean
+  readiness: ResourceReadiness
   error: string | null
   setRuntimePreferenceBackend: (backend: ExecutionBackend | null) => void
   setRuntimePreference: (selection: WorkerConfiguration) => void

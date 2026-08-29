@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell'
 import { ModelBuilderPage } from './pages/ModelBuilderPage'
 import { ModelCatalogPage } from './pages/ModelCatalogPage'
 import { ModelCompilationPage } from './pages/ModelCompilationPage'
+import { ModelExportPage } from './pages/ModelExportPage'
 import { ModelInferencePage } from './pages/ModelInferencePage'
 import { ModelOverviewPage, ModelWorkspacePage } from './pages/ModelWorkspacePage'
 import { EnvironmentPage } from './pages/EnvironmentPage'
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <ModelOverviewPage /> },
           { path: 'compilation', element: <ModelCompilationPage /> },
+          { path: 'export', element: <ModelExportPage /> },
           { path: 'inference', element: <ModelInferencePage /> },
         ],
       },

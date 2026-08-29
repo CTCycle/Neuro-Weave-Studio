@@ -9,7 +9,6 @@ const baseProps = {
   kerasEnabled: true,
   onKerasEnabledChange: vi.fn(),
   onSave: vi.fn(),
-  onCompile: vi.fn(),
   onValidate: vi.fn(),
   busy: false,
   dirty: false,
@@ -53,5 +52,6 @@ describe('ProjectToolbar', () => {
     expect(screen.getByText('Enable Keras')).toBeInTheDocument()
     expect(screen.getByText('Keras is an optional API layer over the selected native execution backend.')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Optional model description' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save & compile' })).not.toBeInTheDocument()
   })
 })

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Download, LoaderCircle, RefreshCw, Square, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Download, LoaderCircle, RefreshCw, Square } from 'lucide-react'
+import { useOutletContext } from 'react-router-dom'
 import { ApiError, api } from '../api/client'
 import type {
   ExportCapability,
@@ -14,10 +15,10 @@ import type {
   ExecutionBackendStatus,
 } from '../domain/types'
 import { useAppResources } from '../state/useAppResources'
+import type { ModelWorkspaceContext } from './ModelWorkspacePage'
 
-interface ModelExportModalProps {
+interface ModelExportPageProps {
   project: ProjectDocument
-  onClose: () => void
 }
 
 const terminalStates: ReadonlySet<JobState> = new Set(['succeeded', 'terminated', 'failed'])
@@ -37,7 +38,12 @@ const initialOptions: ExportOptions = {
   max_shard_size_gb: null,
 }
 
-export function ModelExportModal({ project, onClose }: ModelExportModalProps) {
+export function ModelExportPage() {
+  const { project } = useOutletContext<ModelWorkspaceContext>()
+  return <ModelExportContent project={project} />
+}
+
+export function ModelExportContent({ project }: ModelExportPageProps) {
   const { backendStatuses, runtimePreferences } = useAppResources()
   const [capabilities, setCapabilities] = useState<ExportCapability[]>([])
   const [capabilityRevision, setCapabilityRevision] = useState<number | null>(null)
@@ -73,9 +79,10 @@ export function ModelExportModal({ project, onClose }: ModelExportModalProps) {
 
   useEffect(() => {
     mounted.current = true
+    setFilenameStem(project.name)
     void loadCapabilities()
     return () => { mounted.current = false }
-  }, [loadCapabilities])
+  }, [loadCapabilities, project.name])
 
   const selectedCapability = useMemo(
     () => capabilities.find((item) => item.format === selectedFormat) ?? null,
@@ -161,15 +168,14 @@ export function ModelExportModal({ project, onClose }: ModelExportModalProps) {
     formats: capabilities.filter((item) => item.category === category),
   })).filter((group) => group.formats.length)
 
-  return <div className="dialog-backdrop model-export-backdrop" onClick={(event) => { if (event.target === event.currentTarget && !busy) onClose() }}>
-    <section className="model-export-modal panel" role="dialog" aria-modal="true" aria-labelledby="model-export-title">
+  return <div className="workflow-page export-page">
+    <section className="model-export-page panel" aria-labelledby="model-export-title">
       <header className="model-export-header">
         <div>
-          <span className="eyebrow">MODEL EXPORT</span>
+          <span className="eyebrow">MODEL EXPORT CENTER</span>
           <h2 id="model-export-title">Export {project.name}</h2>
           <p>Revision {capabilityRevision ?? project.current_revision} · {project.execution_backend} · {project.keras_enabled ? 'Keras profile' : 'native profile'}</p>
         </div>
-        <button className="icon-button" type="button" title={busy ? 'Export is in progress' : 'Close export dialog'} aria-label={busy ? 'Export is in progress' : 'Close export dialog'} onClick={onClose} disabled={busy}><X size={16} /></button>
       </header>
 
       {capabilitiesLoading && <div className="model-export-state"><LoaderCircle className="spin" size={20} /><span>Probing export capabilities…</span></div>}
@@ -211,7 +217,7 @@ export function ModelExportModal({ project, onClose }: ModelExportModalProps) {
 
       <footer className="model-export-footer dialog-actions">
         <span className="model-export-footer-note">{selectedCapability?.limitations[0] ?? 'Unsupported formats remain visible with their reason.'}</span>
-        <div><button className="secondary" type="button" onClick={onClose} disabled={busy}>Close</button><button className="primary" type="button" onClick={() => void runExport()} disabled={!canExport}>{busy ? <LoaderCircle className="spin" size={15} /> : <Download size={15} />}{busy ? 'Exporting…' : job?.state === 'failed' ? 'Retry export' : 'Export artifact'}</button></div>
+        <div><button className="primary" type="button" onClick={() => void runExport()} disabled={!canExport}>{busy ? <LoaderCircle className="spin" size={15} /> : <Download size={15} />}{busy ? 'Exporting…' : job?.state === 'failed' ? 'Retry export' : 'Export artifact'}</button></div>
       </footer>
     </section>
   </div>
