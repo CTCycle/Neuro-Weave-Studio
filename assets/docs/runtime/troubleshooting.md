@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Last updated: 2026-08-21
+Last updated: 2026-08-29
 
 A blank catalog usually means node JSON failed Pydantic validation; inspect the backend log under `app/resources/runtime/logs`. If a configured port is occupied, the launcher reports the listener PID and leaves that process untouched. Save conflicts return HTTP 409 and require reopening before overwrite.
 
@@ -12,7 +12,7 @@ The controller requests cooperative cancellation first. After five seconds it te
 
 `artifact_not_ready` means an export has not succeeded; `revision_conflict` means the project changed while the worker ran and the previous canonical artifact was preserved. Ephemeral job directories and bounded logs are removed on terminal states. The canonical artifact is outside that workspace and is replaced atomically only after reload/inference verification.
 
-`dependency_missing`, `backend_import_failed`, and unsupported device/policy messages come from fresh probe workers. Native inference reports `not_implemented` by design. Memory numbers are best-effort observations: PyTorch allocated and reserved/cache memory are different, TensorFlow reports tracked current/peak values, and JAX reports device statistics only when the platform exposes them. Cleanup calls do not replace process teardown.
+`dependency_missing`, `backend_import_failed`, and unsupported device/policy messages come from isolated runtime discovery. Matching discovery snapshots may be reused; after changing packages, hardware, runtime variables, or backend configuration, use the explicit backend-management refresh path or restart so the fingerprinted snapshot is rebuilt. Native inference reports `not_implemented` by design. Memory numbers are best-effort observations: PyTorch allocated and reserved/cache memory are different, TensorFlow reports tracked current/peak values, and JAX reports device statistics only when the platform exposes them. Cleanup calls do not replace process teardown.
 
 If a backend package is installed or removed, stop the application and restart it so probes and startup environment are refreshed. Normal backend/device/policy selection changes only affect new workers.
 
