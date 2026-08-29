@@ -10,7 +10,7 @@ import { useAppResources } from '../state/useAppResources'
 type CatalogFilter = 'all' | 'compiled' | 'uncompiled' | 'valid' | 'attention'
 
 export function ModelCatalogPage() {
-  const { projects, loading, error, refreshProjects, backendStatuses } = useAppResources()
+  const { projects, readiness, error, refreshProjects, backendStatuses } = useAppResources()
   const navigate = useNavigate()
   const importInput = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
@@ -43,7 +43,7 @@ export function ModelCatalogPage() {
     } finally { if (importInput.current) importInput.current.value = '' }
   }
 
-  if (loading) return <section className="page-state panel"><span className="eyebrow">MODEL CATALOG</span><h1>Loading saved models…</h1></section>
+  if (!readiness.projects) return <section className="page-state panel"><span className="eyebrow">MODEL CATALOG</span><h1>Loading saved models…</h1></section>
 
   return <div className="catalog-page"><header className="catalog-page-header"><div><span className="eyebrow">MODEL LIBRARY</span><h1>Saved models</h1><p>Browse architectures, review readiness, and open a dedicated model workflow.</p></div><div className="catalog-header-actions"><Link className="primary inline-action" to="/builder"><FilePlus2 size={16} />New model</Link><button className="secondary" onClick={() => importInput.current?.click()}><Import size={16} />Import model</button><input ref={importInput} type="file" accept="application/json,.json,.keras,application/vnd.keras.zip" hidden onChange={(event) => event.target.files?.[0] && importModel(event.target.files[0])} /></div></header><section className="catalog-controls panel"><label className="search-field"><Search size={16} /><input aria-label="Search models" placeholder="Search saved models" value={query} onChange={(event) => setQuery(event.target.value)} /></label><div className="catalog-filter-label"><Filter size={14} /><span>Filter</span></div><div className="catalog-filter-tabs" role="tablist" aria-label="Model filters">{(['all', 'compiled', 'uncompiled', 'valid', 'attention'] as CatalogFilter[]).map((item) => <button type="button" role="tab" aria-selected={filter === item} key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{filterLabel(item)}</button>)}</div><span className="catalog-count-text" aria-live="polite">{filtered.length} / {projects.length} models</span></section>{error && <section className="catalog-inline-error panel"><strong>Some catalog data is unavailable.</strong><span>{error}</span></section>}{filtered.length === 0 ? <section className="catalog-empty panel"><FolderOpen size={28} /><h2>{projects.length ? 'No models match this view' : 'Your model library is empty'}</h2><p>{projects.length ? 'Try another search or filter.' : 'Create an architecture in Model Builder, then it will appear here.'}</p>{projects.length === 0 && <Link className="primary inline-action" to="/builder"><FilePlus2 size={16} />Create your first model</Link>}</section> : <div className="model-card-grid">{filtered.map((project) => <ModelCard key={project.id} project={project} />)}</div>}{notice && <button className="notice catalog-notice" aria-label="Dismiss import notice" aria-live="polite" onClick={() => setNotice(null)}>{notice}</button>}</div>
 }

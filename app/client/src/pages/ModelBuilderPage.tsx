@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useBeforeUnload, useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, api } from '../api/client'
 import { GraphCanvas } from '../components/GraphCanvas'
-import { ModelConfigurationPanel } from '../components/ModelConfigurationPanel'
 import { ModelTabBar } from '../components/ModelTabBar'
 import { NodeCatalog } from '../components/NodeCatalog'
 import { ProjectToolbar } from '../components/ProjectToolbar'
@@ -61,7 +60,7 @@ export function ModelBuilderPage() {
   const { modelId } = useParams<{ modelId: string }>()
   const location = useLocation()
   const navigate = useNavigate()
-  const { manifests, loading, refreshProjects, backendStatuses } = useAppResources()
+  const { manifests, readiness, refreshProjects, backendStatuses } = useAppResources()
   const setManifests = useGraphStore((state) => state.setManifests)
   const replaceGraph = useGraphStore((state) => state.replaceGraph)
   const reset = useGraphStore((state) => state.reset)
@@ -141,7 +140,7 @@ export function ModelBuilderPage() {
   }, [activeTabId, copiedNodeIds, edges, exportSettings, future, futureTrainingConfiguration, initialized, modelConfiguration, nodes, past, selectedEdgeId, selectedNodeId, updateTab])
 
   useEffect(() => {
-    if (loading) return
+    if (!readiness.catalog || !readiness.runtime) return
     const routeKey = modelId ? `project:${modelId}` : 'new'
     if (initializedKey.current === routeKey) return
     initializedKey.current = routeKey
@@ -178,7 +177,7 @@ export function ModelBuilderPage() {
       setInitialized(true)
     })
     return () => { cancelled = true }
-  }, [backendStatuses, focusTab, loading, modelId, openTab, replaceGraph, reset, restoreEditorSession])
+  }, [backendStatuses, focusTab, modelId, openTab, readiness.catalog, readiness.runtime, replaceGraph, reset, restoreEditorSession])
 
   const updateDraftMetadata = (patch: DraftMetadataPatch) => {
     if (!activeTabId) return
@@ -276,7 +275,7 @@ export function ModelBuilderPage() {
     } finally { setBusy(false) }
   }
 
-  const persist = async (compile: boolean) => {
+  const persist = async () => {
     if (!activeTab || !activeTabId) return
     const tabId = activeTabId
     const current = useBuilderTabsStore.getState().tabs.find((tab) => tab.id === tabId)
@@ -301,31 +300,25 @@ export function ModelBuilderPage() {
         dirty: false,
       })
       await refreshProjects()
-      if (compile) {
-        await api.sourceForProject(project.id)
-        await refreshProjects()
-        setNotice(`Saved revision ${project.current_revision} and compiled source for the current execution profile.`)
-      } else {
-        setNotice(`Saved revision ${project.current_revision}.`)
-      }
+      setNotice(`Saved revision ${project.current_revision}. Open the model workspace to compile or run inference.`)
       if (!current.projectId) {
         allowNextNavigation.current = true
         navigate(`/builder/${project.id}`, { replace: true })
       }
     } catch (error) {
-      setNotice(`${compile ? 'Save and compile' : 'Save'} failed: ${messageFor(error)}`)
+      setNotice(`Save failed: ${messageFor(error)}`)
     } finally { setBusy(false) }
   }
 
-  if ((loading && !initialized) || !activeTab) return <section className="page-state panel"><span className="eyebrow">MODEL BUILDER</span><h1>{notice ?? 'Loading authoring workspace…'}</h1></section>
+  if (((!readiness.catalog || !readiness.runtime) && !initialized) || !activeTab) return <section className="page-state panel"><span className="eyebrow">MODEL BUILDER</span><h1>{notice ?? 'Loading authoring workspace…'}</h1></section>
 
   return (
     <div className={`builder-page ${fullCanvas ? 'is-full-canvas' : ''}`}>
-      <ProjectToolbar name={activeTab.name} onNameChange={(name) => updateDraftMetadata({ name })} description={activeTab.description} onDescriptionChange={(description) => updateDraftMetadata({ description })} executionBackend={activeTab.executionBackend} onExecutionBackendChange={(executionBackend) => updateDraftMetadata({ executionBackend })} kerasEnabled={activeTab.kerasEnabled} onKerasEnabledChange={(kerasEnabled) => updateDraftMetadata({ kerasEnabled })} onSave={() => persist(false)} onCompile={() => persist(true)} onValidate={runValidation} busy={busy} dirty={activeTab.dirty} modelId={activeTab.projectId} onOpenWorkspace={() => activeTab.projectId && navigate(`/models/${activeTab.projectId}`)} />
+      <ProjectToolbar name={activeTab.name} onNameChange={(name) => updateDraftMetadata({ name })} description={activeTab.description} onDescriptionChange={(description) => updateDraftMetadata({ description })} executionBackend={activeTab.executionBackend} onExecutionBackendChange={(executionBackend) => updateDraftMetadata({ executionBackend })} kerasEnabled={activeTab.kerasEnabled} onKerasEnabledChange={(kerasEnabled) => updateDraftMetadata({ kerasEnabled })} onSave={() => persist()} onValidate={runValidation} busy={busy} dirty={activeTab.dirty} modelId={activeTab.projectId} onOpenWorkspace={() => activeTab.projectId && navigate(`/models/${activeTab.projectId}`)} />
       <div className="builder-mobile-actions"><button className={mobilePanel === 'catalog' ? 'active' : ''} onClick={() => setMobilePanel(mobilePanel === 'catalog' ? null : 'catalog')}>Catalog</button><button className={mobilePanel === 'inspector' ? 'active' : ''} onClick={() => setMobilePanel(mobilePanel === 'inspector' ? null : 'inspector')}>Inspector</button></div>
       <div className="builder-workspace-grid">
         <div className={`drawer-slot builder-catalog ${mobilePanel === 'catalog' ? 'is-open' : ''}`}><NodeCatalog manifests={manifests} executionBackend={activeTab.executionBackend} kerasEnabled={activeTab.kerasEnabled} isOpen={mobilePanel === 'catalog'} onClose={() => setMobilePanel(null)} onAdd={(manifest) => addNode(manifest, { x: 120 + useGraphStore.getState().nodes.length * 280, y: 120 })} /></div>
-        <section id="builder-editor-workspace" className="builder-center-workspace"><ModelTabBar tabs={tabs} activeTabId={activeTabId} onSelect={switchTab} onClose={requestCloseTab} onNew={openNewTab} /><ModelConfigurationPanel executionBackend={activeTab.executionBackend} kerasEnabled={activeTab.kerasEnabled} /><GraphCanvas fullCanvas={fullCanvas} modelName={activeTab.name} dirty={activeTab.dirty} busy={busy} onEnterFocus={() => setFullCanvas(true)} onExitFocus={() => setFullCanvas(false)} onSave={() => persist(false)} /><ResizableValidationRegion expanded={activeTab.validationExpanded} height={activeTab.validationHeight} onHeightChange={(height) => activeTabId && updateTab(activeTabId, { validationHeight: height })}><ValidationPanel result={activeTab.validation} expanded={activeTab.validationExpanded} onExpandedChange={(expanded) => activeTabId && updateTab(activeTabId, { validationExpanded: expanded })} /></ResizableValidationRegion></section>
+         <section id="builder-editor-workspace" className="builder-center-workspace"><ModelTabBar tabs={tabs} activeTabId={activeTabId} onSelect={switchTab} onClose={requestCloseTab} onNew={openNewTab} /><GraphCanvas fullCanvas={fullCanvas} modelName={activeTab.name} dirty={activeTab.dirty} busy={busy} onEnterFocus={() => setFullCanvas(true)} onExitFocus={() => setFullCanvas(false)} onSave={() => persist()} /><ResizableValidationRegion expanded={activeTab.validationExpanded} height={activeTab.validationHeight} onHeightChange={(height) => activeTabId && updateTab(activeTabId, { validationHeight: height })}><ValidationPanel result={activeTab.validation} expanded={activeTab.validationExpanded} onExpandedChange={(expanded) => activeTabId && updateTab(activeTabId, { validationExpanded: expanded })} /></ResizableValidationRegion></section>
         <div className={`drawer-slot builder-inspector ${mobilePanel === 'inspector' ? 'is-open' : ''}`}><PropertiesInspector onClose={() => setMobilePanel(null)} isOpen={mobilePanel === 'inspector'} executionBackend={activeTab.executionBackend} kerasEnabled={activeTab.kerasEnabled} /></div>
       </div>
       {blocker.state === 'blocked' && <div className="dialog-backdrop"><section className="confirm-dialog panel" role="dialog" aria-modal="true" aria-labelledby="unsaved-title"><span className="eyebrow">UNSAVED CHANGES</span><h2 id="unsaved-title">Leave the Model Builder?</h2><p>{dirtyTabCount === 1 ? 'One model tab has unsaved changes.' : `${dirtyTabCount} model tabs have unsaved changes.`} Leave and discard them?</p><div className="dialog-actions"><button className="secondary" onClick={() => blocker.reset?.()}>Stay</button><button className="primary" onClick={() => blocker.proceed?.()}>Discard changes</button></div></section></div>}

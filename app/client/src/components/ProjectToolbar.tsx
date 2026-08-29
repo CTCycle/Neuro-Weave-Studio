@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { FileText, Hammer, LayoutDashboard, Play, Save, Undo2, Redo2, WandSparkles, X } from 'lucide-react'
+import { FileText, Hammer, LayoutDashboard, Play, Save, Undo2, Redo2, X } from 'lucide-react'
 import type { ExecutionBackend } from '../domain/types'
 import { executionBackendShortLabels } from '../domain/types'
 import { useGraphStore } from '../state/graphStore'
@@ -14,7 +14,6 @@ interface Props {
   kerasEnabled: boolean
   onKerasEnabledChange: (enabled: boolean) => void
   onSave: () => void
-  onCompile: () => void
   onValidate: () => void
   busy: boolean
   dirty: boolean
@@ -91,7 +90,7 @@ export function ProjectToolbar(props: Props) {
       <label className="toolbar-select builder-target"><span>Backend</span><select value={props.executionBackend} onChange={(event) => props.onExecutionBackendChange(event.target.value as ExecutionBackend)} aria-label="Execution backend">{Object.entries(executionBackendShortLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label className="toolbar-toggle" title="Optional Keras API layer over the selected native backend."><span>Enable Keras</span><input type="checkbox" checked={props.kerasEnabled} onChange={(event) => props.onKerasEnabledChange(event.target.checked)} aria-label="Enable Keras" aria-describedby="keras-control-help" /><strong>{props.kerasEnabled ? 'On' : 'Off'}</strong><span id="keras-control-help" className="sr-only">Keras is an optional API layer over the selected native execution backend.</span></label>
       <div className="toolbar-group builder-history"><button type="button" aria-label="Undo" title="Undo" onClick={undo}><Undo2 size={17} /></button><button type="button" aria-label="Redo" title="Redo" onClick={redo}><Redo2 size={17} /></button></div>
-      <div className="builder-actions"><button type="button" className="secondary" aria-label="Validate" onClick={props.onValidate} disabled={props.busy}><LayoutDashboard size={16} /><span className="action-label">Validate</span></button><button type="button" className="secondary" aria-label="Save & compile" onClick={props.onCompile} disabled={props.busy}><WandSparkles size={16} /><span className="action-label">Save &amp; compile</span></button><button type="button" className="primary" aria-label="Save model" onClick={props.onSave} disabled={props.busy}><Save size={16} /><span className="action-label">Save model</span></button>{props.modelId && <button type="button" className="secondary" aria-label="Open workspace" onClick={props.onOpenWorkspace} disabled={props.busy}><Play size={16} /><span className="action-label">Open workspace</span></button>}</div>
+      <div className="builder-actions"><button type="button" className="secondary" aria-label="Validate" onClick={props.onValidate} disabled={props.busy}><LayoutDashboard size={16} /><span className="action-label">Validate</span></button><button type="button" className="primary" aria-label="Save model" onClick={props.onSave} disabled={props.busy}><Save size={16} /><span className="action-label">Save model</span></button>{props.modelId && <button type="button" className="secondary" aria-label="Open workspace" onClick={props.onOpenWorkspace} disabled={props.busy}><Play size={16} /><span className="action-label">Open workspace</span></button>}</div>
     </section>
   )
 }

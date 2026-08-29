@@ -9,7 +9,7 @@ vi.mock('../state/useAppResources', () => ({ useAppResources: vi.fn() }))
 const mockedUseAppResources = vi.mocked(useAppResources)
 
 const resources = {
-  loading: false,
+  readiness: { catalog: true, projects: true, runtime: true },
   error: null,
   manifests: [],
   projects: [],

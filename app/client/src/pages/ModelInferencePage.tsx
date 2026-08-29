@@ -9,7 +9,7 @@ import type { ModelWorkspaceContext } from './ModelWorkspacePage'
 
 export function ModelInferencePage() {
   const { project } = useOutletContext<ModelWorkspaceContext>()
-  const { backendStatuses, runtimePreferences } = useAppResources()
+  const { backendStatuses, readiness, runtimePreferences } = useAppResources()
   const backend = project.execution_backend
   const runtimePreference = runtimePreferences[backend]
   const runtimeSelection = useMemo(
@@ -27,6 +27,10 @@ export function ModelInferencePage() {
     mounted.current = true
     return () => { mounted.current = false }
   }, [])
+
+  if (!readiness.runtime) {
+    return <section className="page-state panel"><span className="eyebrow">INFERENCE</span><h1>Loading runtime…</h1><p>The saved model is ready; runtime capabilities are still being discovered.</p></section>
+  }
 
   const run = async () => {
     if (!runtimeSelection) {

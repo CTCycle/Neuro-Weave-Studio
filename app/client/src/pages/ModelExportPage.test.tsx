@@ -14,7 +14,7 @@ import type {
   ProjectDocument,
   WorkerConfiguration,
 } from '../domain/types'
-import { ModelExportModal } from './ModelExportModal'
+import { ModelExportContent } from './ModelExportPage'
 
 vi.mock('../state/useAppResources', () => ({ useAppResources: vi.fn() }))
 
@@ -151,7 +151,7 @@ function resources(): AppResources {
     compilationCapabilities: null,
     runtimePreferences: { pytorch: nativeWorker },
     runtimePreferenceBackend: 'pytorch',
-    loading: false,
+    readiness: { catalog: true, projects: true, runtime: true },
     error: null,
     setRuntimePreferenceBackend: vi.fn(),
     setRuntimePreference: vi.fn(),
@@ -160,10 +160,10 @@ function resources(): AppResources {
   }
 }
 
-function renderModal() {
+function renderPage() {
   mockedResources.mockReturnValue(resources())
   vi.spyOn(api, 'exportCapabilities').mockResolvedValue(response)
-  render(<ModelExportModal project={project} onClose={vi.fn()} />)
+  render(<ModelExportContent project={project} />)
 }
 
 function job(overrides: Partial<JobResponse>): JobResponse {
@@ -191,7 +191,7 @@ function job(overrides: Partial<JobResponse>): JobResponse {
   }
 }
 
-describe('ModelExportModal', () => {
+describe('ModelExportPage', () => {
   beforeEach(() => {
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:export') })
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
@@ -204,7 +204,7 @@ describe('ModelExportModal', () => {
   })
 
   it('groups capabilities, shows explicit disabled reasons, and only reveals ONNX options for ONNX', async () => {
-    renderModal()
+    renderPage()
     expect(await screen.findByRole('heading', { name: 'Project' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Source' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Native' })).toBeInTheDocument()
@@ -224,7 +224,7 @@ describe('ModelExportModal', () => {
   })
 
   it('polls a model export job and downloads the verified artifact on success', async () => {
-    renderModal()
+    renderPage()
     await screen.findByRole('heading', { name: 'Project' })
     fireEvent.click(screen.getByRole('button', { name: /PyTorch ExportedProgram/ }))
     vi.spyOn(api, 'submitModelExport').mockResolvedValue(job({}))
@@ -238,7 +238,7 @@ describe('ModelExportModal', () => {
   })
 
   it('keeps a failed job retryable and reports cancellation after stop', async () => {
-    renderModal()
+    renderPage()
     await screen.findByRole('heading', { name: 'Project' })
     fireEvent.click(screen.getByRole('button', { name: /PyTorch ExportedProgram/ }))
     const submit = vi.spyOn(api, 'submitModelExport').mockResolvedValue(job({}))
