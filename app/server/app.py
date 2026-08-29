@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -28,19 +30,44 @@ from configurations.settings import Settings, get_database_settings, get_setting
 from repositories.session import create_repository_context
 from services.runtime_controller import RuntimeController
 
+LOGGER = logging.getLogger(__name__)
+
+###############################################################################
+def _log_startup_stage(stage: str, started: float) -> None:
+    LOGGER.info(
+        "startup_stage stage=%s duration_ms=%s",
+        stage,
+        round((time.perf_counter() - started) * 1000, 1),
+    )
+
 ###############################################################################
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
+    startup_started = time.perf_counter()
     settings = cast(Settings, application.state.settings)
     configure_logging(settings.log_level)
+    stage_started = time.perf_counter()
     settings.export_root.mkdir(parents=True, exist_ok=True)
+    _log_startup_stage("export_root", stage_started)
+
+    stage_started = time.perf_counter()
     catalog = get_node_catalog()
+    _log_startup_stage("node_catalog", stage_started)
+
+    stage_started = time.perf_counter()
     repository_context = create_repository_context(get_database_settings())
+    _log_startup_stage("database", stage_started)
+
+    stage_started = time.perf_counter()
     runtime_controller = RuntimeController(settings)
+    _log_startup_stage("runtime_controller", stage_started)
     application.state.catalog = catalog
     application.state.repository_context = repository_context
     application.state.runtime_controller = runtime_controller
+    stage_started = time.perf_counter()
     runtime_controller.probe_statuses()
+    _log_startup_stage("runtime_discovery", stage_started)
+    _log_startup_stage("lifespan", startup_started)
     try:
         yield
     finally:

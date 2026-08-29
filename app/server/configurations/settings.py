@@ -15,6 +15,7 @@ from common.path import (
 )
 from configurations.environment import ensure_environment_file
 
+
 ###############################################################################
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -34,6 +35,7 @@ class Settings(BaseSettings):
     ml_cancel_grace_seconds: int = Field(default=5, ge=1, le=300)
     ml_terminate_grace_seconds: int = Field(default=5, ge=1, le=300)
     ml_job_history_limit: int = Field(default=100, ge=10, le=1_000)
+    runtime_discovery_path: Path = RUNTIME_ROOT / "environment-discovery.json"
 
     # -------------------------------------------------------------------------
     @field_validator("export_root", mode="before")
@@ -57,6 +59,15 @@ class Settings(BaseSettings):
     @field_validator("ml_job_root", mode="before")
     @classmethod
     def resolve_relative_ml_job_root(cls, value: object) -> object:
+        if value is None:
+            return value
+        path = Path(str(value))
+        return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
+
+    # -------------------------------------------------------------------------
+    @field_validator("runtime_discovery_path", mode="before")
+    @classmethod
+    def resolve_relative_runtime_discovery_path(cls, value: object) -> object:
         if value is None:
             return value
         path = Path(str(value))
