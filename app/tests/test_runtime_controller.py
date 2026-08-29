@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import time
@@ -9,9 +10,10 @@ from typing import cast
 from uuid import uuid4
 
 import pytest
+
 from common.process_control import process_start_options
 from configurations.settings import Settings
-from domain.enums import ExecutionBackend
+from domain.enums import ExecutionBackend, keras_backend_value
 from domain.graph import ModelGraph
 from domain.jobs import JobResponse, JobSubmitRequest, SmokeInferenceOperation
 from domain.metadata import ExecutionBackendStatus
@@ -23,6 +25,7 @@ from domain.runtime import (
     WorkerConfiguration,
 )
 from services.runtime_controller import RuntimeController, RuntimeControllerError
+
 
 ###############################################################################
 def status(*devices: RuntimeDevice) -> ExecutionBackendStatus:
@@ -189,3 +192,75 @@ def test_terminal_history_is_bounded_and_job_workspaces_are_removed(
         assert not any(path.is_dir() for path in (tmp_path / "jobs").iterdir())
     finally:
         runtime.shutdown()
+
+###############################################################################
+def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    installed = {
+        ExecutionBackend.TENSORFLOW: (False, None),
+        ExecutionBackend.PYTORCH: (True, "2.1.0"),
+        ExecutionBackend.JAX: (False, None),
+    }
+    probes: list[tuple[ExecutionBackend, RuntimeApi]] = []
+
+    def fake_installed(backend: ExecutionBackend) -> tuple[bool, str | None]:
+        return installed[backend]
+
+    def fake_probe(
+        _runtime: RuntimeController,
+        backend: ExecutionBackend,
+        api: RuntimeApi,
+    ) -> subprocess.CompletedProcess[str]:
+        probes.append((backend, api))
+        expected_backend = keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
+        payload = {
+            "backend": expected_backend,
+            "available": True,
+            "accelerator": "cpu",
+            "device_name": "CPU",
+            "devices": [
+                {
+                    "device_id": "cpu",
+                    "lease_key": "cpu",
+                    "kind": "cpu",
+                    "name": "CPU",
+                    "accelerator": "cpu",
+                    "supported_memory_policies": ["default"],
+                }
+            ],
+            "native_compilers": {"torch_compile": True},
+        }
+        return subprocess.CompletedProcess([], 0, json.dumps(payload), "")
+
+    monkeypatch.setattr(RuntimeController, "_installed_package", staticmethod(fake_installed))
+    monkeypatch.setattr(RuntimeController, "_hardware_fingerprint", staticmethod(lambda: {"nvidia_smi": None}))
+    monkeypatch.setattr(RuntimeController, "_run_probe", fake_probe)
+    settings = Settings(
+        ml_job_root=tmp_path / "jobs",
+        export_root=tmp_path / "exports",
+        runtime_discovery_path=tmp_path / "environment-discovery.json",
+    )
+
+    first = RuntimeController(settings)
+    try:
+        first.probe_statuses()
+        assert probes == [
+            (ExecutionBackend.PYTORCH, RuntimeApi.KERAS),
+            (ExecutionBackend.PYTORCH, RuntimeApi.NATIVE),
+        ]
+        assert first.backend_statuses[ExecutionBackend.TENSORFLOW].reason_code == "dependency_missing"
+    finally:
+        first.shutdown()
+
+    second = RuntimeController(settings)
+    try:
+        second.probe_statuses()
+        assert len(probes) == 2
+
+        installed[ExecutionBackend.PYTORCH] = (True, "2.2.0")
+        second.probe_statuses()
+        assert len(probes) == 4
+    finally:
+        second.shutdown()

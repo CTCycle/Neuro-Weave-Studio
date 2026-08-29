@@ -6,6 +6,7 @@ import importlib.util
 import json
 import logging
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
+from common.path import RUNTIME_ROOT
 from common.process_control import (
     process_rss_bytes,
     process_start_options,
@@ -55,6 +57,7 @@ from domain.runtime import (
 from models.export_artifacts import sha256_file
 
 LOGGER = logging.getLogger(__name__)
+DISCOVERY_SNAPSHOT_SCHEMA_VERSION = 1
 
 ###############################################################################
 def _empty_diagnostics() -> dict[str, int | None]:
@@ -136,12 +139,32 @@ class RuntimeController:
             return self._api_statuses.get((backend, api))
 
     # -------------------------------------------------------------------------
-    def probe_statuses(self) -> dict[ExecutionBackend, dict[str, object]]:
-        statuses: dict[ExecutionBackend, dict[str, object]] = {}
+    def probe_statuses(self, *, force_refresh: bool = False) -> dict[ExecutionBackend, dict[str, object]]:
+        discovery_started = time.perf_counter()
+        fingerprint, fingerprint_inputs = self._environment_fingerprint()
+        if not force_refresh:
+            cached = self._load_discovery_snapshot(fingerprint)
+            if cached is not None:
+                self._apply_backend_statuses(cached)
+                LOGGER.info("runtime_discovery source=snapshot duration_ms=0")
+                return {
+                    backend: status.model_dump(mode="json")
+                    for backend, status in cached.items()
+                }
+
+        status_objects: dict[ExecutionBackend, ExecutionBackendStatus] = {}
         for backend in ExecutionBackend:
             installed, version = self._installed_package(backend)
             api_results: dict[RuntimeApi, tuple[bool, str | None, dict[str, object]]] = {}
             for api in RuntimeApi:
+                if not installed:
+                    api_results[api] = (False, "dependency_missing", {})
+                    LOGGER.info(
+                        "backend_probe requested=%s api=%s duration_ms=0 outcome=dependency_missing skipped=true",
+                        backend.value,
+                        api.value,
+                    )
+                    continue
                 started = time.perf_counter()
                 capabilities: dict[str, object] = {}
                 reason: str | None = None
@@ -164,13 +187,6 @@ class RuntimeController:
                     available = False
                     reason = "worker_failed"
                     capabilities = {"message": str(exc)}
-                api_status = RuntimeApiStatus(
-                    id=api,
-                    available=available,
-                    reason_code=reason,
-                )
-                with self._lock:
-                    self._api_statuses[(backend, api)] = api_status
                 api_results[api] = (available, reason, capabilities)
                 LOGGER.info(
                     "backend_probe requested=%s api=%s duration_ms=%s outcome=%s",
@@ -228,10 +244,188 @@ class RuntimeController:
                 runtime_apis=runtime_api_statuses,
                 native_compilers=native_compilers,
             )
-            with self._lock:
-                self._backend_statuses[backend] = status
-            statuses[backend] = status.model_dump(mode="json")
+            status_objects[backend] = status
+
+        self._apply_backend_statuses(status_objects)
+        self._write_discovery_snapshot(fingerprint, fingerprint_inputs, status_objects)
+        LOGGER.info(
+            "runtime_discovery source=live duration_ms=%s",
+            round((time.perf_counter() - discovery_started) * 1000, 1),
+        )
+        return {
+            backend: status.model_dump(mode="json")
+            for backend, status in status_objects.items()
+        }
+
+    # -------------------------------------------------------------------------
+    def _apply_backend_statuses(
+        self,
+        statuses: Mapping[ExecutionBackend, ExecutionBackendStatus],
+    ) -> None:
+        api_statuses: dict[tuple[ExecutionBackend, RuntimeApi], RuntimeApiStatus] = {}
+        for backend, status in statuses.items():
+            for api_status in status.runtime_apis:
+                api_statuses[(backend, api_status.id)] = api_status
+        with self._lock:
+            self._backend_statuses = dict(statuses)
+            self._api_statuses = api_statuses
+
+    # -------------------------------------------------------------------------
+    def _environment_fingerprint(self) -> tuple[str, dict[str, object]]:
+        packages: dict[str, object] = {
+            backend.value: {
+                "installed": installed,
+                "version": version,
+            }
+            for backend in ExecutionBackend
+            for installed, version in [self._installed_package(backend)]
+        }
+        for name in ("keras", "numpy", "onnx", "onnxruntime", "tf2onnx", "safetensors", "flax"):
+            packages[name] = self._package_identity(name, name)
+        uname = platform.uname()
+        inputs: dict[str, object] = {
+            "python": platform.python_version(),
+            "python_implementation": platform.python_implementation(),
+            "system": uname.system,
+            "release": uname.release,
+            "version": uname.version,
+            "machine": uname.machine,
+            "processor": uname.processor,
+            "hardware": self._hardware_fingerprint(),
+            "packages": packages,
+            "backend_configuration": self._backend_configuration_fingerprint(),
+            "runtime_environment": {
+                name: os.environ.get(name)
+                for name in ("CUDA_VISIBLE_DEVICES", "JAX_PLATFORMS", "KERAS_BACKEND")
+                if os.environ.get(name) is not None
+            },
+        }
+        serialized = json.dumps(inputs, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest(), inputs
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _package_identity(module_name: str, distribution_name: str) -> dict[str, object]:
+        try:
+            installed = importlib.util.find_spec(module_name) is not None
+        except (ImportError, ModuleNotFoundError, ValueError):
+            installed = False
+        if not installed:
+            return {"installed": False, "version": None}
+        try:
+            version = importlib.metadata.version(distribution_name)
+        except importlib.metadata.PackageNotFoundError:
+            version = None
+        return {"installed": True, "version": version}
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _backend_configuration_fingerprint() -> dict[str, object]:
+        state_path = RUNTIME_ROOT / "backend-installation.json"
+        try:
+            payload = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        if not isinstance(payload, dict):
+            return {}
+        stable_keys = (
+            "schema_version",
+            "setup_completed",
+            "requested_backends",
+            "resolved_extras",
+            "export_tools",
+            "acceleration",
+            "python_version",
+            "platform",
+            "failures",
+            "restart_required",
+        )
+        return {
+            key: payload[key]
+            for key in stable_keys
+            if key in payload
+        }
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _hardware_fingerprint() -> dict[str, object]:
+        hardware: dict[str, object] = {}
+        executable = shutil.which("nvidia-smi")
+        if executable is None:
+            hardware["nvidia_smi"] = None
+            return hardware
+        try:
+            result = subprocess.run(
+                [executable, "--query-gpu=name,driver_version", "--format=csv,noheader"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=3,
+            )
+            hardware["nvidia_smi"] = (
+                [line.strip() for line in result.stdout.splitlines() if line.strip()]
+                if result.returncode == 0
+                else None
+            )
+        except (OSError, subprocess.SubprocessError):
+            hardware["nvidia_smi"] = None
+        return hardware
+
+    # -------------------------------------------------------------------------
+    def _load_discovery_snapshot(
+        self,
+        fingerprint: str,
+    ) -> dict[ExecutionBackend, ExecutionBackendStatus] | None:
+        try:
+            payload = json.loads(
+                self._settings.runtime_discovery_path.read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        typed_payload = cast(dict[str, object], payload)
+        if typed_payload.get("schema_version") != DISCOVERY_SNAPSHOT_SCHEMA_VERSION:
+            return None
+        if typed_payload.get("fingerprint") != fingerprint:
+            return None
+        raw_statuses = typed_payload.get("statuses")
+        if not isinstance(raw_statuses, dict):
+            return None
+        typed_statuses = cast(dict[str, object], raw_statuses)
+        statuses: dict[ExecutionBackend, ExecutionBackendStatus] = {}
+        try:
+            for backend in ExecutionBackend:
+                raw_status = typed_statuses.get(backend.value)
+                if not isinstance(raw_status, dict):
+                    return None
+                statuses[backend] = ExecutionBackendStatus.model_validate(raw_status)
+        except ValueError:
+            return None
         return statuses
+
+    # -------------------------------------------------------------------------
+    def _write_discovery_snapshot(
+        self,
+        fingerprint: str,
+        fingerprint_inputs: Mapping[str, object],
+        statuses: Mapping[ExecutionBackend, ExecutionBackendStatus],
+    ) -> None:
+        payload = {
+            "schema_version": DISCOVERY_SNAPSHOT_SCHEMA_VERSION,
+            "fingerprint": fingerprint,
+            "fingerprint_inputs": fingerprint_inputs,
+            "statuses": {
+                backend.value: status.model_dump(mode="json")
+                for backend, status in statuses.items()
+            },
+            "recorded_at": utc_now().isoformat(),
+        }
+        try:
+            self._settings.runtime_discovery_path.parent.mkdir(parents=True, exist_ok=True)
+            self._write_json(self._settings.runtime_discovery_path, payload)
+        except OSError as exc:
+            LOGGER.warning("runtime_discovery snapshot_write_failed error=%s", exc)
 
     # -------------------------------------------------------------------------
     def submit(
@@ -908,13 +1102,5 @@ class RuntimeController:
             ExecutionBackend.PYTORCH: "torch",
             ExecutionBackend.JAX: "jax",
         }[backend]
-        try:
-            installed = importlib.util.find_spec(package_name) is not None
-        except (ImportError, ModuleNotFoundError, ValueError):
-            installed = False
-        if not installed:
-            return False, None
-        try:
-            return True, importlib.metadata.version(package_name)
-        except importlib.metadata.PackageNotFoundError:
-            return True, None
+        identity = RuntimeController._package_identity(package_name, package_name)
+        return bool(identity["installed"]), cast(str | None, identity["version"])

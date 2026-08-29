@@ -84,6 +84,28 @@ function Write-Info([string]$Message) { Write-Status -Level INFO -Message $Messa
 function Write-Warn([string]$Message) { Write-Status -Level WARN -Message $Message }
 function Write-Fatal([string]$Message) { Write-Status -Level FAIL -Message $Message }
 
+function Write-StartupStageDuration {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][System.Diagnostics.Stopwatch]$Stopwatch
+    )
+    $Stopwatch.Stop()
+    Write-Info ("startup_stage={0} duration_ms={1}" -f $Name, [math]::Round($Stopwatch.Elapsed.TotalMilliseconds, 1))
+}
+
+function Invoke-TimedStartupStage {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$Action
+    )
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        & $Action
+    } finally {
+        Write-StartupStageDuration -Name $Name -Stopwatch $stopwatch
+    }
+}
+
 # ===============================================================================
 # Portable runtimes and environment setup
 # ===============================================================================
@@ -254,7 +276,7 @@ function Import-DotEnv {
         UI_HOST = '127.0.0.1'
         UI_PORT = '5173'
         VITE_API_BASE_URL = '/api'
-        RELOAD = 'true'
+        RELOAD = 'false'
         BACKEND_LOGS_VISIBLE = 'true'
     }
     foreach ($key in $defaults.Keys) {
@@ -774,8 +796,7 @@ function Invoke-OptionalBackendSetup {
         @($state.PSObject.Properties.Name) -contains 'export_tools' -and
         [bool]$state.export_tools
     if ([string]::IsNullOrWhiteSpace($Backends) -and -not $ExportTools -and $null -ne $state -and $state.schema_version -ge 2 -and $state.setup_completed -and @($state.failures).Count -eq 0) {
-        Write-Ok 'Backend setup is already complete; verified the live environment instead of reinstalling packages.'
-        Write-BackendCapabilitySummary
+        Write-Ok 'Backend setup is already complete; reused the recorded environment without live startup probes.'
         return
     }
     if ($null -ne $state -and $state.schema_version -lt 2) {
@@ -1053,25 +1074,29 @@ function Assert-ManagedProcessesAlive {
 # ===============================================================================
 function Invoke-Launch {
     $script:LaunchHandedOff = $false
-    Ensure-PortableRuntimes
-    Import-DotEnv
-    Set-LauncherEnvironment
-    if (-not (Test-DependenciesReady)) {
-        $state = Get-BackendInstallationState
-        $backendExtras = @(Get-DependencyRepairBackends -State $state)
-        $includeExportTools = $null -ne $state -and
-            @($state.PSObject.Properties.Name) -contains 'export_tools' -and
-            [bool]$state.export_tools
-        Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras $backendExtras -ExplicitBackendSet -IncludeExportTools:$includeExportTools
-    } else {
-        Write-Ok 'Application environments are ready; skipped dependency installation.'
+    $launchStarted = [System.Diagnostics.Stopwatch]::StartNew()
+    Invoke-TimedStartupStage -Name 'launcher.runtimes' -Action { Ensure-PortableRuntimes }
+    Invoke-TimedStartupStage -Name 'launcher.environment' -Action { Import-DotEnv; Set-LauncherEnvironment }
+    Invoke-TimedStartupStage -Name 'launcher.dependencies' -Action {
+        if (-not (Test-DependenciesReady)) {
+            $state = Get-BackendInstallationState
+            $backendExtras = @(Get-DependencyRepairBackends -State $state)
+            $includeExportTools = $null -ne $state -and
+                @($state.PSObject.Properties.Name) -contains 'export_tools' -and
+                [bool]$state.export_tools
+            Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras $backendExtras -ExplicitBackendSet -IncludeExportTools:$includeExportTools
+        } else {
+            Write-Ok 'Application environments are ready; skipped dependency installation.'
+        }
     }
-    Invoke-OptionalBackendSetup
+    Invoke-TimedStartupStage -Name 'launcher.backend_setup' -Action { Invoke-OptionalBackendSetup }
     $backendLogsVisible = Get-BooleanEnvironmentValue -Name 'BACKEND_LOGS_VISIBLE' -Default $true
-    if (-not (Test-Path -LiteralPath $script:FrontendDistIndex)) {
-        throw "Frontend build output is missing. Run '.\start_on_windows.ps1 -Action RebuildFrontend' before launching the application."
+    Invoke-TimedStartupStage -Name 'launcher.frontend_artifact' -Action {
+        if (-not (Test-Path -LiteralPath $script:FrontendDistIndex)) {
+            throw "Frontend build output is missing. Run '.\start_on_windows.ps1 -Action RebuildFrontend' before launching the application."
+        }
+        Write-Ok 'Frontend build output is ready; reused the existing build.'
     }
-    Write-Ok 'Frontend build output is ready; reused the existing build.'
 
     $backendHost = [Environment]::GetEnvironmentVariable('FASTAPI_HOST', 'Process')
     $backendPort = Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'
@@ -1079,8 +1104,10 @@ function Invoke-Launch {
     $uiPort = Get-ConfiguredInt -Name 'UI_PORT' -Default '5173'
     $browserBackendHost = Get-BrowserHost -HostName $backendHost
     $browserUiHost = Get-BrowserHost -HostName $uiHost
-    Assert-PortAvailable -Port $backendPort
-    Assert-PortAvailable -Port $uiPort
+    Invoke-TimedStartupStage -Name 'launcher.port_checks' -Action {
+        Assert-PortAvailable -Port $backendPort
+        Assert-PortAvailable -Port $uiPort
+    }
 
     $venvPython = Get-VenvPython
     $npm = Get-Npm
@@ -1090,20 +1117,24 @@ function Invoke-Launch {
         $backendHealth = "http://${browserBackendHost}:$backendPort/health"
         $uiUrl = "http://${browserUiHost}:$uiPort/"
         Write-Status -Level RUN -Message "Launching backend at $backendHealth"
+        $backendStarted = [System.Diagnostics.Stopwatch]::StartNew()
         $backendProcess = Start-ManagedProcess -Name 'Backend' -FilePath $venvPython -ArgumentList $backendArguments `
             -WorkingDirectory $script:ServerDir -Visible:$backendLogsVisible
         Write-Status -Level WAIT -Message "Waiting for backend readiness at $backendHealth"
         if (-not (Invoke-HealthCheck -Url $backendHealth -TimeoutSeconds 60)) {
             throw "Backend did not become healthy at $backendHealth. See $($script:LogDir)."
         }
+        Write-StartupStageDuration -Name 'launcher.backend_readiness' -Stopwatch $backendStarted
         Write-Ok 'Backend is healthy.'
 
         Write-Status -Level RUN -Message "Launching frontend preview at $uiUrl"
+        $frontendStarted = [System.Diagnostics.Stopwatch]::StartNew()
         $frontendProcess = Start-ManagedProcess -Name 'Frontend' -FilePath $npm -ArgumentList @('run', 'preview', '--', '--host', $uiHost, '--port', [string]$uiPort, '--strictPort') -WorkingDirectory $script:ClientDir
         Write-Status -Level WAIT -Message "Waiting for frontend readiness at $uiUrl"
         if (-not (Invoke-HealthCheck -Url $uiUrl -TimeoutSeconds 60)) {
             throw "Frontend did not become ready at $uiUrl. See $($script:LogDir)."
         }
+        Write-StartupStageDuration -Name 'launcher.frontend_readiness' -Stopwatch $frontendStarted
         Write-Ok 'Frontend is ready.'
         Assert-ManagedProcessesAlive
         Open-ApplicationBrowser -Uri $uiUrl
@@ -1113,6 +1144,7 @@ function Invoke-Launch {
         Write-Host "  Logs:     $($script:LogDir)" -ForegroundColor DarkGray
         Write-Host 'The launcher will now close; the application services remain running independently.' -ForegroundColor DarkGray
         Clear-BackendRestartRequired
+        Write-StartupStageDuration -Name 'launcher.total' -Stopwatch $launchStarted
         Detach-ManagedProcesses
         $script:LaunchHandedOff = $true
     } finally {
