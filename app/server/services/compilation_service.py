@@ -11,9 +11,9 @@ from exporters.native_tensorflow_exporter import NativeTensorFlowSourceExporter
 from exporters.pytorch_exporter import PyTorchSourceExporter
 from services.validation_service import ValidationService
 
+
 ###############################################################################
 class CompilationService:
-
     # -------------------------------------------------------------------------
     def __init__(self, catalog: NodeCatalog, validator: ValidationService) -> None:
         self._catalog = catalog
@@ -49,7 +49,9 @@ class CompilationService:
             self._catalog,
             shape_summaries=validation.shape_summaries,
         )
-        code = self._exporters[(keras_enabled, execution_backend)].generate(graph, ir, self._catalog)
+        code = self._exporters[(keras_enabled, execution_backend)].generate(
+            graph, ir, self._catalog
+        )
         return CompilationResult(
             valid=True,
             execution_backend=execution_backend,

@@ -16,6 +16,7 @@ from services.project_service import ProjectService
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 
+
 ###############################################################################
 class JobService:
     """Validates graph/project inputs before handing immutable work to the controller."""
@@ -77,12 +78,16 @@ class JobService:
                     ValidationDiagnostic(
                         code="export_unavailable",
                         severity=DiagnosticSeverity.COMPATIBILITY,
-                        message=capability.reason if capability and capability.reason else f"Export format '{operation.format.value}' is unavailable",
+                        message=capability.reason
+                        if capability and capability.reason
+                        else f"Export format '{operation.format.value}' is unavailable",
                         execution_backend=project.execution_backend,
                         keras_enabled=project.keras_enabled,
                         details={
                             "format": operation.format.value,
-                            "reason_code": capability.reason_code if capability else "unknown_format",
+                            "reason_code": capability.reason_code
+                            if capability
+                            else "unknown_format",
                         },
                     )
                 ]
@@ -117,7 +122,9 @@ class JobService:
 
     # -------------------------------------------------------------------------
     @staticmethod
-    def _ensure_worker_matches_project(project: ProjectDocument, worker: WorkerConfiguration) -> None:
+    def _ensure_worker_matches_project(
+        project: ProjectDocument, worker: WorkerConfiguration
+    ) -> None:
         execution_backend = project.execution_backend
         keras_enabled = project.keras_enabled
         if worker.backend is not execution_backend:

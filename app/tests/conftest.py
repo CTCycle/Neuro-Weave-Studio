@@ -9,12 +9,14 @@ from fastapi.testclient import TestClient
 from app import create_app
 from common.path import REPOSITORY_ROOT
 
+
 ###############################################################################
 def pytest_configure(config: pytest.Config) -> None:
     if config.option.basetemp is None:
         base_temp = REPOSITORY_ROOT / "app" / "tests" / "cache" / "pytest-tmp"
         base_temp.parent.mkdir(parents=True, exist_ok=True)
         config.option.basetemp = str(base_temp)
+
 
 ###############################################################################
 @pytest.fixture()

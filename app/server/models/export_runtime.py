@@ -31,6 +31,7 @@ from models.export_artifacts import (
     write_json,
 )
 
+
 ###############################################################################
 def run_model_export(
     graph: ModelGraph,
@@ -113,6 +114,7 @@ def run_model_export(
     finally:
         shutil.rmtree(working_root, ignore_errors=True)
 
+
 ###############################################################################
 def _build_keras_model(graph: ModelGraph, checkpoint: Callable[[], None]) -> Any:
     from models import keras_worker
@@ -122,6 +124,7 @@ def _build_keras_model(graph: ModelGraph, checkpoint: Callable[[], None]) -> Any
     checkpoint()
     compile_model(model, graph)
     return model
+
 
 ###############################################################################
 def _export_keras(
@@ -142,7 +145,9 @@ def _export_keras(
 ) -> dict[str, object]:
     if export_format is ExportFormat.KERAS:
         model.save(destination)
-        verification = _verify_keras_model(destination, model, input_values, outputs, synchronize, checkpoint)
+        verification = _verify_keras_model(
+            destination, model, input_values, outputs, synchronize, checkpoint
+        )
         return _final_result(
             graph=graph,
             destination=destination,
@@ -266,7 +271,10 @@ def _export_keras(
             project_revision=project_revision,
         )
 
-    raise RuntimeError(f"Export format '{export_format.value}' is not available for a Keras profile")
+    raise RuntimeError(
+        f"Export format '{export_format.value}' is not available for a Keras profile"
+    )
+
 
 ###############################################################################
 def _export_native(
@@ -287,7 +295,9 @@ def _export_native(
 ) -> dict[str, object]:
     if export_format is ExportFormat.TENSORFLOW_SAVED_MODEL:
         if backend is not ExecutionBackend.TENSORFLOW:
-            raise RuntimeError("Native TensorFlow SavedModel export requires the TensorFlow backend")
+            raise RuntimeError(
+                "Native TensorFlow SavedModel export requires the TensorFlow backend"
+            )
         export_directory = working_root / "saved_model"
         _save_native_tensorflow_model(handle, input_values, export_directory)
         verification = _verify_tensorflow_saved_model(
@@ -437,10 +447,7 @@ def _export_native(
             inference=True,
             semantic_equivalence="not_claimed",
         )
-        files = [
-            (path, path.name)
-            for path in checkpoint_files
-        ] + [(graph_path, "graph.json")]
+        files = [(path, path.name) for path in checkpoint_files] + [(graph_path, "graph.json")]
         return _package_files_result(
             graph=graph,
             destination=destination,
@@ -488,7 +495,10 @@ def _export_native(
             project_revision=project_revision,
         )
 
-    raise RuntimeError(f"Export format '{export_format.value}' is not available for a native {backend.value} profile")
+    raise RuntimeError(
+        f"Export format '{export_format.value}' is not available for a native {backend.value} profile"
+    )
+
 
 ###############################################################################
 def _final_result(
@@ -536,6 +546,7 @@ def _final_result(
         "artifact_manifest": manifest,
     }
 
+
 ###############################################################################
 def _package_directory_result(
     *,
@@ -556,7 +567,9 @@ def _package_directory_result(
     project_revision: int | None,
 ) -> dict[str, object]:
     files = [
-        artifact_file_metadata(path, relative_path=f"{archive_root}/{path.relative_to(source_directory).as_posix()}")
+        artifact_file_metadata(
+            path, relative_path=f"{archive_root}/{path.relative_to(source_directory).as_posix()}"
+        )
         for path in sorted(source_directory.rglob("*"))
         if path.is_file() and path.name != "manifest.json"
     ]
@@ -577,7 +590,11 @@ def _package_directory_result(
         project_revision=project_revision,
         files=files,
     )
-    archive_manifest = {"artifact": manifest, "graph": graph.model_dump(mode="json"), "schema_version": 1}
+    archive_manifest = {
+        "artifact": manifest,
+        "graph": graph.model_dump(mode="json"),
+        "schema_version": 1,
+    }
     package_directory(
         source_directory,
         destination,
@@ -592,6 +609,7 @@ def _package_directory_result(
         "device_name": "CPU",
         "artifact_manifest": manifest,
     }
+
 
 ###############################################################################
 def _package_files_result(
@@ -629,7 +647,11 @@ def _package_files_result(
         project_revision=project_revision,
         files=artifact_files,
     )
-    archive_manifest = {"artifact": manifest, "graph": graph.model_dump(mode="json"), "schema_version": 1}
+    archive_manifest = {
+        "artifact": manifest,
+        "graph": graph.model_dump(mode="json"),
+        "schema_version": 1,
+    }
     package_files(files, destination, manifest=archive_manifest)
     return {
         "artifact_path": destination.name,
@@ -639,6 +661,7 @@ def _package_files_result(
         "device_name": "CPU",
         "artifact_manifest": manifest,
     }
+
 
 ###############################################################################
 def _manifest(
@@ -686,6 +709,7 @@ def _manifest(
     )
     return manifest.model_dump(mode="json")
 
+
 ###############################################################################
 def _verify_keras_model(
     destination: Path,
@@ -699,10 +723,13 @@ def _verify_keras_model(
 
     loaded = keras.saving.load_model(destination, compile=False)
     checkpoint()
-    values = _as_list(loaded(input_values[0] if len(input_values) == 1 else input_values, training=False))
+    values = _as_list(
+        loaded(input_values[0] if len(input_values) == 1 else input_values, training=False)
+    )
     synchronize(values)
     comparison = _compare_outputs(expected_outputs, values, semantic=True)
     return comparison.model_copy(update={"structural": True, "reload": True})
+
 
 ###############################################################################
 def _verify_keras_weights(
@@ -716,10 +743,13 @@ def _verify_keras_weights(
 ) -> ExportVerification:
     reloaded = _build_keras_model(graph, checkpoint)
     reloaded.load_weights(destination)
-    values = _as_list(reloaded(input_values[0] if len(input_values) == 1 else input_values, training=False))
+    values = _as_list(
+        reloaded(input_values[0] if len(input_values) == 1 else input_values, training=False)
+    )
     synchronize(values)
     comparison = _compare_outputs(expected_outputs, values, semantic=True)
     return comparison.model_copy(update={"structural": True, "reload": True})
+
 
 ###############################################################################
 def _verify_tensorflow_saved_model(
@@ -745,6 +775,7 @@ def _verify_tensorflow_saved_model(
     if len(values) != expected_output_count:
         raise RuntimeError("Reloaded SavedModel returned an unexpected output count")
     return ExportVerification(structural=True, reload=True, inference=True)
+
 
 ###############################################################################
 def _export_onnx_result(
@@ -832,6 +863,7 @@ def _export_onnx_result(
         project_revision=project_revision,
     )
 
+
 ###############################################################################
 def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: ExportOptions) -> Any:
     if handle.backend is ExecutionBackend.PYTORCH:
@@ -839,7 +871,6 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
 
         ###############################################################################
         class Wrapper(torch.nn.Module):
-
             # -------------------------------------------------------------------------
             def __init__(self, model: Any, input_ids: list[str]) -> None:
                 super().__init__()
@@ -848,7 +879,11 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
 
             # -------------------------------------------------------------------------
             def forward(self, *values: Any) -> Any:
-                model_input = values[0] if len(values) == 1 else dict(zip(self.input_ids, values, strict=True))
+                model_input = (
+                    values[0]
+                    if len(values) == 1
+                    else dict(zip(self.input_ids, values, strict=True))
+                )
                 return self.model(model_input)
 
         input_ids = [node.id for node in graph.nodes if node.definition_id.startswith("input.")]
@@ -900,9 +935,11 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
         ]
 
         def call(*values: Any) -> Any:
-            model_input = values[0] if len(values) == 1 else {
-                node.id: value for node, value in zip(input_nodes, values, strict=True)
-            }
+            model_input = (
+                values[0]
+                if len(values) == 1
+                else {node.id: value for node, value in zip(input_nodes, values, strict=True)}
+            )
             return handle.model(model_input)
 
         function = tf.function(call)
@@ -925,9 +962,11 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
     ]
 
     def call_jax(*values: Any) -> Any:
-        model_input = values[0] if len(values) == 1 else {
-            node.id: value for node, value in zip(input_nodes, values, strict=True)
-        }
+        model_input = (
+            values[0]
+            if len(values) == 1
+            else {node.id: value for node, value in zip(input_nodes, values, strict=True)}
+        )
         return handle.model.apply(handle.variables, model_input)
 
     converted = jax2tf.convert(
@@ -944,6 +983,7 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
         output_path=None,
     )
     return model_proto
+
 
 ###############################################################################
 def _normalize_onnx_names(model_proto: Any, graph: ModelGraph) -> None:
@@ -964,6 +1004,7 @@ def _normalize_onnx_names(model_proto: Any, graph: ModelGraph) -> None:
     for value, name in zip(graph_outputs, output_names, strict=False):
         value.name = name
 
+
 ###############################################################################
 def _set_onnx_dynamic_batch(model_proto: Any) -> None:
     for value in [*model_proto.graph.input, *model_proto.graph.output]:
@@ -971,6 +1012,7 @@ def _set_onnx_dynamic_batch(model_proto: Any) -> None:
         if shape.dim:
             shape.dim[0].ClearField("dim_value")
             shape.dim[0].dim_param = "batch"
+
 
 ###############################################################################
 def _verify_onnx(
@@ -1006,6 +1048,7 @@ def _verify_onnx(
         semantic_equivalence="verified",
     )
 
+
 ###############################################################################
 def _save_native_tensorflow_model(handle: Any, input_values: list[Any], directory: Path) -> None:
     import tensorflow as tf
@@ -1028,6 +1071,7 @@ def _save_native_tensorflow_model(handle: Any, input_values: list[Any], director
 
     tf.saved_model.save(handle.model, str(directory), signatures={"serving_default": serving})
 
+
 ###############################################################################
 def _save_keras_safetensors(model: Any, path: Path) -> None:
     from safetensors.numpy import save_file
@@ -1040,6 +1084,7 @@ def _save_keras_safetensors(model: Any, path: Path) -> None:
             key = f"{key}_{index}"
         tensors[key] = _to_numpy(variable)
     save_file(tensors, str(path))
+
 
 ###############################################################################
 def _save_native_safetensors(handle: Any, path: Path) -> None:
@@ -1061,6 +1106,7 @@ def _save_native_safetensors(handle: Any, path: Path) -> None:
             tensors[name] = _to_numpy(value)
     save_file(tensors, str(path))
 
+
 ###############################################################################
 def _verify_safetensors(path: Path) -> bool:
     from safetensors import safe_open
@@ -1068,8 +1114,11 @@ def _verify_safetensors(path: Path) -> bool:
     with safe_open(str(path), framework="numpy") as handle:
         return bool(list(handle.keys()))
 
+
 ###############################################################################
-def _compare_outputs(expected: list[Any], actual: list[Any], *, semantic: bool) -> ExportVerification:
+def _compare_outputs(
+    expected: list[Any], actual: list[Any], *, semantic: bool
+) -> ExportVerification:
     import numpy as np
 
     if len(expected) != len(actual):
@@ -1088,12 +1137,14 @@ def _compare_outputs(expected: list[Any], actual: list[Any], *, semantic: bool) 
         semantic_equivalence="verified" if semantic else "not_claimed",
     )
 
+
 ###############################################################################
 def _tensor_metadata(nodes: list[Any], values: list[Any]) -> list[dict[str, object]]:
     return [
         {"node_id": node.id, "shape": _concrete_shape(value), "dtype": _dtype_name(value)}
         for node, value in zip(nodes, values, strict=False)
     ]
+
 
 ###############################################################################
 def _keras_dummy_inputs(model: Any) -> list[Any]:
@@ -1103,6 +1154,7 @@ def _keras_dummy_inputs(model: Any) -> list[Any]:
         keras.ops.zeros(_concrete_shape(tensor), dtype=_dtype_name(tensor))
         for tensor in model.inputs
     ]
+
 
 ###############################################################################
 def _tool_versions(
@@ -1134,6 +1186,7 @@ def _tool_versions(
             result[name] = importlib.metadata.version(name)
     return result
 
+
 ###############################################################################
 def _concrete_shape(value: Any) -> list[int]:
     shape = getattr(value, "shape", ())
@@ -1146,14 +1199,17 @@ def _concrete_shape(value: Any) -> list[int]:
         result.append(number if number > 0 else 1)
     return result
 
+
 ###############################################################################
 def _dtype_name(value: Any) -> str:
     dtype = getattr(value, "dtype", "float32")
     return str(getattr(dtype, "name", dtype)).rsplit(".", 1)[-1]
 
+
 ###############################################################################
 def _as_list(value: Any) -> list[Any]:
     return list(value) if isinstance(value, (tuple, list)) else [value]
+
 
 ###############################################################################
 def _synchronize_tensors(values: Iterable[Any]) -> None:
@@ -1162,12 +1218,15 @@ def _synchronize_tensors(values: Iterable[Any]) -> None:
         if callable(block_until_ready):
             block_until_ready()
 
+
 ###############################################################################
 def _to_numpy(value: Any) -> Any:
     import numpy as np
 
     is_torch = callable(getattr(value, "detach", None))
     detached = value.detach() if is_torch else value
-    cpu_value = detached.cpu() if is_torch and callable(getattr(detached, "cpu", None)) else detached
+    cpu_value = (
+        detached.cpu() if is_torch and callable(getattr(detached, "cpu", None)) else detached
+    )
     numpy_value = cpu_value.numpy() if callable(getattr(cpu_value, "numpy", None)) else cpu_value
     return np.asarray(numpy_value)

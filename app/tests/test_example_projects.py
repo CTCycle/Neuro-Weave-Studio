@@ -13,6 +13,7 @@ from services.validation_service import ValidationService
 
 EXAMPLES_ROOT = Path(__file__).resolve().parents[2] / "examples"
 
+
 ###############################################################################
 @pytest.mark.parametrize(
     "filename",

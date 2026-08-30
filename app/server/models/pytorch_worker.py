@@ -22,6 +22,7 @@ from models.worker_backend import (
     run_native_smoke,
 )
 
+
 ###############################################################################
 class PyTorchWorker:
     backend = ExecutionBackend.PYTORCH
@@ -46,15 +47,23 @@ class PyTorchWorker:
         requested_device = self._config.device_id if self._config is not None else "auto"
         accelerator = "cpu"
         device_name = "CPU"
-        if (
-            requested_device == "auto" or requested_device.startswith(("cuda:", "rocm:"))
-        ) and bool(torch.cuda.is_available()):
+        if (requested_device == "auto" or requested_device.startswith(("cuda:", "rocm:"))) and bool(
+            torch.cuda.is_available()
+        ):
             accelerator = "cuda"
             device_name = str(torch.cuda.get_device_name(0))
-        elif requested_device.startswith("xpu:") and hasattr(torch, "xpu") and bool(torch.xpu.is_available()):
+        elif (
+            requested_device.startswith("xpu:")
+            and hasattr(torch, "xpu")
+            and bool(torch.xpu.is_available())
+        ):
             accelerator = "xpu"
             device_name = str(torch.xpu.get_device_name(0))
-        elif requested_device.startswith("mps:") and hasattr(torch.backends, "mps") and bool(torch.backends.mps.is_available()):
+        elif (
+            requested_device.startswith("mps:")
+            and hasattr(torch.backends, "mps")
+            and bool(torch.backends.mps.is_available())
+        ):
             accelerator = "mps"
             device_name = "Apple Metal Performance Shaders"
         backend_name = "pytorch"
@@ -154,7 +163,11 @@ class PyTorchWorker:
         capabilities = self.capabilities()
         if capabilities.get("accelerator") in {"cuda", "xpu", "mps"}:
             if self._config is not None and self._config.api is RuntimeApi.NATIVE:
-                device = "cuda:0" if capabilities.get("accelerator") == "cuda" else str(capabilities["accelerator"]) + ":0"
+                device = (
+                    "cuda:0"
+                    if capabilities.get("accelerator") == "cuda"
+                    else str(capabilities["accelerator"]) + ":0"
+                )
                 return torch.device(device)
             import keras
 
@@ -243,6 +256,7 @@ class PyTorchWorker:
         except (AttributeError, RuntimeError, TypeError):
             pass
         gc.collect()
+
 
 ###############################################################################
 def create_worker() -> BackendWorker:

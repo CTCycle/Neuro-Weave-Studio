@@ -11,12 +11,14 @@ down_revision = "20260821_execution_profile"
 branch_labels = None
 depends_on = None
 
+
 ###############################################################################
 def _json_object(value: object) -> dict[str, Any]:
     if isinstance(value, str):
         parsed = json.loads(value)
         return parsed if isinstance(parsed, dict) else {}
     return value if isinstance(value, dict) else {}
+
 
 ###############################################################################
 def _native_defaults() -> dict[str, object]:
@@ -30,6 +32,7 @@ def _native_defaults() -> dict[str, object]:
         },
         "jax": {"jit_enabled": False},
     }
+
 
 ###############################################################################
 def _canonical_configuration(row: Any) -> dict[str, object]:
@@ -48,19 +51,24 @@ def _canonical_configuration(row: Any) -> dict[str, object]:
         "native": _native_defaults(),
     }
 
+
 ###############################################################################
 def upgrade() -> None:
     with op.batch_alter_table("project_graph_settings") as batch:
         batch.add_column(sa.Column("model_configuration_json", sa.JSON(), nullable=True))
 
     connection = op.get_bind()
-    settings = connection.execute(
-        sa.text(
-            "SELECT project_id, optimizer, optimizer_parameters_json, losses_json, "
-            "metrics_json, default_initializer, default_regularizer, default_constraint, "
-            "mixed_precision, random_seed FROM project_graph_settings"
+    settings = (
+        connection.execute(
+            sa.text(
+                "SELECT project_id, optimizer, optimizer_parameters_json, losses_json, "
+                "metrics_json, default_initializer, default_regularizer, default_constraint, "
+                "mixed_precision, random_seed FROM project_graph_settings"
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     for row in settings:
         connection.execute(
             sa.text(
@@ -73,9 +81,11 @@ def upgrade() -> None:
             },
         )
 
-    revisions = connection.execute(
-        sa.text("SELECT id, graph_snapshot_json FROM project_revisions")
-    ).mappings().all()
+    revisions = (
+        connection.execute(sa.text("SELECT id, graph_snapshot_json FROM project_revisions"))
+        .mappings()
+        .all()
+    )
     for row in revisions:
         snapshot = _json_object(row["graph_snapshot_json"])
         configuration = _json_object(snapshot.get("model_configuration"))
@@ -107,6 +117,7 @@ def upgrade() -> None:
         ):
             batch.drop_column(column)
 
+
 ###############################################################################
 def downgrade() -> None:
     with op.batch_alter_table("project_graph_settings") as batch:
@@ -121,9 +132,13 @@ def downgrade() -> None:
         batch.add_column(sa.Column("random_seed", sa.Integer(), nullable=True))
 
     connection = op.get_bind()
-    rows = connection.execute(
-        sa.text("SELECT project_id, model_configuration_json FROM project_graph_settings")
-    ).mappings().all()
+    rows = (
+        connection.execute(
+            sa.text("SELECT project_id, model_configuration_json FROM project_graph_settings")
+        )
+        .mappings()
+        .all()
+    )
     for row in rows:
         configuration = _json_object(row["model_configuration_json"])
         keras = _json_object(configuration.get("keras"))
@@ -150,17 +165,17 @@ def downgrade() -> None:
             },
         )
 
-    revisions = connection.execute(
-        sa.text("SELECT id, graph_snapshot_json FROM project_revisions")
-    ).mappings().all()
+    revisions = (
+        connection.execute(sa.text("SELECT id, graph_snapshot_json FROM project_revisions"))
+        .mappings()
+        .all()
+    )
     for row in revisions:
         snapshot = _json_object(row["graph_snapshot_json"])
         configuration = _json_object(snapshot.get("model_configuration"))
         snapshot["schema_version"] = 2
         snapshot["model_configuration"] = (
-            _json_object(configuration.get("keras"))
-            if "keras" in configuration
-            else configuration
+            _json_object(configuration.get("keras")) if "keras" in configuration else configuration
         )
         connection.execute(
             sa.text(

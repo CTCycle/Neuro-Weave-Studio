@@ -36,20 +36,22 @@ SUPPORTED_LAYERS = {
     "Concatenate",
 }
 
+
 ###############################################################################
 class KerasArchitectureImportError(ValueError):
-
     # -------------------------------------------------------------------------
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
 
+
 ###############################################################################
 @dataclass(frozen=True)
 class ParsedKerasArchitecture:
     payload: ProjectCreate
     warnings: list[str]
+
 
 ###############################################################################
 class KerasImportService:
@@ -75,6 +77,7 @@ class KerasImportService:
         project = self._projects.create(parsed.payload)
         return KerasArchitectureImportResponse(project=project, warnings=parsed.warnings)
 
+
 ###############################################################################
 def parse_keras_architecture(
     payload: bytes,
@@ -85,22 +88,33 @@ def parse_keras_architecture(
     if not payload:
         raise KerasArchitectureImportError("empty_archive", "The uploaded Keras archive is empty")
     if len(payload) > MAX_ARCHIVE_BYTES:
-        raise KerasArchitectureImportError("archive_too_large", "The Keras archive exceeds the 50 MB import limit")
+        raise KerasArchitectureImportError(
+            "archive_too_large", "The Keras archive exceeds the 50 MB import limit"
+        )
     try:
         with ZipFile(BytesIO(payload)) as archive:
             names = set(archive.namelist())
             if "config.json" not in names:
-                raise KerasArchitectureImportError("missing_config", "The .keras archive does not contain config.json")
+                raise KerasArchitectureImportError(
+                    "missing_config", "The .keras archive does not contain config.json"
+                )
             config_info = archive.getinfo("config.json")
             if config_info.file_size > MAX_CONFIG_BYTES:
-                raise KerasArchitectureImportError("config_too_large", "The serialized Keras configuration exceeds the import limit")
+                raise KerasArchitectureImportError(
+                    "config_too_large",
+                    "The serialized Keras configuration exceeds the import limit",
+                )
             raw_config = archive.read("config.json")
     except BadZipFile as exc:
-        raise KerasArchitectureImportError("invalid_archive", "The uploaded file is not a valid .keras ZIP archive") from exc
+        raise KerasArchitectureImportError(
+            "invalid_archive", "The uploaded file is not a valid .keras ZIP archive"
+        ) from exc
     try:
         document = json.loads(raw_config)
     except json.JSONDecodeError as exc:
-        raise KerasArchitectureImportError("invalid_config", "The Keras configuration is not valid JSON") from exc
+        raise KerasArchitectureImportError(
+            "invalid_config", "The Keras configuration is not valid JSON"
+        ) from exc
     graph, model_name = _graph_from_config(document)
     return ParsedKerasArchitecture(
         payload=ProjectCreate(
@@ -116,10 +130,13 @@ def parse_keras_architecture(
         ],
     )
 
+
 ###############################################################################
 def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
     if not isinstance(document, dict):
-        raise KerasArchitectureImportError("invalid_config", "Keras config.json must contain an object")
+        raise KerasArchitectureImportError(
+            "invalid_config", "Keras config.json must contain an object"
+        )
     class_name = document.get("class_name")
     config = document.get("config")
     if class_name not in {"Functional", "Sequential"} or not isinstance(config, dict):
@@ -129,16 +146,24 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
         )
     layers = config.get("layers")
     if not isinstance(layers, list) or not layers:
-        raise KerasArchitectureImportError("missing_layers", "The Keras architecture does not contain a layer list")
+        raise KerasArchitectureImportError(
+            "missing_layers", "The Keras architecture does not contain a layer list"
+        )
     layer_by_name: dict[str, dict[str, Any]] = {}
     for layer in layers:
         if not isinstance(layer, dict) or not isinstance(layer.get("config"), dict):
-            raise KerasArchitectureImportError("invalid_layer", "A serialized Keras layer is malformed")
+            raise KerasArchitectureImportError(
+                "invalid_layer", "A serialized Keras layer is malformed"
+            )
         layer_name = layer.get("config", {}).get("name") or layer.get("name")
         if not isinstance(layer_name, str) or not layer_name:
-            raise KerasArchitectureImportError("invalid_layer_name", "Every imported Keras layer must have a name")
+            raise KerasArchitectureImportError(
+                "invalid_layer_name", "Every imported Keras layer must have a name"
+            )
         if layer_name in layer_by_name:
-            raise KerasArchitectureImportError("duplicate_layer_name", f"Keras layer name '{layer_name}' is duplicated")
+            raise KerasArchitectureImportError(
+                "duplicate_layer_name", f"Keras layer name '{layer_name}' is duplicated"
+            )
         if layer.get("class_name") not in SUPPORTED_LAYERS:
             raise KerasArchitectureImportError(
                 "unsupported_layer",
@@ -166,10 +191,19 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
             inbound_names = [list(layer_by_name)[index - 1]]
         for inbound_name in inbound_names:
             if inbound_name not in node_ids:
-                raise KerasArchitectureImportError("unknown_connection", f"Keras layer '{layer_name}' references unknown layer '{inbound_name}'")
-            target_port_id = "inputs" if definition_id in {"merge.add", "merge.concatenate"} else "input"
+                raise KerasArchitectureImportError(
+                    "unknown_connection",
+                    f"Keras layer '{layer_name}' references unknown layer '{inbound_name}'",
+                )
+            target_port_id = (
+                "inputs" if definition_id in {"merge.add", "merge.concatenate"} else "input"
+            )
             if definition_id == "attention.multi_head":
-                target_port_id = "query" if not any(edge["target_node_id"] == node_id for edge in edges) else "context"
+                target_port_id = (
+                    "query"
+                    if not any(edge["target_node_id"] == node_id for edge in edges)
+                    else "context"
+                )
             edges.append(
                 {
                     "id": f"edge-{len(edges) + 1}",
@@ -183,10 +217,18 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
     output_names = _model_output_names(config, class_name, list(layer_by_name))
     for output_index, output_name in enumerate(output_names):
         if output_name not in node_ids:
-            raise KerasArchitectureImportError("unknown_output", f"Keras output references unknown layer '{output_name}'")
+            raise KerasArchitectureImportError(
+                "unknown_output", f"Keras output references unknown layer '{output_name}'"
+            )
         source = layer_by_name[output_name]
-        output_id = _unique_id(f"{node_ids[output_name]}_output", set(node_ids.values()) | {item.id for item in nodes})
-        definition_id = "output.classification" if source["config"].get("activation") in {"softmax", "sigmoid"} else "output.regression"
+        output_id = _unique_id(
+            f"{node_ids[output_name]}_output", set(node_ids.values()) | {item.id for item in nodes}
+        )
+        definition_id = (
+            "output.classification"
+            if source["config"].get("activation") in {"softmax", "sigmoid"}
+            else "output.regression"
+        )
         nodes.append(
             NodeInstance(
                 id=output_id,
@@ -205,18 +247,33 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
                 "target_port_id": "input",
             }
         )
-    return ModelGraph(nodes=nodes, edges=[EdgeInstance(**edge) for edge in edges]), str(config.get("name") or "Imported Keras architecture")
+    return ModelGraph(nodes=nodes, edges=[EdgeInstance(**edge) for edge in edges]), str(
+        config.get("name") or "Imported Keras architecture"
+    )
+
 
 ###############################################################################
 def _map_layer(class_name: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     if class_name == "InputLayer":
-        raw_shape = config.get("batch_shape") or config.get("batch_input_shape") or config.get("input_shape")
+        raw_shape = (
+            config.get("batch_shape")
+            or config.get("batch_input_shape")
+            or config.get("input_shape")
+        )
         shape = _shape(raw_shape)
         if shape and shape[0] is not None:
             shape = [None, *shape]
         if not shape:
-            raise KerasArchitectureImportError("missing_input_shape", "An InputLayer must declare a deterministic shape")
-        definition_id = "input.image" if len(shape) >= 4 else "input.sequence" if len(shape) == 3 else "input.tensor"
+            raise KerasArchitectureImportError(
+                "missing_input_shape", "An InputLayer must declare a deterministic shape"
+            )
+        definition_id = (
+            "input.image"
+            if len(shape) >= 4
+            else "input.sequence"
+            if len(shape) == 3
+            else "input.tensor"
+        )
         return definition_id, {"shape": shape, "dtype": str(config.get("dtype") or "float32")}
     mappings: dict[str, tuple[str, tuple[str, ...]]] = {
         "Dense": ("layer.dense", ("units", "activation", "use_bias")),
@@ -226,7 +283,10 @@ def _map_layer(class_name: str, config: dict[str, Any]) -> tuple[str, dict[str, 
         "BatchNormalization": ("layer.batch_norm", ("momentum", "epsilon")),
         "LayerNormalization": ("layer.layer_norm", ("epsilon",)),
         "Embedding": ("layer.embedding", ("input_dim", "output_dim")),
-        "Conv2D": ("conv.conv2d", ("filters", "kernel_size", "padding", "activation", "data_format", "use_bias")),
+        "Conv2D": (
+            "conv.conv2d",
+            ("filters", "kernel_size", "padding", "activation", "data_format", "use_bias"),
+        ),
         "MaxPooling2D": ("conv.max_pool2d", ("pool_size",)),
         "LSTM": ("recurrent.lstm", ("units", "return_sequences")),
         "GRU": ("recurrent.gru", ("units", "return_sequences")),
@@ -241,11 +301,17 @@ def _map_layer(class_name: str, config: dict[str, Any]) -> tuple[str, dict[str, 
             continue
         value = config[key]
         if isinstance(value, (str, int, float, bool)) or value is None or _is_scalar_list(value):
-            target_key = {"input_dim": "vocabulary_size", "output_dim": "embedding_dim"}.get(key, key)
+            target_key = {"input_dim": "vocabulary_size", "output_dim": "embedding_dim"}.get(
+                key, key
+            )
             parameters[target_key] = value
         else:
-            raise KerasArchitectureImportError("unsupported_parameter", f"Keras layer parameter '{class_name}.{key}' is not a safe scalar value")
+            raise KerasArchitectureImportError(
+                "unsupported_parameter",
+                f"Keras layer parameter '{class_name}.{key}' is not a safe scalar value",
+            )
     return definition_id, parameters
+
 
 ###############################################################################
 def _shape(value: Any) -> list[int | None] | None:
@@ -258,12 +324,18 @@ def _shape(value: Any) -> list[int | None] | None:
         elif isinstance(item, int) and not isinstance(item, bool) and item > 0:
             shape.append(item)
         else:
-            raise KerasArchitectureImportError("unsupported_shape", "Keras input shapes must contain positive integers or null")
+            raise KerasArchitectureImportError(
+                "unsupported_shape", "Keras input shapes must contain positive integers or null"
+            )
     return shape
+
 
 ###############################################################################
 def _is_scalar_list(value: Any) -> bool:
-    return isinstance(value, list) and all(item is None or isinstance(item, (str, int, float, bool)) for item in value)
+    return isinstance(value, list) and all(
+        item is None or isinstance(item, (str, int, float, bool)) for item in value
+    )
+
 
 ###############################################################################
 def _unique_ids(layers: dict[str, dict[str, Any]]) -> dict[str, str]:
@@ -273,6 +345,7 @@ def _unique_ids(layers: dict[str, dict[str, Any]]) -> dict[str, str]:
         result[name] = _unique_id(name, used)
         used.add(result[name])
     return result
+
 
 ###############################################################################
 def _unique_id(value: str, used: set[str]) -> str:
@@ -286,6 +359,7 @@ def _unique_id(value: str, used: set[str]) -> str:
         candidate = f"{base[: max(1, 120 - len(str(suffix)) - 1)]}_{suffix}"
         suffix += 1
     return candidate
+
 
 ###############################################################################
 def _visit_inbound_names(item: Any, names: list[str]) -> None:
@@ -304,14 +378,18 @@ def _visit_inbound_names(item: Any, names: list[str]) -> None:
         for child in item:
             _visit_inbound_names(child, names)
 
+
 ###############################################################################
 def _inbound_names(value: Any) -> list[str]:
     names: list[str] = []
     _visit_inbound_names(value, names)
     return list(dict.fromkeys(names))
 
+
 ###############################################################################
-def _model_output_names(config: dict[str, Any], class_name: str, layer_names: list[str]) -> list[str]:
+def _model_output_names(
+    config: dict[str, Any], class_name: str, layer_names: list[str]
+) -> list[str]:
     raw = config.get("output_layers")
     names = _inbound_names(raw) if raw is not None else []
     if names:

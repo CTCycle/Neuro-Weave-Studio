@@ -7,9 +7,11 @@ import httpx
 import pytest
 from repositories.graphs import GraphRepository
 
+
 ###############################################################################
 def fail_update_graph_replace(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("graph replacement failed")
+
 
 ###############################################################################
 def project_payload() -> dict[str, object]:
@@ -83,12 +85,11 @@ def project_payload() -> dict[str, object]:
         },
     }
 
+
 ###############################################################################
 def execution_worker(client: httpx.Client) -> dict[str, object]:
     metadata = client.get("/api/metadata").json()
-    status = next(
-        item for item in metadata["execution_backends"] if item["id"] == "pytorch"
-    )
+    status = next(item for item in metadata["execution_backends"] if item["id"] == "pytorch")
     if not status["available"]:
         pytest.skip("Operational PyTorch Keras backend is unavailable")
     device = next(
@@ -105,15 +106,12 @@ def execution_worker(client: httpx.Client) -> dict[str, object]:
         "precision": "float32",
     }
 
+
 ###############################################################################
 def native_execution_worker(client: httpx.Client) -> dict[str, object]:
     metadata = client.get("/api/metadata").json()
-    status = next(
-        item for item in metadata["execution_backends"] if item["id"] == "pytorch"
-    )
-    native_status = next(
-        item for item in status.get("runtime_apis", []) if item["id"] == "native"
-    )
+    status = next(item for item in metadata["execution_backends"] if item["id"] == "pytorch")
+    native_status = next(item for item in status.get("runtime_apis", []) if item["id"] == "native")
     if not native_status["available"]:
         pytest.skip("Operational native PyTorch runtime is unavailable")
     device = next(
@@ -130,6 +128,7 @@ def native_execution_worker(client: httpx.Client) -> dict[str, object]:
         "precision": "float32",
     }
 
+
 ###############################################################################
 def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
     deadline = time.monotonic() + 300
@@ -139,6 +138,7 @@ def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
             return job
         time.sleep(0.05)
     pytest.fail(f"job {job_id} did not reach a terminal state")
+
 
 ###############################################################################
 def test_project_revision_workflow_invalidates_generated_source_and_rejects_stale_save(
@@ -200,10 +200,8 @@ def test_project_revision_workflow_invalidates_generated_source_and_rejects_stal
     assert stale.status_code == 409
 
     missing_revision = project_payload()
-    assert (
-        client.put(f"/api/projects/{project['id']}", json=missing_revision).status_code
-        == 422
-    )
+    assert client.put(f"/api/projects/{project['id']}", json=missing_revision).status_code == 422
+
 
 ###############################################################################
 def test_model_export_publishes_only_verified_artifact(client: httpx.Client) -> None:
@@ -226,6 +224,7 @@ def test_model_export_publishes_only_verified_artifact(client: httpx.Client) -> 
     artifact = client.get(f"/api/execution/jobs/{job_id}/artifact")
     assert artifact.status_code == 200
     assert artifact.content.startswith(b"PK")
+
 
 ###############################################################################
 def test_model_export_rejects_invalid_graph_before_worker_start(
@@ -254,6 +253,7 @@ def test_model_export_rejects_invalid_graph_before_worker_start(
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "model_validation_failed"
 
+
 ###############################################################################
 def test_export_capabilities_expose_matrix_and_explicit_reasons(
     client: httpx.Client,
@@ -278,6 +278,7 @@ def test_export_capabilities_expose_matrix_and_explicit_reasons(
         "external_data",
     }
 
+
 ###############################################################################
 def test_legacy_keras_export_operation_is_rejected(client: httpx.Client) -> None:
     project = client.post("/api/projects", json=project_payload()).json()
@@ -290,6 +291,7 @@ def test_legacy_keras_export_operation_is_rejected(client: httpx.Client) -> None
     )
 
     assert response.status_code == 422
+
 
 ###############################################################################
 def test_native_model_export_publishes_pt2_artifact(client: httpx.Client) -> None:
@@ -319,6 +321,7 @@ def test_native_model_export_publishes_pt2_artifact(client: httpx.Client) -> Non
     assert artifact.status_code == 200
     assert artifact.content[:2] == b"PK"
 
+
 ###############################################################################
 def test_project_json_export_import_preserves_editable_graph(
     client: httpx.Client,
@@ -332,6 +335,7 @@ def test_project_json_export_import_preserves_editable_graph(
     assert imported.status_code == 201
     assert imported.json()["name"] == "API MLP"
     assert imported.json()["graph"] == project["graph"]
+
 
 ###############################################################################
 def test_update_rolls_back_metadata_and_revision_when_graph_persistence_fails(

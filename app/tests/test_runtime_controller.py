@@ -38,6 +38,7 @@ def status(*devices: RuntimeDevice) -> ExecutionBackendStatus:
         devices=list(devices),
     )
 
+
 ###############################################################################
 def fake_start(job_dir: Path, sleep_seconds: float) -> subprocess.Popen[bytes]:
     code = (
@@ -57,6 +58,7 @@ def fake_start(job_dir: Path, sleep_seconds: float) -> subprocess.Popen[bytes]:
         **process_start_options(),
     )
     return cast(subprocess.Popen[bytes], process)
+
 
 ###############################################################################
 def controller(
@@ -106,6 +108,7 @@ def controller(
     )
     return runtime
 
+
 ###############################################################################
 def request(device_id: str = "cpu") -> JobSubmitRequest:
     return JobSubmitRequest(
@@ -116,6 +119,7 @@ def request(device_id: str = "cpu") -> JobSubmitRequest:
         ),
     )
 
+
 ###############################################################################
 def wait(runtime: RuntimeController, job_id: str) -> JobResponse:
     for _ in range(320):
@@ -124,6 +128,7 @@ def wait(runtime: RuntimeController, job_id: str) -> JobResponse:
             return job
         time.sleep(0.02)
     pytest.fail(f"job {job_id} did not finish")
+
 
 ###############################################################################
 def test_device_leases_are_exclusive_but_distinct_devices_can_run_concurrently(
@@ -146,6 +151,7 @@ def test_device_leases_are_exclusive_but_distinct_devices_can_run_concurrently(
     finally:
         runtime.shutdown()
 
+
 ###############################################################################
 def test_stop_is_idempotent_and_releases_lease_only_after_worker_exit(
     tmp_path: Path,
@@ -167,6 +173,7 @@ def test_stop_is_idempotent_and_releases_lease_only_after_worker_exit(
         wait(runtime, replacement.id)
     finally:
         runtime.shutdown()
+
 
 ###############################################################################
 def test_terminal_history_is_bounded_and_job_workspaces_are_removed(
@@ -193,6 +200,7 @@ def test_terminal_history_is_bounded_and_job_workspaces_are_removed(
     finally:
         runtime.shutdown()
 
+
 ###############################################################################
 def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapshot(
     tmp_path: Path,
@@ -214,7 +222,9 @@ def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapsh
         api: RuntimeApi,
     ) -> subprocess.CompletedProcess[str]:
         probes.append((backend, api))
-        expected_backend = keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
+        expected_backend = (
+            keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
+        )
         payload = {
             "backend": expected_backend,
             "available": True,
@@ -235,7 +245,9 @@ def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapsh
         return subprocess.CompletedProcess([], 0, json.dumps(payload), "")
 
     monkeypatch.setattr(RuntimeController, "_installed_package", staticmethod(fake_installed))
-    monkeypatch.setattr(RuntimeController, "_hardware_fingerprint", staticmethod(lambda: {"nvidia_smi": None}))
+    monkeypatch.setattr(
+        RuntimeController, "_hardware_fingerprint", staticmethod(lambda: {"nvidia_smi": None})
+    )
     monkeypatch.setattr(RuntimeController, "_run_probe", fake_probe)
     settings = Settings(
         ml_job_root=tmp_path / "jobs",
@@ -250,7 +262,9 @@ def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapsh
             (ExecutionBackend.PYTORCH, RuntimeApi.KERAS),
             (ExecutionBackend.PYTORCH, RuntimeApi.NATIVE),
         ]
-        assert first.backend_statuses[ExecutionBackend.TENSORFLOW].reason_code == "dependency_missing"
+        assert (
+            first.backend_statuses[ExecutionBackend.TENSORFLOW].reason_code == "dependency_missing"
+        )
     finally:
         first.shutdown()
 

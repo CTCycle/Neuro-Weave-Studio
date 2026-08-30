@@ -59,18 +59,20 @@ from models.export_artifacts import sha256_file
 LOGGER = logging.getLogger(__name__)
 DISCOVERY_SNAPSHOT_SCHEMA_VERSION = 1
 
+
 ###############################################################################
 def _empty_diagnostics() -> dict[str, int | None]:
     return {}
 
+
 ###############################################################################
 class RuntimeControllerError(RuntimeError):
-
     # -------------------------------------------------------------------------
     def __init__(self, code: str, message: str, *, details: dict[str, Any] | None = None) -> None:
         self.code = code
         self.details = details or {}
         super().__init__(message)
+
 
 ###############################################################################
 @dataclass
@@ -108,6 +110,7 @@ class _JobRecord:
     restart_reason: str = "new_job"
     monitor: threading.Thread | None = None
 
+
 ###############################################################################
 class RuntimeController:
     """Owns short-lived ML workers, leases, lifecycle state, and diagnostics."""
@@ -139,7 +142,9 @@ class RuntimeController:
             return self._api_statuses.get((backend, api))
 
     # -------------------------------------------------------------------------
-    def probe_statuses(self, *, force_refresh: bool = False) -> dict[ExecutionBackend, dict[str, object]]:
+    def probe_statuses(
+        self, *, force_refresh: bool = False
+    ) -> dict[ExecutionBackend, dict[str, object]]:
         discovery_started = time.perf_counter()
         fingerprint, fingerprint_inputs = self._environment_fingerprint()
         if not force_refresh:
@@ -148,8 +153,7 @@ class RuntimeController:
                 self._apply_backend_statuses(cached)
                 LOGGER.info("runtime_discovery source=snapshot duration_ms=0")
                 return {
-                    backend: status.model_dump(mode="json")
-                    for backend, status in cached.items()
+                    backend: status.model_dump(mode="json") for backend, status in cached.items()
                 }
 
         status_objects: dict[ExecutionBackend, ExecutionBackendStatus] = {}
@@ -172,9 +176,7 @@ class RuntimeController:
                     result = self._run_probe(backend, api)
                     capabilities = self._parse_probe_output(result)
                     expected_backend = (
-                        keras_backend_value(backend)
-                        if api is RuntimeApi.KERAS
-                        else backend.value
+                        keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
                     )
                     available = bool(
                         result.returncode == 0
@@ -202,7 +204,10 @@ class RuntimeController:
             available, reason, capabilities = api_results[selected_api]
             native_capabilities = api_results[RuntimeApi.NATIVE][2].get("native_compilers", {})
             native_compilers = (
-                {str(key): bool(value) for key, value in cast(dict[object, object], native_capabilities).items()}
+                {
+                    str(key): bool(value)
+                    for key, value in cast(dict[object, object], native_capabilities).items()
+                }
                 if isinstance(native_capabilities, dict)
                 else {}
             )
@@ -237,7 +242,9 @@ class RuntimeController:
                 installed=installed,
                 version=version,
                 available=any(result[0] for result in api_results.values()),
-                reason_code=reason if not any(result[0] for result in api_results.values()) else None,
+                reason_code=reason
+                if not any(result[0] for result in api_results.values())
+                else None,
                 accelerator=(str(capabilities.get("accelerator")) if available else None),
                 device_name=(str(capabilities.get("device_name")) if available else None),
                 devices=devices,
@@ -253,8 +260,7 @@ class RuntimeController:
             round((time.perf_counter() - discovery_started) * 1000, 1),
         )
         return {
-            backend: status.model_dump(mode="json")
-            for backend, status in status_objects.items()
+            backend: status.model_dump(mode="json") for backend, status in status_objects.items()
         }
 
     # -------------------------------------------------------------------------
@@ -340,11 +346,7 @@ class RuntimeController:
             "failures",
             "restart_required",
         )
-        return {
-            key: payload[key]
-            for key in stable_keys
-            if key in payload
-        }
+        return {key: payload[key] for key in stable_keys if key in payload}
 
     # -------------------------------------------------------------------------
     @staticmethod
@@ -377,9 +379,7 @@ class RuntimeController:
         fingerprint: str,
     ) -> dict[ExecutionBackend, ExecutionBackendStatus] | None:
         try:
-            payload = json.loads(
-                self._settings.runtime_discovery_path.read_text(encoding="utf-8")
-            )
+            payload = json.loads(self._settings.runtime_discovery_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return None
         if not isinstance(payload, dict):
@@ -440,7 +440,9 @@ class RuntimeController:
     ) -> JobResponse:
         with self._lock:
             if self._shutting_down:
-                raise RuntimeControllerError("controller_shutting_down", "The ML runtime is shutting down")
+                raise RuntimeControllerError(
+                    "controller_shutting_down", "The ML runtime is shutting down"
+                )
             if isinstance(request.operation, SmokeInferenceOperation):
                 operation = JobOperation.SMOKE_INFERENCE
                 if graph is None:
@@ -449,7 +451,8 @@ class RuntimeController:
                 operation = JobOperation.MODEL_EXPORT
                 if graph is None:
                     raise RuntimeControllerError(
-                        "missing_graph_snapshot", "Model export submission requires a graph snapshot"
+                        "missing_graph_snapshot",
+                        "Model export submission requires a graph snapshot",
                     )
             device = self._validate_worker(request.worker)
             self._validate_native_compiler(request.worker, graph)
@@ -569,7 +572,8 @@ class RuntimeController:
                 records = [
                     record
                     for record in records
-                    if record.state not in {JobState.SUCCEEDED, JobState.TERMINATED, JobState.FAILED}
+                    if record.state
+                    not in {JobState.SUCCEEDED, JobState.TERMINATED, JobState.FAILED}
                 ]
             records.sort(key=lambda item: item.created_at, reverse=True)
             return [self._response(record) for record in records]
@@ -581,12 +585,21 @@ class RuntimeController:
             if record is None:
                 raise RuntimeControllerError("job_not_found", f"ML job '{job_id}' was not found")
             if record.operation is not JobOperation.MODEL_EXPORT:
-                raise RuntimeControllerError("artifact_not_available", "This job does not produce an artifact")
+                raise RuntimeControllerError(
+                    "artifact_not_available", "This job does not produce an artifact"
+                )
             if record.state is not JobState.SUCCEEDED or record.artifact_destination is None:
-                raise RuntimeControllerError("artifact_not_ready", "The export artifact is not ready")
+                raise RuntimeControllerError(
+                    "artifact_not_ready", "The export artifact is not ready"
+                )
             if not record.artifact_destination.is_file():
-                raise RuntimeControllerError("artifact_not_found", "The export artifact is no longer available")
-            return record.artifact_destination, record.artifact_filename or record.artifact_destination.name
+                raise RuntimeControllerError(
+                    "artifact_not_found", "The export artifact is no longer available"
+                )
+            return (
+                record.artifact_destination,
+                record.artifact_filename or record.artifact_destination.name,
+            )
 
     # -------------------------------------------------------------------------
     def shutdown(self) -> None:
@@ -602,16 +615,29 @@ class RuntimeController:
                 self.stop(job_id)
             except RuntimeControllerError:
                 continue
-        deadline = time.monotonic() + self._settings.ml_cancel_grace_seconds + self._settings.ml_terminate_grace_seconds + 2
+        deadline = (
+            time.monotonic()
+            + self._settings.ml_cancel_grace_seconds
+            + self._settings.ml_terminate_grace_seconds
+            + 2
+        )
         while time.monotonic() < deadline:
             with self._lock:
-                monitors = [record.monitor for record in self._jobs.values() if record.monitor and record.monitor.is_alive()]
+                monitors = [
+                    record.monitor
+                    for record in self._jobs.values()
+                    if record.monitor and record.monitor.is_alive()
+                ]
             if not monitors:
                 break
             for monitor in monitors:
                 monitor.join(timeout=0.1)
         with self._lock:
-            remaining = [record for record in self._jobs.values() if record.process and record.process.poll() is None]
+            remaining = [
+                record
+                for record in self._jobs.values()
+                if record.process and record.process.poll() is None
+            ]
         for record in remaining:
             if record.pid is not None:
                 terminate_process_tree(record.pid, force=True)
@@ -630,13 +656,20 @@ class RuntimeController:
             raise RuntimeControllerError(
                 "api_unavailable",
                 f"Runtime API '{worker.api.value}' is not operational for {worker.backend.value}",
-                details={"backend": worker.backend.value, "api": worker.api.value, "reason_code": reason_code},
+                details={
+                    "backend": worker.backend.value,
+                    "api": worker.api.value,
+                    "reason_code": reason_code,
+                },
             )
         if status is None or not status.available:
             raise RuntimeControllerError(
                 "backend_unavailable",
                 f"Execution backend '{worker.backend.value}' is not operational",
-                details={"backend": worker.backend.value, "reason_code": status.reason_code if status else "unknown_backend"},
+                details={
+                    "backend": worker.backend.value,
+                    "reason_code": status.reason_code if status else "unknown_backend",
+                },
             )
         device = next((item for item in status.devices if item.device_id == worker.device_id), None)
         if device is None or not device.available:
@@ -721,13 +754,17 @@ class RuntimeController:
                 if record.cancellation_requested:
                     record.state = JobState.STOP_REQUESTED
                     elapsed = time.monotonic() - (record.stop_started_at or time.monotonic())
-                    if elapsed >= self._settings.ml_cancel_grace_seconds and record.terminate_sent_at is None:
+                    if (
+                        elapsed >= self._settings.ml_cancel_grace_seconds
+                        and record.terminate_sent_at is None
+                    ):
                         record.state = JobState.STOPPING
                         record.terminate_sent_at = time.monotonic()
                         terminate_process_tree(record.pid or -1, force=False)
                     elif (
                         record.terminate_sent_at is not None
-                        and time.monotonic() - record.terminate_sent_at >= self._settings.ml_terminate_grace_seconds
+                        and time.monotonic() - record.terminate_sent_at
+                        >= self._settings.ml_terminate_grace_seconds
                     ):
                         record.state = JobState.STOPPING
                         record.forced_termination = True
@@ -752,7 +789,11 @@ class RuntimeController:
             record.exit_code = process.returncode
             record.finished_at = utc_now()
             record.updated_at = utc_now()
-            if record.exit_code == 0 and status.get("state") == "succeeded" and not record.forced_termination:
+            if (
+                record.exit_code == 0
+                and status.get("state") == "succeeded"
+                and not record.forced_termination
+            ):
                 if record.operation is JobOperation.MODEL_EXPORT:
                     record.progress_phase = "publishing"
                     record.progress_message = "Publishing verified artifact"
@@ -768,10 +809,16 @@ class RuntimeController:
                     record.progress_phase = "completed"
                     record.progress_message = "Worker completed successfully"
                     record.progress_percent = 100
-            elif record.cancellation_requested or record.exit_code == 20 or status.get("state") == "terminated":
+            elif (
+                record.cancellation_requested
+                or record.exit_code == 20
+                or status.get("state") == "terminated"
+            ):
                 record.state = JobState.TERMINATED
                 if record.error is None:
-                    record.error = JobError(code="cancelled", message="The ML worker was terminated")
+                    record.error = JobError(
+                        code="cancelled", message="The ML worker was terminated"
+                    )
             else:
                 record.state = JobState.FAILED
                 if record.error is None:
@@ -781,7 +828,8 @@ class RuntimeController:
                     else:
                         record.error = JobError(
                             code="worker_failed",
-                            message=self._tail_log(record.job_dir / "worker.log") or "ML worker failed",
+                            message=self._tail_log(record.job_dir / "worker.log")
+                            or "ML worker failed",
                         )
             self._bound_log(record.job_dir / "worker.log")
             record.stderr_tail = self._tail_log(record.job_dir / "worker.log")
@@ -803,7 +851,9 @@ class RuntimeController:
         record.progress_phase = str(status.get("phase", record.progress_phase))
         record.progress_message = str(status.get("message", record.progress_message))
         percent = status.get("percent")
-        record.progress_percent = int(percent) if isinstance(percent, int) else record.progress_percent
+        record.progress_percent = (
+            int(percent) if isinstance(percent, int) else record.progress_percent
+        )
         for key in (
             "process_rss_bytes",
             "framework_allocated_bytes",
@@ -832,7 +882,9 @@ class RuntimeController:
     # -------------------------------------------------------------------------
     def _publish_artifact(self, record: _JobRecord) -> bool:
         if record.artifact_destination is None:
-            record.error = JobError(code="artifact_destination_missing", message="No export destination was assigned")
+            record.error = JobError(
+                code="artifact_destination_missing", message="No export destination was assigned"
+            )
             return False
         if record.revision_checker is not None:
             try:
@@ -847,24 +899,36 @@ class RuntimeController:
                 return False
         result_path = (record.result or {}).get("artifact_path")
         if not isinstance(result_path, str) or not result_path:
-            record.error = JobError(code="artifact_missing", message="Worker completed without an artifact path")
+            record.error = JobError(
+                code="artifact_missing", message="Worker completed without an artifact path"
+            )
             return False
         candidate = Path(result_path)
         if candidate.is_absolute() or ".." in candidate.parts:
-            record.error = JobError(code="artifact_path_invalid", message="Worker returned an unsafe artifact path")
+            record.error = JobError(
+                code="artifact_path_invalid", message="Worker returned an unsafe artifact path"
+            )
             return False
         source = (record.job_dir / candidate).resolve()
         try:
             source.relative_to(record.job_dir.resolve())
         except ValueError:
-            record.error = JobError(code="artifact_path_invalid", message="Worker returned an artifact outside its workspace")
+            record.error = JobError(
+                code="artifact_path_invalid",
+                message="Worker returned an artifact outside its workspace",
+            )
             return False
         if not source.is_file():
-            record.error = JobError(code="artifact_missing", message="Worker completed without an artifact")
+            record.error = JobError(
+                code="artifact_missing", message="Worker completed without an artifact"
+            )
             return False
         manifest_payload = (record.result or {}).get("artifact_manifest")
         if not isinstance(manifest_payload, dict):
-            record.error = JobError(code="artifact_manifest_missing", message="Worker completed without an artifact manifest")
+            record.error = JobError(
+                code="artifact_manifest_missing",
+                message="Worker completed without an artifact manifest",
+            )
             return False
         try:
             manifest = ExportArtifactManifest.model_validate(manifest_payload)
@@ -872,10 +936,19 @@ class RuntimeController:
             record.error = JobError(code="artifact_manifest_invalid", message=str(exc))
             return False
         if record.export_format is not None and manifest.format is not record.export_format:
-            record.error = JobError(code="artifact_manifest_mismatch", message="Artifact manifest format does not match the requested export")
+            record.error = JobError(
+                code="artifact_manifest_mismatch",
+                message="Artifact manifest format does not match the requested export",
+            )
             return False
-        if record.project_revision is not None and manifest.project_revision != record.project_revision:
-            record.error = JobError(code="artifact_manifest_mismatch", message="Artifact manifest revision does not match the requested export")
+        if (
+            record.project_revision is not None
+            and manifest.project_revision != record.project_revision
+        ):
+            record.error = JobError(
+                code="artifact_manifest_mismatch",
+                message="Artifact manifest revision does not match the requested export",
+            )
             return False
         try:
             self._validate_staged_artifact(source, manifest)
@@ -895,7 +968,9 @@ class RuntimeController:
             record.error = JobError(code="artifact_publish_failed", message=str(exc))
             return False
         record.result = record.result or {}
-        record.result["artifact_name"] = record.artifact_filename or record.artifact_destination.name
+        record.result["artifact_name"] = (
+            record.artifact_filename or record.artifact_destination.name
+        )
         record.artifact = manifest
         return True
 
@@ -909,7 +984,9 @@ class RuntimeController:
             if len(manifest.files) != 1 or manifest.files[0].path != source.name:
                 raise RuntimeError("File artifact manifest does not describe the staged artifact")
             declared = manifest.files[0]
-            if declared.size_bytes != source.stat().st_size or declared.sha256 != sha256_file(source):
+            if declared.size_bytes != source.stat().st_size or declared.sha256 != sha256_file(
+                source
+            ):
                 raise RuntimeError("Staged artifact hash or size does not match its manifest")
             return
         with zipfile.ZipFile(source) as archive:
@@ -918,11 +995,23 @@ class RuntimeController:
                 raise RuntimeError("Archive artifact is missing manifest.json")
             for declared in manifest.files:
                 path = declared.path.replace("\\", "/")
-                if not path or path.startswith("/") or ".." in Path(path).parts or path not in names:
-                    raise RuntimeError(f"Archive artifact is missing declared file '{declared.path}'")
+                if (
+                    not path
+                    or path.startswith("/")
+                    or ".." in Path(path).parts
+                    or path not in names
+                ):
+                    raise RuntimeError(
+                        f"Archive artifact is missing declared file '{declared.path}'"
+                    )
                 payload = archive.read(path)
-                if len(payload) != declared.size_bytes or hashlib.sha256(payload).hexdigest() != declared.sha256:
-                    raise RuntimeError(f"Archive file '{declared.path}' does not match its manifest")
+                if (
+                    len(payload) != declared.size_bytes
+                    or hashlib.sha256(payload).hexdigest() != declared.sha256
+                ):
+                    raise RuntimeError(
+                        f"Archive file '{declared.path}' does not match its manifest"
+                    )
 
     # -------------------------------------------------------------------------
     def _response(self, record: _JobRecord) -> JobResponse:

@@ -14,6 +14,7 @@ from exporters.native_jax_exporter import NativeJaxSourceExporter
 from exporters.native_tensorflow_exporter import NativeTensorFlowSourceExporter
 from exporters.pytorch_exporter import PyTorchSourceExporter
 
+
 ###############################################################################
 @dataclass
 class NativeModelHandle:
@@ -36,6 +37,7 @@ class NativeModelHandle:
         if self.backend is ExecutionBackend.TENSORFLOW:
             return int(sum(_shape_product(variable.shape) for variable in self.model.variables))
         return int(sum(_array_size(value) for value in _flatten_jax_variables(self.variables)))
+
 
 ###############################################################################
 def build_native_model(
@@ -70,14 +72,18 @@ def build_native_model(
         else model
     )
     inputs = _dummy_inputs(graph, backend, ir.input_node_ids)
-    model_input: Any = inputs[0] if len(inputs) == 1 else {
-        node.id: value
-        for node, value in zip(
-            [node for node in graph.nodes if node.definition_id.startswith("input.")],
-            inputs,
-            strict=True,
-        )
-    }
+    model_input: Any = (
+        inputs[0]
+        if len(inputs) == 1
+        else {
+            node.id: value
+            for node, value in zip(
+                [node for node in graph.nodes if node.definition_id.startswith("input.")],
+                inputs,
+                strict=True,
+            )
+        }
+    )
     variables: Any = None
     apply: Callable[[Any, Any], Any] | None = None
     compilation: dict[str, Any] | None = None
@@ -119,6 +125,7 @@ def build_native_model(
         compilation=compilation,
     )
 
+
 ###############################################################################
 def forward_native(handle: NativeModelHandle) -> list[Any]:
     if handle.backend is ExecutionBackend.PYTORCH:
@@ -127,6 +134,7 @@ def forward_native(handle: NativeModelHandle) -> list[Any]:
         return _as_list(handle.execution_model(handle.model_input))
     apply = handle.apply or handle.model.apply
     return _as_list(apply(handle.variables, handle.model_input))
+
 
 ###############################################################################
 def _dummy_inputs(
@@ -139,7 +147,10 @@ def _dummy_inputs(
     result: list[Any] = []
     for node in nodes:
         shape_value = node.parameters.get("shape", [None, 1])
-        shape = [1 if value is None or not isinstance(value, int) or value <= 0 else value for value in shape_value]
+        shape = [
+            1 if value is None or not isinstance(value, int) or value <= 0 else value
+            for value in shape_value
+        ]
         dtype = str(node.parameters.get("dtype", "float32"))
         if backend is ExecutionBackend.PYTORCH:
             import torch
@@ -155,6 +166,7 @@ def _dummy_inputs(
             result.append(jnp.zeros(shape, dtype=dtype))
     return result
 
+
 ###############################################################################
 def _torch_dtype(torch_module: Any, value: str) -> Any:
     return {
@@ -166,9 +178,11 @@ def _torch_dtype(torch_module: Any, value: str) -> Any:
         "bool": torch_module.bool,
     }.get(value, torch_module.float32)
 
+
 ###############################################################################
 def _tensorflow_dtype(tf_module: Any, value: str) -> Any:
     return getattr(tf_module, value, tf_module.float32)
+
 
 ###############################################################################
 def _zero_pytorch_parameters(model: Any) -> None:
@@ -182,6 +196,7 @@ def _zero_pytorch_parameters(model: Any) -> None:
                 buffer.fill_(1.0)
             elif buffer.dtype.is_floating_point:
                 buffer.zero_()
+
 
 ###############################################################################
 def _zero_jax_variables(variables: Any) -> Any:
@@ -200,11 +215,13 @@ def _zero_jax_variables(variables: Any) -> Any:
         flattened[path] = jnp.ones_like(value) if is_variance else jnp.zeros_like(value)
     return unflatten_dict(flattened)
 
+
 ###############################################################################
 def _flatten_jax_variables(variables: Any) -> list[Any]:
     from jax.tree_util import tree_leaves
 
     return list(tree_leaves(variables))
+
 
 ###############################################################################
 def _shape_product(shape: Any) -> int:
@@ -213,6 +230,7 @@ def _shape_product(shape: Any) -> int:
         result *= int(dimension)
     return result
 
+
 ###############################################################################
 def _array_size(value: Any) -> int:
     size = getattr(value, "size", None)
@@ -220,9 +238,11 @@ def _array_size(value: Any) -> int:
         return int(size)
     return _shape_product(getattr(value, "shape", []))
 
+
 ###############################################################################
 def _as_list(value: Any) -> list[Any]:
     return list(value) if isinstance(value, (tuple, list)) else [value]
+
 
 ###############################################################################
 def _checkpoint(callback: Callable[[], None] | None) -> None:

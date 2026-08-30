@@ -15,10 +15,12 @@ from models.keras_layers import SinusoidalPositionalEncoding
 from models.keras_runtime import layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
 
+
 ###############################################################################
 def _checkpoint(callback: Callable[[], None] | None) -> None:
     if callback is not None:
         callback()
+
 
 ###############################################################################
 def _keras_operation_functions(catalog: NodeCatalog) -> dict[str, Callable[..., Any]]:
@@ -39,6 +41,7 @@ def _keras_operation_functions(catalog: NodeCatalog) -> dict[str, Callable[..., 
         if callable(function):
             functions[symbol] = function
     return functions
+
 
 ###############################################################################
 def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, Any]) -> Any:
@@ -66,9 +69,7 @@ def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, 
                 dropout=dropout,
                 name=attention_name,
             )(attention_input, attention_input)
-            current = layers.Add(name=f"{node_id}{suffix}_attention_residual")(
-                [current, attention]
-            )
+            current = layers.Add(name=f"{node_id}{suffix}_attention_residual")([current, attention])
             feed_forward_input = layers.LayerNormalization(name=ffn_norm_name)(current)
         else:
             attention = layers.MultiHeadAttention(
@@ -94,12 +95,11 @@ def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, 
             dropout,
             name=f"{node_id}{suffix}_ffn_dropout",
         )(feed_forward)
-        current = layers.Add(name=f"{node_id}{suffix}_ffn_residual")(
-            [current, feed_forward]
-        )
+        current = layers.Add(name=f"{node_id}{suffix}_ffn_residual")([current, feed_forward])
         if not pre_norm:
             current = layers.LayerNormalization(name=f"{node_id}{suffix}_output_norm")(current)
     return current
+
 
 ###############################################################################
 def build_model(
@@ -145,7 +145,9 @@ def build_model(
                 params.get("units", 32),
                 activation=params.get("activation", "linear"),
                 use_bias=params.get("use_bias", True),
-                kernel_initializer=layer_option(params, "kernel_initializer", graph, "glorot_uniform"),
+                kernel_initializer=layer_option(
+                    params, "kernel_initializer", graph, "glorot_uniform"
+                ),
                 bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
                 kernel_regularizer=layer_option(params, "kernel_regularizer", graph, "none"),
                 bias_regularizer=layer_option(params, "bias_regularizer", graph, "none"),
@@ -155,9 +157,9 @@ def build_model(
                 name=node.id,
             )(source)
         elif definition == "layer.activation":
-            tensors[node_id] = layers.Activation(
-                params.get("activation", "relu"), name=node.id
-            )(source)
+            tensors[node_id] = layers.Activation(params.get("activation", "relu"), name=node.id)(
+                source
+            )
         elif definition == "layer.flatten":
             tensors[node_id] = layers.Flatten(
                 data_format=params.get("data_format", "channels_last"),
@@ -176,8 +178,12 @@ def build_model(
                 scale=params.get("scale", True),
                 beta_initializer=layer_option(params, "beta_initializer", graph, "zeros"),
                 gamma_initializer=layer_option(params, "gamma_initializer", graph, "ones"),
-                moving_mean_initializer=layer_option(params, "moving_mean_initializer", graph, "zeros"),
-                moving_variance_initializer=layer_option(params, "moving_variance_initializer", graph, "ones"),
+                moving_mean_initializer=layer_option(
+                    params, "moving_mean_initializer", graph, "zeros"
+                ),
+                moving_variance_initializer=layer_option(
+                    params, "moving_variance_initializer", graph, "ones"
+                ),
                 beta_regularizer=layer_option(params, "beta_regularizer", graph, "none"),
                 gamma_regularizer=layer_option(params, "gamma_regularizer", graph, "none"),
                 beta_constraint=layer_option(params, "beta_constraint", graph, "none"),
@@ -203,8 +209,12 @@ def build_model(
             tensors[node_id] = layers.Embedding(
                 params.get("vocabulary_size", 10000),
                 params.get("embedding_dim", 128),
-                embeddings_initializer=layer_option(params, "embeddings_initializer", graph, "uniform"),
-                embeddings_regularizer=layer_option(params, "embeddings_regularizer", graph, "none"),
+                embeddings_initializer=layer_option(
+                    params, "embeddings_initializer", graph, "uniform"
+                ),
+                embeddings_regularizer=layer_option(
+                    params, "embeddings_regularizer", graph, "none"
+                ),
                 activity_regularizer=layer_option(params, "activity_regularizer", graph, "none"),
                 embeddings_constraint=layer_option(params, "embeddings_constraint", graph, "none"),
                 mask_zero=params.get("mask_zero", False),
@@ -222,7 +232,9 @@ def build_model(
                 groups=params.get("groups", 1),
                 activation=params.get("activation", "linear"),
                 use_bias=params.get("use_bias", True),
-                kernel_initializer=layer_option(params, "kernel_initializer", graph, "glorot_uniform"),
+                kernel_initializer=layer_option(
+                    params, "kernel_initializer", graph, "glorot_uniform"
+                ),
                 bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
                 kernel_regularizer=layer_option(params, "kernel_regularizer", graph, "none"),
                 bias_regularizer=layer_option(params, "bias_regularizer", graph, "none"),
@@ -242,7 +254,9 @@ def build_model(
                 groups=params.get("groups", 1),
                 activation=params.get("activation", "linear"),
                 use_bias=params.get("use_bias", True),
-                kernel_initializer=layer_option(params, "kernel_initializer", graph, "glorot_uniform"),
+                kernel_initializer=layer_option(
+                    params, "kernel_initializer", graph, "glorot_uniform"
+                ),
                 bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
                 kernel_regularizer=layer_option(params, "kernel_regularizer", graph, "none"),
                 bias_regularizer=layer_option(params, "bias_regularizer", graph, "none"),
@@ -265,8 +279,12 @@ def build_model(
                 activation=params.get("activation", "tanh"),
                 recurrent_activation=params.get("recurrent_activation", "sigmoid"),
                 use_bias=params.get("use_bias", True),
-                kernel_initializer=layer_option(params, "kernel_initializer", graph, "glorot_uniform"),
-                recurrent_initializer=layer_option(params, "recurrent_initializer", graph, "orthogonal"),
+                kernel_initializer=layer_option(
+                    params, "kernel_initializer", graph, "glorot_uniform"
+                ),
+                recurrent_initializer=layer_option(
+                    params, "recurrent_initializer", graph, "orthogonal"
+                ),
                 bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
                 unit_forget_bias=params.get("unit_forget_bias", True),
                 dropout=params.get("dropout", 0.0),
@@ -285,8 +303,12 @@ def build_model(
                 activation=params.get("activation", "tanh"),
                 recurrent_activation=params.get("recurrent_activation", "sigmoid"),
                 use_bias=params.get("use_bias", True),
-                kernel_initializer=layer_option(params, "kernel_initializer", graph, "glorot_uniform"),
-                recurrent_initializer=layer_option(params, "recurrent_initializer", graph, "orthogonal"),
+                kernel_initializer=layer_option(
+                    params, "kernel_initializer", graph, "glorot_uniform"
+                ),
+                recurrent_initializer=layer_option(
+                    params, "recurrent_initializer", graph, "orthogonal"
+                ),
                 bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
                 reset_after=params.get("reset_after", True),
                 dropout=params.get("dropout", 0.0),
@@ -310,16 +332,16 @@ def build_model(
                 use_bias=params.get("use_bias", True),
                 output_shape=params.get("output_shape"),
                 attention_axes=params.get("attention_axes"),
-                kernel_initializer=layer_option(params, "kernel_initializer", graph, "glorot_uniform"),
+                kernel_initializer=layer_option(
+                    params, "kernel_initializer", graph, "glorot_uniform"
+                ),
                 bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
                 name=node.id,
             )(query, value)
         elif definition in {"merge.add", "merge.residual", "merge.skip"}:
             tensors[node_id] = layers.Add(name=node.id)(inputs)
         elif definition == "merge.concatenate":
-            tensors[node_id] = layers.Concatenate(
-                axis=params.get("axis", -1), name=node.id
-            )(inputs)
+            tensors[node_id] = layers.Concatenate(axis=params.get("axis", -1), name=node.id)(inputs)
         elif definition == "transformer.positional_encoding":
             tensors[node_id] = SinusoidalPositionalEncoding(name=node.id)(source)
         elif definition == "transformer.encoder_block":

@@ -13,9 +13,9 @@ from domain.metadata import (
 )
 from domain.runtime import RuntimeApi, RuntimeApiStatus
 
+
 ###############################################################################
 class RuntimeService:
-
     # -------------------------------------------------------------------------
     def __init__(
         self,
@@ -25,7 +25,9 @@ class RuntimeService:
     ) -> None:
         self._settings = settings
         self._backend_statuses = backend_statuses
-        self._compilation_catalog_provider = compilation_catalog_provider or get_compilation_catalog_provider()
+        self._compilation_catalog_provider = (
+            compilation_catalog_provider or get_compilation_catalog_provider()
+        )
 
     # -------------------------------------------------------------------------
     def health(self) -> HealthResponse:
@@ -49,7 +51,9 @@ class RuntimeService:
                         api_status.reason_code
                         for status in self._backend_statuses.values()
                         for api_status in status.runtime_apis
-                        if api_status.id is api and not api_status.available and api_status.reason_code
+                        if api_status.id is api
+                        and not api_status.available
+                        and api_status.reason_code
                     ),
                     None,
                 ),

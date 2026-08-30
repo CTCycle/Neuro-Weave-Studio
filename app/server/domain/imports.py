@@ -9,6 +9,7 @@ from domain.graph import ProjectDocument
 class KerasArchitectureImportRequest(RootModel[bytes]):
     """Raw .keras ZIP bytes accepted by the architecture import endpoint."""
 
+
 ###############################################################################
 class KerasArchitectureImportResponse(BaseModel):
     project: ProjectDocument

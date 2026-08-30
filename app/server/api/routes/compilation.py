@@ -8,12 +8,11 @@ from services.compilation_service import CompilationService
 
 router = APIRouter(prefix="/api/compilation", tags=["compilation"])
 
+
 ###############################################################################
 @router.post("", response_model=CompilationResult)
 def compile_graph(
     payload: CompilationRequest,
     service: CompilationService = Depends(get_compilation_service),
 ) -> CompilationResult:
-    return service.compile(
-        payload.graph, payload.execution_backend, payload.keras_enabled
-    )
+    return service.compile(payload.graph, payload.execution_backend, payload.keras_enabled)

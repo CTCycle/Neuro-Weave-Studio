@@ -22,14 +22,18 @@ from models.worker_backend import run_keras_smoke, run_native_smoke
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
 
+
 ###############################################################################
-def _node(node_id: str, definition_id: str, parameters: dict[str, Any] | None = None) -> NodeInstance:
+def _node(
+    node_id: str, definition_id: str, parameters: dict[str, Any] | None = None
+) -> NodeInstance:
     return NodeInstance(
         id=node_id,
         definition_id=definition_id,
         position=Position(x=0, y=0),
         parameters=parameters or {},
     )
+
 
 ###############################################################################
 def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
@@ -41,10 +45,23 @@ def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
         target_port_id="input",
     )
 
+
 ###############################################################################
 def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
-    def graph(nodes: list[NodeInstance], links: list[str], expected: tuple[int, ...], output: str) -> tuple[ModelGraph, tuple[int, ...], str]:
-        return ModelGraph(nodes=nodes, edges=[_edge(f"edge-{index}", source, target) for index, (source, target) in enumerate(pairwise(links), start=1)]), expected, output
+    def graph(
+        nodes: list[NodeInstance], links: list[str], expected: tuple[int, ...], output: str
+    ) -> tuple[ModelGraph, tuple[int, ...], str]:
+        return (
+            ModelGraph(
+                nodes=nodes,
+                edges=[
+                    _edge(f"edge-{index}", source, target)
+                    for index, (source, target) in enumerate(pairwise(links), start=1)
+                ],
+            ),
+            expected,
+            output,
+        )
 
     return {
         "dense_regression": graph(
@@ -104,9 +121,22 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
         "cnn": graph(
             [
                 _node("input", "input.image", {"shape": [None, 16, 16, 1], "dtype": "float32"}),
-                _node("conv", "conv.conv2d", {"filters": 4, "kernel_size": [3, 3], "padding": "same", "activation": "linear"}),
+                _node(
+                    "conv",
+                    "conv.conv2d",
+                    {
+                        "filters": 4,
+                        "kernel_size": [3, 3],
+                        "padding": "same",
+                        "activation": "linear",
+                    },
+                ),
                 _node("activation", "layer.activation", {"activation": "relu"}),
-                _node("pool", "conv.max_pool2d", {"pool_size": [2, 2], "strides": [2, 2], "padding": "valid"}),
+                _node(
+                    "pool",
+                    "conv.max_pool2d",
+                    {"pool_size": [2, 2], "strides": [2, 2], "padding": "valid"},
+                ),
                 _node("flatten", "layer.flatten"),
                 _node("head", "layer.dense", {"units": 3, "activation": "softmax"}),
                 _node("output", "output.classification"),
@@ -116,6 +146,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
             "multiclass",
         ),
     }
+
 
 ###############################################################################
 def _configured_graph(graph: ModelGraph, api: str, task: str) -> ModelGraph:
@@ -127,7 +158,14 @@ def _configured_graph(graph: ModelGraph, api: str, task: str) -> ModelGraph:
         metrics = ["binary_accuracy", "precision", "recall", "auc"]
     else:
         loss = "categorical_crossentropy"
-        metrics = ["accuracy", "categorical_accuracy", "sparse_categorical_accuracy", "precision", "recall", "auc"]
+        metrics = [
+            "accuracy",
+            "categorical_accuracy",
+            "sparse_categorical_accuracy",
+            "precision",
+            "recall",
+            "auc",
+        ]
     if api == "native":
         configuration = ModelConfiguration(
             native=NativeCompilationConfiguration(
@@ -148,6 +186,7 @@ def _configured_graph(graph: ModelGraph, api: str, task: str) -> ModelGraph:
         )
     return graph.model_copy(update={"model_configuration": configuration})
 
+
 ###############################################################################
 @pytest.mark.parametrize("workflow", list(_workflow_graphs()))
 def test_native_pytorch_workflows_verify_forward_and_compilation_helpers(workflow: str) -> None:
@@ -166,6 +205,7 @@ def test_native_pytorch_workflows_verify_forward_and_compilation_helpers(workflo
     assert result["compilation"]["verified"] is True
     assert result["compilation"]["optimizer"] == {"id": "adamw", "instantiated": True}
     assert [tuple(item["shape"]) for item in result["outputs"]] == [expected_shape]
+
 
 ###############################################################################
 @pytest.mark.parametrize("workflow", list(_workflow_graphs()))
@@ -192,15 +232,23 @@ def test_keras_pytorch_backend_workflows_compile_and_forward(workflow: str) -> N
     assert result["compilation"]["verified"] is True
     assert [tuple(item["shape"]) for item in result["outputs"]] == [expected_shape]
 
+
 ###############################################################################
 def test_catalog_contains_complete_keras_and_native_pytorch_mappings() -> None:
     catalog = get_compilation_catalog()
-    assert all(option.implementations["keras"].supported for option in catalog.optimizers + catalog.losses + catalog.metrics)
-    assert all(option.implementations["pytorch"].supported for option in catalog.optimizers + catalog.losses + catalog.metrics)
+    assert all(
+        option.implementations["keras"].supported
+        for option in catalog.optimizers + catalog.losses + catalog.metrics
+    )
+    assert all(
+        option.implementations["pytorch"].supported
+        for option in catalog.optimizers + catalog.losses + catalog.metrics
+    )
     assert all(option.formula for option in catalog.losses + catalog.metrics)
     assert {option.id for option in catalog.losses} == {
         option.id for option in get_compilation_catalog().losses
     }
+
 
 ###############################################################################
 def test_native_configuration_rejects_incompatible_loss_metric_and_activation() -> None:
@@ -232,7 +280,11 @@ def test_native_configuration_rejects_incompatible_loss_metric_and_activation() 
             ]
         }
     )
-    assert any(item.code == "invalid_output_activation" for item in validate_model_configuration(graph, ExecutionBackend.PYTORCH, False))
+    assert any(
+        item.code == "invalid_output_activation"
+        for item in validate_model_configuration(graph, ExecutionBackend.PYTORCH, False)
+    )
+
 
 ###############################################################################
 def test_native_configured_graph_passes_full_static_validation() -> None:
@@ -241,6 +293,7 @@ def test_native_configured_graph_passes_full_static_validation() -> None:
     result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, False)
     assert result.valid
     assert result.shape_summaries
+
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -252,7 +305,9 @@ def test_native_configured_graph_passes_full_static_validation() -> None:
         ("rmsprop", {"learning_rate": 0.001, "rho": 0.9, "momentum": 0.0, "centered": False}),
     ],
 )
-def test_native_optimizer_helpers_cover_catalog_variants(optimizer: str, parameters: dict[str, Any]) -> None:
+def test_native_optimizer_helpers_cover_catalog_variants(
+    optimizer: str, parameters: dict[str, Any]
+) -> None:
     graph, _, _ = _workflow_graphs()["dense_regression"]
     graph = graph.model_copy(
         update={
@@ -277,6 +332,7 @@ def test_native_optimizer_helpers_cover_catalog_variants(optimizer: str, paramet
     )
     assert result["compilation"]["optimizer"] == {"id": optimizer, "instantiated": True}
     assert result["compilation"]["losses"]["output"]["id"] == "mean_squared_error"
+
 
 ###############################################################################
 @pytest.mark.parametrize(

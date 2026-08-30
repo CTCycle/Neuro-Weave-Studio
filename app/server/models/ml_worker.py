@@ -18,6 +18,7 @@ from models.worker_backend import (
 )
 from models.worker_core import WorkerCancelled, WorkerContext, read_request, run_job
 
+
 ###############################################################################
 def _probe(backend: ExecutionBackend, api: RuntimeApi) -> None:
     config = WorkerConfiguration(backend=backend, api=api, device_id="auto")
@@ -41,14 +42,18 @@ def _probe(backend: ExecutionBackend, api: RuntimeApi) -> None:
     finally:
         worker.cleanup()
 
+
 ###############################################################################
 def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--probe", action="store_true")
     parser.add_argument("--backend", choices=[item.value for item in ExecutionBackend])
-    parser.add_argument("--api", choices=[item.value for item in RuntimeApi], default=RuntimeApi.KERAS.value)
+    parser.add_argument(
+        "--api", choices=[item.value for item in RuntimeApi], default=RuntimeApi.KERAS.value
+    )
     parser.add_argument("--job-dir", type=Path)
     return parser.parse_args()
+
 
 ###############################################################################
 def _run_job_process(job_dir: Path) -> None:
@@ -96,6 +101,7 @@ def _run_job_process(job_dir: Path) -> None:
         if worker is not None:
             worker.cleanup()
 
+
 ###############################################################################
 def main() -> None:
     arguments = _parse_arguments()
@@ -105,13 +111,16 @@ def main() -> None:
         try:
             _probe(ExecutionBackend(arguments.backend), RuntimeApi(arguments.api))
         except Exception as exc:
-            reason = "dependency_missing" if isinstance(exc, ModuleNotFoundError) else "probe_failed"
+            reason = (
+                "dependency_missing" if isinstance(exc, ModuleNotFoundError) else "probe_failed"
+            )
             print(json.dumps({"available": False, "reason_code": reason, "message": str(exc)}))
             raise
         return
     if arguments.job_dir is None:
         raise RuntimeError("--job-dir is required")
     _run_job_process(arguments.job_dir)
+
 
 ###############################################################################
 if __name__ == "__main__":

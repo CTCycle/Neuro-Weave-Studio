@@ -32,6 +32,7 @@ from services.runtime_controller import RuntimeController
 
 LOGGER = logging.getLogger(__name__)
 
+
 ###############################################################################
 def _log_startup_stage(stage: str, started: float) -> None:
     LOGGER.info(
@@ -39,6 +40,7 @@ def _log_startup_stage(stage: str, started: float) -> None:
         stage,
         round((time.perf_counter() - started) * 1000, 1),
     )
+
 
 ###############################################################################
 @asynccontextmanager
@@ -74,9 +76,11 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
         runtime_controller.shutdown()
         repository_context.dispose()
 
+
 ###############################################################################
 def _client_build_available() -> bool:
     return (common_path.FRONTEND_DIST_ROOT / "index.html").is_file()
+
 
 ###############################################################################
 def _resolve_client_file(full_path: str) -> Path | None:
@@ -86,9 +90,11 @@ def _resolve_client_file(full_path: str) -> Path | None:
         return None
     return requested_path if requested_path.is_file() else None
 
+
 ###############################################################################
 def _serve_client_root() -> FileResponse:
     return FileResponse(common_path.FRONTEND_DIST_ROOT / "index.html")
+
 
 ###############################################################################
 def _serve_client_path(full_path: str) -> FileResponse:
@@ -97,9 +103,11 @@ def _serve_client_path(full_path: str) -> FileResponse:
         return FileResponse(client_file)
     return _serve_client_root()
 
+
 ###############################################################################
 def _redirect_root_to_docs() -> RedirectResponse:
     return RedirectResponse("/docs")
+
 
 ###############################################################################
 def create_app() -> FastAPI:

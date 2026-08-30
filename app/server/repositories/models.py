@@ -27,18 +27,15 @@ from repositories.types import UTCDateTime
 _EXECUTION_BACKEND_SQL_VALUES = ", ".join(repr(item.value) for item in ExecutionBackend)
 _VALIDATION_STATUS_SQL_VALUES = ", ".join(repr(item.value) for item in ValidationStatus)
 
+
 ###############################################################################
 class ProjectRecord(Base):
     __tablename__ = "projects"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    graph_schema_version: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=3
-    )
+    graph_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     execution_backend: Mapped[str] = mapped_column(
         String(32), nullable=False, default=ExecutionBackend.PYTORCH.value
     )
@@ -51,12 +48,8 @@ class ProjectRecord(Base):
     validation_status: Mapped[str] = mapped_column(
         String(16), nullable=False, default=ValidationStatus.UNKNOWN.value
     )
-    created_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), nullable=False, default=utc_now
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), nullable=False, default=utc_now
-    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
 
     graph_settings: Mapped[ProjectGraphSettingsRecord] = relationship(
         back_populates="project",
@@ -98,6 +91,7 @@ class ProjectRecord(Base):
         Index("ix_projects_updated_at", "updated_at"),
     )
 
+
 ###############################################################################
 class ProjectGraphSettingsRecord(Base):
     __tablename__ = "project_graph_settings"
@@ -130,6 +124,7 @@ class ProjectGraphSettingsRecord(Base):
 
     project: Mapped[ProjectRecord] = relationship(back_populates="graph_settings")
 
+
 ###############################################################################
 class ProjectNodeRecord(Base):
     __tablename__ = "project_nodes"
@@ -144,9 +139,7 @@ class ProjectNodeRecord(Base):
     label: Mapped[str | None] = mapped_column(String(240), nullable=True)
     position_x: Mapped[float] = mapped_column(Float, nullable=False)
     position_y: Mapped[float] = mapped_column(Float, nullable=False)
-    parameters_json: Mapped[dict[str, object]] = mapped_column(
-        JSON, nullable=False, default=dict
-    )
+    parameters_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
 
     project: Mapped[ProjectRecord] = relationship(back_populates="nodes")
 
@@ -155,9 +148,7 @@ class ProjectNodeRecord(Base):
         UniqueConstraint("project_id", "ordinal", name="uq_project_nodes_ordinal"),
         CheckConstraint("length(trim(node_id)) > 0", name="ck_project_nodes_id_nonempty"),
         CheckConstraint("ordinal >= 0", name="ck_project_nodes_ordinal"),
-        CheckConstraint(
-            "definition_version >= 1", name="ck_project_nodes_definition_version"
-        ),
+        CheckConstraint("definition_version >= 1", name="ck_project_nodes_definition_version"),
         CheckConstraint(
             "position_x = position_x AND position_x BETWEEN -1e308 AND 1e308",
             name="ck_project_nodes_position_x_finite",
@@ -168,6 +159,7 @@ class ProjectNodeRecord(Base):
         ),
         Index("ix_project_nodes_definition", "definition_id", "definition_version"),
     )
+
 
 ###############################################################################
 class ProjectEdgeRecord(Base):
@@ -201,13 +193,12 @@ class ProjectEdgeRecord(Base):
             name="fk_project_edges_target_node",
             ondelete="CASCADE",
         ),
-        CheckConstraint(
-            "source_node_id <> target_node_id", name="ck_project_edges_no_self_edge"
-        ),
+        CheckConstraint("source_node_id <> target_node_id", name="ck_project_edges_no_self_edge"),
         CheckConstraint("ordinal >= 0", name="ck_project_edges_ordinal"),
         Index("ix_project_edges_source", "project_id", "source_node_id"),
         Index("ix_project_edges_target", "project_id", "target_node_id"),
     )
+
 
 ###############################################################################
 class ProjectRevisionRecord(Base):
@@ -224,27 +215,22 @@ class ProjectRevisionRecord(Base):
         Boolean(create_constraint=True, name="ck_project_revisions_keras_enabled"),
         nullable=False,
     )
-    created_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), nullable=False, default=utc_now
-    )
-    graph_snapshot_json: Mapped[dict[str, object]] = mapped_column(
-        JSON, nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
+    graph_snapshot_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
 
     project: Mapped[ProjectRecord] = relationship(back_populates="revisions")
 
     __table_args__ = (
         UniqueConstraint("project_id", "revision", name="uq_project_revisions_revision"),
         CheckConstraint("revision >= 1", name="ck_project_revisions_revision"),
-        CheckConstraint(
-            "graph_schema_version >= 1", name="ck_project_revisions_graph_version"
-        ),
+        CheckConstraint("graph_schema_version >= 1", name="ck_project_revisions_graph_version"),
         CheckConstraint(
             f"execution_backend IN ({_EXECUTION_BACKEND_SQL_VALUES})",
             name="ck_project_revisions_execution_backend",
         ),
         Index("ix_project_revisions_project_created", "project_id", "created_at"),
     )
+
 
 ###############################################################################
 class GeneratedCodeSnapshotRecord(Base):
@@ -258,17 +244,11 @@ class GeneratedCodeSnapshotRecord(Base):
         nullable=False,
     )
     source_code: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), nullable=False, default=utc_now
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        UTCDateTime(), nullable=False, default=utc_now
-    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
 
     __table_args__ = (
-        PrimaryKeyConstraint(
-            "project_id", "revision", name="pk_generated_code_snapshots"
-        ),
+        PrimaryKeyConstraint("project_id", "revision", name="pk_generated_code_snapshots"),
         ForeignKeyConstraint(
             ["project_id", "revision"],
             ["project_revisions.project_id", "project_revisions.revision"],

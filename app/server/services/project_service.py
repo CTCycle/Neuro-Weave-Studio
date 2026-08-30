@@ -28,9 +28,9 @@ from services.errors import (
 )
 from services.validation_service import ValidationService
 
+
 ###############################################################################
 class ProjectService:
-
     # -------------------------------------------------------------------------
     def __init__(
         self,
@@ -219,15 +219,11 @@ class ProjectService:
         )
 
     # -------------------------------------------------------------------------
-    def _resolve_execution_backend(
-        self, requested: ExecutionBackend | None
-    ) -> ExecutionBackend:
+    def _resolve_execution_backend(self, requested: ExecutionBackend | None) -> ExecutionBackend:
         if requested is not None:
             return requested
         available = {
-            backend
-            for backend, status in self._backend_statuses.items()
-            if status.available
+            backend for backend, status in self._backend_statuses.items() if status.available
         }
         if ExecutionBackend.PYTORCH in available:
             return ExecutionBackend.PYTORCH

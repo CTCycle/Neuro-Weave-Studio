@@ -6,6 +6,7 @@ from typing import Any, cast
 import httpx
 import pytest
 
+
 ###############################################################################
 def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
     shape = input_shape or [None, 4]
@@ -59,6 +60,7 @@ def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
         "future_training_configuration": {},
     }
 
+
 ###############################################################################
 def worker_payload(
     client: httpx.Client,
@@ -68,9 +70,7 @@ def worker_payload(
     require_operational: bool = False,
 ) -> dict[str, object]:
     metadata = client.get("/api/metadata").json()
-    status = next(
-        item for item in metadata["execution_backends"] if item["id"] == backend
-    )
+    status = next(item for item in metadata["execution_backends"] if item["id"] == backend)
     if require_operational and not status["available"]:
         pytest.skip(f"Operational {backend} backend is unavailable")
     device = next(
@@ -85,6 +85,7 @@ def worker_payload(
         "memory_policy": {"kind": "default"},
         "precision": "float32",
     }
+
 
 ###############################################################################
 def create_project(
@@ -106,6 +107,7 @@ def create_project(
     assert response.status_code == 201, response.text
     return str(response.json()["id"])
 
+
 ###############################################################################
 def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
     deadline = time.monotonic() + 300
@@ -115,6 +117,7 @@ def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
             return cast(dict[str, Any], job)
         time.sleep(0.05)
     pytest.fail(f"job {job_id} did not reach a terminal state")
+
 
 ###############################################################################
 def test_smoke_job_returns_tensor_metadata_without_training(
@@ -137,13 +140,10 @@ def test_smoke_job_returns_tensor_metadata_without_training(
     job = wait_for_job(client, response.json()["id"])
     assert job["state"] == "succeeded", job
     result = cast(dict[str, Any], job["result"])
-    assert result["inputs"] == [
-        {"node_id": "input", "shape": [1, 4], "dtype": "float32"}
-    ]
-    assert result["outputs"] == [
-        {"node_id": "output", "shape": [1, 1], "dtype": "float32"}
-    ]
+    assert result["inputs"] == [{"node_id": "input", "shape": [1, 4], "dtype": "float32"}]
+    assert result["outputs"] == [{"node_id": "output", "shape": [1, 1], "dtype": "float32"}]
     assert result["parameter_count"] == 5
+
 
 ###############################################################################
 def test_smoke_job_rejects_invalid_shape_before_worker_start(
@@ -167,9 +167,8 @@ def test_smoke_job_rejects_invalid_shape_before_worker_start(
     assert response.status_code == 422
     detail = response.json()["detail"]
     assert detail["code"] == "model_validation_failed"
-    assert any(
-        item["code"] == "invalid_shape_dimension" for item in detail["diagnostics"]
-    )
+    assert any(item["code"] == "invalid_shape_dimension" for item in detail["diagnostics"])
+
 
 ###############################################################################
 def test_job_submission_rejects_runtime_selection_inconsistent_with_model(
@@ -189,10 +188,7 @@ def test_job_submission_rejects_runtime_selection_inconsistent_with_model(
         },
     )
     assert backend_mismatch.status_code == 422
-    assert (
-        backend_mismatch.json()["detail"]["diagnostics"][0]["code"]
-        == "runtime_backend_mismatch"
-    )
+    assert backend_mismatch.json()["detail"]["diagnostics"][0]["code"] == "runtime_backend_mismatch"
 
     native = client.post(
         "/api/execution/jobs",
@@ -207,6 +203,7 @@ def test_job_submission_rejects_runtime_selection_inconsistent_with_model(
     )
     assert native.status_code == 422
     assert native.json()["detail"]["diagnostics"][0]["code"] == "runtime_api_mismatch"
+
 
 ###############################################################################
 def test_job_stop_is_idempotent_and_releases_device_lease(

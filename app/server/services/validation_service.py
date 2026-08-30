@@ -14,6 +14,7 @@ from validation.graph_utils import nodes_reaching, reachable_nodes, topological_
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
 
+
 ###############################################################################
 def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     if value is None:
@@ -38,9 +39,11 @@ def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
         return isinstance(value, list)
     return True
 
+
 ###############################################################################
 def _output_name(node: NodeInstance) -> str:
     return node.label or node.id
+
 
 ###############################################################################
 class ValidationService:
@@ -53,7 +56,9 @@ class ValidationService:
         compilation_catalog_provider: CompilationCatalogProvider | None = None,
     ) -> None:
         self._catalog = catalog
-        self._compilation_catalog_provider = compilation_catalog_provider or get_compilation_catalog_provider()
+        self._compilation_catalog_provider = (
+            compilation_catalog_provider or get_compilation_catalog_provider()
+        )
 
     # -------------------------------------------------------------------------
     def validate(
@@ -175,7 +180,11 @@ class ValidationService:
                         )
                     )
                     continue
-                if capability is not None and not capability.supported and value != parameter.default:
+                if (
+                    capability is not None
+                    and not capability.supported
+                    and value != parameter.default
+                ):
                     diagnostics.append(
                         ValidationDiagnostic(
                             code="unsupported_parameter_value",
@@ -205,7 +214,11 @@ class ValidationService:
                             details={"allowed": capability.allowed_values, "value": value},
                         )
                     )
-                if parameter.type == "enum" and parameter.options and value not in parameter.options:
+                if (
+                    parameter.type == "enum"
+                    and parameter.options
+                    and value not in parameter.options
+                ):
                     diagnostics.append(
                         ValidationDiagnostic(
                             code="invalid_parameter_option",
@@ -382,8 +395,12 @@ class ValidationService:
             target_manifest = manifests.get(target.id)
             if source_manifest is None or target_manifest is None:
                 continue
-            source_port = next((port for port in source_manifest.outputs if port.id == edge.source_port_id), None)
-            target_port = next((port for port in target_manifest.inputs if port.id == edge.target_port_id), None)
+            source_port = next(
+                (port for port in source_manifest.outputs if port.id == edge.source_port_id), None
+            )
+            target_port = next(
+                (port for port in target_manifest.inputs if port.id == edge.target_port_id), None
+            )
             if source_port is None or target_port is None:
                 diagnostics.append(
                     ValidationDiagnostic(
@@ -426,7 +443,10 @@ class ValidationService:
                 )
             incoming_by_port[(target.id, target_port.id)] += 1
             outgoing_by_node[source.id] += 1
-            if not target_port.accepts_multiple and incoming_by_port[(target.id, target_port.id)] > 1:
+            if (
+                not target_port.accepts_multiple
+                and incoming_by_port[(target.id, target_port.id)] > 1
+            ):
                 diagnostics.append(
                     ValidationDiagnostic(
                         code="multiple_connections_not_allowed",
@@ -532,7 +552,8 @@ class ValidationService:
         total_parameters: int | None = 0
         configuration_diagnostic_ids = {id(item) for item in configuration_diagnostics}
         if not any(
-            item.severity == DiagnosticSeverity.ERROR and id(item) not in configuration_diagnostic_ids
+            item.severity == DiagnosticSeverity.ERROR
+            and id(item) not in configuration_diagnostic_ids
             for item in diagnostics
         ):
             try:
@@ -547,10 +568,19 @@ class ValidationService:
                     target = nodes.get(edge.target_node_id)
                     source_manifest = manifests.get(edge.source_node_id)
                     target_manifest = manifests.get(edge.target_node_id)
-                    if source is None or target is None or source_manifest is None or target_manifest is None:
+                    if (
+                        source is None
+                        or target is None
+                        or source_manifest is None
+                        or target_manifest is None
+                    ):
                         continue
                     source_port = next(
-                        (port for port in source_manifest.outputs if port.id == edge.source_port_id),
+                        (
+                            port
+                            for port in source_manifest.outputs
+                            if port.id == edge.source_port_id
+                        ),
                         None,
                     )
                     target_port = next(

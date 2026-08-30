@@ -21,12 +21,14 @@ from services.project_service import ProjectService
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
+
 ###############################################################################
 @router.get("", response_model=ProjectListResponse)
 def list_projects(
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectListResponse:
     return service.list()
+
 
 ###############################################################################
 @router.post("", response_model=ProjectDocument, status_code=status.HTTP_201_CREATED)
@@ -39,6 +41,7 @@ def create_project(
     except GraphPersistenceError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+
 ###############################################################################
 @router.get("/{project_id}", response_model=ProjectDocument)
 def get_project(
@@ -49,6 +52,7 @@ def get_project(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
+
 
 ###############################################################################
 @router.put("/{project_id}", response_model=ProjectDocument)
@@ -67,6 +71,7 @@ def update_project(
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
+
 ###############################################################################
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
@@ -76,6 +81,7 @@ def delete_project(
     if not service.delete(project_id):
         raise HTTPException(status_code=404, detail="Project not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 
 ###############################################################################
 @router.post("/{project_id}/duplicate", response_model=ProjectDocument, status_code=201)
@@ -89,6 +95,7 @@ def duplicate_project(
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
+
 ###############################################################################
 @router.get("/{project_id}/export", response_model=ProjectExportBundle)
 def export_project(
@@ -99,6 +106,7 @@ def export_project(
     if bundle is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return bundle
+
 
 ###############################################################################
 @router.post("/import", response_model=ProjectDocument, status_code=201)

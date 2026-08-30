@@ -4,12 +4,14 @@ from pydantic import BaseModel, Field, model_validator
 
 from domain.enums import DataType
 
+
 ###############################################################################
 class SymbolicDimension(BaseModel):
     name: str = Field(min_length=1, max_length=64)
 
 
 Dimension = int | SymbolicDimension | None
+
 
 ###############################################################################
 class TensorSpec(BaseModel):

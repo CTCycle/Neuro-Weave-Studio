@@ -6,9 +6,9 @@ from common.catalogs.loader import NodeCatalog
 from domain.compilation import CanonicalModelIR
 from domain.graph import ModelGraph
 
+
 ###############################################################################
 class SourceExporter(ABC):
-
     # -------------------------------------------------------------------------
     @abstractmethod
     def generate(

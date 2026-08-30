@@ -6,13 +6,16 @@ from domain.compilation_capabilities import CompilationCapabilities
 from domain.enums import ExecutionBackend
 from domain.runtime import RuntimeApiStatus, RuntimeDevice
 
+
 ###############################################################################
 class HealthResponse(BaseModel):
     status: str
 
+
 ###############################################################################
 class MetadataConfiguration(BaseModel):
     compilation_capabilities: CompilationCapabilities
+
 
 ###############################################################################
 class MetadataResponse(BaseModel):
@@ -22,6 +25,7 @@ class MetadataResponse(BaseModel):
     runtime_apis: list[RuntimeApiStatus] = Field(default_factory=list)
     execution_backends: list[ExecutionBackendStatus]
     configuration: MetadataConfiguration
+
 
 ###############################################################################
 class ExecutionBackendStatus(BaseModel):
