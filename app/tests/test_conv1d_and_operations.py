@@ -26,6 +26,7 @@ from services.validation_service import ValidationService
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import infer_shapes
 
+
 ###############################################################################
 def _node(
     node_id: str,
@@ -40,6 +41,7 @@ def _node(
         parameters=parameters or {},
     )
 
+
 ###############################################################################
 def _edge(edge_id: str, source: str, target: str, target_port: str = "input") -> EdgeInstance:
     return EdgeInstance(
@@ -49,6 +51,7 @@ def _edge(edge_id: str, source: str, target: str, target_port: str = "input") ->
         target_node_id=target,
         target_port_id=target_port,
     )
+
 
 ###############################################################################
 def _conv1d_graph() -> ModelGraph:
@@ -75,6 +78,7 @@ def _conv1d_graph() -> ModelGraph:
         edges=[_edge("e1", "input", "conv"), _edge("e2", "conv", "output")],
     )
 
+
 ###############################################################################
 def _operation_graph(
     definition_id: str,
@@ -99,6 +103,7 @@ def _operation_graph(
     ]
     edges.append(_edge("output_edge", "operation", "output"))
     return ModelGraph(nodes=nodes, edges=edges)
+
 
 ###############################################################################
 def test_conv1d_manifest_exposes_capabilities_and_exact_footer_shape() -> None:
@@ -125,9 +130,12 @@ def test_conv1d_manifest_exposes_capabilities_and_exact_footer_shape() -> None:
     assert manifest.implementations["pytorch"].adapter == "conv1d"
     assert manifest.implementations["jax"].adapter == "conv1d"
 
-    summary = next(item for item in infer_shapes(_conv1d_graph(), catalog) if item.node_id == "conv")
+    summary = next(
+        item for item in infer_shapes(_conv1d_graph(), catalog) if item.node_id == "conv"
+    )
     assert summary.outputs["output"].shape == [None, 4, 4]
     assert summary.outputs["output"].dtype.value == "float32"
+
 
 ###############################################################################
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
@@ -136,11 +144,10 @@ def test_conv1d_validation_accepts_all_supported_profiles(
     backend: ExecutionBackend,
     keras_enabled: bool,
 ) -> None:
-    result = ValidationService(get_node_catalog()).validate(
-        _conv1d_graph(), backend, keras_enabled
-    )
+    result = ValidationService(get_node_catalog()).validate(_conv1d_graph(), backend, keras_enabled)
 
     assert result.valid, result.diagnostics
+
 
 ###############################################################################
 def test_generated_keras_conv1d_source_is_parseable_and_capability_driven() -> None:
@@ -156,6 +163,7 @@ def test_generated_keras_conv1d_source_is_parseable_and_capability_driven() -> N
     assert "groups=1" in source
     assert "data_format='channels_last'" in source
 
+
 ###############################################################################
 def test_keras_conv1d_executes_for_the_selected_keras_backend() -> None:
     keras = pytest.importorskip("keras")
@@ -165,15 +173,14 @@ def test_keras_conv1d_executes_for_the_selected_keras_backend() -> None:
         pytest.skip("The selected Keras backend is not part of the supported profile set")
 
     model: Any = cast(Any, build_model(_conv1d_graph()))
-    value: Any = model(
-        np.zeros((1, 8, 3), dtype=np.float32), training=False
-    )
+    value: Any = model(np.zeros((1, 8, 3), dtype=np.float32), training=False)
     detached: Any = (
         value.detach().cpu().numpy()
         if callable(getattr(value, "detach", None))
         else np.asarray(value)
     )
     assert detached.shape == (1, 4, 4)
+
 
 ###############################################################################
 def test_keras_slice_executes_without_dynamic_code() -> None:
@@ -183,9 +190,10 @@ def test_keras_slice_executes_without_dynamic_code() -> None:
     if keras.backend.backend() not in {"tensorflow", "torch", "jax"}:
         pytest.skip("The selected Keras backend is not part of the supported profile set")
 
-    model: Any = cast(Any, build_model(
-        _operation_graph("math.slice", [[None, 4, 3]], {"expression": "x[:, 1:3]"})
-    ))
+    model: Any = cast(
+        Any,
+        build_model(_operation_graph("math.slice", [[None, 4, 3]], {"expression": "x[:, 1:3]"})),
+    )
     value: Any = model(np.zeros((1, 4, 3), dtype=np.float32), training=False)
     detached: Any = (
         value.detach().cpu().numpy()
@@ -193,6 +201,7 @@ def test_keras_slice_executes_without_dynamic_code() -> None:
         else np.asarray(value)
     )
     assert detached.shape == (1, 2, 3)
+
 
 ###############################################################################
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
@@ -209,8 +218,13 @@ def test_native_conv1d_executes_with_exact_output_shape(backend: ExecutionBacken
     outputs = forward_native(handle)
 
     assert len(outputs) == 1
-    value = outputs[0].detach().cpu().numpy() if backend is ExecutionBackend.PYTORCH else np.asarray(outputs[0])
+    value = (
+        outputs[0].detach().cpu().numpy()
+        if backend is ExecutionBackend.PYTORCH
+        else np.asarray(outputs[0])
+    )
     assert value.shape == (1, 4, 4)
+
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -240,12 +254,15 @@ def test_representative_operations_execute_across_native_backends(
         }[backend]
     )
 
-    handle = build_native_model(
-        _operation_graph(definition_id, input_shapes, parameters), backend
-    )
+    handle = build_native_model(_operation_graph(definition_id, input_shapes, parameters), backend)
     outputs = forward_native(handle)
-    value = outputs[0].detach().cpu().numpy() if backend is ExecutionBackend.PYTORCH else np.asarray(outputs[0])
+    value = (
+        outputs[0].detach().cpu().numpy()
+        if backend is ExecutionBackend.PYTORCH
+        else np.asarray(outputs[0])
+    )
     assert value.shape == expected_shape
+
 
 ###############################################################################
 def test_operation_catalog_covers_typed_families_and_all_backend_symbols() -> None:
@@ -272,21 +289,27 @@ def test_operation_catalog_covers_typed_families_and_all_backend_symbols() -> No
             assert mapping.supported
             assert mapping.symbol or mapping.adapter
 
+
 ###############################################################################
 def test_operation_emitter_uses_manifest_metadata_and_rejects_unsafe_expression() -> None:
     catalog = get_node_catalog()
-    assert emit_operation_source(
-        catalog.get("math.exp"), "pytorch", ["value"], {}
-    ) == "torch.exp(value)"
-    assert emit_operation_source(
-        catalog.get("math.add"), "tensorflow", ["left", "right"], {}
-    ) == "tf.add(left, right)"
+    assert (
+        emit_operation_source(catalog.get("math.exp"), "pytorch", ["value"], {})
+        == "torch.exp(value)"
+    )
+    assert (
+        emit_operation_source(catalog.get("math.add"), "tensorflow", ["left", "right"], {})
+        == "tf.add(left, right)"
+    )
     assert "torch.logsumexp" in emit_operation_source(
         catalog.get("math.logsumexp"), "pytorch", ["value"], {"axis": -1, "keepdims": True}
     )
-    assert emit_operation_source(
-        catalog.get("math.slice"), "pytorch", ["value"], {"expression": "x[:, 1:3]"}
-    ) == "value[:, 1:3]"
+    assert (
+        emit_operation_source(
+            catalog.get("math.slice"), "pytorch", ["value"], {"expression": "x[:, 1:3]"}
+        )
+        == "value[:, 1:3]"
+    )
 
     with pytest.raises(SafeExpressionError):
         validate_safe_expression("__import__('os').system('whoami')")
@@ -299,6 +322,7 @@ def test_operation_emitter_uses_manifest_metadata_and_rejects_unsafe_expression(
             ["value"],
             {"expression": "__import__('os')"},
         )
+
 
 ###############################################################################
 def test_operation_manifest_validates_call_parameters_and_backend_symbols() -> None:
@@ -331,6 +355,7 @@ def test_operation_manifest_validates_call_parameters_and_backend_symbols() -> N
             implementations={"tensorflow": ImplementationMapping(symbol="torch.sin")},
             documentation_ref="test",
         )
+
 
 ###############################################################################
 def test_compilation_catalog_provider_is_the_shared_metrics_boundary() -> None:

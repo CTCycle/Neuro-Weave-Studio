@@ -248,7 +248,9 @@ def emit_operation_source(
         return _binary_expression(symbol, inputs)
     if operation.family == "unary":
         arguments = [inputs[0]]
-        arguments.extend(_literal(parameters.get(parameter_id)) for parameter_id in operation.arguments)
+        arguments.extend(
+            _literal(parameters.get(parameter_id)) for parameter_id in operation.arguments
+        )
         return f"{symbol}({', '.join([*arguments, *_keywords(manifest, mapping, parameters, backend)])})"
     if operation.family == "reduction":
         arguments = [inputs[0]]
@@ -290,7 +292,11 @@ def emit_operation_source(
             return f"{symbol}({inputs[0]}, start_dim=1)"
         if backend == "tensorflow":
             return f"{symbol}({inputs[0]}, [tf.shape({inputs[0]})[0], -1])"
-        return f"{symbol}({inputs[0]}, (keras.ops.shape({inputs[0]})[0], -1))" if backend == "keras" else f"{symbol}({inputs[0]}, ({inputs[0]}.shape[0], -1))"
+        return (
+            f"{symbol}({inputs[0]}, (keras.ops.shape({inputs[0]})[0], -1))"
+            if backend == "keras"
+            else f"{symbol}({inputs[0]}, ({inputs[0]}.shape[0], -1))"
+        )
     if behavior == "repeat":
         arguments = [inputs[0], _literal(parameters.get("repeats", 1))]
         arguments.extend(_keywords(manifest, mapping, parameters, backend))
@@ -430,7 +436,10 @@ def apply_runtime_operation(
             result = function(result, value)
         return result
     if operation.family == "unary":
-        arguments = [inputs[0], *(parameters.get(parameter_id) for parameter_id in operation.arguments)]
+        arguments = [
+            inputs[0],
+            *(parameters.get(parameter_id) for parameter_id in operation.arguments),
+        ]
         keywords = {
             _parameter_name(mapping, parameter_id, implementation_key): parameters[parameter_id]
             for parameter_id in operation.keywords
@@ -448,7 +457,9 @@ def apply_runtime_operation(
         return function(inputs[0], **keywords)
     behavior = operation.shape_behavior
     if behavior in {"concatenate", "stack"}:
-        return function(list(inputs), axis=parameters.get("axis", -1 if behavior == "concatenate" else 0))
+        return function(
+            list(inputs), axis=parameters.get("axis", -1 if behavior == "concatenate" else 0)
+        )
     if behavior == "cast":
         return function(inputs[0], parameters.get("dtype", "float32"))
     if behavior == "reshape":

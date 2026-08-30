@@ -15,6 +15,7 @@ from domain.jobs import JobResponse, JobSubmitRequest, ModelExportOperation
 from domain.runtime import RuntimeApi, WorkerConfiguration
 from services.runtime_controller import RuntimeController
 
+
 ###############################################################################
 @pytest.fixture(scope="module")
 def export_controller(tmp_path_factory: pytest.TempPathFactory) -> RuntimeController:
@@ -28,6 +29,7 @@ def export_controller(tmp_path_factory: pytest.TempPathFactory) -> RuntimeContro
     controller.probe_statuses()
     yield controller
     controller.shutdown()
+
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -105,6 +107,7 @@ def test_export_artifact_matrix(
         assert len(result.artifact.files) == 1
         assert result.artifact.files[0].path == destination.name
 
+
 ###############################################################################
 def worker_for(
     controller: RuntimeController,
@@ -128,6 +131,7 @@ def worker_for(
         precision="float32",
     )
 
+
 ###############################################################################
 def wait_for_job(controller: RuntimeController, job_id: str) -> JobResponse:
     deadline = time.monotonic() + 300
@@ -138,6 +142,7 @@ def wait_for_job(controller: RuntimeController, job_id: str) -> JobResponse:
         time.sleep(0.05)
     controller.stop(job_id)
     raise TimeoutError(f"Export job {job_id} timed out")
+
 
 ###############################################################################
 def extension_for(export_format: ExportFormat) -> str:
@@ -152,6 +157,7 @@ def extension_for(export_format: ExportFormat) -> str:
         ExportFormat.TENSORFLOW_CHECKPOINT: ".tf-checkpoint.zip",
         ExportFormat.FLAX_CHECKPOINT: ".flax-checkpoint.zip",
     }[export_format]
+
 
 ###############################################################################
 def dense_graph() -> ModelGraph:

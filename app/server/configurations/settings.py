@@ -78,10 +78,12 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
+
 ###############################################################################
 def get_settings() -> Settings:
     ensure_environment_file()
     return Settings()
+
 
 ###############################################################################
 class _DatabaseEnvironment(BaseSettings):
@@ -101,10 +103,9 @@ class _DatabaseEnvironment(BaseSettings):
     connect_timeout: int = Field(
         default=30,
         ge=1,
-        validation_alias=AliasChoices(
-            "DATABASE_CONNECT_TIMEOUT", "database_connect_timeout"
-        ),
+        validation_alias=AliasChoices("DATABASE_CONNECT_TIMEOUT", "database_connect_timeout"),
     )
+
 
 ###############################################################################
 class DatabaseSettings(BaseModel):
@@ -115,10 +116,12 @@ class DatabaseSettings(BaseModel):
     sqlite_path: Path
     connect_timeout: int = Field(default=30, ge=1)
 
+
 ###############################################################################
 def _resolve_path(value: str | None, default: Path) -> Path:
     path = Path(value.strip()) if value and value.strip() else default
     return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
+
 
 ###############################################################################
 def get_database_settings() -> DatabaseSettings:

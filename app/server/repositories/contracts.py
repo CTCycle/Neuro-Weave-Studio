@@ -9,6 +9,7 @@ from uuid import UUID
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import ModelGraph
 
+
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class ProjectMetadata:
@@ -23,28 +24,32 @@ class ProjectMetadata:
     current_revision: int
     validation_status: ValidationStatus
 
+
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class GraphSummary:
     node_count: int
     edge_count: int
 
+
 ###############################################################################
 class RepositoryRevisionConflictError(RuntimeError):
-
     # -------------------------------------------------------------------------
     def __init__(self, expected_revision: int, current_revision: int) -> None:
-        super().__init__(f"Revision conflict: expected {expected_revision}, current {current_revision}")
+        super().__init__(
+            f"Revision conflict: expected {expected_revision}, current {current_revision}"
+        )
         self.expected_revision = expected_revision
         self.current_revision = current_revision
+
 
 ###############################################################################
 class RepositoryIntegrityError(RuntimeError):
     """Persistence integrity failure translated from the ORM boundary."""
 
+
 ###############################################################################
 class ProjectRepositoryProtocol(Protocol):
-
     # -------------------------------------------------------------------------
     def list_metadata(self) -> list[ProjectMetadata]: ...
 
@@ -52,24 +57,39 @@ class ProjectRepositoryProtocol(Protocol):
     def get_metadata(self, project_id: UUID) -> ProjectMetadata | None: ...
 
     # -------------------------------------------------------------------------
-    def create(self, *, name: str, description: str, execution_backend: ExecutionBackend,
-               keras_enabled: bool,
-               graph_schema_version: int, timestamp: datetime,
-               validation_status: ValidationStatus) -> ProjectMetadata: ...
+    def create(
+        self,
+        *,
+        name: str,
+        description: str,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
+        graph_schema_version: int,
+        timestamp: datetime,
+        validation_status: ValidationStatus,
+    ) -> ProjectMetadata: ...
 
     # -------------------------------------------------------------------------
-    def update(self, project_id: UUID, *, name: str, description: str,
-               execution_backend: ExecutionBackend, keras_enabled: bool,
-               graph_schema_version: int,
-               timestamp: datetime, validation_status: ValidationStatus,
-               expected_revision: int) -> ProjectMetadata | None: ...
+    def update(
+        self,
+        project_id: UUID,
+        *,
+        name: str,
+        description: str,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
+        graph_schema_version: int,
+        timestamp: datetime,
+        validation_status: ValidationStatus,
+        expected_revision: int,
+    ) -> ProjectMetadata | None: ...
 
     # -------------------------------------------------------------------------
     def delete(self, project_id: UUID) -> bool: ...
 
+
 ###############################################################################
 class GraphRepositoryProtocol(Protocol):
-
     # -------------------------------------------------------------------------
     def load(self, project_id: UUID, graph_schema_version: int) -> ModelGraph | None: ...
 
@@ -79,17 +99,24 @@ class GraphRepositoryProtocol(Protocol):
     # -------------------------------------------------------------------------
     def summaries(self, project_ids: Sequence[UUID]) -> dict[UUID, GraphSummary]: ...
 
+
 ###############################################################################
 class RevisionRepositoryProtocol(Protocol):
-
     # -------------------------------------------------------------------------
-    def append(self, project_id: UUID, *, revision: int, graph: ModelGraph,
-               execution_backend: ExecutionBackend, keras_enabled: bool,
-               timestamp: datetime) -> None: ...
+    def append(
+        self,
+        project_id: UUID,
+        *,
+        revision: int,
+        graph: ModelGraph,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
+        timestamp: datetime,
+    ) -> None: ...
+
 
 ###############################################################################
 class CodeSnapshotRepositoryProtocol(Protocol):
-
     # -------------------------------------------------------------------------
     def get_for_revision(self, project_id: UUID, revision: int) -> str | None: ...
 
@@ -97,13 +124,20 @@ class CodeSnapshotRepositoryProtocol(Protocol):
     def has_for_revisions(self, revisions: Mapping[UUID, int]) -> dict[UUID, bool]: ...
 
     # -------------------------------------------------------------------------
-    def upsert(self, project_id: UUID, *, revision: int,
-               execution_backend: ExecutionBackend, keras_enabled: bool,
-               source_code: str, timestamp: datetime) -> None: ...
+    def upsert(
+        self,
+        project_id: UUID,
+        *,
+        revision: int,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
+        source_code: str,
+        timestamp: datetime,
+    ) -> None: ...
+
 
 ###############################################################################
 class UnitOfWorkProtocol(Protocol):
-
     # -------------------------------------------------------------------------
     @property
     def projects(self) -> ProjectRepositoryProtocol: ...
@@ -129,8 +163,8 @@ class UnitOfWorkProtocol(Protocol):
     # -------------------------------------------------------------------------
     def commit(self) -> None: ...
 
+
 ###############################################################################
 class UnitOfWorkFactory(Protocol):
-
     # -------------------------------------------------------------------------
     def __call__(self) -> UnitOfWorkProtocol: ...

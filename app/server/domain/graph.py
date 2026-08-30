@@ -12,10 +12,12 @@ from domain.tensor import TensorSpec
 
 GRAPH_SCHEMA_VERSION = 3
 
+
 ###############################################################################
 class Position(BaseModel):
     x: float = Field(allow_inf_nan=False)
     y: float = Field(allow_inf_nan=False)
+
 
 ###############################################################################
 class NodeInstance(BaseModel):
@@ -26,6 +28,7 @@ class NodeInstance(BaseModel):
     position: Position
     parameters: dict[str, Any] = Field(default_factory=dict)
 
+
 ###############################################################################
 class EdgeInstance(BaseModel):
     id: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z][A-Za-z0-9_.-]*$")
@@ -33,6 +36,7 @@ class EdgeInstance(BaseModel):
     source_port_id: str
     target_node_id: str
     target_port_id: str
+
 
 ###############################################################################
 class KerasCompilationConfiguration(BaseModel):
@@ -48,11 +52,13 @@ class KerasCompilationConfiguration(BaseModel):
     mixed_precision: bool = False
     random_seed: int | None = 42
 
+
 ###############################################################################
 class TensorFlowNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     jit_compile: bool = False
+
 
 ###############################################################################
 class PyTorchNativeConfiguration(BaseModel):
@@ -67,11 +73,13 @@ class PyTorchNativeConfiguration(BaseModel):
     fullgraph: bool = False
     dynamic: bool = False
 
+
 ###############################################################################
 class JaxNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     jit_enabled: bool = False
+
 
 ###############################################################################
 class NativeCompilationConfiguration(BaseModel):
@@ -81,6 +89,7 @@ class NativeCompilationConfiguration(BaseModel):
     pytorch: PyTorchNativeConfiguration = Field(default_factory=PyTorchNativeConfiguration)
     jax: JaxNativeConfiguration = Field(default_factory=JaxNativeConfiguration)
 
+
 ###############################################################################
 class ModelConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -88,11 +97,13 @@ class ModelConfiguration(BaseModel):
     keras: KerasCompilationConfiguration = Field(default_factory=KerasCompilationConfiguration)
     native: NativeCompilationConfiguration = Field(default_factory=NativeCompilationConfiguration)
 
+
 ###############################################################################
 class ExportSettings(BaseModel):
     include_comments: bool = True
     include_shape_assertions: bool = True
     preferred_binary_format: str = "keras"
+
 
 ###############################################################################
 class ModelGraph(BaseModel):
@@ -116,6 +127,7 @@ class ModelGraph(BaseModel):
             raise ValueError("Edge IDs must be unique")
         return self
 
+
 ###############################################################################
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
@@ -123,6 +135,7 @@ class ProjectCreate(BaseModel):
     execution_backend: ExecutionBackend | None = None
     keras_enabled: bool = True
     graph: ModelGraph = Field(default_factory=ModelGraph)
+
 
 ###############################################################################
 class ProjectUpdate(BaseModel):
@@ -132,6 +145,7 @@ class ProjectUpdate(BaseModel):
     keras_enabled: bool = True
     graph: ModelGraph
     expected_revision: int = Field(ge=1)
+
 
 ###############################################################################
 class ProjectDocument(BaseModel):
@@ -148,6 +162,7 @@ class ProjectDocument(BaseModel):
     validation_status: ValidationStatus
     generated_source: str | None = None
 
+
 ###############################################################################
 class ProjectSummary(BaseModel):
     id: UUID
@@ -162,13 +177,16 @@ class ProjectSummary(BaseModel):
     edge_count: int = Field(ge=0)
     has_generated_source: bool = False
 
+
 ###############################################################################
 class ProjectListResponse(BaseModel):
     projects: list[ProjectSummary]
 
+
 ###############################################################################
 class ProjectDuplicateRequest(BaseModel):
     name: str | None = Field(default=None, max_length=160)
+
 
 ###############################################################################
 class ProjectExportBundle(BaseModel):
@@ -176,6 +194,7 @@ class ProjectExportBundle(BaseModel):
     format_version: Literal[4] = 4
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
+
 
 ###############################################################################
 class ShapeSummary(BaseModel):

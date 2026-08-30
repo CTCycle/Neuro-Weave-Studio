@@ -9,6 +9,7 @@ from services.keras_import_service import KerasArchitectureImportError, KerasImp
 
 router = APIRouter(prefix="/api/imports", tags=["imports"])
 
+
 ###############################################################################
 @router.post("/keras-architecture", response_model=KerasArchitectureImportResponse, status_code=201)
 def import_keras_architecture(
@@ -27,4 +28,6 @@ def import_keras_architecture(
             name_override=name,
         )
     except KerasArchitectureImportError as exc:
-        raise HTTPException(status_code=422, detail={"code": exc.code, "message": exc.message}) from exc
+        raise HTTPException(
+            status_code=422, detail={"code": exc.code, "message": exc.message}
+        ) from exc

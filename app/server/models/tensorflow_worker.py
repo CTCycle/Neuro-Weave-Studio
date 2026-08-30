@@ -22,6 +22,7 @@ from models.worker_backend import (
     run_native_smoke,
 )
 
+
 ###############################################################################
 class TensorFlowWorker:
     backend = ExecutionBackend.TENSORFLOW
@@ -197,6 +198,7 @@ class TensorFlowWorker:
 
             keras.backend.clear_session()
         gc.collect()
+
 
 ###############################################################################
 def create_worker() -> BackendWorker:

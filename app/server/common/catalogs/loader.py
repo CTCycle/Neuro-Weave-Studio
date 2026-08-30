@@ -24,6 +24,7 @@ _INITIALIZER_OPTIONS = [
 _REGULARIZER_OPTIONS = ["none", "l1", "l2", "l1_l2"]
 _CONSTRAINT_OPTIONS = ["none", "max_norm", "min_max_norm", "non_neg", "unit_norm"]
 
+
 ###############################################################################
 def _parameter(
     identifier: str,
@@ -50,6 +51,7 @@ def _parameter(
         "ui": {"control": "select" if options else parameter_type},
     }
 
+
 ###############################################################################
 def _initializer_parameter(identifier: str, label: str, default: str) -> dict[str, Any]:
     return _parameter(
@@ -60,6 +62,7 @@ def _initializer_parameter(identifier: str, label: str, default: str) -> dict[st
         group="Initializers",
         options=_INITIALIZER_OPTIONS,
     )
+
 
 ###############################################################################
 def _regularizer_parameter(identifier: str, label: str) -> dict[str, Any]:
@@ -72,6 +75,7 @@ def _regularizer_parameter(identifier: str, label: str) -> dict[str, Any]:
         options=_REGULARIZER_OPTIONS,
     )
 
+
 ###############################################################################
 def _constraint_parameter(identifier: str, label: str) -> dict[str, Any]:
     return _parameter(
@@ -82,6 +86,7 @@ def _constraint_parameter(identifier: str, label: str) -> dict[str, Any]:
         group="Constraints",
         options=_CONSTRAINT_OPTIONS,
     )
+
 
 ###############################################################################
 def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
@@ -182,7 +187,15 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
             _regularizer_parameter("activity_regularizer", "Activity regularizer"),
             _constraint_parameter("embeddings_constraint", "Embeddings constraint"),
             _parameter("mask_zero", "Mask zero", "boolean", False, group="Behavior"),
-            _parameter("lora_rank", "LoRA rank", "integer", None, group="Behavior", constraints={"min": 1}, nullable=True),
+            _parameter(
+                "lora_rank",
+                "LoRA rank",
+                "integer",
+                None,
+                group="Behavior",
+                constraints={"min": 1},
+                nullable=True,
+            ),
         ]
     if node_id == "layer.batch_norm":
         return [
@@ -192,7 +205,9 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
             _initializer_parameter("beta_initializer", "Beta initializer", "zeros"),
             _initializer_parameter("gamma_initializer", "Gamma initializer", "ones"),
             _initializer_parameter("moving_mean_initializer", "Moving mean initializer", "zeros"),
-            _initializer_parameter("moving_variance_initializer", "Moving variance initializer", "ones"),
+            _initializer_parameter(
+                "moving_variance_initializer", "Moving variance initializer", "ones"
+            ),
             _regularizer_parameter("beta_regularizer", "Beta regularizer"),
             _regularizer_parameter("gamma_regularizer", "Gamma regularizer"),
             _constraint_parameter("beta_constraint", "Beta constraint"),
@@ -213,14 +228,42 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
         ]
     if node_id in {"recurrent.gru", "recurrent.lstm"}:
         recurrent_controls = [
-            _parameter("activation", "Activation", "enum", "tanh", group="Behavior", options=["tanh", "relu"]),
-            _parameter("recurrent_activation", "Recurrent activation", "enum", "sigmoid", group="Behavior", options=["sigmoid", "hard_sigmoid"]),
+            _parameter(
+                "activation",
+                "Activation",
+                "enum",
+                "tanh",
+                group="Behavior",
+                options=["tanh", "relu"],
+            ),
+            _parameter(
+                "recurrent_activation",
+                "Recurrent activation",
+                "enum",
+                "sigmoid",
+                group="Behavior",
+                options=["sigmoid", "hard_sigmoid"],
+            ),
             _parameter("use_bias", "Use bias", "boolean", True, group="Behavior"),
             _initializer_parameter("kernel_initializer", "Kernel initializer", "glorot_uniform"),
             _initializer_parameter("recurrent_initializer", "Recurrent initializer", "orthogonal"),
             _initializer_parameter("bias_initializer", "Bias initializer", "zeros"),
-            _parameter("dropout", "Dropout", "number", 0.0, group="Regularization", constraints={"min": 0, "max": 0.999}),
-            _parameter("recurrent_dropout", "Recurrent dropout", "number", 0.0, group="Regularization", constraints={"min": 0, "max": 0.999}),
+            _parameter(
+                "dropout",
+                "Dropout",
+                "number",
+                0.0,
+                group="Regularization",
+                constraints={"min": 0, "max": 0.999},
+            ),
+            _parameter(
+                "recurrent_dropout",
+                "Recurrent dropout",
+                "number",
+                0.0,
+                group="Regularization",
+                constraints={"min": 0, "max": 0.999},
+            ),
             _parameter("return_state", "Return state", "boolean", False, group="Behavior"),
             _parameter("go_backwards", "Go backwards", "boolean", False, group="Behavior"),
             _parameter("stateful", "Stateful", "boolean", False, group="Behavior"),
@@ -228,26 +271,59 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
             _parameter("seed", "Seed", "integer", None, group="Behavior", nullable=True),
         ]
         if node_id == "recurrent.gru":
-            recurrent_controls.append(_parameter("reset_after", "Reset after", "boolean", True, group="Behavior"))
+            recurrent_controls.append(
+                _parameter("reset_after", "Reset after", "boolean", True, group="Behavior")
+            )
         else:
-            recurrent_controls.append(_parameter("unit_forget_bias", "Unit forget bias", "boolean", True, group="Behavior"))
+            recurrent_controls.append(
+                _parameter(
+                    "unit_forget_bias", "Unit forget bias", "boolean", True, group="Behavior"
+                )
+            )
         return recurrent_controls
     if node_id in {"attention.multi_head", "attention.self"}:
         return [
-            _parameter("value_dim", "Value dim", "integer", None, group="Attention", constraints={"min": 1}, nullable=True),
-            _parameter("output_shape", "Output shape", "shape", None, group="Attention", nullable=True),
-            _parameter("attention_axes", "Attention axes", "list", None, group="Attention", nullable=True),
+            _parameter(
+                "value_dim",
+                "Value dim",
+                "integer",
+                None,
+                group="Attention",
+                constraints={"min": 1},
+                nullable=True,
+            ),
+            _parameter(
+                "output_shape", "Output shape", "shape", None, group="Attention", nullable=True
+            ),
+            _parameter(
+                "attention_axes", "Attention axes", "list", None, group="Attention", nullable=True
+            ),
             _parameter("use_bias", "Use bias", "boolean", True, group="Behavior"),
             _initializer_parameter("kernel_initializer", "Kernel initializer", "glorot_uniform"),
             _initializer_parameter("bias_initializer", "Bias initializer", "zeros"),
         ]
     if node_id == "transformer.encoder_block":
         return [
-            _parameter("activation", "Feed-forward activation", "enum", "gelu", group="Behavior", options=["gelu", "relu"]),
-            _parameter("ffn_multiplier", "Feed-forward multiplier", "integer", 4, group="Shape", constraints={"min": 1}),
+            _parameter(
+                "activation",
+                "Feed-forward activation",
+                "enum",
+                "gelu",
+                group="Behavior",
+                options=["gelu", "relu"],
+            ),
+            _parameter(
+                "ffn_multiplier",
+                "Feed-forward multiplier",
+                "integer",
+                4,
+                group="Shape",
+                constraints={"min": 1},
+            ),
             _parameter("pre_norm", "Pre-normalization", "boolean", True, group="Behavior"),
         ]
     return []
+
 
 ###############################################################################
 def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
@@ -260,7 +336,9 @@ def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
         normalized = dict(parameter)
         identifier = str(normalized.get("id", ""))
         if not str(normalized.get("description", "")).strip():
-            normalized["description"] = f"Configure {normalized.get('display_name', normalized.get('id', 'this value'))}."
+            normalized["description"] = (
+                f"Configure {normalized.get('display_name', normalized.get('id', 'this value'))}."
+            )
         if not str(normalized.get("group", "")).strip() or normalized.get("group") == "General":
             if "initializer" in identifier:
                 normalized["group"] = "Initializers"
@@ -268,9 +346,44 @@ def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
                 normalized["group"] = "Regularization"
             elif "constraint" in identifier:
                 normalized["group"] = "Constraints"
-            elif identifier in {"dropout", "recurrent_dropout", "seed", "return_sequences", "return_state", "go_backwards", "stateful", "unroll", "use_bias", "center", "scale", "mask_zero", "synchronized", "reset_after", "unit_forget_bias", "pre_norm"}:
+            elif identifier in {
+                "dropout",
+                "recurrent_dropout",
+                "seed",
+                "return_sequences",
+                "return_state",
+                "go_backwards",
+                "stateful",
+                "unroll",
+                "use_bias",
+                "center",
+                "scale",
+                "mask_zero",
+                "synchronized",
+                "reset_after",
+                "unit_forget_bias",
+                "pre_norm",
+            }:
                 normalized["group"] = "Behavior"
-            elif identifier in {"shape", "kernel_size", "strides", "dilation_rate", "pool_size", "axis", "groups", "filters", "units", "vocabulary_size", "embedding_dim", "num_heads", "key_dim", "value_dim", "output_shape", "attention_axes", "ffn_multiplier"}:
+            elif identifier in {
+                "shape",
+                "kernel_size",
+                "strides",
+                "dilation_rate",
+                "pool_size",
+                "axis",
+                "groups",
+                "filters",
+                "units",
+                "vocabulary_size",
+                "embedding_dim",
+                "num_heads",
+                "key_dim",
+                "value_dim",
+                "output_shape",
+                "attention_axes",
+                "ffn_multiplier",
+            }:
                 normalized["group"] = "Shape"
             else:
                 normalized["group"] = "General"
@@ -287,6 +400,7 @@ def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
         unique_parameters.append(parameter)
     item["parameters"] = unique_parameters
     return item
+
 
 ###############################################################################
 def _merge_manifest_data(
@@ -322,7 +436,11 @@ def _merge_manifest_data(
         implementations[implementation] = mapping
     for implementation, adapter in (default_implementation_adapters or {}).items():
         mapping = dict(implementations.get(implementation, {}))
-        if mapping.get("supported", True) and not mapping.get("symbol") and not mapping.get("adapter"):
+        if (
+            mapping.get("supported", True)
+            and not mapping.get("symbol")
+            and not mapping.get("adapter")
+        ):
             mapping["adapter"] = adapter
         implementations[implementation] = mapping
     if implementations:
@@ -346,6 +464,7 @@ def _merge_manifest_data(
             implementations[implementation] = mapping
         item["implementations"] = implementations
     return item
+
 
 ###############################################################################
 def _expand_operation_spec(spec: dict[str, Any]) -> dict[str, Any]:
@@ -386,14 +505,16 @@ def _expand_operation_spec(spec: dict[str, Any]) -> dict[str, Any]:
         "category": spec.get("category", "mathematical"),
         "description": spec.get("description", f"{spec['display_name']} operation."),
         "inputs": [input_definition],
-        "outputs": [{
-            "id": "output",
-            "display_name": "Output",
-            "kind": "tensor",
-            "required": True,
-            "accepts_multiple": False,
-            "rank": None,
-        }],
+        "outputs": [
+            {
+                "id": "output",
+                "display_name": "Output",
+                "kind": "tensor",
+                "required": True,
+                "accepts_multiple": False,
+                "rank": None,
+            }
+        ],
         "parameters": spec.get("parameters", []),
         "shape_rule": {"kind": shape_rule, "config": {}},
         "operation": {
@@ -416,6 +537,7 @@ def _expand_operation_spec(spec: dict[str, Any]) -> dict[str, Any]:
         "documentation_ref": "assets/docs/nodes/mathematical_operations.md",
     }
 
+
 ###############################################################################
 def _catalog_extensions() -> dict[str, Any]:
     if not CATALOG_EXTENSION_PATH.exists():
@@ -424,6 +546,7 @@ def _catalog_extensions() -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise RuntimeError("Catalog extension data must be an object")
     return cast(dict[str, Any], raw)
+
 
 ###############################################################################
 def _combined_override(
@@ -451,9 +574,9 @@ def _combined_override(
         result["implementations"] = implementations
     return result
 
+
 ###############################################################################
 class NodeCatalog:
-
     # -------------------------------------------------------------------------
     def __init__(self, manifests: list[NodeManifest]) -> None:
         self._manifests = sorted(manifests, key=lambda item: (item.category, item.display_name))
@@ -471,6 +594,7 @@ class NodeCatalog:
         except KeyError as exc:
             raise KeyError(f"Unknown node definition: {definition_id}@{version}") from exc
 
+
 ###############################################################################
 def get_node_catalog() -> NodeCatalog:
     extensions = _catalog_extensions()
@@ -485,9 +609,7 @@ def get_node_catalog() -> NodeCatalog:
     manifests: list[NodeManifest] = []
     for path in sorted(RESOURCE_ROOT.glob("*.json")):
         raw = json.loads(path.read_text(encoding="utf-8"))
-        items = cast(
-            list[dict[str, Any]], raw if isinstance(raw, list) else raw["nodes"]
-        )
+        items = cast(list[dict[str, Any]], raw if isinstance(raw, list) else raw["nodes"])
         manifests.extend(
             NodeManifest.model_validate(
                 _enrich_manifest_parameters(
@@ -508,8 +630,7 @@ def get_node_catalog() -> NodeCatalog:
     operation_specs = cast(list[dict[str, Any]], extensions.get("operation_specs", []))
     extension_nodes.extend(_expand_operation_spec(spec) for spec in operation_specs)
     manifests.extend(
-        NodeManifest.model_validate(_enrich_manifest_parameters(item))
-        for item in extension_nodes
+        NodeManifest.model_validate(_enrich_manifest_parameters(item)) for item in extension_nodes
     )
     if not manifests:
         raise RuntimeError(f"No node manifests found under {RESOURCE_ROOT}")

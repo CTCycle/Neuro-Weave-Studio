@@ -32,9 +32,9 @@ from services.project_service import ProjectService
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 
+
 ###############################################################################
 class ExportService:
-
     # -------------------------------------------------------------------------
     def __init__(
         self,
@@ -149,7 +149,8 @@ class ExportService:
                     extension=export_suffix(export_format, ExportOptions()),
                     payload=payload,
                     compatibility=compatibility,
-                    limitations=limitations or ["Initialized inference artifact; training state is unavailable."],
+                    limitations=limitations
+                    or ["Initialized inference artifact; training state is unavailable."],
                     dependencies=dependencies or [],
                     options=[_filename_option(), *(options or [])],
                 )
@@ -165,7 +166,9 @@ class ExportService:
             api=None,
             available=valid,
             reason_code=None if valid else "model_invalid",
-            reason=None if valid else "Fix the validation diagnostics before exporting the project bundle.",
+            reason=None
+            if valid
+            else "Fix the validation diagnostics before exporting the project bundle.",
             compatibility="Canonical NeuroWeave graph, configuration, and execution profile",
         )
         add(
@@ -192,9 +195,19 @@ class ExportService:
             layout=ExportLayout.FILE,
             payload=ExportPayload.FULL_MODEL,
             available=keras_available,
-            reason_code=None if keras_available else "keras_disabled" if not keras_enabled else keras_reason_code,
-            reason=None if keras_available else "Keras is disabled for this native profile." if not keras_enabled else keras_reason,
-            limitations=["Inference-only initialized model; optimizer and training state are not preserved."],
+            reason_code=None
+            if keras_available
+            else "keras_disabled"
+            if not keras_enabled
+            else keras_reason_code,
+            reason=None
+            if keras_available
+            else "Keras is disabled for this native profile."
+            if not keras_enabled
+            else keras_reason,
+            limitations=[
+                "Inference-only initialized model; optimizer and training state are not preserved."
+            ],
             dependencies=["keras", _backend_package(execution_backend)],
             compatibility="Keras-enabled profiles with an operational selected backend",
         )
@@ -206,13 +219,23 @@ class ExportService:
             layout=ExportLayout.FILE,
             payload=ExportPayload.WEIGHTS_ONLY,
             available=keras_available,
-            reason_code=None if keras_available else "keras_disabled" if not keras_enabled else keras_reason_code,
-            reason=None if keras_available else "Weights-only Keras export requires the Keras runtime API." if not keras_enabled else keras_reason,
+            reason_code=None
+            if keras_available
+            else "keras_disabled"
+            if not keras_enabled
+            else keras_reason_code,
+            reason=None
+            if keras_available
+            else "Weights-only Keras export requires the Keras runtime API."
+            if not keras_enabled
+            else keras_reason,
             dependencies=["keras", _backend_package(execution_backend)],
             compatibility="Keras-enabled profiles",
         )
 
-        tf_saved_available = valid and execution_backend is ExecutionBackend.TENSORFLOW and profile_available
+        tf_saved_available = (
+            valid and execution_backend is ExecutionBackend.TENSORFLOW and profile_available
+        )
         add(
             ExportFormat.TENSORFLOW_SAVED_MODEL,
             label="TensorFlow SavedModel",
@@ -221,8 +244,16 @@ class ExportService:
             layout=ExportLayout.ARCHIVE,
             payload=ExportPayload.FULL_MODEL,
             available=tf_saved_available,
-            reason_code=None if tf_saved_available else "backend_unsupported" if execution_backend is not ExecutionBackend.TENSORFLOW else keras_reason_code,
-            reason=None if tf_saved_available else "SavedModel export requires the TensorFlow execution backend and runtime API." if execution_backend is not ExecutionBackend.TENSORFLOW else keras_reason,
+            reason_code=None
+            if tf_saved_available
+            else "backend_unsupported"
+            if execution_backend is not ExecutionBackend.TENSORFLOW
+            else keras_reason_code,
+            reason=None
+            if tf_saved_available
+            else "SavedModel export requires the TensorFlow execution backend and runtime API."
+            if execution_backend is not ExecutionBackend.TENSORFLOW
+            else keras_reason,
             dependencies=["tensorflow"],
             compatibility="Keras+TensorFlow or native TensorFlow profiles",
         )
@@ -237,10 +268,7 @@ class ExportService:
             execution_backend is ExecutionBackend.JAX and not keras_enabled
         )
         onnx_available = (
-            valid
-            and profile_available
-            and not onnx_missing
-            and not native_jax_bridge_unverified
+            valid and profile_available and not onnx_missing and not native_jax_bridge_unverified
         )
         onnx_reason_code = (
             "dependency_missing"
@@ -260,7 +288,11 @@ class ExportService:
             ExportFormat.ONNX,
             label="ONNX interchange",
             category=ExportCategory.INTERCHANGE,
-            conversion=ExportConversion.KERAS if keras_enabled else ExportConversion.NATIVE if execution_backend is ExecutionBackend.PYTORCH else ExportConversion.BRIDGE,
+            conversion=ExportConversion.KERAS
+            if keras_enabled
+            else ExportConversion.NATIVE
+            if execution_backend is ExecutionBackend.PYTORCH
+            else ExportConversion.BRIDGE,
             layout=ExportLayout.FILE,
             payload=ExportPayload.FULL_MODEL,
             available=onnx_available,
@@ -268,14 +300,33 @@ class ExportService:
             reason=None if onnx_available else onnx_reason,
             dependencies=onnx_dependencies,
             options=[
-                ExportOptionDefinition(id="opset_version", label="ONNX opset", type="integer", default=18, choices=[17, 18, 19, 20]),
-                ExportOptionDefinition(id="dynamic_batch", label="Dynamic batch", type="boolean", default=True),
-                ExportOptionDefinition(id="external_data", label="External data", type="choice", default="auto", choices=["auto", "always", "never"]),
+                ExportOptionDefinition(
+                    id="opset_version",
+                    label="ONNX opset",
+                    type="integer",
+                    default=18,
+                    choices=[17, 18, 19, 20],
+                ),
+                ExportOptionDefinition(
+                    id="dynamic_batch", label="Dynamic batch", type="boolean", default=True
+                ),
+                ExportOptionDefinition(
+                    id="external_data",
+                    label="External data",
+                    type="choice",
+                    default="auto",
+                    choices=["auto", "always", "never"],
+                ),
             ],
             compatibility="Verified inference interchange with named inputs/outputs and optional external data",
         )
 
-        pytorch_native = valid and execution_backend is ExecutionBackend.PYTORCH and not keras_enabled and profile_available
+        pytorch_native = (
+            valid
+            and execution_backend is ExecutionBackend.PYTORCH
+            and not keras_enabled
+            and profile_available
+        )
         native_reason_code, native_reason = _runtime_reason(
             self._runtime.api_status(execution_backend, RuntimeApi.NATIVE),
             "Native runtime",
@@ -289,8 +340,18 @@ class ExportService:
             payload=ExportPayload.FULL_MODEL,
             api=RuntimeApi.NATIVE,
             available=pytorch_native,
-            reason_code=None if pytorch_native else "backend_unsupported" if execution_backend is not ExecutionBackend.PYTORCH else "keras_enabled" if keras_enabled else native_reason_code,
-            reason=None if pytorch_native else "This artifact is available only for native PyTorch profiles." if execution_backend is not ExecutionBackend.PYTORCH or keras_enabled else native_reason,
+            reason_code=None
+            if pytorch_native
+            else "backend_unsupported"
+            if execution_backend is not ExecutionBackend.PYTORCH
+            else "keras_enabled"
+            if keras_enabled
+            else native_reason_code,
+            reason=None
+            if pytorch_native
+            else "This artifact is available only for native PyTorch profiles."
+            if execution_backend is not ExecutionBackend.PYTORCH or keras_enabled
+            else native_reason,
             dependencies=["torch"],
             compatibility="Native PyTorch inference program without optimizer state",
         )
@@ -303,9 +364,21 @@ class ExportService:
             payload=ExportPayload.FULL_MODEL,
             api=RuntimeApi.NATIVE,
             available=pytorch_native,
-            reason_code=None if pytorch_native else "backend_unsupported" if execution_backend is not ExecutionBackend.PYTORCH else "keras_enabled" if keras_enabled else native_reason_code,
-            reason=None if pytorch_native else "Trace-based TorchScript is available only for native PyTorch profiles." if execution_backend is not ExecutionBackend.PYTORCH or keras_enabled else native_reason,
-            limitations=["Legacy trace-based inference artifact; optimizer and training state are not preserved."],
+            reason_code=None
+            if pytorch_native
+            else "backend_unsupported"
+            if execution_backend is not ExecutionBackend.PYTORCH
+            else "keras_enabled"
+            if keras_enabled
+            else native_reason_code,
+            reason=None
+            if pytorch_native
+            else "Trace-based TorchScript is available only for native PyTorch profiles."
+            if execution_backend is not ExecutionBackend.PYTORCH or keras_enabled
+            else native_reason,
+            limitations=[
+                "Legacy trace-based inference artifact; optimizer and training state are not preserved."
+            ],
             dependencies=["torch"],
             compatibility="Native PyTorch only; legacy trace-based format",
         )
@@ -321,13 +394,26 @@ class ExportService:
             layout=ExportLayout.ARCHIVE,
             payload=ExportPayload.WEIGHTS_ONLY,
             available=safe_available,
-            reason_code=None if safe_available else "dependency_missing" if safe_missing else keras_reason_code,
-            reason=None if safe_available else f"Install {', '.join(safe_missing)} to enable verified SafeTensors extraction." if safe_missing else keras_reason,
+            reason_code=None
+            if safe_available
+            else "dependency_missing"
+            if safe_missing
+            else keras_reason_code,
+            reason=None
+            if safe_available
+            else f"Install {', '.join(safe_missing)} to enable verified SafeTensors extraction."
+            if safe_missing
+            else keras_reason,
             dependencies=safe_dependencies,
             compatibility="Weights-only package with the canonical graph/profile manifest; not universally loadable",
         )
 
-        checkpoint_available = valid and execution_backend is ExecutionBackend.TENSORFLOW and not keras_enabled and profile_available
+        checkpoint_available = (
+            valid
+            and execution_backend is ExecutionBackend.TENSORFLOW
+            and not keras_enabled
+            and profile_available
+        )
         add(
             ExportFormat.TENSORFLOW_CHECKPOINT,
             label="TensorFlow checkpoint",
@@ -337,12 +423,25 @@ class ExportService:
             payload=ExportPayload.WEIGHTS_ONLY,
             api=RuntimeApi.NATIVE,
             available=checkpoint_available,
-            reason_code=None if checkpoint_available else "backend_unsupported" if execution_backend is not ExecutionBackend.TENSORFLOW or keras_enabled else native_reason_code,
-            reason=None if checkpoint_available else "Weights-only TensorFlow checkpoints require a native TensorFlow profile." if execution_backend is not ExecutionBackend.TENSORFLOW or keras_enabled else native_reason,
+            reason_code=None
+            if checkpoint_available
+            else "backend_unsupported"
+            if execution_backend is not ExecutionBackend.TENSORFLOW or keras_enabled
+            else native_reason_code,
+            reason=None
+            if checkpoint_available
+            else "Weights-only TensorFlow checkpoints require a native TensorFlow profile."
+            if execution_backend is not ExecutionBackend.TENSORFLOW or keras_enabled
+            else native_reason,
             dependencies=["tensorflow"],
             compatibility="Native TensorFlow weights plus graph/profile manifest",
         )
-        flax_available = valid and execution_backend is ExecutionBackend.JAX and not keras_enabled and profile_available
+        flax_available = (
+            valid
+            and execution_backend is ExecutionBackend.JAX
+            and not keras_enabled
+            and profile_available
+        )
         add(
             ExportFormat.FLAX_CHECKPOINT,
             label="Flax checkpoint",
@@ -352,12 +451,21 @@ class ExportService:
             payload=ExportPayload.WEIGHTS_ONLY,
             api=RuntimeApi.NATIVE,
             available=flax_available,
-            reason_code=None if flax_available else "backend_unsupported" if execution_backend is not ExecutionBackend.JAX or keras_enabled else native_reason_code,
-            reason=None if flax_available else "Weights-only Flax checkpoints require a native JAX profile." if execution_backend is not ExecutionBackend.JAX or keras_enabled else native_reason,
+            reason_code=None
+            if flax_available
+            else "backend_unsupported"
+            if execution_backend is not ExecutionBackend.JAX or keras_enabled
+            else native_reason_code,
+            reason=None
+            if flax_available
+            else "Weights-only Flax checkpoints require a native JAX profile."
+            if execution_backend is not ExecutionBackend.JAX or keras_enabled
+            else native_reason,
             dependencies=["jax", "flax"],
             compatibility="Native JAX parameter/message-pack data plus graph/profile manifest",
         )
         return formats
+
 
 ###############################################################################
 def _filename_option() -> ExportOptionDefinition:
@@ -369,15 +477,25 @@ def _filename_option() -> ExportOptionDefinition:
         description="Server sanitizes the stem and derives the extension from the selected format.",
     )
 
+
 ###############################################################################
 def _backend_package(backend: ExecutionBackend) -> str:
-    return {ExecutionBackend.PYTORCH: "torch", ExecutionBackend.TENSORFLOW: "tensorflow", ExecutionBackend.JAX: "jax"}[backend]
+    return {
+        ExecutionBackend.PYTORCH: "torch",
+        ExecutionBackend.TENSORFLOW: "tensorflow",
+        ExecutionBackend.JAX: "jax",
+    }[backend]
+
 
 ###############################################################################
 def _missing_packages(packages: list[str]) -> list[str]:
     missing: list[str] = []
     for package in packages:
-        module = {"onnxruntime": "onnxruntime", "onnxscript": "onnxscript", "tf2onnx": "tf2onnx"}.get(package, package)
+        module = {
+            "onnxruntime": "onnxruntime",
+            "onnxscript": "onnxscript",
+            "tf2onnx": "tf2onnx",
+        }.get(package, package)
         try:
             installed = importlib.util.find_spec(module) is not None
         except (ImportError, ModuleNotFoundError, ValueError):
@@ -385,6 +503,7 @@ def _missing_packages(packages: list[str]) -> list[str]:
         if not installed:
             missing.append(package)
     return missing
+
 
 ###############################################################################
 def _runtime_reason(status: object, label: str) -> tuple[str, str]:

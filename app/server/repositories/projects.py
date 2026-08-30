@@ -10,9 +10,9 @@ from domain.enums import ExecutionBackend, ValidationStatus
 from repositories.contracts import ProjectMetadata, RepositoryRevisionConflictError
 from repositories.models import ProjectRecord
 
+
 ###############################################################################
 class ProjectRepository:
-
     # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -92,9 +92,7 @@ class ProjectRepository:
             record = self._session.get(ProjectRecord, str(project_id))
             if record is None:
                 return None
-            raise RepositoryRevisionConflictError(
-                expected_revision, record.current_revision
-            )
+            raise RepositoryRevisionConflictError(expected_revision, record.current_revision)
         self._session.flush()
         record = self._session.get(ProjectRecord, str(project_id))
         assert record is not None

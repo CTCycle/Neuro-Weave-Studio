@@ -22,9 +22,9 @@ from repositories.models import (
     ProjectNodeRecord,
 )
 
+
 ###############################################################################
 class GraphRepository:
-
     # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -69,7 +69,9 @@ class GraphRepository:
                 )
                 for edge in edges
             ],
-            model_configuration=ModelConfiguration.model_validate(settings.model_configuration_json),
+            model_configuration=ModelConfiguration.model_validate(
+                settings.model_configuration_json
+            ),
             export_settings=ExportSettings(
                 include_comments=settings.include_comments,
                 include_shape_assertions=settings.include_shape_assertions,

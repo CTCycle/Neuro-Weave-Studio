@@ -8,6 +8,7 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
+
 ###############################################################################
 def upgrade() -> None:
     op.create_table(
@@ -81,7 +82,9 @@ def upgrade() -> None:
             name="ck_project_nodes_position_y_finite",
         ),
     )
-    op.create_index("ix_project_nodes_definition", "project_nodes", ["definition_id", "definition_version"])
+    op.create_index(
+        "ix_project_nodes_definition", "project_nodes", ["definition_id", "definition_version"]
+    )
     op.create_table(
         "project_revisions",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -102,7 +105,9 @@ def upgrade() -> None:
             name="ck_project_revisions_execution_backend",
         ),
     )
-    op.create_index("ix_project_revisions_project_created", "project_revisions", ["project_id", "created_at"])
+    op.create_index(
+        "ix_project_revisions_project_created", "project_revisions", ["project_id", "created_at"]
+    )
     op.create_table(
         "generated_code_snapshots",
         sa.Column("project_id", sa.String(length=36), nullable=False),
@@ -125,7 +130,11 @@ def upgrade() -> None:
             name="ck_generated_code_snapshots_execution_backend",
         ),
     )
-    op.create_index("ix_generated_code_snapshots_project", "generated_code_snapshots", ["project_id", "revision"])
+    op.create_index(
+        "ix_generated_code_snapshots_project",
+        "generated_code_snapshots",
+        ["project_id", "revision"],
+    )
     op.create_table(
         "project_edges",
         sa.Column("project_id", sa.String(length=36), nullable=False),
@@ -151,11 +160,14 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("project_id", "edge_id", name="pk_project_edges"),
         sa.UniqueConstraint("project_id", "ordinal", name="uq_project_edges_ordinal"),
         sa.CheckConstraint("length(trim(edge_id)) > 0", name="ck_project_edges_id_nonempty"),
-        sa.CheckConstraint("source_node_id <> target_node_id", name="ck_project_edges_no_self_edge"),
+        sa.CheckConstraint(
+            "source_node_id <> target_node_id", name="ck_project_edges_no_self_edge"
+        ),
         sa.CheckConstraint("ordinal >= 0", name="ck_project_edges_ordinal"),
     )
     op.create_index("ix_project_edges_source", "project_edges", ["project_id", "source_node_id"])
     op.create_index("ix_project_edges_target", "project_edges", ["project_id", "target_node_id"])
+
 
 ###############################################################################
 def downgrade() -> None:

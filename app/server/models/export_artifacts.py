@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+
 ###############################################################################
 def stable_graph_payload(graph: Any) -> bytes:
     return json.dumps(
@@ -16,9 +17,11 @@ def stable_graph_payload(graph: Any) -> bytes:
         separators=(",", ":"),
     ).encode("utf-8")
 
+
 ###############################################################################
 def graph_sha256(graph: Any) -> str:
     return hashlib.sha256(stable_graph_payload(graph)).hexdigest()
+
 
 ###############################################################################
 def write_json(path: Path, payload: object) -> None:
@@ -29,6 +32,7 @@ def write_json(path: Path, payload: object) -> None:
         encoding="utf-8",
     )
     temporary.replace(path)
+
 
 ###############################################################################
 def package_directory(
@@ -44,6 +48,7 @@ def package_directory(
     files = [path for path in _relative_files(directory) if path.as_posix() != "manifest.json"]
     _write_zip(directory, destination, archive_root, files, manifest)
     return ["manifest.json", *[f"{archive_root}/{path.as_posix()}" for path in files]]
+
 
 ###############################################################################
 def package_files(
@@ -67,6 +72,7 @@ def package_files(
     temporary.replace(destination)
     return ["manifest.json", *names]
 
+
 ###############################################################################
 def artifact_file_metadata(path: Path, *, relative_path: str | None = None) -> dict[str, object]:
     if not path.is_file():
@@ -78,6 +84,7 @@ def artifact_file_metadata(path: Path, *, relative_path: str | None = None) -> d
         "media_type": _media_type(path),
     }
 
+
 ###############################################################################
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -86,12 +93,14 @@ def sha256_file(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
+
 ###############################################################################
 def remove_path(path: Path) -> None:
     if path.is_dir():
         shutil.rmtree(path, ignore_errors=True)
     else:
         path.unlink(missing_ok=True)
+
 
 ###############################################################################
 def _relative_files(directory: Path) -> list[Path]:
@@ -102,6 +111,7 @@ def _relative_files(directory: Path) -> list[Path]:
         if path.is_file():
             files.append(path.relative_to(directory))
     return files
+
 
 ###############################################################################
 def _write_zip(
@@ -120,6 +130,7 @@ def _write_zip(
             archive.writestr(_zip_info(archive_name), (directory / relative).read_bytes())
     temporary.replace(destination)
 
+
 ###############################################################################
 def _safe_archive_path(value: str) -> str:
     normalized = value.replace("\\", "/")
@@ -128,12 +139,14 @@ def _safe_archive_path(value: str) -> str:
         raise RuntimeError(f"Unsafe export archive path '{value}'")
     return "/".join(part for part in path.parts if part not in {"", "."})
 
+
 ###############################################################################
 def _zip_info(name: str) -> zipfile.ZipInfo:
     info = zipfile.ZipInfo(filename=name, date_time=(1980, 1, 1, 0, 0, 0))
     info.compress_type = zipfile.ZIP_DEFLATED
     info.create_system = 0
     return info
+
 
 ###############################################################################
 def _media_type(path: Path) -> str:

@@ -7,12 +7,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from domain.enums import ExecutionBackend
 
+
 ###############################################################################
 class RuntimeApi(StrEnum):
     """The model API used inside an isolated worker."""
 
     KERAS = "keras"
     NATIVE = "native"
+
 
 ###############################################################################
 class MemoryPolicyKind(StrEnum):
@@ -23,6 +25,7 @@ class MemoryPolicyKind(StrEnum):
     JAX_PREALLOCATE_FRACTION = "jax_preallocate_fraction"
     JAX_PLATFORM_ALLOCATOR = "jax_platform_allocator"
     PYTORCH_FRACTION = "pytorch_fraction"
+
 
 ###############################################################################
 class MemoryPolicy(BaseModel):
@@ -52,6 +55,7 @@ class MemoryPolicy(BaseModel):
             raise ValueError("fraction is only valid for a fraction memory policy")
         return self
 
+
 ###############################################################################
 class WorkerConfiguration(BaseModel):
     """Immutable process-start configuration shared by every ML operation."""
@@ -63,6 +67,7 @@ class WorkerConfiguration(BaseModel):
     device_id: str = Field(min_length=1, max_length=80, pattern=r"^[a-z][a-z0-9_.:-]*$")
     memory_policy: MemoryPolicy = Field(default_factory=MemoryPolicy)
     precision: Literal["float32", "mixed_float16", "mixed_bfloat16"] = "float32"
+
 
 ###############################################################################
 class RuntimeDevice(BaseModel):
@@ -76,11 +81,13 @@ class RuntimeDevice(BaseModel):
     total_memory_bytes: int | None = Field(default=None, ge=0)
     supported_memory_policies: list[MemoryPolicyKind] = Field(default_factory=list)
 
+
 ###############################################################################
 class RuntimeApiStatus(BaseModel):
     id: RuntimeApi
     available: bool
     reason_code: str | None = None
+
 
 ###############################################################################
 class DeviceLeaseStatus(BaseModel):
@@ -95,4 +102,3 @@ class DeviceLeaseStatus(BaseModel):
     ] = "idle"
     job_id: str | None = None
     pid: int | None = None
-

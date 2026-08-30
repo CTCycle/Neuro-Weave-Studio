@@ -25,12 +25,14 @@ ALEMBIC_CONFIG_PATH = Path(__file__).resolve().parents[1] / "alembic.ini"
 HEAD_REVISION = "20260827_canonical_model_configuration"
 ALEMBIC_VERSION_TABLE = "alembic_version"
 
+
 ###############################################################################
 def _alembic_config(connection: Connection) -> Config:
     config = Config(str(ALEMBIC_CONFIG_PATH))
     config.attributes["connection"] = connection
     config.attributes["skip_logging_config"] = True
     return config
+
 
 ###############################################################################
 def _script_directory(config: Config) -> tuple[ScriptDirectory, str]:
@@ -43,15 +45,15 @@ def _script_directory(config: Config) -> tuple[ScriptDirectory, str]:
         )
     return script, heads[0]
 
+
 ###############################################################################
 def _current_heads(connection: Connection) -> tuple[str, ...]:
     migration_context = MigrationContext.configure(connection)
     return tuple(migration_context.get_current_heads())
 
+
 ###############################################################################
-def _validate_known_revisions(
-    current_heads: tuple[str, ...], script: ScriptDirectory
-) -> None:
+def _validate_known_revisions(current_heads: tuple[str, ...], script: ScriptDirectory) -> None:
     if len(current_heads) > 1:
         raise RuntimeError(
             "The database contains multiple Alembic heads. Merge the migration "
@@ -66,6 +68,7 @@ def _validate_known_revisions(
                 "Recreate the database using the current schema."
             ) from exc
 
+
 ###############################################################################
 def _run_migrations(connection: Connection) -> None:
     config = _alembic_config(connection)
@@ -73,9 +76,7 @@ def _run_migrations(connection: Connection) -> None:
     current_heads = _current_heads(connection)
     _validate_known_revisions(current_heads, script)
 
-    unversioned_tables = frozenset(inspect(connection).get_table_names()) - {
-        ALEMBIC_VERSION_TABLE
-    }
+    unversioned_tables = frozenset(inspect(connection).get_table_names()) - {ALEMBIC_VERSION_TABLE}
     if not current_heads and unversioned_tables:
         found_tables = ", ".join(sorted(unversioned_tables))
         raise RuntimeError(
@@ -100,9 +101,7 @@ def _run_migrations(connection: Connection) -> None:
             "Database migration completed without reaching the expected Alembic head "
             f"{expected_head}; current heads are {final_heads or 'none'}."
         )
-    actual_tables = frozenset(inspect(connection).get_table_names()) - {
-        ALEMBIC_VERSION_TABLE
-    }
+    actual_tables = frozenset(inspect(connection).get_table_names()) - {ALEMBIC_VERSION_TABLE}
     expected_tables = frozenset(Base.metadata.tables)
     if actual_tables != expected_tables:
         unexpected = sorted(actual_tables - expected_tables)
@@ -116,6 +115,7 @@ def _run_migrations(connection: Connection) -> None:
         raise RuntimeError("SQLite foreign-key enforcement is disabled after migration.")
     LOGGER.info("Database schema verified at Alembic head %s", expected_head)
 
+
 ###############################################################################
 def initialize_database(settings: DatabaseSettings) -> SQLiteBackend:
     """Create or upgrade the current SQLite schema with no legacy adoption."""
@@ -128,9 +128,7 @@ def initialize_database(settings: DatabaseSettings) -> SQLiteBackend:
         ):
             _run_migrations(connection)
     except Exception:
-        LOGGER.exception(
-            "Database initialization or migration failed; transaction rolled back"
-        )
+        LOGGER.exception("Database initialization or migration failed; transaction rolled back")
         backend.engine.dispose()
         raise
     return backend

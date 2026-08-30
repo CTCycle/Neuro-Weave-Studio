@@ -16,12 +16,11 @@ from repositories.migration_lock import database_migration_lock
 
 config = context.config
 
-if config.config_file_name is not None and not config.attributes.get(
-    "skip_logging_config", False
-):
+if config.config_file_name is not None and not config.attributes.get("skip_logging_config", False):
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
 
 ###############################################################################
 def _configure_migrations(connection: Connection) -> None:
@@ -34,6 +33,7 @@ def _configure_migrations(connection: Connection) -> None:
     )
     with context.begin_transaction():
         context.run_migrations()
+
 
 ###############################################################################
 def run_migrations_offline() -> None:
@@ -49,6 +49,7 @@ def run_migrations_offline() -> None:
     )
     with context.begin_transaction():
         context.run_migrations()
+
 
 ###############################################################################
 def run_migrations_online() -> None:

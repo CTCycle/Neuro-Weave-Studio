@@ -15,6 +15,7 @@ from domain.exports import ExportFormat, ExportOptions
 from domain.graph import ModelGraph
 from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 
+
 ###############################################################################
 class BackendWorker(Protocol):
     """Common contract implemented by one isolated execution-backend worker."""
@@ -71,6 +72,7 @@ _BACKEND_MODULES = {
     ExecutionBackend.JAX: "models.jax_worker",
 }
 
+
 ###############################################################################
 def configure_startup_environment(config: WorkerConfiguration) -> None:
     """Set process-wide visibility before the selected backend module is loaded."""
@@ -103,6 +105,7 @@ def configure_startup_environment(config: WorkerConfiguration) -> None:
     elif policy is MemoryPolicyKind.JAX_PLATFORM_ALLOCATOR:
         os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
 
+
 ###############################################################################
 def load_backend_worker(backend: ExecutionBackend) -> BackendWorker:
     """Load exactly one optional framework implementation in the fresh worker."""
@@ -110,6 +113,7 @@ def load_backend_worker(backend: ExecutionBackend) -> BackendWorker:
     module = importlib.import_module(_BACKEND_MODULES[backend])
     factory = cast(Callable[[], BackendWorker], module.__dict__["create_worker"])
     return factory()
+
 
 ###############################################################################
 def run_keras_smoke(
@@ -168,6 +172,7 @@ def run_keras_smoke(
         "compilation": _configured_compilation_summary(graph, "keras"),
     }
 
+
 ###############################################################################
 def run_native_smoke(
     graph: ModelGraph,
@@ -218,9 +223,14 @@ def run_native_smoke(
         "compilation": compilation,
     }
 
+
 ###############################################################################
 def _configured_compilation_summary(graph: ModelGraph, api: str) -> dict[str, object]:
-    configuration = graph.model_configuration.keras if api == "keras" else graph.model_configuration.native.pytorch
+    configuration = (
+        graph.model_configuration.keras
+        if api == "keras"
+        else graph.model_configuration.native.pytorch
+    )
     output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
 
     def selected(values: dict[str, Any], output: Any, default: Any) -> Any:
@@ -249,6 +259,7 @@ def _configured_compilation_summary(graph: ModelGraph, api: str) -> dict[str, ob
         },
         "training": "not_run",
     }
+
 
 ###############################################################################
 def _verify_native_compilation(
@@ -310,6 +321,7 @@ def _verify_native_compilation(
         "training": "not_run",
     }
 
+
 ###############################################################################
 def _synthetic_target(prediction: Any, contract: str) -> Any:
     import torch
@@ -325,12 +337,18 @@ def _synthetic_target(prediction: Any, contract: str) -> Any:
         return torch.full_like(prediction, 1.0 / width, dtype=torch.float32)
     return torch.zeros_like(prediction, dtype=torch.float32)
 
+
 ###############################################################################
 def _assert_finite_scalar(value: Any, description: str) -> None:
     import torch
 
-    if not isinstance(value, torch.Tensor) or value.numel() != 1 or not bool(torch.isfinite(value).all()):
+    if (
+        not isinstance(value, torch.Tensor)
+        or value.numel() != 1
+        or not bool(torch.isfinite(value).all())
+    ):
         raise RuntimeError(f"Native PyTorch {description} did not return one finite scalar")
+
 
 ###############################################################################
 def run_model_export(
@@ -365,12 +383,14 @@ def run_model_export(
         project_revision=project_revision,
     )
 
+
 ###############################################################################
 def _dummy_inputs(keras_module: Any, model: Any) -> list[Any]:
     return [
         keras_module.ops.zeros(_concrete_shape(tensor), dtype=_dtype_name(tensor))
         for tensor in model.inputs
     ]
+
 
 ###############################################################################
 def _concrete_shape(tensor: Any) -> list[int]:
@@ -384,11 +404,13 @@ def _concrete_shape(tensor: Any) -> list[int]:
         result.append(value if value > 0 else 1)
     return result
 
+
 ###############################################################################
 def _dtype_name(tensor: Any) -> str:
     dtype = getattr(tensor, "dtype", "float32")
     name = str(getattr(dtype, "name", dtype))
     return name.rsplit(".", 1)[-1]
+
 
 ###############################################################################
 def empty_memory_metrics() -> dict[str, int | None]:

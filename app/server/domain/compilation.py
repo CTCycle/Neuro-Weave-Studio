@@ -6,6 +6,7 @@ from domain.diagnostics import ValidationDiagnostic
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph, ShapeSummary
 
+
 ###############################################################################
 class CompiledNode(BaseModel):
     node_id: str
@@ -13,6 +14,7 @@ class CompiledNode(BaseModel):
     variable_name: str
     input_node_ids: list[str]
     parameters: dict[str, object] = Field(default_factory=dict)
+
 
 ###############################################################################
 class CanonicalModelIR(BaseModel):
@@ -24,6 +26,7 @@ class CanonicalModelIR(BaseModel):
     output_node_ids: list[str]
     shape_summaries: list[ShapeSummary] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
+
 ###############################################################################
 class CompilationResult(BaseModel):
     valid: bool
@@ -32,6 +35,7 @@ class CompilationResult(BaseModel):
     diagnostics: list[ValidationDiagnostic]
     code: str | None = None
     ir: CanonicalModelIR | None = None
+
 
 ###############################################################################
 class CompilationRequest(BaseModel):

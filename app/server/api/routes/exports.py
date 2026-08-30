@@ -15,6 +15,7 @@ from services.export_service import ExportService
 
 router = APIRouter(prefix="/api/exports", tags=["exports"])
 
+
 ###############################################################################
 @router.get("/{project_id}/capabilities", response_model=ExportCapabilitiesResponse)
 def export_capabilities(
@@ -25,6 +26,7 @@ def export_capabilities(
         return service.capabilities(project_id)
     except ProjectNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
 
 ###############################################################################
 @router.get("/{project_id}/source", response_model=SourceExportResponse)
@@ -46,5 +48,6 @@ def export_source(
         ) from exc
     except RevisionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
 
 ###############################################################################

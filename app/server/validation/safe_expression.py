@@ -19,7 +19,11 @@ _ALLOWED_UNARY_OPERATORS = (ast.UAdd, ast.USub)
 
 ###############################################################################
 def _integer_literal(node: ast.AST) -> int | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+    if (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, int)
+        and not isinstance(node.value, bool)
+    ):
         return int(node.value)
     if (
         isinstance(node, ast.UnaryOp)
@@ -95,9 +99,11 @@ def _validate_expression_node(node: ast.AST) -> None:
         return
     raise SafeExpressionError(f"Expression element '{type(node).__name__}' is not allowed")
 
+
 ###############################################################################
 class SafeExpressionError(ValueError):
     pass
+
 
 ###############################################################################
 def validate_safe_expression(expression: str) -> None:

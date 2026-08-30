@@ -10,9 +10,9 @@ from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
+
 ###############################################################################
 class KerasSourceExporter(SourceExporter):
-
     # -------------------------------------------------------------------------
     @staticmethod
     def _option(value: object) -> object:
@@ -91,11 +91,18 @@ class KerasSourceExporter(SourceExporter):
     # -------------------------------------------------------------------------
     @classmethod
     def _optimizer_name(cls, name: str, compilation_catalog: CompilationCatalog) -> str:
-        return cls._catalog_option(compilation_catalog, "optimizers", name).implementations["keras"].symbol or ""
+        return (
+            cls._catalog_option(compilation_catalog, "optimizers", name)
+            .implementations["keras"]
+            .symbol
+            or ""
+        )
 
     # -------------------------------------------------------------------------
     @classmethod
-    def _optimizer_parameters(cls, graph: ModelGraph, compilation_catalog: CompilationCatalog) -> str:
+    def _optimizer_parameters(
+        cls, graph: ModelGraph, compilation_catalog: CompilationCatalog
+    ) -> str:
         optimizer = cls._catalog_option(
             compilation_catalog,
             "optimizers",
@@ -324,7 +331,9 @@ class KerasSourceExporter(SourceExporter):
         lines.append(
             f"    model = keras.Model(inputs=[{input_variables}], outputs=[{output_variables}], name='neuro_weave_model')"
         )
-        optimizer_name = self._optimizer_name(graph.model_configuration.keras.optimizer, compilation_catalog)
+        optimizer_name = self._optimizer_name(
+            graph.model_configuration.keras.optimizer, compilation_catalog
+        )
         loss = self._compile_mapping_source(
             graph,
             graph.model_configuration.keras.losses,

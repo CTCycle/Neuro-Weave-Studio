@@ -15,9 +15,11 @@ from repositories.initializer import HEAD_REVISION, initialize_database
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Connection
 
+
 ###############################################################################
 def _settings(path: Path) -> DatabaseSettings:
     return DatabaseSettings(sqlite_path=path, connect_timeout=10)
+
 
 ###############################################################################
 def _migration_config(connection: Connection) -> Config:
@@ -25,6 +27,7 @@ def _migration_config(connection: Connection) -> Config:
     config.attributes["connection"] = connection
     config.attributes["skip_logging_config"] = True
     return config
+
 
 ###############################################################################
 def test_concurrent_initializers_serialize_on_one_database(tmp_path: Path) -> None:
@@ -36,7 +39,9 @@ def test_concurrent_initializers_serialize_on_one_database(tmp_path: Path) -> No
         backend = initialize_database(_settings(path))
         try:
             with backend.engine.connect() as connection:
-                return str(connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one())
+                return str(
+                    connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+                )
         finally:
             backend.engine.dispose()
 
@@ -51,6 +56,7 @@ def test_concurrent_initializers_serialize_on_one_database(tmp_path: Path) -> No
         assert inspect(engine).get_table_names().count("projects") == 1
     finally:
         engine.dispose()
+
 
 ###############################################################################
 def test_failed_migration_rolls_back_and_releases_lock(
@@ -77,9 +83,13 @@ def test_failed_migration_rolls_back_and_releases_lock(
     backend = initialize_database(_settings(path))
     try:
         with backend.engine.connect() as connection:
-            assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == HEAD_REVISION
+            assert (
+                connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+                == HEAD_REVISION
+            )
     finally:
         backend.engine.dispose()
+
 
 ###############################################################################
 def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
@@ -144,30 +154,52 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
             )
             command.upgrade(config, "head")
 
-            settings_columns = {item["name"] for item in inspect(connection).get_columns("project_graph_settings")}
+            settings_columns = {
+                item["name"] for item in inspect(connection).get_columns("project_graph_settings")
+            }
             assert "model_configuration_json" in settings_columns
             assert "optimizer" not in settings_columns
             migrated = connection.execute(
-                text("SELECT model_configuration_json FROM project_graph_settings WHERE project_id = :id"),
+                text(
+                    "SELECT model_configuration_json FROM project_graph_settings WHERE project_id = :id"
+                ),
                 {"id": project_id},
             ).scalar_one()
             migrated = json.loads(migrated) if isinstance(migrated, str) else migrated
             assert migrated["keras"]["optimizer_parameters"] == {"learning_rate": 0.002}
             assert migrated["native"]["pytorch"]["compile_enabled"] is False
-            assert connection.execute(text("SELECT graph_schema_version FROM projects WHERE id = :id"), {"id": project_id}).scalar_one() == 3
+            assert (
+                connection.execute(
+                    text("SELECT graph_schema_version FROM projects WHERE id = :id"),
+                    {"id": project_id},
+                ).scalar_one()
+                == 3
+            )
             migrated_snapshot = connection.execute(
                 text("SELECT graph_snapshot_json FROM project_revisions WHERE project_id = :id"),
                 {"id": project_id},
             ).scalar_one()
-            migrated_snapshot = json.loads(migrated_snapshot) if isinstance(migrated_snapshot, str) else migrated_snapshot
+            migrated_snapshot = (
+                json.loads(migrated_snapshot)
+                if isinstance(migrated_snapshot, str)
+                else migrated_snapshot
+            )
             assert migrated_snapshot["schema_version"] == 3
             assert migrated_snapshot["model_configuration"]["native"]["jax"]["jit_enabled"] is False
 
             command.downgrade(config, "20260821_execution_profile")
-            downgraded_columns = {item["name"] for item in inspect(connection).get_columns("project_graph_settings")}
+            downgraded_columns = {
+                item["name"] for item in inspect(connection).get_columns("project_graph_settings")
+            }
             assert "model_configuration_json" not in downgraded_columns
             assert "optimizer" in downgraded_columns
-            assert connection.execute(text("SELECT graph_schema_version FROM projects WHERE id = :id"), {"id": project_id}).scalar_one() == 2
+            assert (
+                connection.execute(
+                    text("SELECT graph_schema_version FROM projects WHERE id = :id"),
+                    {"id": project_id},
+                ).scalar_one()
+                == 2
+            )
             restored_optimizer = connection.execute(
                 text("SELECT optimizer FROM project_graph_settings WHERE project_id = :id"),
                 {"id": project_id},

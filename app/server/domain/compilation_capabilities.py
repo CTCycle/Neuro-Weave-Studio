@@ -12,6 +12,7 @@ from domain.compilation_catalog import (
 )
 from domain.enums import ExecutionBackend
 
+
 ###############################################################################
 class NativeCompilationCapability(BaseModel):
     backend: ExecutionBackend
@@ -23,10 +24,12 @@ class NativeCompilationCapability(BaseModel):
     parameters: list[CompilationParameter] = Field(default_factory=list)
     catalog: CompilationCatalog = Field(default_factory=CompilationCatalog)
 
+
 ###############################################################################
 class CompilationCapabilities(BaseModel):
     keras: CompilationCatalog
     native: dict[ExecutionBackend, NativeCompilationCapability]
+
 
 ###############################################################################
 def get_native_compilation_capabilities(
@@ -117,11 +120,14 @@ def get_native_compilation_capabilities(
         native_compilers = getattr(status, "native_compilers", {})
         available = bool(native_compilers.get(capability.compiler_id, False))
         reason_code = None if available else "compiler_unavailable"
-        reason = None if available else f"{capability.compiler} is not operational for this backend."
+        reason = (
+            None if available else f"{capability.compiler} is not operational for this backend."
+        )
         result[backend] = capability.model_copy(
             update={"available": available, "reason_code": reason_code, "reason": reason}
         )
     return result
+
 
 ###############################################################################
 def get_compilation_capabilities(

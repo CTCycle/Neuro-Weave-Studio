@@ -6,6 +6,7 @@ from sqlalchemy import DateTime
 from sqlalchemy.engine import Dialect
 from sqlalchemy.types import TypeDecorator
 
+
 ###############################################################################
 class UTCDateTime(TypeDecorator[datetime]):
     """Store UTC consistently in SQLite."""
@@ -21,9 +22,7 @@ class UTCDateTime(TypeDecorator[datetime]):
         return value.astimezone(UTC)
 
     # -------------------------------------------------------------------------
-    def process_bind_param(
-        self, value: datetime | None, dialect: Dialect
-    ) -> datetime | None:
+    def process_bind_param(self, value: datetime | None, dialect: Dialect) -> datetime | None:
         del dialect
         if value is None:
             return None

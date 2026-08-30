@@ -10,9 +10,9 @@ from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 
+
 ###############################################################################
 class PyTorchSourceExporter(SourceExporter):
-
     # -------------------------------------------------------------------------
     @staticmethod
     def _summary_map(ir: CanonicalModelIR) -> dict[str, TensorSpec]:
@@ -151,8 +151,12 @@ class PyTorchSourceExporter(SourceExporter):
                     if metric_adapter is None:
                         raise ValueError(f"No PyTorch metric adapter registered for {metric_id}")
                     resolved_metrics[output.id].append((metric_id, metric_adapter))
-                    metric_target_contracts.setdefault(output.id, {})[metric_id] = metric_option.target_contract or "continuous_same_shape"
-                    target_contracts.setdefault(output.id, metric_option.target_contract or "continuous_same_shape")
+                    metric_target_contracts.setdefault(output.id, {})[metric_id] = (
+                        metric_option.target_contract or "continuous_same_shape"
+                    )
+                    target_contracts.setdefault(
+                        output.id, metric_option.target_contract or "continuous_same_shape"
+                    )
         lines = [
             "from __future__ import annotations",
             "",
@@ -212,12 +216,16 @@ class PyTorchSourceExporter(SourceExporter):
                         f"        self.{name} = nn.Linear({input_features!r}, {units!r}, bias={bias!r})"
                     )
             elif definition == "layer.dropout":
-                lines.append(f"        self.{name} = nn.Dropout({float(params.get('rate', 0.5))!r})")
+                lines.append(
+                    f"        self.{name} = nn.Dropout({float(params.get('rate', 0.5))!r})"
+                )
             elif definition == "layer.flatten":
                 lines.append(f"        self.{name} = nn.Flatten(start_dim=1)")
             elif definition == "layer.batch_norm":
                 if source_spec is None:
-                    raise ValueError(f"Cannot infer the rank for batch normalization node {node.id}")
+                    raise ValueError(
+                        f"Cannot infer the rank for batch normalization node {node.id}"
+                    )
                 rank = source_spec.rank
                 axis = self._axis(params.get("axis", -1), rank)
                 if axis not in {1, rank - 1}:
@@ -240,12 +248,16 @@ class PyTorchSourceExporter(SourceExporter):
                     )
             elif definition == "layer.layer_norm":
                 if source_spec is None:
-                    raise ValueError(f"Cannot infer the shape for layer normalization node {node.id}")
+                    raise ValueError(
+                        f"Cannot infer the shape for layer normalization node {node.id}"
+                    )
                 axes = self._normalization_axes(params.get("axis", [-1]), source_spec.rank)
                 shape = cast(list[Any], source_spec.shape)
                 normalized_shape = [shape[index] for index in axes]
                 if not all(isinstance(item, int) for item in normalized_shape):
-                    raise ValueError(f"LayerNorm node {node.id} requires known normalized dimensions")
+                    raise ValueError(
+                        f"LayerNorm node {node.id} requires known normalized dimensions"
+                    )
                 if not bool(params.get("center", True)) or not bool(params.get("scale", True)):
                     raise ValueError("PyTorch LayerNorm requires center and scale")
                 lines.append(
@@ -279,7 +291,11 @@ class PyTorchSourceExporter(SourceExporter):
                 if input_channels is None and groups != 1:
                     raise ValueError("PyTorch LazyConv1d cannot infer grouped input channels")
                 module = "nn.Conv1d" if input_channels is not None else "nn.LazyConv1d"
-                constructor = f"{input_channels!r}, {filters!r}" if input_channels is not None else f"{filters!r}"
+                constructor = (
+                    f"{input_channels!r}, {filters!r}"
+                    if input_channels is not None
+                    else f"{filters!r}"
+                )
                 lines.append(
                     f"        self.{name} = {module}({constructor}, kernel_size={kernel!r}, stride={stride!r}, padding=0, dilation={dilation_value!r}, groups={groups!r}, bias={bias!r})"
                 )
@@ -323,12 +339,26 @@ class PyTorchSourceExporter(SourceExporter):
                 input_size = self._static_dimension(source_spec, -1)
                 if input_size is None:
                     raise ValueError(f"Recurrent node {node.id} requires a known feature dimension")
-                if params.get("activation", "tanh") != "tanh" or params.get("recurrent_activation", "sigmoid") != "sigmoid":
-                    raise ValueError("PyTorch recurrent export supports the canonical tanh/sigmoid activations only")
-                if float(params.get("dropout", 0.0)) != 0.0 or float(params.get("recurrent_dropout", 0.0)) != 0.0:
+                if (
+                    params.get("activation", "tanh") != "tanh"
+                    or params.get("recurrent_activation", "sigmoid") != "sigmoid"
+                ):
+                    raise ValueError(
+                        "PyTorch recurrent export supports the canonical tanh/sigmoid activations only"
+                    )
+                if (
+                    float(params.get("dropout", 0.0)) != 0.0
+                    or float(params.get("recurrent_dropout", 0.0)) != 0.0
+                ):
                     raise ValueError("PyTorch recurrent export does not support recurrent dropout")
-                if params.get("go_backwards", False) or params.get("stateful", False) or params.get("unroll", False):
-                    raise ValueError("PyTorch recurrent export does not support go_backwards, stateful, or unroll")
+                if (
+                    params.get("go_backwards", False)
+                    or params.get("stateful", False)
+                    or params.get("unroll", False)
+                ):
+                    raise ValueError(
+                        "PyTorch recurrent export does not support go_backwards, stateful, or unroll"
+                    )
                 units = int(params.get("units", 64))
                 recurrent_class = "LSTM" if definition == "recurrent.lstm" else "GRU"
                 lines.append(
@@ -376,7 +406,9 @@ class PyTorchSourceExporter(SourceExporter):
                     if axis == rank - 1 and rank > 2:
                         permutation = self._channel_permutation(rank)
                         inverse = tuple(permutation.index(index) for index in range(rank))
-                        lines.append(f"        {name}_input = {source}.permute{permutation}.contiguous()")
+                        lines.append(
+                            f"        {name}_input = {source}.permute{permutation}.contiguous()"
+                        )
                         lines.append(f"        {name} = self.{name}({name}_input)")
                         lines.append(f"        {name} = {name}.permute{inverse}.contiguous()")
                     else:
@@ -402,9 +434,13 @@ class PyTorchSourceExporter(SourceExporter):
                 conv_input = f"{name}_input"
                 lines.append(f"        {conv_input} = {source}")
                 if data_format == "channels_last":
-                    lines.append(f"        {conv_input} = {conv_input}.permute(0, 2, 1).contiguous()")
+                    lines.append(
+                        f"        {conv_input} = {conv_input}.permute(0, 2, 1).contiguous()"
+                    )
                 if padding == "same":
-                    lines.append(f"        {conv_input} = _same_pad_1d({conv_input}, {kernel!r}, {stride!r}, {dilation_value!r})")
+                    lines.append(
+                        f"        {conv_input} = _same_pad_1d({conv_input}, {kernel!r}, {stride!r}, {dilation_value!r})"
+                    )
                 lines.append(f"        {name} = self.{name}({conv_input})")
                 if data_format == "channels_last":
                     lines.append(f"        {name} = {name}.permute(0, 2, 1).contiguous()")
@@ -421,7 +457,9 @@ class PyTorchSourceExporter(SourceExporter):
                 conv_input = f"{name}_input"
                 lines.append(f"        {conv_input} = {source}")
                 if data_format == "channels_last":
-                    lines.append(f"        {conv_input} = {conv_input}.permute(0, 3, 1, 2).contiguous()")
+                    lines.append(
+                        f"        {conv_input} = {conv_input}.permute(0, 3, 1, 2).contiguous()"
+                    )
                 if padding == "same":
                     lines.append(
                         f"        {conv_input} = _same_pad_2d({conv_input}, {kernel_size!r}, {strides!r}, {dilation!r})"
@@ -446,7 +484,9 @@ class PyTorchSourceExporter(SourceExporter):
                 pool_input = f"{name}_input"
                 lines.append(f"        {pool_input} = {source}")
                 if data_format == "channels_last":
-                    lines.append(f"        {pool_input} = {pool_input}.permute(0, 3, 1, 2).contiguous()")
+                    lines.append(
+                        f"        {pool_input} = {pool_input}.permute(0, 3, 1, 2).contiguous()"
+                    )
                 if padding == "same":
                     lines.append(
                         f"        {pool_input} = _same_pad_2d({pool_input}, {pool_size!r}, {strides!r}, {(1, 1)!r}, float('-inf'))"
@@ -456,7 +496,9 @@ class PyTorchSourceExporter(SourceExporter):
                     lines.append(f"        {name} = {name}.permute(0, 2, 3, 1).contiguous()")
                 variables[item.node_id] = name
             elif definition == "layer.activation":
-                lines.append(f"        {name} = ({self._activation(str(params.get('activation', 'relu')))})({source})")
+                lines.append(
+                    f"        {name} = ({self._activation(str(params.get('activation', 'relu')))})({source})"
+                )
                 variables[item.node_id] = name
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 lines.append(f"        {name}, _ = self.{name}({source})")
@@ -468,7 +510,9 @@ class PyTorchSourceExporter(SourceExporter):
                 variables[item.node_id] = name
             elif definition == "merge.concatenate":
                 axis = params.get("axis", -1)
-                lines.append(f"        {name} = torch.cat([{', '.join(source_vars)}], dim={axis!r})")
+                lines.append(
+                    f"        {name} = torch.cat([{', '.join(source_vars)}], dim={axis!r})"
+                )
                 variables[item.node_id] = name
             elif definition.startswith("output."):
                 lines.append(f"        {name} = {source}")

@@ -8,12 +8,11 @@ from services.validation_service import ValidationService
 
 router = APIRouter(prefix="/api/validation", tags=["validation"])
 
+
 ###############################################################################
 @router.post("", response_model=ValidationResult)
 def validate_graph(
     payload: ValidationRequest,
     service: ValidationService = Depends(get_validation_service),
 ) -> ValidationResult:
-    return service.validate(
-        payload.graph, payload.execution_backend, payload.keras_enabled
-    )
+    return service.validate(payload.graph, payload.execution_backend, payload.keras_enabled)

@@ -16,13 +16,14 @@ from domain.graph import ModelGraph
 from domain.runtime import WorkerConfiguration
 from models.worker_backend import BackendWorker
 
+
 ###############################################################################
 class WorkerCancelled(RuntimeError):
     pass
 
+
 ###############################################################################
 class WorkerContext:
-
     # -------------------------------------------------------------------------
     def __init__(self, job_dir: Path, config: WorkerConfiguration) -> None:
         self.job_dir = job_dir
@@ -82,6 +83,7 @@ class WorkerContext:
                 # Windows can briefly keep the controller's status read open.
                 time.sleep(0.01)
 
+
 ###############################################################################
 def read_request(job_dir: Path) -> tuple[WorkerContext, dict[str, Any]]:
     payload = json.loads((job_dir / "request.json").read_text(encoding="utf-8"))
@@ -89,6 +91,7 @@ def read_request(job_dir: Path) -> tuple[WorkerContext, dict[str, Any]]:
         (job_dir / "request.json").unlink()
     config = WorkerConfiguration.model_validate(payload["worker"])
     return WorkerContext(job_dir, config), cast(dict[str, Any], payload)
+
 
 ###############################################################################
 def run_job(

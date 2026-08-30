@@ -9,6 +9,7 @@ from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 
+
 ###############################################################################
 class NativeTensorFlowSourceExporter(SourceExporter):
     """Generate a native TensorFlow ``tf.Module`` for the verified subset."""
@@ -62,7 +63,9 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         values = cast(list[Any], value)
         axes = [cls._axis(item, rank) for item in values]
         if axes != list(range(rank - len(axes), rank)):
-            raise ValueError("TensorFlow LayerNorm requires normalized axes at the end of the tensor")
+            raise ValueError(
+                "TensorFlow LayerNorm requires normalized axes at the end of the tensor"
+            )
         return axes
 
     # -------------------------------------------------------------------------
@@ -188,45 +191,81 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             if definition == "layer.dense":
                 input_features = self._static_dimension(source_spec, -1)
                 if input_features is None:
-                    raise ValueError(f"TensorFlow Dense node {node.id} requires a known input feature dimension")
+                    raise ValueError(
+                        f"TensorFlow Dense node {node.id} requires a known input feature dimension"
+                    )
                 units = int(params.get("units", 32))
-                lines.append(f"        self.{name}_kernel = tf.Variable(tf.zeros([{input_features}, {units}], tf.float32), name={name + '_kernel'!r})")
+                lines.append(
+                    f"        self.{name}_kernel = tf.Variable(tf.zeros([{input_features}, {units}], tf.float32), name={name + '_kernel'!r})"
+                )
                 if bool(params.get("use_bias", True)):
-                    lines.append(f"        self.{name}_bias = tf.Variable(tf.zeros([{units}], tf.float32), name={name + '_bias'!r})")
+                    lines.append(
+                        f"        self.{name}_bias = tf.Variable(tf.zeros([{units}], tf.float32), name={name + '_bias'!r})"
+                    )
                 else:
                     lines.append(f"        self.{name}_bias = None")
             elif definition == "layer.embedding":
                 vocab = int(params.get("vocabulary_size", 10000))
                 dim = int(params.get("embedding_dim", 128))
-                lines.append(f"        self.{name}_table = tf.Variable(tf.zeros([{vocab}, {dim}], tf.float32), name={name + '_table'!r})")
+                lines.append(
+                    f"        self.{name}_table = tf.Variable(tf.zeros([{vocab}, {dim}], tf.float32), name={name + '_table'!r})"
+                )
             elif definition == "layer.batch_norm":
                 if source_spec is None:
-                    raise ValueError(f"TensorFlow BatchNorm node {node.id} requires a known input rank")
+                    raise ValueError(
+                        f"TensorFlow BatchNorm node {node.id} requires a known input rank"
+                    )
                 rank = source_spec.rank
                 axis = self._axis(params.get("axis", -1), rank)
                 channels = self._static_dimension(source_spec, axis)
                 if channels is None:
-                    raise ValueError(f"TensorFlow BatchNorm node {node.id} requires a known normalized dimension")
+                    raise ValueError(
+                        f"TensorFlow BatchNorm node {node.id} requires a known normalized dimension"
+                    )
                 lines.append(f"        self.{name}_axis = {axis}")
-                lines.append(f"        self.{name}_epsilon = {float(params.get('epsilon', 0.001))!r}")
-                lines.append(f"        self.{name}_gamma = tf.Variable(tf.ones([{channels}], tf.float32), name={name + '_gamma'!r})" if bool(params.get("scale", True)) else f"        self.{name}_gamma = None")
-                lines.append(f"        self.{name}_beta = tf.Variable(tf.zeros([{channels}], tf.float32), name={name + '_beta'!r})" if bool(params.get("center", True)) else f"        self.{name}_beta = None")
+                lines.append(
+                    f"        self.{name}_epsilon = {float(params.get('epsilon', 0.001))!r}"
+                )
+                lines.append(
+                    f"        self.{name}_gamma = tf.Variable(tf.ones([{channels}], tf.float32), name={name + '_gamma'!r})"
+                    if bool(params.get("scale", True))
+                    else f"        self.{name}_gamma = None"
+                )
+                lines.append(
+                    f"        self.{name}_beta = tf.Variable(tf.zeros([{channels}], tf.float32), name={name + '_beta'!r})"
+                    if bool(params.get("center", True))
+                    else f"        self.{name}_beta = None"
+                )
             elif definition == "layer.layer_norm":
                 if source_spec is None:
-                    raise ValueError(f"TensorFlow LayerNorm node {node.id} requires a known input shape")
+                    raise ValueError(
+                        f"TensorFlow LayerNorm node {node.id} requires a known input shape"
+                    )
                 axes = self._normalization_axes(params.get("axis", [-1]), source_spec.rank)
                 shape = cast(list[Any], source_spec.shape)
                 normalized_shape = [shape[index] for index in axes]
                 if not all(isinstance(value, int) for value in normalized_shape):
-                    raise ValueError(f"TensorFlow LayerNorm node {node.id} requires known normalized dimensions")
+                    raise ValueError(
+                        f"TensorFlow LayerNorm node {node.id} requires known normalized dimensions"
+                    )
                 broadcast = [1] * source_spec.rank
                 for axis, dimension in zip(axes, normalized_shape, strict=True):
                     broadcast[axis] = int(dimension)
                 lines.append(f"        self.{name}_axes = {axes!r}")
-                lines.append(f"        self.{name}_epsilon = {float(params.get('epsilon', 0.001))!r}")
+                lines.append(
+                    f"        self.{name}_epsilon = {float(params.get('epsilon', 0.001))!r}"
+                )
                 lines.append(f"        self.{name}_broadcast = {broadcast!r}")
-                lines.append(f"        self.{name}_gamma = tf.Variable(tf.ones({normalized_shape!r}, tf.float32), name={name + '_gamma'!r})" if bool(params.get("scale", True)) else f"        self.{name}_gamma = None")
-                lines.append(f"        self.{name}_beta = tf.Variable(tf.zeros({normalized_shape!r}, tf.float32), name={name + '_beta'!r})" if bool(params.get("center", True)) else f"        self.{name}_beta = None")
+                lines.append(
+                    f"        self.{name}_gamma = tf.Variable(tf.ones({normalized_shape!r}, tf.float32), name={name + '_gamma'!r})"
+                    if bool(params.get("scale", True))
+                    else f"        self.{name}_gamma = None"
+                )
+                lines.append(
+                    f"        self.{name}_beta = tf.Variable(tf.zeros({normalized_shape!r}, tf.float32), name={name + '_beta'!r})"
+                    if bool(params.get("center", True))
+                    else f"        self.{name}_beta = None"
+                )
             elif definition == "conv.conv1d":
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"TensorFlow Conv1D node {node.id} requires a rank-3 input")
@@ -234,17 +273,27 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 channel_index = 2 if data_format == "channels_last" else 1
                 input_channels = self._static_dimension(source_spec, channel_index)
                 if input_channels is None:
-                    raise ValueError(f"TensorFlow Conv1D node {node.id} requires known input channels")
+                    raise ValueError(
+                        f"TensorFlow Conv1D node {node.id} requires known input channels"
+                    )
                 kernel_size = params.get("kernel_size", [3])
                 if not isinstance(kernel_size, list) or len(kernel_size) != 1:
                     raise ValueError("TensorFlow Conv1D expects one kernel_size value")
                 filters = int(params.get("filters", 32))
                 groups = int(params.get("groups", 1))
                 if input_channels % groups != 0 or filters % groups != 0:
-                    raise ValueError("TensorFlow Conv1D channels and filters must be divisible by groups")
+                    raise ValueError(
+                        "TensorFlow Conv1D channels and filters must be divisible by groups"
+                    )
                 kernel = int(kernel_size[0])
-                lines.append(f"        self.{name}_kernel = tf.Variable(tf.zeros([{kernel}, {input_channels // groups}, {filters}], tf.float32), name={name + '_kernel'!r})")
-                lines.append(f"        self.{name}_bias = tf.Variable(tf.zeros([{filters}], tf.float32), name={name + '_bias'!r})" if bool(params.get("use_bias", True)) else f"        self.{name}_bias = None")
+                lines.append(
+                    f"        self.{name}_kernel = tf.Variable(tf.zeros([{kernel}, {input_channels // groups}, {filters}], tf.float32), name={name + '_kernel'!r})"
+                )
+                lines.append(
+                    f"        self.{name}_bias = tf.Variable(tf.zeros([{filters}], tf.float32), name={name + '_bias'!r})"
+                    if bool(params.get("use_bias", True))
+                    else f"        self.{name}_bias = None"
+                )
             elif definition == "conv.conv2d":
                 if source_spec is None or source_spec.rank != 4:
                     raise ValueError(f"TensorFlow Conv2D node {node.id} requires a rank-4 input")
@@ -252,33 +301,56 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 channel_index = 3 if data_format == "channels_last" else 1
                 input_channels = self._static_dimension(source_spec, channel_index)
                 if input_channels is None:
-                    raise ValueError(f"TensorFlow Conv2D node {node.id} requires known input channels")
+                    raise ValueError(
+                        f"TensorFlow Conv2D node {node.id} requires known input channels"
+                    )
                 groups = int(params.get("groups", 1))
                 if groups != 1:
                     raise ValueError("Native TensorFlow Conv2D currently supports groups=1 only")
                 kernel_size = self._spatial_tuple(params, "kernel_size", [3, 3])
                 filters = int(params.get("filters", 32))
-                lines.append(f"        self.{name}_kernel = tf.Variable(tf.zeros([{kernel_size[0]}, {kernel_size[1]}, {input_channels}, {filters}], tf.float32), name={name + '_kernel'!r})")
-                lines.append(f"        self.{name}_bias = tf.Variable(tf.zeros([{filters}], tf.float32), name={name + '_bias'!r})" if bool(params.get("use_bias", True)) else f"        self.{name}_bias = None")
+                lines.append(
+                    f"        self.{name}_kernel = tf.Variable(tf.zeros([{kernel_size[0]}, {kernel_size[1]}, {input_channels}, {filters}], tf.float32), name={name + '_kernel'!r})"
+                )
+                lines.append(
+                    f"        self.{name}_bias = tf.Variable(tf.zeros([{filters}], tf.float32), name={name + '_bias'!r})"
+                    if bool(params.get("use_bias", True))
+                    else f"        self.{name}_bias = None"
+                )
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"TensorFlow recurrent node {node.id} requires a rank-3 input")
                 input_size = self._static_dimension(source_spec, -1)
                 if input_size is None:
-                    raise ValueError(f"TensorFlow recurrent node {node.id} requires a known feature dimension")
-                if params.get("activation", "tanh") != "tanh" or params.get("recurrent_activation", "sigmoid") != "sigmoid":
-                    raise ValueError("Native TensorFlow recurrent export supports tanh/sigmoid only")
+                    raise ValueError(
+                        f"TensorFlow recurrent node {node.id} requires a known feature dimension"
+                    )
+                if (
+                    params.get("activation", "tanh") != "tanh"
+                    or params.get("recurrent_activation", "sigmoid") != "sigmoid"
+                ):
+                    raise ValueError(
+                        "Native TensorFlow recurrent export supports tanh/sigmoid only"
+                    )
                 units = int(params.get("units", 64))
                 gate_count = 4 if definition == "recurrent.lstm" else 3
-                lines.append(f"        self.{name}_kernel = tf.Variable(tf.zeros([{input_size + units}, {units * gate_count}], tf.float32), name={name + '_kernel'!r})")
-                lines.append(f"        self.{name}_bias = tf.Variable(tf.zeros([{units * gate_count}], tf.float32), name={name + '_bias'!r})" if bool(params.get("use_bias", True)) else f"        self.{name}_bias = None")
+                lines.append(
+                    f"        self.{name}_kernel = tf.Variable(tf.zeros([{input_size + units}, {units * gate_count}], tf.float32), name={name + '_kernel'!r})"
+                )
+                lines.append(
+                    f"        self.{name}_bias = tf.Variable(tf.zeros([{units * gate_count}], tf.float32), name={name + '_bias'!r})"
+                    if bool(params.get("use_bias", True))
+                    else f"        self.{name}_bias = None"
+                )
 
         jit_compile = graph.model_configuration.native.tensorflow.jit_compile
-        lines.extend([
-            "",
-            f"    @tf.function(jit_compile={jit_compile!r})",
-            "    def __call__(self, inputs):",
-        ])
+        lines.extend(
+            [
+                "",
+                f"    @tf.function(jit_compile={jit_compile!r})",
+                "    def __call__(self, inputs):",
+            ]
+        )
         variables: dict[str, str] = {}
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
@@ -297,18 +369,24 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(f"        {name} = {expression}")
             elif definition == "layer.dense":
                 lines.append(f"        {name} = tf.matmul({source}, self.{name}_kernel)")
-                lines.append(f"        if self.{name}_bias is not None: {name} = {name} + self.{name}_bias")
+                lines.append(
+                    f"        if self.{name}_bias is not None: {name} = {name} + self.{name}_bias"
+                )
                 activation = str(params.get("activation", "linear"))
                 if activation != "linear":
                     lines.append(f"        {name} = _activation({name}, {activation!r})")
             elif definition == "layer.activation":
-                lines.append(f"        {name} = _activation({source}, {str(params.get('activation', 'relu'))!r})")
+                lines.append(
+                    f"        {name} = _activation({source}, {str(params.get('activation', 'relu'))!r})"
+                )
             elif definition == "layer.dropout":
                 lines.append(f"        {name} = {source}")
             elif definition == "layer.flatten":
                 lines.append(f"        {name} = tf.reshape({source}, [tf.shape({source})[0], -1])")
             elif definition == "layer.embedding":
-                lines.append(f"        {name} = tf.gather(self.{name}_table, tf.cast({source}, tf.int32))")
+                lines.append(
+                    f"        {name} = tf.gather(self.{name}_table, tf.cast({source}, tf.int32))"
+                )
             elif definition == "layer.batch_norm":
                 rank = summaries[item.input_node_ids[0]].rank
                 axis = self._axis(params.get("axis", -1), rank)
@@ -316,12 +394,22 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 assert channels is not None
                 broadcast = [1] * rank
                 broadcast[axis] = channels
-                lines.append(f"        {name} = {source} / tf.sqrt(tf.cast(1.0 + self.{name}_epsilon, {source}.dtype))")
-                lines.append(f"        if self.{name}_gamma is not None: {name} = {name} * tf.reshape(self.{name}_gamma, {broadcast!r})")
-                lines.append(f"        if self.{name}_beta is not None: {name} = {name} + tf.reshape(self.{name}_beta, {broadcast!r})")
+                lines.append(
+                    f"        {name} = {source} / tf.sqrt(tf.cast(1.0 + self.{name}_epsilon, {source}.dtype))"
+                )
+                lines.append(
+                    f"        if self.{name}_gamma is not None: {name} = {name} * tf.reshape(self.{name}_gamma, {broadcast!r})"
+                )
+                lines.append(
+                    f"        if self.{name}_beta is not None: {name} = {name} + tf.reshape(self.{name}_beta, {broadcast!r})"
+                )
             elif definition == "layer.layer_norm":
-                lines.append(f"        {name}_mean, {name}_variance = tf.nn.moments({source}, axes=self.{name}_axes, keepdims=True)")
-                lines.append(f"        {name} = tf.nn.batch_normalization({source}, {name}_mean, {name}_variance, self.{name}_beta, self.{name}_gamma, self.{name}_epsilon)")
+                lines.append(
+                    f"        {name}_mean, {name}_variance = tf.nn.moments({source}, axes=self.{name}_axes, keepdims=True)"
+                )
+                lines.append(
+                    f"        {name} = tf.nn.batch_normalization({source}, {name}_mean, {name}_variance, self.{name}_beta, self.{name}_gamma, self.{name}_epsilon)"
+                )
             elif definition == "conv.conv1d":
                 kernel_size = int(params.get("kernel_size", [3])[0])
                 strides = int(params.get("strides", [1])[0])
@@ -329,7 +417,9 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 padding = str(params.get("padding", "same"))
                 data_format = str(params.get("data_format", "channels_last"))
                 groups = int(params.get("groups", 1))
-                lines.append(f"        {name} = _conv1d({source}, self.{name}_kernel, self.{name}_bias, {strides!r}, {dilation!r}, {padding!r}, {data_format!r}, {groups!r})")
+                lines.append(
+                    f"        {name} = _conv1d({source}, self.{name}_kernel, self.{name}_bias, {strides!r}, {dilation!r}, {padding!r}, {data_format!r}, {groups!r})"
+                )
                 activation = str(params.get("activation", "linear"))
                 if activation != "linear":
                     lines.append(f"        {name} = _activation({name}, {activation!r})")
@@ -339,31 +429,49 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 dilation = self._spatial_tuple(params, "dilation_rate", [1, 1])
                 padding = str(params.get("padding", "same"))
                 data_format = str(params.get("data_format", "channels_last"))
-                lines.append(f"        {name} = _conv2d({source}, self.{name}_kernel, self.{name}_bias, {strides!r}, {dilation!r}, {padding!r}, {data_format!r})")
+                lines.append(
+                    f"        {name} = _conv2d({source}, self.{name}_kernel, self.{name}_bias, {strides!r}, {dilation!r}, {padding!r}, {data_format!r})"
+                )
                 activation = str(params.get("activation", "linear"))
                 if activation != "linear":
                     lines.append(f"        {name} = _activation({name}, {activation!r})")
             elif definition == "conv.max_pool2d":
                 pool_size = self._spatial_tuple(params, "pool_size", [2, 2])
                 strides_value = params.get("strides")
-                strides = pool_size if strides_value is None else self._spatial_tuple(params, "strides", [2, 2])
+                strides = (
+                    pool_size
+                    if strides_value is None
+                    else self._spatial_tuple(params, "strides", [2, 2])
+                )
                 padding = str(params.get("padding", "valid"))
                 data_format = str(params.get("data_format", "channels_last"))
-                lines.append(f"        {name} = _max_pool2d({source}, {pool_size!r}, {strides!r}, {padding!r}, {data_format!r})")
+                lines.append(
+                    f"        {name} = _max_pool2d({source}, {pool_size!r}, {strides!r}, {padding!r}, {data_format!r})"
+                )
             elif definition == "recurrent.lstm":
-                lines.append(f"        {name} = _lstm({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, {bool(params.get('return_sequences', False))!r})")
+                lines.append(
+                    f"        {name} = _lstm({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, {bool(params.get('return_sequences', False))!r})"
+                )
             elif definition == "recurrent.gru":
-                lines.append(f"        {name} = _gru({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, {bool(params.get('return_sequences', False))!r})")
+                lines.append(
+                    f"        {name} = _gru({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, {bool(params.get('return_sequences', False))!r})"
+                )
             elif definition in {"merge.add", "merge.residual", "merge.skip"}:
                 lines.append(f"        {name} = tf.add_n([{', '.join(source_vars)}])")
             elif definition == "merge.concatenate":
-                lines.append(f"        {name} = tf.concat([{', '.join(source_vars)}], axis={int(params.get('axis', -1))!r})")
+                lines.append(
+                    f"        {name} = tf.concat([{', '.join(source_vars)}], axis={int(params.get('axis', -1))!r})"
+                )
             elif definition.startswith("output."):
                 lines.append(f"        {name} = {source}")
             else:
                 raise ValueError(f"No native TensorFlow adapter registered for {definition}")
             variables[item.node_id] = name
         outputs = [variables[node_id] for node_id in ir.output_node_ids]
-        lines.append(f"        return {outputs[0] if len(outputs) == 1 else '(' + ', '.join(outputs) + ')'}")
-        lines.extend(["", "", "def build_model() -> GeneratedModel:", "    return GeneratedModel()", ""])
+        lines.append(
+            f"        return {outputs[0] if len(outputs) == 1 else '(' + ', '.join(outputs) + ')'}"
+        )
+        lines.extend(
+            ["", "", "def build_model() -> GeneratedModel:", "    return GeneratedModel()", ""]
+        )
         return "\n".join(lines)

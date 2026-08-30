@@ -10,12 +10,14 @@ from domain.graph import ModelGraph, ShapeSummary
 from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.shape_inference import infer_shapes
 
+
 ###############################################################################
 def _variable_name(node_id: str) -> str:
     value = re.sub(r"[^a-zA-Z0-9_]", "_", node_id)
     if value and (value[0].isdigit() or keyword.iskeyword(value)):
         value = f"node_{value}"
     return value or "node"
+
 
 ###############################################################################
 def compile_to_ir(
@@ -32,8 +34,7 @@ def compile_to_ir(
         node = nodes[node_id]
         manifest = catalog.get(node.definition_id, node.definition_version)
         input_node_ids = [
-            edge.source_node_id
-            for edge in ordered_incoming_edges(graph, node_id, manifest)
+            edge.source_node_id for edge in ordered_incoming_edges(graph, node_id, manifest)
         ]
         variable_name = _variable_name(node.label or node.id)
         base_name = variable_name
@@ -56,6 +57,10 @@ def compile_to_ir(
         keras_enabled=keras_enabled,
         ordered_nodes=ordered_nodes,
         input_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("input.")],
-        output_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("output.")],
-        shape_summaries=(shape_summaries if shape_summaries is not None else infer_shapes(graph, catalog)),
+        output_node_ids=[
+            node.id for node in graph.nodes if node.definition_id.startswith("output.")
+        ],
+        shape_summaries=(
+            shape_summaries if shape_summaries is not None else infer_shapes(graph, catalog)
+        ),
     )

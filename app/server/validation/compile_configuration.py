@@ -12,6 +12,7 @@ from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
 
+
 ###############################################################################
 def _error(
     code: str,
@@ -30,6 +31,7 @@ def _error(
         details=details or {},
     )
 
+
 ###############################################################################
 def _output_selectors(graph: ModelGraph) -> set[str]:
     return {
@@ -38,6 +40,7 @@ def _output_selectors(graph: ModelGraph) -> set[str]:
         if node.definition_id.startswith("output.")
         for selector in (node.id, node.label or node.id)
     }
+
 
 ###############################################################################
 def _selected_value(configuration: dict[str, Any], output: Any, default: Any) -> Any:
@@ -48,8 +51,11 @@ def _selected_value(configuration: dict[str, Any], output: Any, default: Any) ->
             break
     return value
 
+
 ###############################################################################
-def _validate_optimizer(configuration: Any, catalog: CompilationCatalog, runtime_label: str) -> list[ValidationDiagnostic]:
+def _validate_optimizer(
+    configuration: Any, catalog: CompilationCatalog, runtime_label: str
+) -> list[ValidationDiagnostic]:
     diagnostics: list[ValidationDiagnostic] = []
     optimizer_by_id = {item.id: item for item in catalog.optimizers}
     optimizer = optimizer_by_id.get(configuration.optimizer)
@@ -83,7 +89,11 @@ def _validate_optimizer(configuration: Any, catalog: CompilationCatalog, runtime
                     )
                 )
             continue
-        if not isinstance(value, int | float) or isinstance(value, bool) or not math.isfinite(float(value)):
+        if (
+            not isinstance(value, int | float)
+            or isinstance(value, bool)
+            or not math.isfinite(float(value))
+        ):
             diagnostics.append(
                 _error(
                     "invalid_optimizer_parameter",
@@ -115,6 +125,7 @@ def _validate_optimizer(configuration: Any, catalog: CompilationCatalog, runtime
                 )
             )
     return diagnostics
+
 
 ###############################################################################
 def _validate_mappings(
@@ -160,6 +171,7 @@ def _validate_mappings(
                 )
     return diagnostics
 
+
 ###############################################################################
 def _terminal_head(graph: ModelGraph, output_id: str) -> tuple[str | None, int | None]:
     """Find the final activation and class width feeding one output node."""
@@ -181,10 +193,15 @@ def _terminal_head(graph: ModelGraph, output_id: str) -> tuple[str | None, int |
             return str(node.parameters.get("activation", "linear")), None
         if node.definition_id in {"layer.dense", "conv.conv1d", "conv.conv2d"}:
             width_value = node.parameters.get("units", node.parameters.get("filters"))
-            width = width_value if isinstance(width_value, int) and not isinstance(width_value, bool) else None
+            width = (
+                width_value
+                if isinstance(width_value, int) and not isinstance(width_value, bool)
+                else None
+            )
             return str(node.parameters.get("activation", "linear")), width
         current = incoming.get(current)
     return None, None
+
 
 ###############################################################################
 def _output_task(output: Any, width: int | None) -> str | None:
@@ -193,6 +210,7 @@ def _output_task(output: Any, width: int | None) -> str | None:
     if output.definition_id == "output.classification":
         return "binary_classification" if width == 1 else "multiclass_classification"
     return None
+
 
 ###############################################################################
 def _validate_semantics(
@@ -290,6 +308,7 @@ def _validate_semantics(
                     )
     return diagnostics
 
+
 ###############################################################################
 def validate_model_configuration(
     graph: ModelGraph,
@@ -304,21 +323,31 @@ def validate_model_configuration(
         configuration = graph.model_configuration.native
         if execution_backend is ExecutionBackend.TENSORFLOW:
             if not isinstance(configuration.tensorflow.jit_compile, bool):
-                return [_error("invalid_native_compilation", "TensorFlow jit_compile must be boolean")]
+                return [
+                    _error("invalid_native_compilation", "TensorFlow jit_compile must be boolean")
+                ]
             return []
         if execution_backend is ExecutionBackend.PYTORCH:
             native = configuration.pytorch
             native_catalog = get_compilation_catalog_for_implementation(catalog, "pytorch")
-            diagnostics = _validate_mappings(graph, native, native_catalog, "the native PyTorch runtime")
+            diagnostics = _validate_mappings(
+                graph, native, native_catalog, "the native PyTorch runtime"
+            )
             if native.mode not in {"default", "reduce-overhead", "max-autotune"}:
-                diagnostics.append(_error("invalid_native_compilation", "PyTorch compile mode is unsupported"))
+                diagnostics.append(
+                    _error("invalid_native_compilation", "PyTorch compile mode is unsupported")
+                )
             for parameter_id, value in {
                 "compile_enabled": native.compile_enabled,
                 "fullgraph": native.fullgraph,
                 "dynamic": native.dynamic,
             }.items():
                 if not isinstance(value, bool):
-                    diagnostics.append(_error("invalid_native_compilation", f"PyTorch {parameter_id} must be boolean"))
+                    diagnostics.append(
+                        _error(
+                            "invalid_native_compilation", f"PyTorch {parameter_id} must be boolean"
+                        )
+                    )
             diagnostics.extend(_validate_semantics(graph, native, native_catalog))
             return diagnostics
         if not isinstance(configuration.jax.jit_enabled, bool):
