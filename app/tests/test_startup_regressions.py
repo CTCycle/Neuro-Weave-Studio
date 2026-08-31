@@ -239,7 +239,12 @@ def test_preview_server_serves_spa_root_without_crashing() -> None:
         with pytest.raises(urllib.error.HTTPError) as missing:
             urllib.request.urlopen(f"http://127.0.0.1:{port}/missing.js", timeout=1)
         assert missing.value.code == 404
+        missing.value.close()
         assert process.poll() is None
     finally:
-        process.terminate()
-        process.wait(timeout=3)
+        try:
+            process.terminate()
+            process.wait(timeout=3)
+        finally:
+            if process.stderr is not None:
+                process.stderr.close()
