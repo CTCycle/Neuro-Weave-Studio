@@ -984,10 +984,18 @@ function Invoke-HealthCheck {
     param(
         [Parameter(Mandatory = $true)][string]$Url,
         [ValidateRange(1, 600)][int]$TimeoutSeconds = 60,
-        [int]$IntervalSeconds = 1
+        [int]$IntervalSeconds = 1,
+        [System.Diagnostics.Process]$Process = $null,
+        [string]$DiagnosticsPath = ''
     )
+    $started = [DateTime]::UtcNow
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     do {
+        if ($null -ne $Process -and $Process.HasExited) {
+            $diagnostics = if ($DiagnosticsPath) { Get-RecentLogTail -Path $DiagnosticsPath } else { $null }
+            $detail = if ($diagnostics) { " Recent output: $diagnostics" } else { '' }
+            throw "Process exited with code $($Process.ExitCode) after $([math]::Round(([DateTime]::UtcNow - $started).TotalSeconds, 1))s while waiting for $Url.$detail"
+        }
         try {
             $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 2
             if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) { return $true }
@@ -995,6 +1003,15 @@ function Invoke-HealthCheck {
         if ([DateTime]::UtcNow -lt $deadline) { Start-Sleep -Seconds $IntervalSeconds }
     } while ([DateTime]::UtcNow -lt $deadline)
     return $false
+}
+
+function Get-RecentLogTail {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return '' }
+    try {
+        $content = (Get-Content -LiteralPath $Path -Tail 12 -ErrorAction Stop) -join ' | '
+        return $content.Substring(0, [Math]::Min(1200, $content.Length))
+    } catch { return '' }
 }
 
 function Get-BrowserHost {
@@ -1052,7 +1069,9 @@ function Start-ManagedProcess {
     $stderr = Join-Path $script:LogDir "$safeName.err.log"
     Remove-Item -LiteralPath $stdout, $stderr -Force -ErrorAction SilentlyContinue
     $command = ConvertTo-CommandLine -FilePath $FilePath -ArgumentList $ArgumentList
-    $mode = if ($Visible) { '/k' } else { '/c' }
+    # Use /c for every managed process so a crashed child makes the tracked
+    # cmd.exe exit and readiness polling can report the real failure.
+    $mode = '/c'
     $startArguments = @('/d', $mode, $command)
     if ($Visible) {
         $process = Start-Process -FilePath 'cmd.exe' -ArgumentList $startArguments `
@@ -1179,24 +1198,26 @@ function Invoke-Launch {
         $backendStarted = [System.Diagnostics.Stopwatch]::StartNew()
         $backendProcess = Start-ManagedProcess -Name 'Backend' -FilePath $venvPython -ArgumentList $backendArguments `
             -WorkingDirectory $script:ServerDir -Visible:$backendLogsVisible
-        Write-Status -Level WAIT -Message "Waiting for backend readiness at $backendHealth"
-        if (-not (Invoke-HealthCheck -Url $backendHealth -TimeoutSeconds 60)) {
-            throw "Backend did not become healthy at $backendHealth. See $($script:LogDir)."
-        }
-        Write-StartupStageDuration -Name 'launcher.backend_readiness' -Stopwatch $backendStarted
-        Write-Ok 'Backend is healthy.'
 
         Write-Status -Level RUN -Message "Launching frontend preview at $uiUrl"
         $frontendStarted = [System.Diagnostics.Stopwatch]::StartNew()
         $frontendProcess = Start-ManagedProcess -Name 'Frontend' -FilePath $npm -ArgumentList @('run', 'preview', '--', '--host', $uiHost, '--port', [string]$uiPort, '--strictPort') -WorkingDirectory $script:ClientDir
         Write-Status -Level WAIT -Message "Waiting for frontend readiness at $uiUrl"
-        if (-not (Invoke-HealthCheck -Url $uiUrl -TimeoutSeconds 60)) {
-            throw "Frontend did not become ready at $uiUrl. See $($script:LogDir)."
+        $frontendReady = Invoke-HealthCheck -Url $uiUrl -TimeoutSeconds 15 -Process $frontendProcess -DiagnosticsPath (Join-Path $script:LogDir 'frontend.err.log')
+        if (-not $frontendReady) {
+            throw "Frontend did not become ready at $uiUrl within 15 seconds. See $($script:LogDir)."
         }
         Write-StartupStageDuration -Name 'launcher.frontend_readiness' -Stopwatch $frontendStarted
         Write-Ok 'Frontend is ready.'
         Assert-ManagedProcessesAlive
         Open-ApplicationBrowser -Uri $uiUrl
+
+        Write-Status -Level WAIT -Message "Waiting for backend readiness at $backendHealth"
+        if (-not (Invoke-HealthCheck -Url $backendHealth -TimeoutSeconds 60 -Process $backendProcess -DiagnosticsPath (Join-Path $script:LogDir 'backend.err.log'))) {
+            throw "Backend did not become healthy at $backendHealth within 60 seconds. See $($script:LogDir)."
+        }
+        Write-StartupStageDuration -Name 'launcher.backend_readiness' -Stopwatch $backendStarted
+        Write-Ok 'Backend is healthy.'
         Write-Status -Level SUCCESS -Message 'NeuroWeave Studio is running.'
         Write-Host "  Backend:  $backendHealth (PID $($backendProcess.Id))"
         Write-Host "  Frontend: $uiUrl (PID $($frontendProcess.Id))"

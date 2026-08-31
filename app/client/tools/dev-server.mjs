@@ -7,7 +7,7 @@ const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 const cacheRoot = path.resolve(clientRoot, '../tests/cache')
 const settings = await readSettings(path.resolve(clientRoot, '../../settings/.env'))
 const environment = { ...settings, ...process.env }
-const apiHost = environment.FASTAPI_HOST || '127.0.0.1'
+const apiHost = normalizeConnectHost(environment.FASTAPI_HOST || '127.0.0.1')
 const apiPort = environment.FASTAPI_PORT || '8000'
 const uiHost = argumentValue('--host') || environment.UI_HOST || '127.0.0.1'
 const uiPort = argumentValue('--port') || environment.UI_PORT || '5173'
@@ -47,4 +47,8 @@ async function readSettings(filePath) {
 function argumentValue(name) {
   const index = process.argv.indexOf(name)
   return index >= 0 ? process.argv[index + 1] : undefined
+}
+
+function normalizeConnectHost(host) {
+  return host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host
 }
