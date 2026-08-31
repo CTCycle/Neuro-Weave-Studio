@@ -1,6 +1,6 @@
 # NeuroWeave Studio
 
-NeuroWeave Studio is a local-first visual editor for designing machine-learning model architectures without writing code. It uses a framework-independent graph schema, manifest-defined nodes, a FastAPI backend, and a React plus XYFlow frontend.
+NeuroWeave Studio is a local-first visual editor for designing machine-learning model architectures without writing code. It uses a framework-independent graph schema, manifest-defined nodes, a FastAPI backend, and an Angular plus Foblex frontend.
 
 The current product release is `1.0.0`, following Semantic Versioning. The frontend package, backend package, runtime API metadata, and lockfiles use this same release version.
 
@@ -57,7 +57,7 @@ The launcher menu provides these actions:
 
 The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. Option 2 installs or repairs dependencies and rebuilds the frontend; option 3 rebuilds only the frontend from current source using the existing frontend dependencies; option 1 reuses the existing build and never rebuilds it automatically. If `app/tests/cache/frontend-dist/index.html` is missing, run the standalone rebuild before launching. **Check for updates** performs a read-only remote status check, while **Update application** requires a clean worktree and runs `git pull origin main`. **Remove all data** deletes generated database/runtime/export/job/log data while preserving application files, settings, runtimes, dependencies, caches, and build output. Use `.\start_on_windows.ps1 -Action RebuildFrontend` to run the standalone rebuild directly. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, waits for both readiness checks, opens the frontend in the default browser when possible, and then closes the initial PowerShell menu while leaving the independent application process roots running. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening.
 
-`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/database.db`. Alembic owns schema creation and evolution: installation, explicit initialization, and every backend startup migrate a missing or current-schema database to the current head. Existing databases without the current Alembic history are unsupported and are rejected without legacy adoption or mutation. Keras is core and is installed with the base application. Optional TensorFlow, PyTorch, and JAX installation is explicit through `.\start_on_windows.ps1 -Action ManageBackends`; the interactive prompt offers numbered PyTorch GPU/CUDA and CPU-only choices, along with TensorFlow/JAX CPU-only and all-backend configurations. The launcher reports native-Windows CPU limitations for TensorFlow/JAX and verifies actual worker capability after installation. Runtime/download caches are under `runtimes/cache`; pytest, Ruff, Vite, frontend build output, TypeScript metadata, Python bytecode, coverage, and lint caches are under `app/tests/cache`.
+`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/database.db`. Alembic owns schema creation and evolution: installation, explicit initialization, and every backend startup migrate a missing or current-schema database to the current head. Existing databases without the current Alembic history are unsupported and are rejected without legacy adoption or mutation. Keras is core and is installed with the base application. Optional TensorFlow, PyTorch, and JAX installation is explicit through `.\start_on_windows.ps1 -Action ManageBackends`; the interactive prompt offers numbered PyTorch GPU/CUDA and CPU-only choices, along with TensorFlow/JAX CPU-only and all-backend configurations. The launcher reports native-Windows CPU limitations for TensorFlow/JAX and verifies actual worker capability after installation. Runtime/download caches are under `runtimes/cache`; pytest, Ruff, Angular frontend build output, TypeScript metadata, Python bytecode, coverage, Playwright traces, and lint caches are under `app/tests/cache`.
 
 Set `BACKEND_LOGS_VISIBLE=false` in `settings/.env` to keep backend output in the runtime log files instead of opening a dedicated terminal; the default is `true`.
 
@@ -120,6 +120,7 @@ cd ../client
 npm run lint
 npm run test
 npm run build
+npm run e2e
 ```
 
 ## Execution profiles, compilation, and artifacts
