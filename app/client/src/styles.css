@@ -848,7 +848,9 @@ nw-node-catalog, nw-properties-inspector, nw-graph-canvas { display: contents; }
 .nw-flow-port.output { right: -5px; flex-direction: row-reverse; transform: translate(100%, -50%); }
 .nw-flow-port [fConnector] { display: block; width: 9px; height: 9px; border: 2px solid #0c1319; border-radius: 50%; background: var(--cyan); }
 .nw-flow-port.output [fConnector] { background: var(--accent-bright); }
-f-connection { pointer-events: stroke; }
+.canvas-shell f-canvas .f-connections-container { inset: 0; width: 100%; height: 100%; }
+.canvas-shell f-connection .f-connection-selection { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; }
+.canvas-shell f-connection path { pointer-events: stroke; }
 .canvas-empty-state { position: absolute; inset: 50% auto auto 50%; z-index: 3; display: flex; width: 240px; transform: translate(-50%, -50%); align-items: center; flex-direction: column; gap: 6px; padding: 22px; border: 1px dashed var(--border-strong); background: rgba(13,21,28,.8); color: var(--muted); text-align: center; pointer-events: none; }
 .canvas-empty-state strong { color: var(--text); font-size: 13px; }
 .canvas-empty-state > span:last-child { font-size: 10px; line-height: 1.4; }
