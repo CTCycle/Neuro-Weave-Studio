@@ -1,6 +1,6 @@
 # Configuration
 
-Last updated: 2026-08-29
+Last updated: 2026-08-31
 
 Configuration is loaded through `pydantic-settings` from inherited environment variables and `settings/.env`. Inherited process variables take precedence, which allows isolated QA databases without changing the local file. The launcher never prints environment values.
 
@@ -12,7 +12,7 @@ The process controller settings are `NEURO_WEAVE_ML_JOB_ROOT`, `NEURO_WEAVE_ML_W
 
 Memory policies are explicit per job and are never translated between backends: TensorFlow supports `default`, `tensorflow_growth`, and `tensorflow_limit_mb`; JAX supports `default`, `jax_no_preallocation`, `jax_preallocate_fraction`, and the slow/debug `jax_platform_allocator`; PyTorch supports `default` and `pytorch_fraction`. Metadata exposes only policies discovered as supported for each live device.
 
-`FASTAPI_HOST`, `FASTAPI_PORT`, `UI_HOST`, and `UI_PORT` configure the local servers. `RELOAD` controls backend reload mode and defaults to `false` for ordinary launches. `BACKEND_LOGS_VISIBLE` controls whether the launcher opens a dedicated terminal for backend logs and defaults to `true` when absent. `VITE_API_BASE_URL` defaults to `/api`; Vite reads these values from `settings/.env` and proxies the API base and `/health` to the backend in both development and preview modes.
+`FASTAPI_HOST`, `FASTAPI_PORT`, `UI_HOST`, and `UI_PORT` configure the local servers. `RELOAD` controls backend reload mode and defaults to `false` for ordinary launches. `BACKEND_LOGS_VISIBLE` controls whether the launcher opens a dedicated terminal for backend logs and defaults to `true` when absent. The Angular development wrapper and Node preview server use the relative `/api` path; the development wrapper writes a local proxy descriptor for the configured backend and the preview server proxies `/health` and `/api` directly.
 
 Runtime discovery snapshots are keyed by a SHA-256 fingerprint of the Python/platform identity, installed framework versions, selected runtime environment variables, hardware summary, and the persisted backend-installation record. A matching snapshot avoids repeating worker imports during startup. Changing dependencies, hardware, runtime variables, or backend configuration causes a new discovery pass; explicit backend management also remains available for deliberate refreshes.
 

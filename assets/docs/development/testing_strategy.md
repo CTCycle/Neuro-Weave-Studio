@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Last updated: 2026-08-29
+Last updated: 2026-08-31
 
 NeuroWeave's automated suite is intentionally risk-oriented. Tests exist for behavior whose failure can corrupt saved models, produce invalid generated models, violate execution safety, or break an important user workflow. Tooling layout, source-tree shape, presentation details, and framework behavior are not unit-tested merely to increase coverage.
 
@@ -37,7 +37,7 @@ Presentation details, button inventories, clipboard status, basic filtering, and
 
 ## Verification
 
-Backend changes should run pytest, Ruff, and Pyright. Frontend changes should run Vitest, ESLint, and the TypeScript/Vite production build.
+Backend changes should run pytest, Ruff, and Pyright. Frontend changes should run Vitest, ESLint, the Angular production build, and Playwright E2E. Vitest includes only `src/**/*.test.ts` and `src/**/*.spec.ts`; Playwright specs live under `e2e/` and are run through the dedicated `npm run e2e` command.
 
 Coverage percentage is not a release goal. Regression signal, business-risk protection, execution safety, and maintainability are the criteria for retaining tests.
 
