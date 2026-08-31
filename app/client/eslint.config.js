@@ -1,13 +1,22 @@
 import eslint from '@eslint/js'
 import angular from '@angular-eslint/eslint-plugin'
+import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['node_modules/**', '../tests/cache/**', 'out-tsc/**', 'dist/**']
+    ignores: ['node_modules/**', '.angular/**', '../tests/cache/**', 'out-tsc/**', 'dist/**']
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    files: ['tools/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['playwright.config.ts', 'e2e/**/*.ts'],
+    languageOptions: { globals: globals.node },
+  },
   {
     files: ['src/**/*.ts'],
     plugins: { '@angular-eslint': angular },
