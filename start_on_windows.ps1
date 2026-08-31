@@ -129,6 +129,7 @@ function Invoke-TrackedLauncherAction {
         [Parameter(Mandatory = $true)][scriptblock]$Operation
     )
     Write-Step "Starting $Name"
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         & $Operation
         Write-Ok "$Name completed"
@@ -136,6 +137,9 @@ function Invoke-TrackedLauncherAction {
     catch {
         Write-Fatal "$Name failed: $($_.Exception.Message)"
         throw
+    }
+    finally {
+        Write-StartupStageDuration -Name "launcher.$($Name.Replace(' ', '_'))" -Stopwatch $stopwatch
     }
 }
 
@@ -241,6 +245,7 @@ function Invoke-DownloadAndExtract {
     Write-Info "Downloading $Uri"
     $activity = "NeuroWeave: download and extract $([IO.Path]::GetFileName($ArchivePath))"
     $progressId = Start-LauncherProgress -Activity $activity -Status "Downloading $Uri"
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         New-Item -ItemType Directory -Path (Split-Path -Parent $ArchivePath), $DestinationPath -Force | Out-Null
         Invoke-WebRequest -Uri $Uri -OutFile $ArchivePath
@@ -249,6 +254,7 @@ function Invoke-DownloadAndExtract {
     } finally {
         Remove-Item -LiteralPath $ArchivePath -Force -ErrorAction SilentlyContinue
         Complete-LauncherProgress $progressId
+        Write-StartupStageDuration -Name "launcher.download.$([IO.Path]::GetFileName($ArchivePath))" -Stopwatch $stopwatch
     }
 }
 

@@ -173,7 +173,7 @@ def test_keras_conv1d_executes_for_the_selected_keras_backend() -> None:
         pytest.skip("The selected Keras backend is not part of the supported profile set")
 
     model: Any = cast(Any, build_model(_conv1d_graph()))
-    value: Any = model(np.zeros((1, 8, 3), dtype=np.float32), training=False)
+    value: Any = model({"input": np.zeros((1, 8, 3), dtype=np.float32)}, training=False)
     detached: Any = (
         value.detach().cpu().numpy()
         if callable(getattr(value, "detach", None))
@@ -194,7 +194,7 @@ def test_keras_slice_executes_without_dynamic_code() -> None:
         Any,
         build_model(_operation_graph("math.slice", [[None, 4, 3]], {"expression": "x[:, 1:3]"})),
     )
-    value: Any = model(np.zeros((1, 4, 3), dtype=np.float32), training=False)
+    value: Any = model({"input_0": np.zeros((1, 4, 3), dtype=np.float32)}, training=False)
     detached: Any = (
         value.detach().cpu().numpy()
         if callable(getattr(value, "detach", None))
