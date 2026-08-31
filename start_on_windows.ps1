@@ -15,7 +15,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-# Launcher progress is user-facing; keep Write-Progress visible during long operations.
+# Progress bars are reserved for quiet, measurable work; console logs clear them first.
 $ProgressPreference = 'Continue'
 Set-StrictMode -Version Latest
 $script:RepoRoot = $PSScriptRoot
@@ -78,6 +78,7 @@ function Write-Status {
         'WAIT' { 'Yellow' }
         'SUCCESS' { 'Green' }
     }
+    Clear-LauncherProgress
     Write-Host ("[{0}] {1}" -f $Level, $Message) -ForegroundColor $color
 }
 
@@ -88,7 +89,7 @@ function Write-Warn([string]$Message) { Write-Status -Level WARN -Message $Messa
 function Write-Fatal([string]$Message) { Write-Status -Level FAIL -Message $Message }
 
 function Start-LauncherProgress {
-    param([Parameter(Mandatory = $true)][string]$Activity, [string]$Status = 'Starting')
+    param([Parameter(Mandatory = $true)][string]$Activity, [Parameter(Mandatory = $true)][string]$Status)
     $id = $script:NextProgressId++
     [void]$script:ActiveProgressIds.Add($id)
     Write-Progress -Id $id -Activity $Activity -Status $Status
@@ -127,20 +128,14 @@ function Invoke-TrackedLauncherAction {
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][scriptblock]$Operation
     )
-    $activity = "NeuroWeave: $Name"
-    $progressId = Start-LauncherProgress -Activity $activity -Status 'Starting'
     Write-Step "Starting $Name"
     try {
-        Update-LauncherProgress -Id $progressId -Activity $activity -Status 'Running'
         & $Operation
         Write-Ok "$Name completed"
     }
     catch {
         Write-Fatal "$Name failed: $($_.Exception.Message)"
         throw
-    }
-    finally {
-        Complete-LauncherProgress $progressId
     }
 }
 
@@ -158,15 +153,11 @@ function Invoke-TimedStartupStage {
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][scriptblock]$Action
     )
-    $activity = "NeuroWeave: $Name"
-    $progressId = Start-LauncherProgress -Activity $activity -Status 'Running'
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
-        Update-LauncherProgress -Id $progressId -Activity $activity -Status 'Running'
         & $Action
     } finally {
         Write-StartupStageDuration -Name $Name -Stopwatch $stopwatch
-        Complete-LauncherProgress $progressId
     }
 }
 
@@ -247,11 +238,11 @@ function Invoke-DownloadAndExtract {
         [Parameter(Mandatory = $true)][string]$DestinationPath
     )
 
+    Write-Info "Downloading $Uri"
     $activity = "NeuroWeave: download and extract $([IO.Path]::GetFileName($ArchivePath))"
     $progressId = Start-LauncherProgress -Activity $activity -Status "Downloading $Uri"
     try {
         New-Item -ItemType Directory -Path (Split-Path -Parent $ArchivePath), $DestinationPath -Force | Out-Null
-        Write-Info "Downloading $Uri"
         Invoke-WebRequest -Uri $Uri -OutFile $ArchivePath
         Update-LauncherProgress -Id $progressId -Activity $activity -Status 'Extracting archive'
         Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestinationPath -Force
@@ -1391,18 +1382,11 @@ function Invoke-UpdateApplication {
     if ($branch -ne $script:GitMainBranch) {
         throw "Update requires the main branch to be checked out; current branch is '$branch'. No files were changed."
     }
-    $activity = "NeuroWeave: update application from origin/$($script:GitMainBranch)"
-    $progressId = Start-LauncherProgress -Activity $activity -Status "Pulling origin/$($script:GitMainBranch)"
-    try {
-        Write-Step "Updating the application from origin/$($script:GitMainBranch)."
-        & $git -C $script:RepoRoot pull --ff-only $script:GitRemote $script:GitMainBranch
-        $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
-        if ($exitCode -ne 0) {
-            throw "Application update failed while pulling origin/$($script:GitMainBranch) (exit code $exitCode)."
-        }
-    }
-    finally {
-        Complete-LauncherProgress $progressId
+    Write-Step "Updating the application from origin/$($script:GitMainBranch)."
+    & $git -C $script:RepoRoot pull --ff-only $script:GitRemote $script:GitMainBranch
+    $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
+    if ($exitCode -ne 0) {
+        throw "Application update failed while pulling origin/$($script:GitMainBranch) (exit code $exitCode)."
     }
     Write-Ok "Application update from origin/$($script:GitMainBranch) completed."
 }
@@ -1524,7 +1508,8 @@ function Invoke-RemoveApplicationLogs {
         Write-Info "Log directory does not exist: $($script:LogDir)"
         return
     }
-    $logs = @(Get-ChildItem -LiteralPath $script:LogDir -Filter '*.log' -File -ErrorAction SilentlyContinue)
+    $logs = @(Get-ChildItem -LiteralPath $script:LogDir -Filter '*.log' -File -ErrorAction SilentlyContinue |
+        Sort-Object @{ Expression = { $_.FullName.ToUpperInvariant() }; Descending = $false })
     if ($logs.Count -eq 0) {
         Write-Info 'No application log files found.'
         return
@@ -1553,7 +1538,7 @@ function Invoke-RemoveAllData {
     $targets = @(Get-UserDataTargets)
     foreach ($target in $targets) { Assert-UserDataTarget -Path $target }
 
-    if (-not (Confirm-LauncherAction -Prompt 'This removes all user-generated data. Type DELETE ALL DATA to continue' -Confirmation 'DELETE ALL DATA')) {
+    if (-not (Confirm-LauncherAction -Prompt 'This removes all user-generated data. Continue?')) {
         Write-Warn 'Remove all data cancelled. Application files, settings, runtimes, dependencies, caches, and build output were preserved.'
         return
     }
@@ -1592,7 +1577,8 @@ function Remove-PythonCaches {
             $cachePaths += @(Get-ChildItem -LiteralPath $root -Directory -Filter '__pycache__' -Recurse -Force -ErrorAction SilentlyContinue)
         }
     }
-    $cachePaths = @($cachePaths | Sort-Object FullName -Descending -Unique)
+    $cachePaths = @($cachePaths |
+        Sort-Object @{ Expression = { $_.FullName.Length }; Descending = $true }, @{ Expression = { $_.FullName.ToUpperInvariant() }; Descending = $false } -Unique)
     $removedCount = 0
     $skippedCount = 0
     foreach ($cachePath in $cachePaths) {
@@ -1609,47 +1595,69 @@ function Remove-PythonCaches {
 function Remove-PathBestEffort {
     param([Parameter(Mandatory = $true)][string]$Path)
 
-    $removedCount = 0
-    $skippedCount = 0
-    $entryRemovalFailed = $false
-    if (-not (Test-Path -LiteralPath $Path -ErrorAction SilentlyContinue)) {
-        return [pscustomobject]@{ Removed = 0; Skipped = 0 }
+    try {
+        $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+    } catch {
+        if ($_.CategoryInfo.Category -eq [System.Management.Automation.ErrorCategory]::ObjectNotFound) {
+            return [pscustomobject]@{ Removed = 0; Skipped = 0 }
+        }
+        Write-Warn "Skipped inaccessible path: $Path ($($_.Exception.Message))"
+        return [pscustomobject]@{ Removed = 0; Skipped = 1 }
     }
 
-    $entries = @(Get-ChildItem -LiteralPath $Path -Force -Recurse -ErrorAction SilentlyContinue |
-        Sort-Object @{ Expression = { $_.FullName.Length }; Descending = $true })
-    $progressId = Start-LauncherProgress -Activity "NeuroWeave: remove $Path" -Status "0 of $($entries.Count) items"
+    $enumerationErrors = @()
+    $entries = if ($item.PSIsContainer) {
+        @(Get-ChildItem -LiteralPath $item.FullName -Force -Recurse -ErrorAction SilentlyContinue -ErrorVariable enumerationErrors |
+            Sort-Object @{ Expression = { $_.FullName.Length }; Descending = $true }, @{ Expression = { $_.FullName.ToUpperInvariant() }; Descending = $false })
+    } else {
+        @()
+    }
+
     try {
-        for ($index = 0; $index -lt $entries.Count; $index++) {
-            $entry = $entries[$index]
-            Update-LauncherProgress -Id $progressId -Activity "NeuroWeave: remove $Path" -Status "$($index + 1) of $($entries.Count): $($entry.Name)" -PercentComplete ([int](($index + 1) * 100 / [Math]::Max(1, $entries.Count)))
-            try {
-                Remove-Item -LiteralPath $entry.FullName -Force -ErrorAction Stop
-                $removedCount++
-            } catch {
-                $skippedCount++
-                $entryRemovalFailed = $true
-                Write-Warn "Skipped removal of '$($entry.FullName)': $($_.Exception.Message)"
+        Remove-Item -LiteralPath $item.FullName -Recurse -Force -Confirm:$false -ErrorAction Stop
+        foreach ($enumerationError in $enumerationErrors) {
+            Write-Warn "Skipped inaccessible path below ${Path}: $($enumerationError.Exception.Message)"
+        }
+        return [pscustomobject]@{
+            Removed = $entries.Count + 1
+            Skipped = $enumerationErrors.Count
+        }
+    }
+    catch {
+        $failureMessages = [Collections.Generic.List[string]]::new()
+        $skippedCount = $enumerationErrors.Count
+        foreach ($enumerationError in $enumerationErrors) {
+            [void]$failureMessages.Add("Skipped inaccessible path below ${Path}: $($enumerationError.Exception.Message)")
+        }
+
+        $removedCount = 0
+        $removalItems = @($entries) + @($item)
+        $progressId = Start-LauncherProgress -Activity "NeuroWeave: recover removal of $Path" -Status "0 of $($removalItems.Count) items"
+        try {
+            for ($index = 0; $index -lt $removalItems.Count; $index++) {
+                $entry = $removalItems[$index]
+                Update-LauncherProgress -Id $progressId -Activity "NeuroWeave: recover removal of $Path" -Status "$($index + 1) of $($removalItems.Count): $($entry.Name)" -PercentComplete ([int](($index + 1) * 100 / [Math]::Max(1, $removalItems.Count)))
+                try {
+                    Remove-Item -LiteralPath $entry.FullName -Force -Confirm:$false -ErrorAction Stop
+                    $removedCount++
+                } catch {
+                    $skippedCount++
+                    [void]$failureMessages.Add("Skipped locked or inaccessible path: $($entry.FullName): $($_.Exception.Message)")
+                }
             }
         }
-    }
-    finally {
-        Complete-LauncherProgress $progressId
-    }
-
-    if (-not $entryRemovalFailed -and (Test-Path -LiteralPath $Path -ErrorAction SilentlyContinue)) {
-        try {
-            Remove-Item -LiteralPath $Path -Force -ErrorAction Stop
-            $removedCount++
-        } catch {
-            $skippedCount++
-            Write-Warn "Skipped removal of '$Path': $($_.Exception.Message)"
+        finally {
+            Complete-LauncherProgress $progressId
         }
-    }
 
-    return [pscustomobject]@{
-        Removed = $removedCount
-        Skipped = $skippedCount
+        foreach ($failureMessage in @($failureMessages | Sort-Object -Unique)) {
+            Write-Warn $failureMessage
+        }
+
+        return [pscustomobject]@{
+            Removed = $removedCount
+            Skipped = $skippedCount
+        }
     }
 }
 
@@ -1687,19 +1695,18 @@ function Invoke-ClearApplicationCache {
 
 function Confirm-LauncherAction {
     param(
-        [Parameter(Mandatory = $true)][string]$Prompt,
-        [Parameter(Mandatory = $true)][string]$Confirmation
+        [Parameter(Mandatory = $true)][string]$Prompt
     )
 
     if ([Console]::IsInputRedirected) {
-        throw "The destructive action requires an interactive console. Type $Confirmation when prompted."
+        throw 'The destructive action requires an interactive console.'
     }
-    $response = [string](Read-Host $Prompt)
-    return $response.Trim() -ceq $Confirmation
+    $response = ([string](Read-Host "$Prompt [y/N]")).Trim()
+    return $response -match '^(?i:y|yes)$'
 }
 
 function Invoke-UninstallApplication {
-    if (-not (Confirm-LauncherAction -Prompt 'This removes runtimes, dependencies, and build output. Type UNINSTALL to continue' -Confirmation 'UNINSTALL')) {
+    if (-not (Confirm-LauncherAction -Prompt 'This removes runtimes, dependencies, and build output. Continue?')) {
         Write-Warn 'Uninstall cancelled. Settings, lockfiles, database files, and exports were preserved.'
         return
     }
