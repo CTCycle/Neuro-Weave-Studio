@@ -1,5 +1,5 @@
 # ADR 001: Frontend Framework
 
-Last updated: 2026-07-30
+Last updated: 2026-08-31
 
-Status: accepted. React with TypeScript is selected over Angular. The decisive reasons are the maturity of XYFlow, direct alignment with the interaction model, smaller implementation surface, and reusable architectural knowledge from ParaGraph without copying its UI. Angular remains technically viable through Rete.js or Angular-specific graph libraries, but would add integration risk without a compensating product benefit.
+Status: accepted; this decision supersedes the original React selection. Angular 22 with standalone components, strict TypeScript templates, zoneless change detection, signals for local/application state, and RxJS for asynchronous streams is the canonical frontend framework. The migration keeps the backend-neutral graph contract and existing drafting-board visual language while replacing React-specific ownership and routing with Angular-native boundaries. Angular’s dependency injection, route/component lifecycle, reactive forms, and signal model provide explicit ownership for the editor, runtime workflows, and navigation guards.

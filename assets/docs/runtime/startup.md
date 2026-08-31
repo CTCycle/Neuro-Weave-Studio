@@ -1,10 +1,10 @@
 # Startup
 
-Last updated: 2026-08-29
+Last updated: 2026-08-31
 
 On Windows run `start_on_windows.ps1` and select **Launch application**. On the first launch, after core dependencies are ready, the launcher offers a numbered backend choice covering Keras-only, PyTorch GPU/CUDA, PyTorch CPU-only, TensorFlow CPU-only, JAX CPU-only, and combined configurations. It detects NVIDIA CUDA with `nvidia-smi`, falls back to the CPU wheel when a PyTorch CUDA install fails, records the requested and resolved extras, and reports each backend's actual installed version and worker capability during explicit setup or management. A configured normal launch reuses that installation record; the separate **Manage compute backends** action can be revisited later and refuses to mutate the environment while the application is running.
 
-The launcher validates local runtimes and dependencies. Option 2 installs or repairs dependencies and builds `app/tests/cache/frontend-dist`; option 3 rebuilds only the frontend from current source using the existing frontend dependencies; option 1 reuses the existing build and never rebuilds it automatically. If `app/tests/cache/frontend-dist/index.html` is missing, run the standalone `start_on_windows.ps1 -Action RebuildFrontend` action before launching. The launch action records timed stages for runtime setup, environment loading, dependency checks, backend setup, artifact/port checks, and service readiness; it starts Uvicorn without reload by default and the Vite preview server through independent `cmd.exe` process roots, then waits for `/health` and the frontend root. Once both services are ready it opens the frontend in the default browser when possible, prints the service PIDs, detaches the process roots, and closes the initial PowerShell launcher. Pass `-NoBrowser` to skip browser opening. If readiness fails, the launcher retains the error, cleans up only its tracked process trees, and does not close the interactive menu.
+The launcher validates local runtimes and dependencies. Option 2 installs or repairs dependencies and builds `app/tests/cache/frontend-dist`; option 3 rebuilds only the frontend from current source using the existing frontend dependencies; option 1 reuses the existing build and never rebuilds it automatically. If `app/tests/cache/frontend-dist/index.html` is missing, run the standalone `start_on_windows.ps1 -Action RebuildFrontend` action before launching. The launch action records timed stages for runtime setup, environment loading, dependency checks, backend setup, artifact/port checks, and service readiness; it starts Uvicorn without reload by default and the Node SPA preview server through independent process roots, then waits for `/health` and the frontend root. Once both services are ready it opens the frontend in the default browser when possible, prints the service PIDs, detaches the process roots, and closes the initial PowerShell launcher. Pass `-NoBrowser` to skip browser opening. If readiness fails, the launcher retains the error, cleans up only its tracked process trees, and does not close the interactive menu.
 
 The **Initialize or upgrade database** action runs `app/scripts/initialize_database.py` without destructive flags. It creates a missing or empty SQLite file through Alembic and upgrades an existing database to the current head. The action is safe to repeat and refuses to run while the configured application ports are active.
 
@@ -26,11 +26,11 @@ uv run uvicorn app:create_app --factory --host 127.0.0.1 --port 8000
 
 Add `--reload` only for an intentional development reload session; the launcher and normal application startup keep reload disabled.
 
-In another terminal:
+In another terminal, the Angular CLI wrapper starts the development server and its API proxy:
 
 ```powershell
 cd app/client
-npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
 Backend and frontend output from the launcher is written to `app/resources/runtime/logs` when backend logs are hidden. Set `BACKEND_LOGS_VISIBLE=false` in `settings/.env` to use that file-only mode; it defaults to `true`, which opens a dedicated terminal for backend logs while application log files continue to be written.

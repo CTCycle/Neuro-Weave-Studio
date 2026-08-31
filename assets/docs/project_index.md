@@ -1,6 +1,6 @@
 # NeuroWeave Documentation Index
 
-Last updated: 2026-08-21
+Last updated: 2026-08-31
 
 ## Purpose
 
@@ -17,7 +17,7 @@ This is the root navigation document for the repository. Read it first, then ope
 
 - `architecture/system_overview.md`
 - `architecture/backend_architecture.md`
-- `architecture/frontend_architecture.md`
+- `architecture/frontend_architecture.md`: Angular application composition, graph ownership, and UI boundaries.
 - `architecture/graph_compiler.md`
 - `architecture/model_execution_profile.md`
 - `architecture/shape_inference.md`

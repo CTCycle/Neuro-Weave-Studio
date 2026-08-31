@@ -1,8 +1,8 @@
 # System Overview
 
-Last updated: 2026-08-27
+Last updated: 2026-08-31
 
-NeuroWeave Studio contains a flat FastAPI backend in `app/server`, a React TypeScript frontend in `app/client/src`, manifest resources, example projects, and focused documentation under `assets/docs`. The backend owns graph contracts, execution-profile-derived validation, compilation, persistence, source export, import, and process-isolated runtime work. The frontend owns editing state and interaction; backend validation remains authoritative.
+NeuroWeave Studio contains a flat FastAPI backend in `app/server`, a standalone Angular TypeScript frontend in `app/client/src/app`, manifest resources, example projects, and focused documentation under `assets/docs`. The backend owns graph contracts, execution-profile-derived validation, compilation, persistence, source export, import, and process-isolated runtime work. The frontend owns editing state and interaction; backend validation remains authoritative.
 
 The backend is launched through `app:create_app --factory`. Lifespan probes optional runtimes through fresh interpreters, creates the application-scoped job controller, and reaps every active worker before disposing repositories. The server itself stays framework-neutral: Keras/TensorFlow/JAX/PyTorch imports occur only inside a worker process after startup configuration.
 
