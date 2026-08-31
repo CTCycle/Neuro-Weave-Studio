@@ -1,6 +1,6 @@
 import { Component, effect, inject, input, signal } from '@angular/core'
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
-import { LucideArrowLeft, LucideBox, LucideCopy, LucideFileCode2, LucideGitBranch, LucidePlay, LucideSettings2, LucideTrash2, LucideUploadCloud } from '@lucide/angular'
+import { LucideArrowLeft, LucideBox, LucideCopy, LucideFileCode2, LucideGitBranch, LucideSettings2, LucideTrash2, LucideUploadCloud } from '@lucide/angular'
 import { AppResourcesService } from '../../core/state/app-resources.service'
 import { implementationLabel } from '../../domain/types'
 import { CompilationStatusBadgeComponent, ValidationStatusBadgeComponent } from '../../shared/components/model-status-badge.component'

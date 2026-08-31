@@ -1,9 +1,10 @@
-import { Component, computed, inject, signal, ViewChild, ElementRef } from '@angular/core'
+import { Component, computed, inject, signal, ViewChild } from '@angular/core'
+import type { ElementRef } from '@angular/core'
 import { Router, RouterLink } from '@angular/router'
 import { LucideBox, LucideFilePlus2, LucideFilter, LucideFolderOpen, LucideImport, LucideSearch } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
 import { AppResourcesService } from '../../core/state/app-resources.service'
-import type { ExecutionBackend, ProjectExportBundle, ProjectSummary } from '../../domain/types'
+import type { ExecutionBackend, ProjectExportBundle } from '../../domain/types'
 import { executionBackendShortLabels } from '../../domain/types'
 import { CompilationStatusBadgeComponent, ValidationStatusBadgeComponent } from '../../shared/components/model-status-badge.component'
 

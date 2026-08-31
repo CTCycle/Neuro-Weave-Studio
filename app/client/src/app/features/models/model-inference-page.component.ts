@@ -1,8 +1,10 @@
-import { Component, inject, signal } from '@angular/core'
+import { Component, DestroyRef, inject, signal } from '@angular/core'
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { RouterLink } from '@angular/router'
 import { LucideFlaskConical, LucideSquare } from '@lucide/angular'
+import { firstValueFrom, switchMap, takeWhile, tap, timer } from 'rxjs'
 import { ApiService } from '../../core/api/api.service'
-import type { JobResponse, WorkerConfiguration } from '../../domain/types'
+import type { JobResponse, RuntimeDevice, WorkerConfiguration } from '../../domain/types'
 import { AppResourcesService } from '../../core/state/app-resources.service'
 import { ModelWorkspaceState } from './model-workspace.state'
 
@@ -20,6 +22,7 @@ export class ModelInferencePageComponent {
   readonly state = inject(ModelWorkspaceState)
   private readonly api = inject(ApiService)
   private readonly resources = inject(AppResourcesService)
+  private readonly destroyRef = inject(DestroyRef)
   readonly busy = signal(false)
   readonly job = signal<JobResponse | null>(null)
   readonly result = signal<{ device_name: string; inputs: unknown[]; outputs: unknown[]; parameter_count: number; duration_ms: number } | null>(null)
@@ -31,17 +34,32 @@ export class ModelInferencePageComponent {
     if (!project) return null
     const status = this.resources.backendStatuses().find((item) => item.id === project.execution_backend && item.available)
     const preference = this.resources.runtimePreferences()[project.execution_backend]
-    const device = status?.devices?.find((item) => item.available)
-    if (!status || !preference || !device) return null
-    return { ...preference, api: project.keras_enabled ? 'keras' : 'native', device_id: device.device_id }
+    const devices = status?.devices?.length ? status.devices : status ? [fallbackDevice()] : []
+    const device = devices.find((item) => item.device_id === preference?.device_id && item.available) ?? devices.find((item) => item.available)
+    const api = project.keras_enabled ? 'keras' : 'native'
+    if (!status || !preference || !device || status.runtime_apis?.some((item) => item.id === api && !item.available)) return null
+    const memoryPolicy = device.supported_memory_policies.includes(preference.memory_policy.kind) ? preference.memory_policy : { kind: 'default' as const }
+    return { ...preference, api, device_id: device.device_id, memory_policy: memoryPolicy }
   }
 
   async run(): Promise<void> {
     const project = this.state.project(); const worker = this.worker()
     if (!project || !worker) return
     this.busy.set(true); this.error.set(null); this.result.set(null)
-    try { let current = await this.api.submitSmokeInference(project.id, project.graph, worker); this.job.set(current); while (!['succeeded', 'terminated', 'failed'].includes(current.state)) { await new Promise((resolve) => window.setTimeout(resolve, 300)); current = await this.api.getJob(current.id); this.job.set(current) } if (current.state !== 'succeeded') throw new Error(current.error?.message || 'The inference worker did not complete.'); const data = current.result || {}; this.result.set({ device_name: String(data['device_name'] || worker.device_id), inputs: Array.isArray(data['inputs']) ? data['inputs'] : [], outputs: Array.isArray(data['outputs']) ? data['outputs'] : [], parameter_count: Number(data['parameter_count'] || 0), duration_ms: Number(data['duration_ms'] || 0) }) } catch (reason) { this.error.set(reason instanceof Error ? reason.message : String(reason)) } finally { this.busy.set(false) }
+    try {
+      let current = await this.api.submitSmokeInference(project.id, project.graph, worker)
+      this.job.set(current)
+      if (!['succeeded', 'terminated', 'failed'].includes(current.state)) {
+        current = await firstValueFrom(timer(250, 250).pipe(switchMap(() => this.api.getJob(current.id)), tap((next) => this.job.set(next)), takeWhile((next) => !['succeeded', 'terminated', 'failed'].includes(next.state), true), takeUntilDestroyed(this.destroyRef)))
+      }
+      if (this.destroyRef.destroyed) return
+      if (current.state !== 'succeeded') throw new Error(current.error?.message || 'The inference worker did not complete.')
+      const data = current.result || {}
+      this.result.set({ device_name: String(data['device_name'] || worker.device_id), inputs: Array.isArray(data['inputs']) ? data['inputs'] : [], outputs: Array.isArray(data['outputs']) ? data['outputs'] : [], parameter_count: Number(data['parameter_count'] || 0), duration_ms: Number(data['duration_ms'] || 0) })
+    } catch (reason) { if (!this.destroyRef.destroyed) this.error.set(reason instanceof Error ? reason.message : String(reason)) } finally { if (!this.destroyRef.destroyed) this.busy.set(false) }
   }
 
   async stop(): Promise<void> { const current = this.job(); if (!current) return; try { this.job.set(await this.api.stopJob(current.id)) } catch (reason) { this.error.set(reason instanceof Error ? reason.message : String(reason)) } }
 }
+
+function fallbackDevice(): RuntimeDevice { return { device_id: 'cpu', lease_key: 'cpu', kind: 'cpu', name: 'CPU', accelerator: 'cpu', available: true, supported_memory_policies: ['default'] } }
