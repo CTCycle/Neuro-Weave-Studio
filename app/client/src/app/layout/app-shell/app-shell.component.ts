@@ -1,6 +1,8 @@
-import { Component, computed, inject } from '@angular/core'
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
+import { Component, inject } from '@angular/core'
+import { toSignal } from '@angular/core/rxjs-interop'
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
 import { LucideActivity, LucideBox, LucideBrainCircuit, LucideCpu, LucideHammer, LucideX } from '@lucide/angular'
+import { filter, map, startWith } from 'rxjs'
 import { AppResourcesService } from '../../core/state/app-resources.service'
 
 @Component({
@@ -42,5 +44,6 @@ import { AppResourcesService } from '../../core/state/app-resources.service'
 })
 export class AppShellComponent {
   readonly resources = inject(AppResourcesService)
-  readonly isBuilder = computed(() => window.location.pathname.startsWith('/builder'))
+  private readonly router = inject(Router)
+  readonly isBuilder = toSignal(this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), map((event) => event.urlAfterRedirects.startsWith('/builder')), startWith(this.router.url.startsWith('/builder'))), { initialValue: this.router.url.startsWith('/builder') })
 }
