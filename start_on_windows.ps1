@@ -275,7 +275,6 @@ function Import-DotEnv {
         FASTAPI_PORT = '8000'
         UI_HOST = '127.0.0.1'
         UI_PORT = '5173'
-        VITE_API_BASE_URL = '/api'
         RELOAD = 'false'
         BACKEND_LOGS_VISIBLE = 'true'
     }
@@ -840,7 +839,7 @@ function Test-DependenciesReady {
     $clientLock = Join-Path $script:ClientDir 'package-lock.json'
     $clientModules = Join-Path $script:ClientDir 'node_modules'
     $clientInstallState = Join-Path $clientModules '.package-lock.json'
-    $vite = Join-Path $clientModules '.bin\vite.cmd'
+    $angularCli = Join-Path $clientModules '.bin\ng.cmd'
     if (-not (Test-Path -LiteralPath $python) -or
         -not (Test-Path -LiteralPath $uv) -or
         -not (Test-Path -LiteralPath $node) -or
@@ -850,7 +849,7 @@ function Test-DependenciesReady {
         -not (Test-Path -LiteralPath $clientPackage) -or
         -not (Test-Path -LiteralPath $clientLock) -or
         -not (Test-Path -LiteralPath $clientInstallState) -or
-        -not (Test-Path -LiteralPath $vite)) {
+        -not (Test-Path -LiteralPath $angularCli)) {
         return $false
     }
     & $python --version *> $null
@@ -1243,13 +1242,15 @@ function Invoke-TestSuite {
     $npm = Get-Npm
     Push-Location $script:ClientDir
     try {
-        Write-Step 'Running frontend lint, tests, and build.'
+        Write-Step 'Running frontend lint, tests, build, and E2E.'
         & $npm run lint
         if ($LASTEXITCODE -ne 0) { throw "Frontend lint failed with exit code $LASTEXITCODE." }
         & $npm run test
         if ($LASTEXITCODE -ne 0) { throw "Frontend tests failed with exit code $LASTEXITCODE." }
         & $npm run build
         if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE." }
+        & $npm run e2e
+        if ($LASTEXITCODE -ne 0) { throw "Frontend E2E failed with exit code $LASTEXITCODE." }
     } finally { Pop-Location }
     Write-Ok 'Validation suite completed.'
 }
@@ -1565,10 +1566,9 @@ function Invoke-ClearApplicationCache {
         (Join-Path $script:ServerDir '.pytest_cache'),
         (Join-Path $script:ServerDir '.ruff_cache'),
         (Join-Path $script:ServerDir '.mypy_cache'),
-        (Join-Path $script:ClientDir '.vite'),
+        (Join-Path $script:ClientDir '.angular'),
         (Join-Path $script:ClientDir 'dist'),
-        (Join-Path $script:ClientDir 'coverage'),
-        (Join-Path $script:ClientDir 'node_modules\.vite')
+        (Join-Path $script:ClientDir 'coverage')
     )
     $removedCount = [int]$pythonCacheResult.Removed
     $skippedCount = [int]$pythonCacheResult.Skipped

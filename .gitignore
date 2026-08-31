@@ -16,7 +16,6 @@ app/tests/cache/
 node_modules/
 dist/
 coverage/
-.vite/
 .angular/
 *.tsbuildinfo
 
