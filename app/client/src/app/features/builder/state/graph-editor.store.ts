@@ -8,13 +8,11 @@ import {
   type GraphEditorSession,
 } from '../../../domain/graph-mapper'
 import { emptyModelConfiguration, type ModelConfiguration, type ModelGraph, type NodeManifest, type ProjectDocument, type ShapeSummary } from '../../../domain/types'
+import { layeredLayout } from '../graph/graph-layout.service'
+import { isGraphConnectionValid, type GraphConnection } from '../graph/graph-validation'
 
-export interface GraphConnection {
-  source: string
-  sourceHandle: string
-  target: string
-  targetHandle: string
-}
+export type { GraphConnection } from '../graph/graph-validation'
+export { wouldCreateCycle } from '../graph/graph-validation'
 
 export interface NodePositionChange {
   id: string
@@ -86,18 +84,7 @@ export class GraphEditorStore {
   }
 
   isConnectionValid(connection: GraphConnection): boolean {
-    const nodes = this.nodes()
-    const edges = this.edges()
-    if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) return false
-    if (wouldCreateCycle(nodes, edges, connection.source, connection.target)) return false
-    const sourceNode = nodes.find((node) => node.id === connection.source)
-    const targetNode = nodes.find((node) => node.id === connection.target)
-    const sourcePort = sourceNode?.data.manifest.outputs.find((port) => port.id === connection.sourceHandle)
-    const targetPort = targetNode?.data.manifest.inputs.find((port) => port.id === connection.targetHandle)
-    if (!sourcePort || !targetPort) return false
-    const expectedKind = targetPort.kind === 'tensor_list' ? targetPort.element_kind ?? 'tensor' : targetPort.kind
-    if (sourcePort.kind !== expectedKind) return false
-    return targetPort.accepts_multiple || !edges.some((edge) => edge.target === connection.target && edge.targetHandle === connection.targetHandle)
+    return isGraphConnectionValid(this.nodes(), this.edges(), connection)
   }
 
   connect(connection: GraphConnection): boolean {
@@ -119,6 +106,11 @@ export class GraphEditorStore {
   selectEdge(edgeId: string | null): void {
     this.selectedEdgeId.set(edgeId)
     this.selectedNodeId.set(null)
+  }
+
+  clearSelection(): void {
+    this.selectedNodeId.set(null)
+    this.selectedEdgeId.set(null)
   }
 
   updateNode(nodeId: string, patch: { label?: string; parameters?: Record<string, unknown> }): void {
@@ -294,7 +286,8 @@ export class GraphEditorStore {
 
   autoLayout(nodes: EditorNode[], edges: EditorEdge[]): void {
     this.checkpoint()
-    this.nodes.set(nodes.map((node) => ({ ...node, position: { ...node.position } })))
+    const positions = layeredLayout(nodes, edges)
+    this.nodes.set(nodes.map((node) => ({ ...node, position: positions.get(node.id) ?? { ...node.position } })))
     this.edges.set(edges.map((edge) => ({ ...edge })))
   }
 
@@ -315,23 +308,6 @@ export class GraphEditorStore {
     this.exportSettings.set(structuredClone(snapshot.exportSettings))
     this.futureTrainingConfiguration.set(structuredClone(snapshot.futureTrainingConfiguration))
   }
-}
-
-export function wouldCreateCycle(nodes: readonly EditorNode[], edges: readonly EditorEdge[], source: string, target: string): boolean {
-  if (source === target) return true
-  const adjacency = new Map<string, string[]>()
-  for (const node of nodes) adjacency.set(node.id, [])
-  for (const edge of edges) adjacency.get(edge.source)?.push(edge.target)
-  const stack = [target]
-  const visited = new Set<string>()
-  while (stack.length) {
-    const current = stack.pop() as string
-    if (current === source) return true
-    if (visited.has(current)) continue
-    visited.add(current)
-    stack.push(...(adjacency.get(current) ?? []))
-  }
-  return false
 }
 
 function newId(prefix: string): string {
