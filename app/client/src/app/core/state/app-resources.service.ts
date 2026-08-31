@@ -7,6 +7,7 @@ import type {
   NodeManifest,
   ProjectSummary,
   RuntimeApiStatus,
+  RuntimeDiscoveryResponse,
   RuntimeDevice,
   WorkerConfiguration,
 } from '../../domain/types'
@@ -28,14 +29,48 @@ export class AppResourcesService {
   readonly errors = signal<Record<string, string>>({})
   readonly error = computed(() => Object.values(this.errors()).join(' ') || null)
 
-  constructor() {
-    void this.load()
+  private projectsRequest?: Promise<ProjectSummary[]>
+  private catalogRequest?: Promise<NodeManifest[]>
+  private runtimeRequest?: Promise<void>
+  private readonly discoveryRequests = new Map<string, Promise<RuntimeDiscoveryResponse>>()
+  private readonly validatedDiscoveries = new Set<string>()
+  readonly discoveryPending = signal<Record<string, boolean>>({})
+
+  loadProjects(): Promise<ProjectSummary[]> {
+    if (this.projectsRequest) return this.projectsRequest
+    this.projectsRequest = this.api.listProjects().then((value) => {
+      this.projects.set(value)
+      this.clearResourceError('projects')
+      return value
+    }).catch((reason) => {
+      this.recordError('projects', this.message(reason, 'Model catalog unavailable.'))
+      return []
+    }).finally(() => {
+      this.projectsReady.set(true)
+      markResource('projects')
+    })
+    return this.projectsRequest
   }
 
-  async load(): Promise<void> {
-    void this.api.catalog().then((value) => this.manifests.set(value)).catch(() => this.recordError('catalog', 'Node catalog unavailable.')).finally(() => this.catalogReady.set(true))
-    void this.api.listProjects().then((value) => this.projects.set(value)).catch(() => this.recordError('projects', 'Model catalog unavailable.')).finally(() => this.projectsReady.set(true))
-    void this.api.metadata().then((value) => {
+  loadCatalog(): Promise<NodeManifest[]> {
+    if (this.catalogRequest) return this.catalogRequest
+    this.catalogRequest = this.api.catalog().then((value) => {
+      this.manifests.set(value)
+      this.clearResourceError('catalog')
+      return value
+    }).catch((reason) => {
+      this.recordError('catalog', this.message(reason, 'Node catalog unavailable.'))
+      return []
+    }).finally(() => {
+      this.catalogReady.set(true)
+      markResource('catalog')
+    })
+    return this.catalogRequest
+  }
+
+  loadRuntimeMetadata(): Promise<void> {
+    if (this.runtimeRequest) return this.runtimeRequest
+    this.runtimeRequest = this.api.metadata().then((value) => {
       const statuses = value.execution_backends
       this.backendStatuses.set(statuses)
       this.compilationCapabilities.set(value.configuration.compilation_capabilities)
@@ -48,13 +83,99 @@ export class AppResourcesService {
       this.runtimePreferences.set(next)
       const selected = this.runtimePreferenceBackend()
       this.runtimePreferenceBackend.set(selected && statuses.some((item) => item.id === selected && item.available) ? selected : preferredBackend(statuses))
-    }).catch(() => this.recordError('runtime', 'Runtime metadata unavailable.')).finally(() => this.runtimeReady.set(true))
+      for (const status of statuses) {
+        for (const api of status.runtime_apis ?? []) {
+          if (api.state === 'unchecked' || api.state === undefined) this.validatedDiscoveries.delete(discoveryKey(status.id, api.id))
+        }
+      }
+      this.clearResourceError('runtime')
+    }).catch((reason) => this.recordError('runtime', this.message(reason, 'Runtime metadata unavailable.'))).finally(() => {
+      this.runtimeReady.set(true)
+      markResource('runtime')
+    })
+    return this.runtimeRequest
+  }
+
+  discoverRuntime(backend: ExecutionBackend, api: WorkerConfiguration['api'], forceRefresh = false, signal?: AbortSignal): Promise<RuntimeDiscoveryResponse> {
+    const key = discoveryKey(backend, api)
+    const existing = this.discoveryRequests.get(key)
+    if (existing) return existing
+    this.setDiscoveryPending(key, true)
+    const observation = this.observeRuntime(backend, api, forceRefresh, signal)
+    this.discoveryRequests.set(key, observation)
+    void observation.then((result) => {
+      if (result.state !== 'checking' && !signal?.aborted) this.validatedDiscoveries.add(key)
+      this.clearDiscoveryObservation(key, observation)
+    }, () => this.clearDiscoveryObservation(key, observation))
+    return observation
+  }
+
+  private async observeRuntime(backend: ExecutionBackend, api: WorkerConfiguration['api'], forceRefresh: boolean, signal?: AbortSignal): Promise<RuntimeDiscoveryResponse> {
+    const requested = await this.api.requestRuntimeDiscovery(backend, api, forceRefresh)
+    let current = requested
+    const deadline = Date.now() + 65_000
+    while (current.state === 'checking' && Date.now() < deadline) {
+      if (signal?.aborted) return current
+      await waitForDiscoveryPoll(signal)
+      if (signal?.aborted) return current
+      current = await this.api.runtimeDiscoveryStatus(backend, api)
+    }
+    if (current.state === 'checking') throw new Error('Runtime capability discovery timed out after 65 seconds.')
+    this.runtimeRequest = undefined
+    await this.loadRuntimeMetadata()
+    return current
+  }
+
+  private clearDiscoveryObservation(key: string, observation: Promise<RuntimeDiscoveryResponse>): void {
+    if (this.discoveryRequests.get(key) === observation) this.discoveryRequests.delete(key)
+    this.setDiscoveryPending(key, false)
+  }
+
+  runtimeCapabilityReady(backend: ExecutionBackend, api: WorkerConfiguration['api']): boolean {
+    const key = discoveryKey(backend, api)
+    if (this.discoveryPending()[key]) return false
+    const status = this.backendStatuses().find((item) => item.id === backend)
+    const apiStatus = status?.runtime_apis?.find((item) => item.id === api)
+    return Boolean(status?.available && apiStatus?.available && apiStatus.state === 'verified' && this.validatedDiscoveries.has(key))
+  }
+
+  private setDiscoveryPending(key: string, pending: boolean): void {
+    this.discoveryPending.update((current) => {
+      const next = { ...current }
+      if (pending) next[key] = true
+      else delete next[key]
+      return next
+    })
+  }
+
+  async load(): Promise<void> {
+    await Promise.all([this.loadProjects(), this.loadCatalog(), this.loadRuntimeMetadata()])
   }
 
   async refreshProjects(): Promise<ProjectSummary[]> {
-    const projects = await this.api.listProjects()
-    this.projects.set(projects)
-    return projects
+    this.projectsRequest = undefined
+    this.projectsReady.set(false)
+    return this.loadProjects()
+  }
+
+  retryProjects(): Promise<ProjectSummary[]> {
+    return this.refreshProjects()
+  }
+
+  retryCatalog(): Promise<NodeManifest[]> {
+    this.catalogRequest = undefined
+    this.catalogReady.set(false)
+    return this.loadCatalog()
+  }
+
+  retryRuntimeMetadata(): Promise<void> {
+    this.runtimeRequest = undefined
+    this.runtimeReady.set(false)
+    return this.loadRuntimeMetadata()
+  }
+
+  hasError(resource: string): boolean {
+    return Boolean(this.errors()[resource])
   }
 
   selectRuntimePreferenceBackend(backend: ExecutionBackend | null): void {
@@ -77,6 +198,17 @@ export class AppResourcesService {
 
   private recordError(resource: string, message: string): void {
     this.errors.set({ ...this.errors(), [resource]: message })
+  }
+
+  private clearResourceError(resource: string): void {
+    if (!this.hasError(resource)) return
+    const next = { ...this.errors() }
+    delete next[resource]
+    this.errors.set(next)
+  }
+
+  private message(reason: unknown, fallback: string): string {
+    return reason instanceof Error ? reason.message : fallback
   }
 }
 
@@ -102,4 +234,22 @@ function defaultPreference(status: ExecutionBackendStatus): WorkerConfiguration 
 function preferredBackend(statuses: ExecutionBackendStatus[]): ExecutionBackend | null {
   const available = statuses.filter((item) => item.available)
   return (available.length === 1 ? available[0] : available.find((item) => item.id === 'pytorch'))?.id ?? null
+}
+
+function markResource(resource: string): void {
+  if (typeof performance !== 'undefined') performance.mark(`nw:resource:${resource}:complete`)
+}
+
+function discoveryKey(backend: ExecutionBackend, api: WorkerConfiguration['api']): string {
+  return `${backend}:${api}`
+}
+
+function waitForDiscoveryPoll(signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(resolve, 500)
+    signal?.addEventListener('abort', () => {
+      window.clearTimeout(timer)
+      resolve()
+    }, { once: true })
+  })
 }

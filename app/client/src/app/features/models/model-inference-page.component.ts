@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core'
+import { Component, DestroyRef, effect, inject, signal } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { RouterLink } from '@angular/router'
 import { LucideFlaskConical, LucideSquare } from '@lucide/angular'
@@ -14,7 +14,7 @@ import { ModelWorkspaceState } from './model-workspace.state'
   imports: [RouterLink, LucideFlaskConical, LucideSquare],
   template: `
     @if (state.project(); as project) {
-      <div class="workflow-page inference-page"><div class="workflow-intro"><div><span class="eyebrow">INFERENCE</span><h2>Run a safe model check</h2><p>This workspace creates compatible dummy inputs and performs one forward pass. It never trains or updates weights.</p></div><div class="backend-selection-summary workflow-backend-summary"><span>Model backend preference</span>@if (worker(); as selection) { <strong>{{ selection.api }} · {{ selection.backend }} · {{ selection.device_id }}</strong> } @else { <a routerLink="/environment">Configure {{ project.execution_backend }} in Environment</a> }</div></div><section class="inference-controls panel"><div class="inference-control-note"><svg lucideFlaskConical [size]="18"></svg><span>Inference uses the model's persisted backend and its matching runtime preference. It never changes model data.</span></div><a class="secondary environment-link" routerLink="/environment">Configure runtime</a></section><section class="smoke-test-drawer panel"><div class="section-heading"><div><span class="eyebrow">SMOKE TEST</span><h3>One forward pass</h3></div>@if (job(); as current) { <span class="muted">{{ current.state }}</span> }</div><p class="muted">The worker returns input/output tensor shapes, device information, and parameter count.</p><div class="workflow-card-actions"><button class="primary" type="button" (click)="run()" [disabled]="busy() || !worker()">{{ busy() ? 'Running…' : 'Run smoke test' }}</button>@if (busy()) { <button class="secondary" type="button" (click)="stop()"><svg lucideSquare [size]="14"></svg>Stop</button> }</div>@if (result(); as value) { <div class="smoke-result"><strong>Completed on {{ value.device_name }}</strong><span>{{ value.inputs.length }} inputs · {{ value.outputs.length }} outputs · {{ value.parameter_count }} parameters · {{ value.duration_ms }} ms</span></div> }@if (error()) { <div class="model-export-notice" role="alert">{{ error() }}</div> }</section></div>
+      <div class="workflow-page inference-page"><div class="workflow-intro"><div><span class="eyebrow">INFERENCE</span><h2>Run a safe model check</h2><p>This workspace creates compatible dummy inputs and performs one forward pass. It never trains or updates weights.</p></div><div class="backend-selection-summary workflow-backend-summary"><span>Model backend preference</span>@if (worker(); as selection) { <strong>{{ selection.api }} · {{ selection.backend }} · {{ selection.device_id }}</strong> } @else { <a routerLink="/environment">Configure {{ project.execution_backend }} in Environment</a> }</div></div><section class="inference-controls panel"><div class="inference-control-note"><svg lucideFlaskConical [size]="18"></svg><span>Inference uses the model's persisted backend and its matching runtime preference. It never changes model data.</span></div><a class="secondary environment-link" routerLink="/environment">Configure runtime</a></section><section class="smoke-test-drawer panel"><div class="section-heading"><div><span class="eyebrow">SMOKE TEST</span><h3>One forward pass</h3></div>@if (job(); as current) { <span class="muted">{{ current.state }}</span> }</div><p class="muted">The worker returns input/output tensor shapes, device information, and parameter count.</p><div class="workflow-card-actions"><button class="primary" type="button" (click)="run()" [disabled]="busy()">{{ busy() ? 'Running…' : 'Run smoke test' }}</button>@if (busy()) { <button class="secondary" type="button" (click)="stop()"><svg lucideSquare [size]="14"></svg>Stop</button> }</div>@if (result(); as value) { <div class="smoke-result"><strong>Completed on {{ value.device_name }}</strong><span>{{ value.inputs.length }} inputs · {{ value.outputs.length }} outputs · {{ value.parameter_count }} parameters · {{ value.duration_ms }} ms</span></div> }@if (error()) { <div class="model-export-notice" role="alert">{{ error() }}</div> }</section></div>
     }
   `,
 })
@@ -28,6 +28,20 @@ export class ModelInferencePageComponent {
   readonly result = signal<{ device_name: string; inputs: unknown[]; outputs: unknown[]; parameter_count: number; duration_ms: number } | null>(null)
   readonly error = signal<string | null>(null)
   readonly worker = () => this.workerForProject()
+  private readonly discoveryAbort = new AbortController()
+
+  constructor() {
+    void this.resources.loadRuntimeMetadata()
+    this.destroyRef.onDestroy(() => this.discoveryAbort.abort())
+    effect(() => {
+      const project = this.state.project()
+      if (!project) return
+      const api = project.keras_enabled ? 'keras' : 'native'
+      void this.resources.discoverRuntime(project.execution_backend, api, false, this.discoveryAbort.signal).catch((reason) => {
+        if (!this.destroyRef.destroyed) this.error.set(reason instanceof Error ? reason.message : String(reason))
+      })
+    })
+  }
 
   private workerForProject(): WorkerConfiguration | null {
     const project = this.state.project()
@@ -37,16 +51,23 @@ export class ModelInferencePageComponent {
     const devices = status?.devices?.length ? status.devices : status ? [fallbackDevice()] : []
     const device = devices.find((item) => item.device_id === preference?.device_id && item.available) ?? devices.find((item) => item.available)
     const api = project.keras_enabled ? 'keras' : 'native'
-    if (!status || !preference || !device || status.runtime_apis?.some((item) => item.id === api && !item.available)) return null
+    if (!status || !preference || !device || !this.resources.runtimeCapabilityReady(project.execution_backend, api)) return null
     const memoryPolicy = device.supported_memory_policies.includes(preference.memory_policy.kind) ? preference.memory_policy : { kind: 'default' as const }
     return { ...preference, api, device_id: device.device_id, memory_policy: memoryPolicy }
   }
 
   async run(): Promise<void> {
-    const project = this.state.project(); const worker = this.worker()
-    if (!project || !worker) return
+    const project = this.state.project()
+    if (!project) return
     this.busy.set(true); this.error.set(null); this.result.set(null)
     try {
+      let worker = this.worker()
+      if (!worker) {
+        const api = project.keras_enabled ? 'keras' : 'native'
+        await this.resources.discoverRuntime(project.execution_backend, api, false, this.discoveryAbort.signal)
+        worker = this.worker()
+      }
+      if (!worker) throw new Error('The selected runtime is unavailable. Check it in Environment and retry.')
       let current = await this.api.submitSmokeInference(project.id, project.graph, worker)
       this.job.set(current)
       if (!['succeeded', 'terminated', 'failed'].includes(current.state)) {

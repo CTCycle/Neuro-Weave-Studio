@@ -1,5 +1,6 @@
 export type ExecutionBackend = 'tensorflow' | 'pytorch' | 'jax'
 export type RuntimeApi = 'keras' | 'native'
+export type RuntimeDiscoveryState = 'unchecked' | 'checking' | 'verified' | 'unavailable' | 'failed'
 export type MemoryPolicyKind = 'default' | 'tensorflow_growth' | 'tensorflow_limit_mb' | 'jax_no_preallocation' | 'jax_preallocate_fraction' | 'jax_platform_allocator' | 'pytorch_fraction'
 export type DiagnosticSeverity = 'error' | 'warning' | 'compatibility' | 'info'
 export type PortKind = 'tensor' | 'tensor_list' | 'scalar' | 'mask'
@@ -300,12 +301,29 @@ export interface ExecutionBackendStatus {
   devices?: RuntimeDevice[]
   runtime_apis?: RuntimeApiStatus[]
   native_compilers?: Record<string, boolean>
+  discovery_state?: RuntimeDiscoveryState
+  discovery_source?: 'snapshot' | 'live' | 'none' | string
+  last_checked_at?: string | null
 }
 
 export interface RuntimeApiStatus {
   id: RuntimeApi
   available: boolean
   reason_code?: string | null
+  state?: RuntimeDiscoveryState
+  source?: 'snapshot' | 'live' | 'none' | string
+  checked_at?: string | null
+}
+
+export interface RuntimeDiscoveryResponse {
+  backend: ExecutionBackend
+  api: RuntimeApi
+  state: RuntimeDiscoveryState
+  available: boolean
+  reason_code?: string | null
+  source: 'snapshot' | 'live' | 'none' | string
+  checked_at?: string | null
+  message?: string | null
 }
 
 export interface RuntimeDevice {

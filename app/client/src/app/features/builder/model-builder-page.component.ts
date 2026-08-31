@@ -114,6 +114,8 @@ export class ModelBuilderPageComponent {
   private readonly descriptionControl = viewChild<ElementRef<HTMLElement>>('descriptionControl')
 
   constructor() {
+    void this.resources.loadCatalog()
+    void this.resources.loadRuntimeMetadata()
     effect(() => {
       this.store.setManifests(this.resources.manifests())
       const id = this.modelId()
