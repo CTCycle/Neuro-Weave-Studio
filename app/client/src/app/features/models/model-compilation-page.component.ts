@@ -45,6 +45,7 @@ export class ModelCompilationPageComponent {
   readonly outputIds = computed(() => this.state.project()?.graph.nodes.filter((node) => node.definition_id.startsWith('output.')).map((node) => node.id) ?? [])
 
   constructor() {
+    void this.resources.loadRuntimeMetadata()
     effect(() => {
       const project = this.state.project()
       if (project) this.code.set(project.generated_source ?? null)

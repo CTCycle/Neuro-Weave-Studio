@@ -35,9 +35,9 @@ type CatalogFilter = 'all' | 'compiled' | 'uncompiled' | 'valid' | 'attention'
           </div>
           <span class="catalog-count-text" aria-live="polite">{{ filteredProjects().length }} / {{ resources.projects().length }} models</span>
         </section>
-        @if (resources.error(); as error) { <section class="catalog-inline-error panel"><strong>Some catalog data is unavailable.</strong><span>{{ error }}</span></section> }
+        @if (resources.hasError('projects')) { <section class="catalog-inline-error panel"><strong>Model catalog unavailable.</strong><span>Saved models could not be read. Retry the request without losing the rest of the application.</span><button class="secondary" type="button" (click)="resources.retryProjects()">Retry catalog</button></section> }
         @if (filteredProjects().length === 0) {
-          <section class="catalog-empty panel"><svg lucideFolderOpen [size]="28"></svg><h2>{{ resources.projects().length ? 'No models match this view' : 'Your model library is empty' }}</h2><p>{{ resources.projects().length ? 'Try another search or filter.' : 'Create an architecture in Model Builder, then it will appear here.' }}</p>@if (!resources.projects().length) { <a class="primary inline-action" routerLink="/builder"><svg lucideFilePlus2 [size]="16"></svg>Create your first model</a> }</section>
+          <section class="catalog-empty panel"><svg lucideFolderOpen [size]="28"></svg><h2>{{ resources.projects().length ? 'No models match this view' : resources.hasError('projects') ? 'Model library unavailable' : 'Your model library is empty' }}</h2><p>{{ resources.projects().length ? 'Try another search or filter.' : resources.hasError('projects') ? 'The saved model request failed. Use the retry action above to try again.' : 'Create an architecture in Model Builder, then it will appear here.' }}</p>@if (!resources.projects().length && !resources.hasError('projects')) { <a class="primary inline-action" routerLink="/builder"><svg lucideFilePlus2 [size]="16"></svg>Create your first model</a> }</section>
         } @else {
           <div class="model-card-grid">@for (project of filteredProjects(); track project.id) { <a class="model-card panel" [routerLink]="['/models', project.id]"><div class="model-card-top"><span class="eyebrow">MODEL</span><span class="revision-label">r{{ project.current_revision }}</span></div><div class="model-card-title"><h2>{{ project.name }}</h2><span class="model-card-arrow">→</span></div><p>{{ project.description || 'No description added.' }}</p><div class="model-card-meta"><nw-validation-status-badge [status]="project.validation_status"></nw-validation-status-badge><nw-compilation-status-badge [compiled]="project.has_generated_source"></nw-compilation-status-badge><div class="model-profile-meta"><span>Backend</span><strong>{{ backendLabel(project.execution_backend) }}</strong></div><div class="model-profile-meta"><span>API</span><strong>{{ project.keras_enabled ? 'Keras layer' : 'Native' }}</strong></div></div><div class="model-card-stats"><span><strong>{{ project.node_count }}</strong> nodes</span><span><strong>{{ project.edge_count }}</strong> connections</span></div><footer><span>Updated {{ formatUpdated(project.updated_at) }}</span><svg lucideBox [size]="13"></svg></footer></a> }</div>
         }
@@ -55,6 +55,10 @@ export class ModelCatalogPageComponent {
   readonly filter = signal<CatalogFilter>('all')
   readonly notice = signal<string | null>(null)
   readonly filters: CatalogFilter[] = ['all', 'compiled', 'uncompiled', 'valid', 'attention']
+
+  constructor() {
+    void this.resources.loadProjects().then(() => performance.mark('nw:initial-route:ready'))
+  }
   readonly filteredProjects = computed(() => {
     const search = this.query().trim().toLowerCase()
     const selected = this.filter()

@@ -41,6 +41,7 @@ export class ModelWorkspacePageComponent {
   readonly deleteBusy = signal(false)
 
   constructor() {
+    void this.resources.loadCatalog()
     effect(() => { void this.state.load(this.modelId()) })
   }
 

@@ -16,6 +16,7 @@ import type {
   ProjectDocument,
   ProjectExportBundle,
   ProjectSummary,
+  RuntimeDiscoveryResponse,
   ValidationResult,
   WorkerConfiguration,
 } from '../../domain/types'
@@ -32,6 +33,7 @@ export class ApiService {
       return await firstValueFrom(this.http.request<T>(method, `${API_BASE}${path}`, {
         body,
         headers: this.jsonHeaders,
+        timeout: 10000,
       }))
     } catch (error) {
       throw this.toApiError(error)
@@ -40,7 +42,7 @@ export class ApiService {
 
   private async requestBlob(path: string): Promise<Blob> {
     try {
-      return await firstValueFrom(this.http.get(`${API_BASE}${path}`, { responseType: 'blob' }))
+      return await firstValueFrom(this.http.get(`${API_BASE}${path}`, { responseType: 'blob', timeout: 10000 }))
     } catch (error) {
       throw this.toApiError(error)
     }
@@ -157,6 +159,14 @@ export class ApiService {
 
   metadata(): Promise<MetadataResponse> {
     return this.request('/metadata')
+  }
+
+  requestRuntimeDiscovery(backend: ExecutionBackend, api: WorkerConfiguration['api'], force_refresh = false): Promise<RuntimeDiscoveryResponse> {
+    return this.request('/execution/discovery', 'POST', { backend, api, force_refresh })
+  }
+
+  runtimeDiscoveryStatus(backend: ExecutionBackend, api: WorkerConfiguration['api']): Promise<RuntimeDiscoveryResponse> {
+    return this.request(`/execution/discovery?backend=${encodeURIComponent(backend)}&api=${encodeURIComponent(api)}`)
   }
 
   sourceForProject(id: string): Promise<{ code: string }> {

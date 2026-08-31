@@ -46,12 +46,25 @@ export class ModelExportPageComponent {
   readonly job = signal<JobResponse | null>(null)
   readonly busy = signal(false)
   readonly cancelling = signal(false)
+  private readonly discoveryAbort = new AbortController()
   readonly groupedCapabilities = computed(() => categoryOrder.map((category) => ({ category, formats: this.capabilities().filter((item) => item.category === category) })).filter((group) => group.formats.length))
   readonly categoryLabels = categoryLabels
   readonly selectedCapability = (): ExportCapability | null => this.capabilities().find((item) => item.format === this.selectedFormat()) ?? null
   readonly exportActive = computed(() => { const current = this.job(); return Boolean(current && !terminalStates.has(current.state)) })
 
-  constructor() { effect(() => { const project = this.state.project(); if (project) { this.filenameStem.set(project.name); void this.load() } }) }
+  constructor() {
+    void this.resources.loadRuntimeMetadata()
+    this.destroyRef.onDestroy(() => this.discoveryAbort.abort())
+    effect(() => {
+      const project = this.state.project()
+      if (!project) return
+      const api = project.keras_enabled ? 'keras' : 'native'
+      void this.resources.discoverRuntime(project.execution_backend, api, false, this.discoveryAbort.signal).catch((reason) => {
+        if (!this.destroyRef.destroyed) this.notice.set(`Runtime discovery failed: ${reason instanceof Error ? reason.message : String(reason)}`)
+      })
+    })
+    effect(() => { const project = this.state.project(); if (project) { this.filenameStem.set(project.name); void this.load() } })
+  }
 
   async load(): Promise<void> {
     const project = this.state.project(); if (!project) return
@@ -78,8 +91,8 @@ export class ModelExportPageComponent {
   payloadLabel(value: ExportCapability['payload']): string { return value === 'full_model' ? 'Full model' : value === 'weights_only' ? 'Weights only' : value === 'source' ? 'Generated source' : 'Project graph' }
   conversionLabel(value: ExportCapability['conversion']): string { return value === 'native' ? 'Native' : value === 'bridge' ? 'Verified bridge' : value === 'keras' ? 'Keras adapter' : 'Canonical' }
 
-  workerForProject(project: ProjectDocument): WorkerConfiguration | null { return workerForProject(project, this.resources.backendStatuses(), this.resources.runtimePreferences()) }
-  canExport(project: ProjectDocument): boolean { const capability = this.selectedCapability(); return Boolean(capability?.available && !this.busy() && (this.isDirect(capability) || this.workerForProject(project))) }
+  workerForProject(project: ProjectDocument): WorkerConfiguration | null { return workerForProject(project, this.resources.backendStatuses(), this.resources.runtimePreferences(), this.resources) }
+  canExport(_project: ProjectDocument): boolean { const capability = this.selectedCapability(); return Boolean(capability?.available && !this.busy()) }
 
   async exportSelected(project: ProjectDocument): Promise<void> {
     const capability = this.selectedCapability(); const format = this.selectedFormat(); if (!capability?.available || !format || this.busy()) return
@@ -87,7 +100,13 @@ export class ModelExportPageComponent {
     try {
       if (format === 'project_bundle') { const bundle = await this.api.exportProject(project.id); this.download(new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' }), this.displayedFilename(capability, project)); return }
       if (format === 'source') { const source = await this.api.sourceForProject(project.id); this.download(new Blob([source.code], { type: 'text/x-python' }), this.displayedFilename(capability, project)); return }
-      const worker = this.workerForProject(project); if (!worker) { this.notice.set('No operational worker is available for this project profile. Configure the backend in Environment and retry.'); return }
+      let worker = this.workerForProject(project)
+      if (!worker) {
+        const api = project.keras_enabled ? 'keras' : 'native'
+        await this.resources.discoverRuntime(project.execution_backend, api, false, this.discoveryAbort.signal)
+        worker = this.workerForProject(project)
+      }
+      if (!worker) throw new Error('No operational worker is available for this project profile. Check the backend in Environment and retry.')
       let current = await this.api.submitModelExport(project.id, format, this.filenameStem().trim() || project.name, this.options(), worker); this.job.set(current)
       if (!terminalStates.has(current.state)) current = await firstValueFrom(timer(400, 400).pipe(switchMap(() => this.api.getJob(current.id)), tap((next) => this.job.set(next)), takeWhile((next) => !terminalStates.has(next.state), true), takeUntilDestroyed(this.destroyRef)))
       if (this.destroyRef.destroyed) return
@@ -103,9 +122,9 @@ export class ModelExportPageComponent {
 function optionsFor(capability: ExportCapability): ExportOptions { const next = { ...initialOptions }; const value = (id: string) => capability.options.find((item) => item.id === id)?.default; if (typeof value('opset_version') === 'number') next.opset_version = value('opset_version') as number; if (typeof value('dynamic_batch') === 'boolean') next.dynamic_batch = value('dynamic_batch') as boolean; const external = value('external_data'); if (external === 'auto' || external === 'always' || external === 'never') next.external_data = external; return next }
 function extensionFor(capability: ExportCapability): string { return capability.extension.startsWith('.') ? capability.extension : `.${capability.extension}` }
 function safeFilename(value: string): string { return value.replaceAll(/[^a-zA-Z0-9_-]/g, '_') || 'model' }
-function workerForProject(project: ProjectDocument, statuses: ExecutionBackendStatus[], preferences: Partial<Record<ProjectDocument['execution_backend'], WorkerConfiguration>>): WorkerConfiguration | null {
+function workerForProject(project: ProjectDocument, statuses: ExecutionBackendStatus[], preferences: Partial<Record<ProjectDocument['execution_backend'], WorkerConfiguration>>, resources: AppResourcesService): WorkerConfiguration | null {
   const status = statuses.find((item) => item.id === project.execution_backend); if (!status?.available) return null
-  const api: WorkerConfiguration['api'] = project.keras_enabled ? 'keras' : 'native'; if (status.runtime_apis?.some((item) => item.id === api && !item.available)) return null
+  const api: WorkerConfiguration['api'] = project.keras_enabled ? 'keras' : 'native'; if (!resources.runtimeCapabilityReady(project.execution_backend, api)) return null
   const preference = preferences[project.execution_backend]; const devices = status.devices?.length ? status.devices : [fallbackDevice()]; const preferred = preference ? devices.find((item) => item.device_id === preference.device_id && item.available) : null; const device = preferred ?? devices.find((item) => item.available); if (!device) return null
   const preferredPolicy = preference?.memory_policy; const memoryPolicy = preferredPolicy && device.supported_memory_policies.includes(preferredPolicy.kind) ? preferredPolicy : policyForDevice(device)
   return { api, backend: project.execution_backend, device_id: device.device_id, memory_policy: memoryPolicy, precision: preference?.precision ?? 'float32' }

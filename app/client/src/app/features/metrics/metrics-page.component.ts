@@ -22,4 +22,7 @@ export class MetricsSectionComponent {
     @if (!resources.runtimeReady()) { <section class="page-state panel"><span class="eyebrow">METRICS CATALOG</span><h1>Loading catalog…</h1></section> } @else if (resources.compilationCapabilities(); as capabilities) { @let catalog = capabilities.keras; <div class="metrics-page"><header class="catalog-page-header"><div><span class="eyebrow">COMPILATION CATALOG</span><h1>Metrics</h1><p>Review the read-only metric and loss definitions available to model compilation.</p></div><div class="environment-summary"><svg lucideActivity [size]="16"></svg><strong>{{ catalog.metrics.length + catalog.losses.length }} definitions</strong></div></header><div class="metrics-note panel"><svg lucideInfo [size]="16"></svg><span>This catalog is intentionally read-only for now. It is the shared metadata boundary for the future editable metrics and loss catalog.</span></div><div class="metrics-grid"><nw-metrics-section title="Metrics" eyebrow="EVALUATION" [items]="catalog.metrics"></nw-metrics-section><nw-metrics-section title="Loss functions" eyebrow="OPTIMIZATION" [items]="catalog.losses"></nw-metrics-section></div></div> } @else { <section class="page-state panel"><span class="eyebrow">METRICS CATALOG</span><h1>Catalog unavailable</h1><p>The runtime metadata did not include the Keras metrics and loss catalog.</p></section> }
   `,
 })
-export class MetricsPageComponent { readonly resources = inject(AppResourcesService) }
+export class MetricsPageComponent {
+  readonly resources = inject(AppResourcesService)
+  constructor() { void this.resources.loadRuntimeMetadata() }
+}
