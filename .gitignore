@@ -17,6 +17,7 @@ node_modules/
 dist/
 coverage/
 .vite/
+.angular/
 *.tsbuildinfo
 
 # Runtime data
