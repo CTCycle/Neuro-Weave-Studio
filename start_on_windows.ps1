@@ -15,7 +15,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'
+# Launcher progress is user-facing; keep Write-Progress visible during long operations.
+$ProgressPreference = 'Continue'
 Set-StrictMode -Version Latest
 $script:RepoRoot = $PSScriptRoot
 $script:AppDir = Join-Path $RepoRoot 'app'
@@ -53,6 +54,8 @@ $script:NodeVersion = '22.23.1'
 $script:Children = [System.Collections.Generic.List[object]]::new()
 $script:LaunchHandedOff = $false
 $script:NoBrowser = $NoBrowser
+$script:NextProgressId = 1
+$script:ActiveProgressIds = [Collections.Generic.HashSet[int]]::new()
 
 # ===============================================================================
 # Output and diagnostics
@@ -84,6 +87,63 @@ function Write-Info([string]$Message) { Write-Status -Level INFO -Message $Messa
 function Write-Warn([string]$Message) { Write-Status -Level WARN -Message $Message }
 function Write-Fatal([string]$Message) { Write-Status -Level FAIL -Message $Message }
 
+function Start-LauncherProgress {
+    param([Parameter(Mandatory = $true)][string]$Activity, [string]$Status = 'Starting')
+    $id = $script:NextProgressId++
+    [void]$script:ActiveProgressIds.Add($id)
+    Write-Progress -Id $id -Activity $Activity -Status $Status
+    return $id
+}
+
+function Update-LauncherProgress {
+    param(
+        [Parameter(Mandatory = $true)][int]$Id,
+        [Parameter(Mandatory = $true)][string]$Activity,
+        [Parameter(Mandatory = $true)][string]$Status,
+        [Nullable[int]]$PercentComplete
+    )
+    if (-not $script:ActiveProgressIds.Contains($Id)) { return }
+    $progress = @{ Id = $Id; Activity = $Activity; Status = $Status }
+    if ($null -ne $PercentComplete) { $progress.PercentComplete = $PercentComplete }
+    Write-Progress @progress
+}
+
+function Complete-LauncherProgress([int]$Id) {
+    if ($script:ActiveProgressIds.Contains($Id)) {
+        Write-Progress -Id $Id -Activity 'NeuroWeave launcher' -Completed
+        [void]$script:ActiveProgressIds.Remove($Id)
+    }
+}
+
+function Clear-LauncherProgress {
+    foreach ($id in @($script:ActiveProgressIds)) {
+        Write-Progress -Id $id -Activity 'NeuroWeave launcher' -Completed
+        [void]$script:ActiveProgressIds.Remove($id)
+    }
+}
+
+function Invoke-TrackedLauncherAction {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$Operation
+    )
+    $activity = "NeuroWeave: $Name"
+    $progressId = Start-LauncherProgress -Activity $activity -Status 'Starting'
+    Write-Step "Starting $Name"
+    try {
+        Update-LauncherProgress -Id $progressId -Activity $activity -Status 'Running'
+        & $Operation
+        Write-Ok "$Name completed"
+    }
+    catch {
+        Write-Fatal "$Name failed: $($_.Exception.Message)"
+        throw
+    }
+    finally {
+        Complete-LauncherProgress $progressId
+    }
+}
+
 function Write-StartupStageDuration {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -98,11 +158,15 @@ function Invoke-TimedStartupStage {
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][scriptblock]$Action
     )
+    $activity = "NeuroWeave: $Name"
+    $progressId = Start-LauncherProgress -Activity $activity -Status 'Running'
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
+        Update-LauncherProgress -Id $progressId -Activity $activity -Status 'Running'
         & $Action
     } finally {
         Write-StartupStageDuration -Name $Name -Stopwatch $stopwatch
+        Complete-LauncherProgress $progressId
     }
 }
 
@@ -183,13 +247,17 @@ function Invoke-DownloadAndExtract {
         [Parameter(Mandatory = $true)][string]$DestinationPath
     )
 
-    New-Item -ItemType Directory -Path (Split-Path -Parent $ArchivePath), $DestinationPath -Force | Out-Null
-    Write-Info "Downloading $Uri"
-    Invoke-WebRequest -Uri $Uri -OutFile $ArchivePath
+    $activity = "NeuroWeave: download and extract $([IO.Path]::GetFileName($ArchivePath))"
+    $progressId = Start-LauncherProgress -Activity $activity -Status "Downloading $Uri"
     try {
+        New-Item -ItemType Directory -Path (Split-Path -Parent $ArchivePath), $DestinationPath -Force | Out-Null
+        Write-Info "Downloading $Uri"
+        Invoke-WebRequest -Uri $Uri -OutFile $ArchivePath
+        Update-LauncherProgress -Id $progressId -Activity $activity -Status 'Extracting archive'
         Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestinationPath -Force
     } finally {
         Remove-Item -LiteralPath $ArchivePath -Force -ErrorAction SilentlyContinue
+        Complete-LauncherProgress $progressId
     }
 }
 
@@ -217,9 +285,10 @@ function Ensure-PortableRuntimes {
 
     $python = Get-PortablePythonPath
     if (-not (Test-Path -LiteralPath $python)) {
-        Write-Step "Installing portable Python $($script:PythonVersion)"
-        & $uv python install $script:PythonVersion --install-dir $script:PythonDir
-        if ($LASTEXITCODE -ne 0) { throw "Portable Python installation failed with exit code $LASTEXITCODE." }
+        Invoke-TimedStartupStage -Name "install portable Python $($script:PythonVersion)" -Action {
+            & $uv python install $script:PythonVersion --install-dir $script:PythonDir
+            if ($LASTEXITCODE -ne 0) { throw "Portable Python installation failed with exit code $LASTEXITCODE." }
+        }
     }
     if (-not (Test-Path -LiteralPath $python)) {
         throw "Portable Python was not found at $python after installation."
@@ -1316,13 +1385,24 @@ function Invoke-UpdateApplication {
     Assert-GitWorktreeClean
     $git = Get-GitCommand
     $branch = Get-GitText -Arguments @('branch', '--show-current')
-    if ($branch -and $branch -ne $script:GitMainBranch) {
-        Write-Warn "Current branch is '$branch'; pulling origin/$($script:GitMainBranch) into this checkout."
+    if ([string]::IsNullOrWhiteSpace($branch)) {
+        throw 'Update requires a non-detached Git checkout.'
     }
-    Write-Step "Updating the application from origin/$($script:GitMainBranch)."
-    & $git -C $script:RepoRoot pull $script:GitRemote $script:GitMainBranch
-    if ($LASTEXITCODE -ne 0) {
-        throw "Application update failed while pulling origin/$($script:GitMainBranch)."
+    if ($branch -ne $script:GitMainBranch) {
+        throw "Update requires the main branch to be checked out; current branch is '$branch'. No files were changed."
+    }
+    $activity = "NeuroWeave: update application from origin/$($script:GitMainBranch)"
+    $progressId = Start-LauncherProgress -Activity $activity -Status "Pulling origin/$($script:GitMainBranch)"
+    try {
+        Write-Step "Updating the application from origin/$($script:GitMainBranch)."
+        & $git -C $script:RepoRoot pull --ff-only $script:GitRemote $script:GitMainBranch
+        $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
+        if ($exitCode -ne 0) {
+            throw "Application update failed while pulling origin/$($script:GitMainBranch) (exit code $exitCode)."
+        }
+    }
+    finally {
+        Complete-LauncherProgress $progressId
     }
     Write-Ok "Application update from origin/$($script:GitMainBranch) completed."
 }
@@ -1452,10 +1532,18 @@ function Invoke-RemoveApplicationLogs {
     Write-Status -Level STEP -Message "Removing $($logs.Count) application log file(s)."
     $removedCount = 0
     $skippedCount = 0
-    foreach ($log in $logs) {
-        $result = Remove-PathBestEffort -Path $log.FullName
-        $removedCount += $result.Removed
-        $skippedCount += $result.Skipped
+    $progressId = Start-LauncherProgress -Activity 'NeuroWeave: remove application logs' -Status "0 of $($logs.Count) files"
+    try {
+        for ($index = 0; $index -lt $logs.Count; $index++) {
+            $log = $logs[$index]
+            Update-LauncherProgress -Id $progressId -Activity 'NeuroWeave: remove application logs' -Status "$($index + 1) of $($logs.Count): $($log.Name)" -PercentComplete ([int](($index + 1) * 100 / $logs.Count))
+            $result = Remove-PathBestEffort -Path $log.FullName
+            $removedCount += $result.Removed
+            $skippedCount += $result.Skipped
+        }
+    }
+    finally {
+        Complete-LauncherProgress $progressId
     }
     Write-Status -Level SUCCESS -Message "Removed $removedCount application log file(s); skipped $skippedCount locked or inaccessible file(s)."
 }
@@ -1473,12 +1561,20 @@ function Invoke-RemoveAllData {
     Write-Status -Level STEP -Message 'Removing user-generated application data.'
     $removedCount = 0
     $skippedCount = 0
-    foreach ($target in $targets) {
-        if (-not (Test-Path -LiteralPath $target -ErrorAction SilentlyContinue)) { continue }
-        Write-Info "Removing $target"
-        $result = Remove-PathBestEffort -Path $target
-        $removedCount += $result.Removed
-        $skippedCount += $result.Skipped
+    $progressId = Start-LauncherProgress -Activity 'NeuroWeave: remove user data' -Status "0 of $($targets.Count) paths"
+    try {
+        for ($index = 0; $index -lt $targets.Count; $index++) {
+            $target = $targets[$index]
+            if (-not (Test-Path -LiteralPath $target -ErrorAction SilentlyContinue)) { continue }
+            Update-LauncherProgress -Id $progressId -Activity 'NeuroWeave: remove user data' -Status "$($index + 1) of $($targets.Count): $target" -PercentComplete ([int](($index + 1) * 100 / [Math]::Max(1, $targets.Count)))
+            Write-Info "Removing $target"
+            $result = Remove-PathBestEffort -Path $target
+            $removedCount += $result.Removed
+            $skippedCount += $result.Skipped
+        }
+    }
+    finally {
+        Complete-LauncherProgress $progressId
     }
     New-Item -ItemType Directory -Path $script:UserDataRuntimeDir -Force | Out-Null
     Write-Status -Level SUCCESS -Message "User-generated data removed ($removedCount item$(if ($removedCount -eq 1) { '' } else { 's' }) removed; $skippedCount locked or inaccessible item$(if ($skippedCount -eq 1) { '' } else { 's' }) skipped). Application files and settings were preserved."
@@ -1522,15 +1618,23 @@ function Remove-PathBestEffort {
 
     $entries = @(Get-ChildItem -LiteralPath $Path -Force -Recurse -ErrorAction SilentlyContinue |
         Sort-Object @{ Expression = { $_.FullName.Length }; Descending = $true })
-    foreach ($entry in $entries) {
-        try {
-            Remove-Item -LiteralPath $entry.FullName -Force -ErrorAction Stop
-            $removedCount++
-        } catch {
-            $skippedCount++
-            $entryRemovalFailed = $true
-            Write-Warn "Skipped removal of '$($entry.FullName)': $($_.Exception.Message)"
+    $progressId = Start-LauncherProgress -Activity "NeuroWeave: remove $Path" -Status "0 of $($entries.Count) items"
+    try {
+        for ($index = 0; $index -lt $entries.Count; $index++) {
+            $entry = $entries[$index]
+            Update-LauncherProgress -Id $progressId -Activity "NeuroWeave: remove $Path" -Status "$($index + 1) of $($entries.Count): $($entry.Name)" -PercentComplete ([int](($index + 1) * 100 / [Math]::Max(1, $entries.Count)))
+            try {
+                Remove-Item -LiteralPath $entry.FullName -Force -ErrorAction Stop
+                $removedCount++
+            } catch {
+                $skippedCount++
+                $entryRemovalFailed = $true
+                Write-Warn "Skipped removal of '$($entry.FullName)': $($_.Exception.Message)"
+            }
         }
+    }
+    finally {
+        Complete-LauncherProgress $progressId
     }
 
     if (-not $entryRemovalFailed -and (Test-Path -LiteralPath $Path -ErrorAction SilentlyContinue)) {
@@ -1634,26 +1738,28 @@ function Invoke-UninstallApplication {
 # ===============================================================================
 if ($Action -ne 'Menu') {
     try {
-        switch ($Action) {
-            # Setup and validation
-            'Install' { Invoke-Install }
-            'RebuildFrontend' { Invoke-FrontendRebuild }
-            'ManageBackends' { Invoke-BackendManagement }
-            'InitDb' { Invoke-DatabaseInitialization }
-            'Test' { Invoke-TestSuite }
+        Invoke-TrackedLauncherAction -Name "action $Action" -Operation {
+            switch ($Action) {
+                # Setup and validation
+                'Install' { Invoke-Install }
+                'RebuildFrontend' { Invoke-FrontendRebuild }
+                'ManageBackends' { Invoke-BackendManagement }
+                'InitDb' { Invoke-DatabaseInitialization }
+                'Test' { Invoke-TestSuite }
 
-            # Application
-            'Launch' { Invoke-Launch }
+                # Application
+                'Launch' { Invoke-Launch }
 
-            # Maintenance and data
-            'CleanLogs' { Invoke-RemoveApplicationLogs }
-            'ClearCache' { Invoke-ClearApplicationCache }
-            'RemoveAllData' { Invoke-RemoveAllData }
-            'Uninstall' { Invoke-UninstallApplication }
+                # Maintenance and data
+                'CleanLogs' { Invoke-RemoveApplicationLogs }
+                'ClearCache' { Invoke-ClearApplicationCache }
+                'RemoveAllData' { Invoke-RemoveAllData }
+                'Uninstall' { Invoke-UninstallApplication }
 
-            # Updates
-            'CheckForUpdates' { Invoke-CheckForUpdates }
-            'Update' { Invoke-UpdateApplication }
+                # Updates
+                'CheckForUpdates' { Invoke-CheckForUpdates }
+                'Update' { Invoke-UpdateApplication }
+            }
         }
     } catch {
         Write-Fatal $_.Exception.Message
@@ -1743,26 +1849,28 @@ while ($true) {
     }
     if ($selection -eq '13') { break }
     try {
-        switch ($selection) {
-            # Application
-            '1' { Invoke-Launch; exit 0 }
+        Invoke-TrackedLauncherAction -Name "menu option $selection" -Operation {
+            switch ($selection) {
+                # Application
+                '1' { Invoke-Launch; exit 0 }
 
-            # Setup and validation
-            '2' { Invoke-Install -PromptForInstallationType }
-            '3' { Invoke-FrontendRebuild }
-            '4' { Invoke-BackendManagement }
-            '5' { Invoke-DatabaseInitialization }
-            '6' { Invoke-TestSuite }
+                # Setup and validation
+                '2' { Invoke-Install -PromptForInstallationType }
+                '3' { Invoke-FrontendRebuild }
+                '4' { Invoke-BackendManagement }
+                '5' { Invoke-DatabaseInitialization }
+                '6' { Invoke-TestSuite }
 
-            # Maintenance and data
-            '7' { Invoke-RemoveApplicationLogs }
-            '8' { Invoke-ClearApplicationCache }
-            '9' { Invoke-RemoveAllData }
-            '10' { Invoke-UninstallApplication }
+                # Maintenance and data
+                '7' { Invoke-RemoveApplicationLogs }
+                '8' { Invoke-ClearApplicationCache }
+                '9' { Invoke-RemoveAllData }
+                '10' { Invoke-UninstallApplication }
 
-            # Updates
-            '11' { Invoke-CheckForUpdates }
-            '12' { Invoke-UpdateApplication }
+                # Updates
+                '11' { Invoke-CheckForUpdates }
+                '12' { Invoke-UpdateApplication }
+            }
         }
     } catch {
         Write-Fatal $_.Exception.Message
@@ -1770,3 +1878,4 @@ while ($true) {
     }
     Wait-ForMenuReturn
 }
+Clear-LauncherProgress
