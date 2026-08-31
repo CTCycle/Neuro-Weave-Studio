@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
@@ -14,6 +15,17 @@ class RuntimeApi(StrEnum):
 
     KERAS = "keras"
     NATIVE = "native"
+
+
+###############################################################################
+class RuntimeDiscoveryState(StrEnum):
+    """Lifecycle state for optional framework capability discovery."""
+
+    UNCHECKED = "unchecked"
+    CHECKING = "checking"
+    VERIFIED = "verified"
+    UNAVAILABLE = "unavailable"
+    FAILED = "failed"
 
 
 ###############################################################################
@@ -79,7 +91,7 @@ class RuntimeDevice(BaseModel):
     accelerator: str
     available: bool = True
     total_memory_bytes: int | None = Field(default=None, ge=0)
-    supported_memory_policies: list[MemoryPolicyKind] = Field(default_factory=list)
+    supported_memory_policies: list[MemoryPolicyKind] = Field(default_factory=lambda: list[MemoryPolicyKind]())
 
 
 ###############################################################################
@@ -87,6 +99,28 @@ class RuntimeApiStatus(BaseModel):
     id: RuntimeApi
     available: bool
     reason_code: str | None = None
+    state: RuntimeDiscoveryState = RuntimeDiscoveryState.UNCHECKED
+    source: Literal["snapshot", "live", "none"] = "none"
+    checked_at: datetime | None = None
+
+
+###############################################################################
+class RuntimeDiscoveryRequest(BaseModel):
+    backend: ExecutionBackend
+    api: RuntimeApi = RuntimeApi.KERAS
+    force_refresh: bool = False
+
+
+###############################################################################
+class RuntimeDiscoveryResponse(BaseModel):
+    backend: ExecutionBackend
+    api: RuntimeApi
+    state: RuntimeDiscoveryState
+    available: bool = False
+    reason_code: str | None = None
+    source: Literal["snapshot", "live", "none"] = "none"
+    checked_at: datetime | None = None
+    message: str | None = None
 
 
 ###############################################################################

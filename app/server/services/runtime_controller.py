@@ -14,10 +14,12 @@ import threading
 import time
 import zipfile
 from collections.abc import Callable, Mapping
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 from uuid import uuid4
 
 from common.path import RUNTIME_ROOT
@@ -52,12 +54,14 @@ from domain.runtime import (
     RuntimeApi,
     RuntimeApiStatus,
     RuntimeDevice,
+    RuntimeDiscoveryResponse,
+    RuntimeDiscoveryState,
     WorkerConfiguration,
 )
 from models.export_artifacts import sha256_file
 
 LOGGER = logging.getLogger(__name__)
-DISCOVERY_SNAPSHOT_SCHEMA_VERSION = 1
+DISCOVERY_SNAPSHOT_SCHEMA_VERSION = 2
 
 
 ###############################################################################
@@ -127,8 +131,16 @@ class RuntimeController:
         self._last_worker_by_lease: dict[str, WorkerConfiguration] = {}
         self._backend_statuses: dict[ExecutionBackend, ExecutionBackendStatus] = {}
         self._api_statuses: dict[tuple[ExecutionBackend, RuntimeApi], RuntimeApiStatus] = {}
+        # A persisted snapshot is display-only until this server session has
+        # validated its fingerprint.  Keep that distinction out of the public
+        # contract while preventing an unvalidated cache from starting a job.
+        self._validated_discovery_keys: set[tuple[ExecutionBackend, RuntimeApi]] = set()
+        self._discovery_futures: dict[tuple[ExecutionBackend, RuntimeApi], Future[RuntimeDiscoveryResponse]] = {}
+        self._probe_processes: dict[tuple[ExecutionBackend, RuntimeApi], subprocess.Popen[str]] = {}
+        self._discovery_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="runtime-discovery")
         self._shutting_down = False
         self._sweep_orphaned_jobs()
+        self._load_cached_statuses()
 
     # -------------------------------------------------------------------------
     @property
@@ -142,6 +154,333 @@ class RuntimeController:
             return self._api_statuses.get((backend, api))
 
     # -------------------------------------------------------------------------
+    def discovery_status(self, backend: ExecutionBackend, api: RuntimeApi) -> RuntimeDiscoveryResponse:
+        """Return the current state without starting a framework import."""
+        with self._lock:
+            api_status = self._api_statuses.get((backend, api))
+            future = self._discovery_futures.get((backend, api))
+            if future is not None and not future.done():
+                state = RuntimeDiscoveryState.CHECKING
+            elif api_status is None:
+                state = RuntimeDiscoveryState.UNCHECKED
+            else:
+                state = api_status.state
+            return RuntimeDiscoveryResponse(
+                backend=backend,
+                api=api,
+                state=state,
+                available=api_status.available if api_status else False,
+                reason_code=api_status.reason_code if api_status else "not_checked",
+                source=api_status.source if api_status else "none",
+                checked_at=api_status.checked_at if api_status else None,
+                message=(
+                    "Capability discovery is running"
+                    if state is RuntimeDiscoveryState.CHECKING
+                    else None
+                ),
+            )
+
+    # -------------------------------------------------------------------------
+    def request_discovery(
+        self,
+        backend: ExecutionBackend,
+        api: RuntimeApi,
+        *,
+        force_refresh: bool = False,
+    ) -> RuntimeDiscoveryResponse:
+        """Start one deduplicated, isolated capability probe in the background."""
+        key = (backend, api)
+        with self._lock:
+            if self._shutting_down:
+                raise RuntimeControllerError("controller_shutting_down", "The ML runtime is shutting down")
+            running = self._discovery_futures.get(key)
+            if running is not None and not running.done():
+                return self.discovery_status(backend, api)
+            current = self._api_statuses.get(key)
+            if (
+                not force_refresh
+                and current is not None
+                and current.state is RuntimeDiscoveryState.VERIFIED
+                and current.source == "live"
+            ):
+                return self.discovery_status(backend, api)
+            self._set_api_state(backend, api, RuntimeDiscoveryState.CHECKING)
+            future = self._discovery_executor.submit(self._discover_one, backend, api, force_refresh)
+            self._discovery_futures[key] = future
+            future.add_done_callback(lambda completed: self._discovery_finished(key, completed))
+            return self.discovery_status(backend, api)
+
+    # -------------------------------------------------------------------------
+    def _discovery_finished(
+        self,
+        key: tuple[ExecutionBackend, RuntimeApi],
+        future: Future[RuntimeDiscoveryResponse],
+    ) -> None:
+        if future.cancelled():
+            return
+        try:
+            future.result()
+        except Exception:  # pragma: no cover - defensive worker boundary
+            LOGGER.exception("runtime_discovery failed backend=%s api=%s", key[0].value, key[1].value)
+            with self._lock:
+                self._set_api_state(key[0], key[1], RuntimeDiscoveryState.FAILED, reason_code="worker_failed")
+        finally:
+            with self._lock:
+                if self._discovery_futures.get(key) is future:
+                    self._discovery_futures.pop(key, None)
+
+    # -------------------------------------------------------------------------
+    def _discover_one(
+        self,
+        backend: ExecutionBackend,
+        api: RuntimeApi,
+        force_refresh: bool = False,
+    ) -> RuntimeDiscoveryResponse:
+        started = time.perf_counter()
+        fingerprint, fingerprint_inputs = self._environment_fingerprint()
+        cached = None if force_refresh else self._load_discovery_snapshot(fingerprint)
+        if cached is not None:
+            cached_status = cached.get(backend)
+            cached_api = next(
+                (item for item in cached_status.runtime_apis if item.id is api),
+                None,
+            ) if cached_status is not None else None
+            if cached_api is None or cached_api.state in {
+                RuntimeDiscoveryState.UNCHECKED,
+                RuntimeDiscoveryState.CHECKING,
+            }:
+                # A snapshot may be intentionally partial because an earlier
+                # request checked a different API.  It cannot validate this
+                # pair, so probe only the missing pair.
+                cached = None
+        if cached is not None:
+            validated = {
+                backend: status.model_copy(update={
+                    "runtime_apis": [
+                        api_status.model_copy(update={
+                            "source": "snapshot",
+                            "checked_at": api_status.checked_at or utc_now(),
+                        })
+                        for api_status in status.runtime_apis
+                    ],
+                    "discovery_source": "snapshot",
+                    "last_checked_at": status.last_checked_at or utc_now(),
+                })
+                for backend, status in cached.items()
+            }
+            self._apply_backend_statuses(validated)
+            with self._lock:
+                self._validated_discovery_keys.update(
+                    (backend, api_status.id)
+                    for backend, status in validated.items()
+                    for api_status in status.runtime_apis
+                    if api_status.state
+                    in {
+                        RuntimeDiscoveryState.VERIFIED,
+                        RuntimeDiscoveryState.UNAVAILABLE,
+                        RuntimeDiscoveryState.FAILED,
+                    }
+                )
+            result = self.discovery_status(backend, api)
+            LOGGER.info("runtime_discovery backend=%s api=%s source=snapshot duration_ms=%s", backend.value, api.value, round((time.perf_counter() - started) * 1000, 1))
+            return result
+
+        available, reason, capabilities = self._probe_backend_api(backend, api)
+        with self._lock:
+            self._set_api_state(
+                backend,
+                api,
+                RuntimeDiscoveryState.VERIFIED if available else RuntimeDiscoveryState.UNAVAILABLE,
+                available=available,
+                reason_code=reason,
+                source="live",
+                capabilities=capabilities,
+            )
+            statuses = dict(self._backend_statuses)
+        self._write_discovery_snapshot(fingerprint, fingerprint_inputs, statuses)
+        result = self.discovery_status(backend, api)
+        LOGGER.info("runtime_discovery backend=%s api=%s source=live duration_ms=%s", backend.value, api.value, round((time.perf_counter() - started) * 1000, 1))
+        return result
+
+    # -------------------------------------------------------------------------
+    def _load_cached_statuses(self) -> None:
+        """Load prior results for display without fingerprinting hardware or importing frameworks."""
+        try:
+            payload = json.loads(self._settings.runtime_discovery_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            payload = None
+        typed_payload = cast(dict[str, object], payload) if isinstance(payload, dict) else None
+        if typed_payload is None or typed_payload.get("schema_version") != DISCOVERY_SNAPSHOT_SCHEMA_VERSION:
+            statuses: dict[ExecutionBackend, ExecutionBackendStatus] = {
+                backend: self._unchecked_status(backend) for backend in ExecutionBackend
+            }
+        else:
+            raw_statuses = typed_payload.get("statuses")
+            typed_statuses = cast(dict[str, object], raw_statuses) if isinstance(raw_statuses, dict) else None
+            statuses = {}
+            try:
+                for backend in ExecutionBackend:
+                    raw = typed_statuses.get(backend.value) if typed_statuses is not None else None
+                    statuses[backend] = self._normalize_cached_status(
+                        ExecutionBackendStatus.model_validate(raw),
+                        typed_payload.get("recorded_at"),
+                    ) if isinstance(raw, dict) else self._unchecked_status(backend)
+            except ValueError:
+                statuses = {backend: self._unchecked_status(backend) for backend in ExecutionBackend}
+        self._apply_backend_statuses(statuses)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _unchecked_status(backend: ExecutionBackend) -> ExecutionBackendStatus:
+        installed, version = RuntimeController._installed_package(backend)
+        return ExecutionBackendStatus(
+            id=backend,
+            installed=installed,
+            version=version,
+            available=False,
+            reason_code="not_checked" if installed else "dependency_missing",
+            runtime_apis=[
+                RuntimeApiStatus(id=api, available=False, reason_code="not_checked" if installed else "dependency_missing")
+                for api in RuntimeApi
+            ],
+        )
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _normalize_cached_status(status: ExecutionBackendStatus, recorded_at: object) -> ExecutionBackendStatus:
+        checked_at = None
+        if isinstance(recorded_at, str):
+            with suppress(ValueError):
+                checked_at = datetime.fromisoformat(recorded_at)
+        apis: list[RuntimeApiStatus] = []
+        for api in status.runtime_apis:
+            # A partial snapshot can contain an unchecked API because only the
+            # requested pair was probed.  Preserve that state; it must never
+            # be rendered as an unavailable installed framework.
+            if api.state is RuntimeDiscoveryState.UNCHECKED and not api.available:
+                apis.append(api.model_copy(update={"source": "none", "checked_at": None}))
+            else:
+                apis.append(api.model_copy(update={
+                    "state": api.state
+                    if api.state is not RuntimeDiscoveryState.UNCHECKED
+                    else RuntimeDiscoveryState.VERIFIED,
+                    "source": "snapshot",
+                    "checked_at": checked_at,
+                }))
+        if any(api.state is RuntimeDiscoveryState.CHECKING for api in apis):
+            aggregate_state = RuntimeDiscoveryState.CHECKING
+        elif any(api.available for api in apis):
+            aggregate_state = RuntimeDiscoveryState.VERIFIED
+        elif any(api.state is RuntimeDiscoveryState.FAILED for api in apis):
+            aggregate_state = RuntimeDiscoveryState.FAILED
+        elif apis and all(api.state is RuntimeDiscoveryState.UNAVAILABLE for api in apis):
+            aggregate_state = RuntimeDiscoveryState.UNAVAILABLE
+        else:
+            aggregate_state = RuntimeDiscoveryState.UNCHECKED
+        return status.model_copy(update={
+            "runtime_apis": apis,
+            "discovery_state": aggregate_state,
+            "discovery_source": "snapshot" if any(api.source == "snapshot" for api in apis) else "none",
+            "last_checked_at": checked_at,
+        })
+
+    # -------------------------------------------------------------------------
+    def _set_api_state(
+        self,
+        backend: ExecutionBackend,
+        api: RuntimeApi,
+        state: RuntimeDiscoveryState,
+        *,
+        available: bool | None = None,
+        reason_code: str | None = None,
+        source: Literal["snapshot", "live", "none"] | None = None,
+        capabilities: Mapping[str, object] | None = None,
+    ) -> None:
+        current = self._backend_statuses.get(backend) or self._unchecked_status(backend)
+        current_api = next((item for item in current.runtime_apis if item.id is api), None)
+        api_available = current_api.available if available is None and current_api else bool(available)
+        checked_at = current_api.checked_at if current_api else None
+        if state in {RuntimeDiscoveryState.VERIFIED, RuntimeDiscoveryState.UNAVAILABLE, RuntimeDiscoveryState.FAILED}:
+            checked_at = utc_now()
+        updated_reason = reason_code
+        if updated_reason is None and not api_available:
+            updated_reason = current_api.reason_code if current_api else None
+        updated_api = RuntimeApiStatus(
+            id=api,
+            available=api_available,
+            reason_code=updated_reason,
+            state=state,
+            source=source or (current_api.source if current_api else "none"),
+            checked_at=checked_at,
+        )
+        updated_apis = [
+            updated_api if item.id is api else item
+            for item in current.runtime_apis
+        ]
+        if not any(item.id is api for item in current.runtime_apis):
+            updated_apis.append(updated_api)
+        capability_values = capabilities or {}
+        devices = current.devices
+        raw_devices = capability_values.get("devices")
+        if isinstance(raw_devices, list):
+            device_items = cast(list[object], raw_devices)
+            devices = [RuntimeDevice.model_validate(item) for item in device_items if isinstance(item, dict)]
+        if api_available and not devices:
+            devices = [RuntimeDevice(device_id="cpu", lease_key="cpu", kind="cpu", name="CPU", accelerator="cpu", supported_memory_policies=[MemoryPolicyKind.DEFAULT])]
+        compilers = current.native_compilers
+        raw_compilers = capability_values.get("native_compilers")
+        if api is RuntimeApi.NATIVE and isinstance(raw_compilers, dict):
+            compiler_items = cast(dict[object, object], raw_compilers)
+            compilers = {str(key): bool(value) for key, value in compiler_items.items()}
+        any_available = any(item.available for item in updated_apis)
+        any_checking = any(item.state is RuntimeDiscoveryState.CHECKING for item in updated_apis)
+        aggregate_state = RuntimeDiscoveryState.CHECKING if any_checking else (RuntimeDiscoveryState.VERIFIED if any_available else state)
+        self._backend_statuses[backend] = current.model_copy(update={
+            "runtime_apis": updated_apis,
+            "available": any_available,
+            "reason_code": None if any_available else (reason_code or current.reason_code),
+            "accelerator": str(capability_values.get("accelerator")) if api_available and capability_values.get("accelerator") else current.accelerator,
+            "device_name": str(capability_values.get("device_name")) if api_available and capability_values.get("device_name") else current.device_name,
+            "devices": devices,
+            "native_compilers": compilers,
+            "discovery_state": aggregate_state,
+            "discovery_source": source or current.discovery_source,
+            "last_checked_at": checked_at,
+        })
+        self._api_statuses[(backend, api)] = updated_api
+        if state in {
+            RuntimeDiscoveryState.VERIFIED,
+            RuntimeDiscoveryState.UNAVAILABLE,
+            RuntimeDiscoveryState.FAILED,
+        }:
+            self._validated_discovery_keys.add((backend, api))
+
+    # -------------------------------------------------------------------------
+    def _probe_backend_api(
+        self,
+        backend: ExecutionBackend,
+        api: RuntimeApi,
+    ) -> tuple[bool, str | None, dict[str, object]]:
+        installed, _version = self._installed_package(backend)
+        if not installed:
+            LOGGER.info("backend_probe requested=%s api=%s duration_ms=0 outcome=dependency_missing skipped=true", backend.value, api.value)
+            return False, "dependency_missing", {}
+        started = time.perf_counter()
+        capabilities: dict[str, object] = {}
+        try:
+            result = self._run_probe(backend, api)
+            capabilities = self._parse_probe_output(result)
+            expected_backend = keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
+            available = bool(result.returncode == 0 and capabilities.get("backend") == expected_backend and capabilities.get("available", False))
+            reason = None if available else str(capabilities.get("reason_code") or self._reason_code(result))
+        except subprocess.TimeoutExpired as exc:
+            available, reason, capabilities = False, "probe_timeout", cast(dict[str, object], {"message": str(exc)})
+        except (OSError, subprocess.SubprocessError) as exc:
+            available, reason, capabilities = False, "worker_failed", cast(dict[str, object], {"message": str(exc)})
+        LOGGER.info("backend_probe requested=%s api=%s duration_ms=%s outcome=%s", backend.value, api.value, round((time.perf_counter() - started) * 1000, 1), "available" if available else reason)
+        return available, reason, capabilities
+
+    # -------------------------------------------------------------------------
     def probe_statuses(
         self, *, force_refresh: bool = False
     ) -> dict[ExecutionBackend, dict[str, object]]:
@@ -151,6 +490,18 @@ class RuntimeController:
             cached = self._load_discovery_snapshot(fingerprint)
             if cached is not None:
                 self._apply_backend_statuses(cached)
+                with self._lock:
+                    self._validated_discovery_keys.update(
+                        (backend, api_status.id)
+                        for backend, status in cached.items()
+                        for api_status in status.runtime_apis
+                        if api_status.state
+                        in {
+                            RuntimeDiscoveryState.VERIFIED,
+                            RuntimeDiscoveryState.UNAVAILABLE,
+                            RuntimeDiscoveryState.FAILED,
+                        }
+                    )
                 LOGGER.info("runtime_discovery source=snapshot duration_ms=0")
                 return {
                     backend: status.model_dump(mode="json") for backend, status in cached.items()
@@ -234,6 +585,9 @@ class RuntimeController:
                     id=api,
                     available=result[0],
                     reason_code=None if result[0] else result[1],
+                    state=RuntimeDiscoveryState.VERIFIED if result[0] else RuntimeDiscoveryState.UNAVAILABLE,
+                    source="live",
+                    checked_at=utc_now(),
                 )
                 for api, result in api_results.items()
             ]
@@ -250,10 +604,19 @@ class RuntimeController:
                 devices=devices,
                 runtime_apis=runtime_api_statuses,
                 native_compilers=native_compilers,
+                discovery_state=RuntimeDiscoveryState.VERIFIED if any(result[0] for result in api_results.values()) else RuntimeDiscoveryState.UNAVAILABLE,
+                discovery_source="live",
+                last_checked_at=utc_now(),
             )
             status_objects[backend] = status
 
         self._apply_backend_statuses(status_objects)
+        with self._lock:
+            self._validated_discovery_keys.update(
+                (backend, api_status.id)
+                for backend, status in status_objects.items()
+                for api_status in status.runtime_apis
+            )
         self._write_discovery_snapshot(fingerprint, fingerprint_inputs, status_objects)
         LOGGER.info(
             "runtime_discovery source=live duration_ms=%s",
@@ -344,7 +707,6 @@ class RuntimeController:
             "python_version",
             "platform",
             "failures",
-            "restart_required",
         )
         return {key: payload[key] for key in stable_keys if key in payload}
 
@@ -646,11 +1008,46 @@ class RuntimeController:
         for record in remaining:
             if record.monitor is not None:
                 record.monitor.join(timeout=2)
+        with self._lock:
+            probes = list(self._probe_processes.values())
+        for probe in probes:
+            if probe.poll() is None:
+                terminate_process_tree(probe.pid, force=True)
+                with suppress(Exception):
+                    probe.wait(timeout=2)
+        # Probe workers have been terminated above.  Join the executor so no
+        # discovery thread or child process survives application shutdown.
+        self._discovery_executor.shutdown(wait=True, cancel_futures=True)
 
     # -------------------------------------------------------------------------
     def _validate_worker(self, worker: WorkerConfiguration) -> RuntimeDevice:
         status = self._backend_statuses.get(worker.backend)
         api_status = self._api_statuses.get((worker.backend, worker.api))
+        key = (worker.backend, worker.api)
+        needs_discovery = (
+            api_status is None
+            or api_status.state is RuntimeDiscoveryState.CHECKING
+            or (
+                api_status.state is RuntimeDiscoveryState.UNCHECKED
+                and not api_status.available
+            )
+            or (
+                api_status.source == "snapshot"
+                and key not in self._validated_discovery_keys
+            )
+        )
+        if needs_discovery:
+            current = self.request_discovery(worker.backend, worker.api)
+            raise RuntimeControllerError(
+                "runtime_discovery_pending",
+                f"Runtime capability discovery is running for {worker.backend.value}/{worker.api.value}",
+                details={
+                    "backend": worker.backend.value,
+                    "api": worker.api.value,
+                    "reason_code": "not_checked",
+                    "state": current.state.value,
+                },
+            )
         if api_status is None or not api_status.available:
             reason_code = api_status.reason_code if api_status is not None else "unknown_api"
             raise RuntimeControllerError(
@@ -1142,8 +1539,7 @@ class RuntimeController:
     ) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()
         environment.pop("KERAS_BACKEND", None)
-        return subprocess.run(
-            [
+        command = [
                 sys.executable,
                 "-m",
                 "models.ml_worker",
@@ -1152,14 +1548,35 @@ class RuntimeController:
                 backend.value,
                 "--api",
                 api.value,
-            ],
-            cwd=self._server_root,
-            env=environment,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=self._settings.ml_worker_timeout_seconds,
-        )
+            ]
+        key = (backend, api)
+        with self._lock:
+            if self._shutting_down:
+                raise subprocess.SubprocessError("runtime discovery is shutting down")
+            # Register immediately after spawn so shutdown cannot miss a
+            # process between creation and tracking.
+            process = subprocess.Popen(
+                command,
+                cwd=self._server_root,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                **process_start_options(),
+            )
+            self._probe_processes[key] = process
+        try:
+            stdout, stderr = process.communicate(timeout=self._settings.runtime_discovery_timeout_seconds)
+            return subprocess.CompletedProcess(command, process.returncode or 0, stdout, stderr)
+        except subprocess.TimeoutExpired as exc:
+            terminate_process_tree(process.pid, force=True)
+            with suppress(Exception):
+                process.wait(timeout=2)
+            raise subprocess.TimeoutExpired(command, self._settings.runtime_discovery_timeout_seconds, output=exc.output, stderr=exc.stderr) from exc
+        finally:
+            with self._lock:
+                if self._probe_processes.get(key) is process:
+                    self._probe_processes.pop(key, None)
 
     # -------------------------------------------------------------------------
     @staticmethod

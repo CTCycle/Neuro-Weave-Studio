@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     export_root: Path = RUNTIME_EXPORT_ROOT
     ml_job_root: Path = RUNTIME_ROOT / "ml-jobs"
     ml_worker_timeout_seconds: int = Field(default=300, ge=1, le=86_400)
+    runtime_discovery_timeout_seconds: int = Field(default=60, ge=1, le=600)
     ml_cancel_grace_seconds: int = Field(default=5, ge=1, le=300)
     ml_terminate_grace_seconds: int = Field(default=5, ge=1, le=300)
     ml_job_history_limit: int = Field(default=100, ge=10, le=1_000)

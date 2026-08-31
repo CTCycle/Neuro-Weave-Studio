@@ -71,8 +71,27 @@ def worker_payload(
 ) -> dict[str, object]:
     metadata = client.get("/api/metadata").json()
     status = next(item for item in metadata["execution_backends"] if item["id"] == backend)
-    if require_operational and not status["available"]:
-        pytest.skip(f"Operational {backend} backend is unavailable")
+    if require_operational and not status["installed"]:
+        pytest.skip(f"{backend} backend is not installed")
+    discovery = client.post(
+        "/api/execution/discovery",
+        json={"backend": backend, "api": api},
+    )
+    assert discovery.status_code == 202, discovery.text
+    for _ in range(200):
+        current = client.get(
+            "/api/execution/discovery",
+            params={"backend": backend, "api": api},
+        ).json()
+        if current["state"] != "checking":
+            break
+        time.sleep(0.05)
+    else:
+        pytest.fail(f"{backend}/{api} discovery did not finish")
+    if require_operational and not current["available"]:
+        pytest.skip(f"Operational {backend}/{api} runtime is unavailable")
+    metadata = client.get("/api/metadata").json()
+    status = next(item for item in metadata["execution_backends"] if item["id"] == backend)
     device = next(
         (item for item in status.get("devices", []) if item.get("available", True)),
         None,
