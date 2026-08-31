@@ -7,11 +7,11 @@ Repository: `CTCycle/Neuro-Weave-Studio`
 Baseline: `develop` at `a1f2e9878e8c7c731f455e32bec52cc9ae472a43`
 
 Migration branch: `refactor/react-to-angular-migration`
-Migration head: `c26c6ee` (`fix: align graph ports and connection hit areas`)
+Migration head: `fcce2f2` (`fix: synchronize angular builder edge state`)
 
 ## Method
 
-The comparison used the Codex in-app Browser against the local Angular development server and the local FastAPI backend. The backend fixture was project `b3245198-fb84-44cd-8dce-909e6628184f` (`QA Native PyTorch Binary`, 4 nodes, 3 edges, revision 5).
+The comparison used the Codex in-app Browser against the local Angular development server and the local FastAPI backend. The backend fixture was project `b3245198-fb84-44cd-8dce-909e6628184f` (`QA Native PyTorch Binary`, 4 nodes, 3 edges, revision 5). A fresh 1440x900 default render and selected-edge render were captured after `fcce2f2`.
 
 The matrix covered the model catalog and builder at 1023x768, 1024x768, 1199x800, 1200x800, 1440x900, 560x800, and 900x700. The workflow routes were captured at 1440x900: overview, compilation, export, inference, environment, and metrics.
 
@@ -45,7 +45,7 @@ The matrix develop `.jpg` files are the dimensionally correct baselines. Several
 | 560x800 | 62.44% | 5.08% | 2.31 | 8 |
 | 900x700 | 71.65% | 7.82% | 2.60 | 11 |
 
-The builder’s remaining pixel delta is concentrated in the Foblex canvas renderer and its connection/minimap rasterization. The result is a rendered-parity comparison, not a claim of byte-identical pixels.
+The builder’s remaining pixel delta is concentrated in the Foblex canvas renderer and its connection/minimap rasterization. The result is a rendered-parity comparison, not a claim of byte-identical pixels. The matrix values above are the recorded multi-viewport comparison set; the fresh final 1440x900 captures add current state/interaction evidence without claiming a full matrix rerun after the final builder synchronization changes.
 
 ### Workflow routes at 1440x900
 
@@ -62,7 +62,7 @@ The builder’s remaining pixel delta is concentrated in the Foblex canvas rende
 
 The following captures are stored beside this report:
 
-- `angular-final-builder-1440x900.png`: baseline builder render.
+- `angular-final-builder-pytorch-1440x900.png`: current default builder render with the persisted PyTorch backend selected.
 - `angular-final-builder-selected-node-1440x900.png`: selecting `Input Features` updates the inspector.
 - `angular-final-builder-validation-1440x900.png`: validation panel reports `No findings` and `Ready` for the fixture.
 - `angular-final-builder-focus-1440x900.png`: focus mode is visible while catalog and inspector remain available in the DOM.
@@ -70,19 +70,21 @@ The following captures are stored beside this report:
 - `angular-final-builder-dirty-1440x900.png`: model name draft state is rendered.
 - `angular-final-builder-catalog-drawer-1022x768.png`: catalog drawer opens at narrow width.
 - `angular-final-builder-inspector-drawer-1022x768.png`: inspector drawer opens at narrow width.
-- `angular-final-builder-selected-edge-1440x900.png`: native Foblex connection hit-testing visibly selects the edge.
+- `angular-final-builder-edge-inspector-1440x900.png`: selecting a persisted connection opens the route inspector and Delete connection action.
 - `angular-final-{overview,compilation,export,inference,environment,metrics}-1440x900.png`: workflow route captures.
 
 The in-app browser reports a 1024px inner width for the 1023px request, and a one-pixel larger inner height for the 1199x800, 1200x800, and 560x800 requests. The saved image files retain the requested dimensions shown in their names.
 
+The final live spot check confirmed that the saved PyTorch selection survives builder load, all 4 nodes and 3 persisted edges render, the first edge receives the selected state, and the inspector exposes its source/target route. Deleting the selected edge reduced the rendered edge count to 2 without removing endpoint nodes; Undo restored the edge, while a direct API read remained at 3 persisted edges.
+
 ## Validation gates
 
-- `npm run lint -- --no-cache`: passed.
-- `npm test -- --run`: passed, 3 files and 8 tests.
-- Angular production build with an isolated output path: passed; output was removed after verification.
-- `npm run e2e -- --workers=1`: passed, 4 tests in 47.9 seconds.
-- Backend `ruff check app\server`: passed.
-- Explicit backend test files with isolated QA cache/temp roots: 134 passed, 3 failed. The failures are untouched by this branch: two schema-v2 example fixtures conflict with the current schema-v3 contract, and the existing PyTorch LSTM fixture is rejected by its output-activation validation. Default pytest discovery also encounters access-denied protected cache directories under `app/tests/cache`, so the explicit-file rerun was used.
+- `npm run lint`: passed.
+- `npm run test -- --run`: passed, 3 files and 9 tests.
+- `npm run build`: passed; output was written to the ignored `app/tests/cache/frontend-dist` build cache.
+- `npm run e2e -- --workers=1`: passed, 7 tests in 1.6 minutes.
+- Backend `ruff check app\server --no-cache`: passed.
+- Explicit tracked backend test files with isolated QA temp roots: 137 passed, 0 failed. The three prior failures were closed: shipped schema-v2 example fixtures now use the current schema-v3 contract, and the PyTorch LSTM regression now permits an implicit linear output activation. Default pytest discovery also encounters access-denied protected cache directories under `app/tests/cache`, so the explicit-file rerun was used.
 - `git diff --check develop...HEAD`: passed.
 - Tracked client source contains zero `.tsx` files. No React, XYFlow, Zustand, or React icon runtime remains; Vite references are indirect Angular/Vitest lockfile dependencies, and migration references in docs are historical/architectural.
 
@@ -90,10 +92,10 @@ The in-app browser reports a 1024px inner width for the 1023px request, and a on
 
 The branch was created without a worktree and pushed incrementally. Commits, oldest first:
 
-`38ac6f6`, `22fa13e`, `babd3b5`, `1e0b63b`, `416c3fb`, `8cd3ad9`, `a9e022f`, `bd8d213`, `b46b843`, `56eb908`, `6d935c2`, `af2d02a`, `fb04fbe`, `c26c6ee`.
+`38ac6f6`, `22fa13e`, `babd3b5`, `1e0b63b`, `416c3fb`, `8cd3ad9`, `a9e022f`, `bd8d213`, `b46b843`, `56eb908`, `6d935c2`, `af2d02a`, `fb04fbe`, `c26c6ee`, `11386bf`, `fcce2f2`.
 
 At report time, `HEAD` matches `origin/refactor/react-to-angular-migration` with zero commits ahead or behind. The unrelated pre-existing working-tree modification to `start_on_windows.ps1` was preserved and was not staged.
 
 ## Boundaries
 
-This report records strong rendered parity for the catalog and most workflow surfaces, but not pixel-perfect identity for the graph canvas. The edge capture verifies Foblex’s native visual hit target; Angular signal-store edge deletion and inspector synchronization were not claimed as verified by that pointer-only check. Native TensorFlow/checkpoint capability claims were not made because those local optional runtimes were unavailable. The automated E2E suite covers four representative workflows rather than every scenario in the supplied audit.
+This report records strong rendered parity for the catalog and most workflow surfaces, but not pixel-perfect identity for the graph canvas. The final browser check now verifies Angular signal-store edge selection, route inspection, deletion, and undo synchronization, but it does not claim byte-identical canvas pixels. Native TensorFlow/checkpoint capability claims are outside this qualification. Frontend inference completion was not claimed because an ad hoc worker run reached backend success but the browser UI reported that the inference worker did not complete. The automated E2E suite now has seven focused tests prioritizing builder interaction/state/API/workflows, rather than executing every scenario in the supplied 32-scenario audit.
