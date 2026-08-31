@@ -15,21 +15,20 @@ import { GraphEditorStore } from '../state/graph-editor.store'
       <div class="inspector-heading"><div><span class="eyebrow">INSPECTOR</span><h2>Properties</h2></div></div>
       @if (selectedNode(); as node) {
         <form [formGroup]="form" (submit)="$event.preventDefault()">
-          <div class="inspector-node-heading"><span class="inspector-node-icon" [style.--node-accent]="node.data.manifest.ui.accent">{{ node.data.manifest.ui.icon || '·' }}</span><div><strong>{{ node.data.label }}</strong><small>{{ node.data.manifest.id }}</small></div></div>
+          <div class="inspector-node-heading"><div><span class="eyebrow">{{ node.data.manifest.category }}</span><strong>{{ node.data.label }}</strong><small>{{ node.data.manifest.id }}</small></div></div>
           <label class="field-label" for="node-label">Label<input id="node-label" formControlName="label" (input)="updateLabel(node.id, $any($event.target).value)" /></label>
           <p class="inspector-description">{{ node.data.manifest.description }}</p>
           @for (group of groupedParameters(); track group[0]) {
             <details class="parameter-group" open><summary>{{ group[0] }}<span>{{ group[1].length }}</span></summary>
               @for (definition of group[1]; track definition.id) {
                 @let capability = capabilityFor(node.data.manifest, definition);
-                @let disabled = isDisabled(capability);
                 @let help = helpfulParameterDescription(definition);
                 @if (definition.type === 'boolean') {
-                  <label class="toggle-field inspector-field"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }</span><input type="checkbox" [formControlName]="definition.id" [disabled]="disabled" (change)="updateParameter(definition, $any($event.target).checked)" /></label>
+                  <label class="toggle-field inspector-field"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }</span><input type="checkbox" [formControlName]="definition.id" (change)="updateParameter(definition, $any($event.target).checked)" /></label>
                 } @else if (definition.type === 'enum') {
-                  <label class="field inspector-field"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }</span><select [formControlName]="definition.id" [disabled]="disabled" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (change)="updateParameter(definition, $any($event.target).value)">@if (definition.nullable) { <option value="">None</option> }@for (option of optionsFor(definition, capability); track $index) { <option [value]="stringValue(option)">{{ option }}</option> }</select>@if (invalid()[definition.id]) { <em class="field-error">Choose a supported option.</em> }</label>
+                  <label class="field inspector-field"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }</span><select [formControlName]="definition.id" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (change)="updateParameter(definition, $any($event.target).value)">@if (definition.nullable) { <option value="">None</option> }@for (option of optionsFor(definition, capability); track $index) { <option [value]="stringValue(option)">{{ option }}</option> }</select>@if (invalid()[definition.id]) { <em class="field-error">Choose a supported option.</em> }</label>
                 } @else {
-                  <label class="field inspector-field"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }</span><input [type]="inputType(definition)" [formControlName]="definition.id" [disabled]="disabled" [attr.min]="bounds(definition).min" [attr.max]="bounds(definition).max" [attr.step]="bounds(definition).step" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (input)="updateParameter(definition, $any($event.target).value)" />@if (invalid()[definition.id]) { <em class="field-error">Enter a complete value within the supported range.</em> }</label>
+                  <label class="field inspector-field"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }</span><input [type]="inputType(definition)" [formControlName]="definition.id" [attr.min]="bounds(definition).min" [attr.max]="bounds(definition).max" [attr.step]="bounds(definition).step" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (input)="updateParameter(definition, $any($event.target).value)" />@if (invalid()[definition.id]) { <em class="field-error">Enter a complete value within the supported range.</em> }</label>
                 }
               }
             </details>
@@ -69,7 +68,9 @@ export class PropertiesInspectorComponent {
         const value = definition.type === 'boolean'
           ? Boolean(node.data.parameters[definition.id] ?? definition.default)
           : displayParameterValue(node.data.parameters[definition.id] ?? definition.default)
-        this.form.addControl(definition.id, new UntypedFormControl(value))
+        const control = new UntypedFormControl(value)
+        if (this.isDisabled(this.capabilityFor(node.data.manifest, definition))) control.disable({ emitEvent: false })
+        this.form.addControl(definition.id, control)
         this.configuredControlIds.add(definition.id)
       }
       this.invalid.set({})
