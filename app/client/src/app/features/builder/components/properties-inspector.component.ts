@@ -36,6 +36,11 @@ import { GraphEditorStore } from '../state/graph-editor.store'
           <div class="inspector-section"><span class="eyebrow">PORTS</span>@for (port of node.data.manifest.inputs; track port.id) { <div class="inspector-port"><span>Input</span><strong>{{ port.display_name }}</strong><small>{{ port.kind }}{{ port.required ? ' · required' : '' }}</small></div> }@for (port of node.data.manifest.outputs; track port.id) { <div class="inspector-port"><span>Output</span><strong>{{ port.display_name }}</strong><small>{{ port.kind }}</small></div> }</div>
           <button class="secondary danger-button" type="button" (click)="deleteNode()"><svg lucideTrash2 [size]="14"></svg>Delete node</button>
         </form>
+      } @else if (selectedEdge(); as edge) {
+        <div class="inspector-heading"><div><span class="eyebrow">INSPECTOR</span><h2>Connection</h2></div></div>
+        <div class="inspector-edge-heading"><span class="eyebrow">SELECTED EDGE</span><strong>{{ edge.id }}</strong></div>
+        <div class="inspector-section inspector-connection-section"><span class="eyebrow">ROUTE</span><div class="inspector-connection-route"><div class="inspector-port"><span>Source</span><strong>{{ nodeLabel(edge.source) }}</strong><small>{{ portLabel(edge.source, 'output', edge.sourceHandle || 'output') }}</small></div><span class="inspector-connection-arrow" aria-hidden="true">→</span><div class="inspector-port"><span>Target</span><strong>{{ nodeLabel(edge.target) }}</strong><small>{{ portLabel(edge.target, 'input', edge.targetHandle || 'input') }}</small></div></div></div>
+        <button class="secondary danger-button" type="button" aria-label="Delete connection" (click)="deleteEdge()"><svg lucideTrash2 [size]="14"></svg>Delete connection</button>
       } @else { <div class="inspector-empty"><span class="eyebrow">INSPECTOR</span><h2>No node selected</h2><p>Select a node to edit its label and parameters.</p></div> }
     </aside>
   `,
@@ -45,6 +50,7 @@ export class PropertiesInspectorComponent {
   readonly executionBackend = input<ExecutionBackend>('pytorch')
   readonly kerasEnabled = input(true)
   readonly selectedNode = computed(() => this.store.nodes().find((node) => node.id === this.store.selectedNodeId()) ?? null)
+  readonly selectedEdge = computed(() => this.store.edges().find((edge) => edge.id === this.store.selectedEdgeId()) ?? null)
   readonly groupedParameters = computed(() => {
     const groups = new Map<string, ParameterDefinition[]>()
     for (const definition of this.selectedNode()?.data.manifest.parameters ?? []) {
@@ -120,4 +126,15 @@ export class PropertiesInspectorComponent {
   }
 
   deleteNode(): void { this.store.deleteSelected() }
+  deleteEdge(): void { this.store.deleteSelected() }
+
+  nodeLabel(nodeId: string): string {
+    return this.store.nodes().find((node) => node.id === nodeId)?.data.label ?? nodeId
+  }
+
+  portLabel(nodeId: string, direction: 'input' | 'output', portId: string): string {
+    const node = this.store.nodes().find((item) => item.id === nodeId)
+    const port = (direction === 'input' ? node?.data.manifest.inputs : node?.data.manifest.outputs)?.find((item) => item.id === portId)
+    return port ? `${port.display_name} · ${port.kind}` : portId
+  }
 }
