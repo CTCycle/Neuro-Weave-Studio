@@ -132,10 +132,10 @@ test('covers builder editing, history, focus mode, and dirty navigation', async 
     await page.getByRole('button', { name: 'Undo' }).click()
     await expect(page.locator('.nw-flow-node')).toHaveCount(1)
 
-    await page.getByRole('button', { name: 'Focus' }).click()
+    await page.getByRole('button', { name: 'Enter full canvas' }).click()
     await expect(page.getByRole('button', { name: 'Exit full canvas' })).toBeVisible()
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('button', { name: 'Focus' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Enter full canvas' })).toBeVisible()
 
     await page.getByRole('link', { name: 'Models', exact: true }).click()
     await expect(page.getByRole('dialog')).toContainText('Leave the Model Builder?')
@@ -174,7 +174,7 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: 'Apply configuration' }).click()
-    await expect(page.getByRole('alert')).toContainText('Saved compilation settings')
+    await expect(page.getByRole('button', { name: /Saved compilation settings/ })).toBeVisible()
 
     await page.getByRole('link', { name: 'Export', exact: true }).click()
     await expect(page.getByRole('heading', { name: `Export ${fixture.name}` })).toBeVisible()
