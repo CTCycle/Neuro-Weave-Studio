@@ -249,7 +249,9 @@ def _validate_semantics(
             expected_activation = "softmax"
         else:
             expected_activation = "linear"
-        if activation != expected_activation:
+        if activation != expected_activation and (
+            activation is not None or expected_activation != "linear"
+        ):
             diagnostics.append(
                 _error(
                     "invalid_output_activation",
