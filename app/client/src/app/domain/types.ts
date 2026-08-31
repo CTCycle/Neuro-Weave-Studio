@@ -1,5 +1,3 @@
-import type { Edge, Node, XYPosition } from '@xyflow/react'
-
 export type ExecutionBackend = 'tensorflow' | 'pytorch' | 'jax'
 export type RuntimeApi = 'keras' | 'native'
 export type MemoryPolicyKind = 'default' | 'tensorflow_growth' | 'tensorflow_limit_mb' | 'jax_no_preallocation' | 'jax_preallocate_fraction' | 'jax_platform_allocator' | 'pytorch_fraction'
@@ -541,16 +539,6 @@ export function implementationKey(backend: ExecutionBackend, kerasEnabled: boole
   return kerasEnabled ? 'keras' : backend
 }
 
-export interface EditorNodeData extends Record<string, unknown> {
-  manifest: NodeManifest
-  parameters: Record<string, unknown>
-  label: string
-  shapeSummary?: ShapeSummary
-}
-
-export type EditorNode = Node<EditorNodeData, 'modelNode'>
-export type EditorEdge = Edge
-
 export interface ProjectExportBundle {
   format: 'neuro-weave-project'
   format_version: 4
@@ -594,16 +582,5 @@ export const emptyModelConfiguration = (): ModelConfiguration => ({
       dynamic: false,
     },
     jax: { jit_enabled: false },
-  },
-})
-
-export const editorNodeFromGraph = (node: GraphNodeInstance, manifest: NodeManifest): EditorNode => ({
-  id: node.id,
-  type: 'modelNode',
-  position: node.position as XYPosition,
-  data: {
-    manifest,
-    parameters: node.parameters,
-    label: node.label ?? manifest.display_name,
   },
 })
