@@ -58,7 +58,7 @@ jobs:
             .ci-logs/
 
   frontend:
-    name: React quality, tests, and build
+    name: Angular quality, tests, build, and E2E
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -81,6 +81,45 @@ jobs:
       - name: Production build
         working-directory: app/client
         run: npm run build
+      - name: Set up Python for browser tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.7"
+      - name: Set up UV for browser tests
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.30"
+          enable-cache: true
+          cache-dependency-glob: app/server/uv.lock
+      - name: Install backend runtime for browser tests
+        run: uv sync --locked --project app/server
+      - name: Start backend for browser tests
+        env:
+          DATABASE_SQLITE_PATH: ${{ runner.temp }}/neuro-weave-e2e.db
+          NEURO_WEAVE_EXPORT_ROOT: ${{ runner.temp }}/neuro-weave-e2e-exports
+          NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-e2e-jobs
+          NEURO_WEAVE_RUNTIME_DISCOVERY_PATH: ${{ runner.temp }}/neuro-weave-e2e-discovery.json
+        run: |
+          mkdir -p "${{ runner.temp }}/neuro-weave-e2e-logs"
+          nohup uv run --project app/server uvicorn app:create_app --factory --host 127.0.0.1 --port 8000 > "${{ runner.temp }}/neuro-weave-e2e-logs/backend.log" 2>&1 &
+          echo $! > "${{ runner.temp }}/neuro-weave-e2e-logs/backend.pid"
+          for attempt in {1..90}; do
+            if curl --fail --silent http://127.0.0.1:8000/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "${{ runner.temp }}/neuro-weave-e2e-logs/backend.log"
+          exit 1
+      - name: Install Playwright browser
+        working-directory: app/client
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        working-directory: app/client
+        env:
+          FASTAPI_HOST: 127.0.0.1
+          FASTAPI_PORT: 8000
+        run: npm run e2e
       - name: Upload frontend diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
@@ -90,4 +129,6 @@ jobs:
           if-no-files-found: ignore
           path: |
             app/client/coverage/
-            app/client/dist/
+            app/tests/cache/frontend-dist/
+            app/tests/cache/eslint/
+            ${{ runner.temp }}/neuro-weave-e2e-logs/
