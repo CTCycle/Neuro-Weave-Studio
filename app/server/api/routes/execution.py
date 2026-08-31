@@ -4,12 +4,46 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from api.dependencies import get_job_service, get_runtime_controller
+from domain.enums import ExecutionBackend
 from domain.jobs import JobResponse, JobSubmitRequest
+from domain.runtime import RuntimeApi, RuntimeDiscoveryRequest, RuntimeDiscoveryResponse
 from services.errors import CompilationRejectedError, ProjectNotFoundError
 from services.job_service import JobService
 from services.runtime_controller import RuntimeController, RuntimeControllerError
 
 router = APIRouter(prefix="/api/execution", tags=["execution"])
+
+
+###############################################################################
+@router.post("/discovery", response_model=RuntimeDiscoveryResponse, status_code=202)
+def request_discovery(
+    payload: RuntimeDiscoveryRequest,
+    controller: RuntimeController = Depends(get_runtime_controller),
+) -> RuntimeDiscoveryResponse:
+    try:
+        return controller.request_discovery(
+            payload.backend,
+            payload.api,
+            force_refresh=payload.force_refresh,
+        )
+    except RuntimeControllerError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": exc.code, "message": str(exc), **exc.details},
+        ) from exc
+
+
+###############################################################################
+@router.get("/discovery", response_model=RuntimeDiscoveryResponse)
+def discovery_status(
+    backend: str,
+    api: str = "keras",
+    controller: RuntimeController = Depends(get_runtime_controller),
+) -> RuntimeDiscoveryResponse:
+    try:
+        return controller.discovery_status(ExecutionBackend(backend), RuntimeApi(api))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Unknown backend or runtime API") from exc
 
 
 ###############################################################################
@@ -40,6 +74,8 @@ def submit_job(
             in {
                 "api_unavailable",
                 "backend_unavailable",
+                "runtime_discovery_pending",
+                "runtime_discovery_required",
                 "device_unavailable",
                 "device_busy",
                 "controller_shutting_down",

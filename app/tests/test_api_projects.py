@@ -5,12 +5,31 @@ from typing import Any, cast
 
 import httpx
 import pytest
+
 from repositories.graphs import GraphRepository
 
 
 ###############################################################################
 def fail_update_graph_replace(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("graph replacement failed")
+
+
+###############################################################################
+def ensure_discovery(client: httpx.Client, backend: str, api: str) -> dict[str, object]:
+    response = client.post(
+        "/api/execution/discovery",
+        json={"backend": backend, "api": api},
+    )
+    assert response.status_code == 202, response.text
+    for _ in range(200):
+        current = client.get(
+            "/api/execution/discovery",
+            params={"backend": backend, "api": api},
+        ).json()
+        if current["state"] != "checking":
+            return cast(dict[str, object], current)
+        time.sleep(0.05)
+    pytest.fail(f"{backend}/{api} discovery did not finish")
 
 
 ###############################################################################
@@ -90,8 +109,13 @@ def project_payload() -> dict[str, object]:
 def execution_worker(client: httpx.Client) -> dict[str, object]:
     metadata = client.get("/api/metadata").json()
     status = next(item for item in metadata["execution_backends"] if item["id"] == "pytorch")
-    if not status["available"]:
+    if not status["installed"]:
+        pytest.skip("PyTorch backend is not installed")
+    discovered = ensure_discovery(client, "pytorch", "keras")
+    if not discovered["available"]:
         pytest.skip("Operational PyTorch Keras backend is unavailable")
+    metadata = client.get("/api/metadata").json()
+    status = next(item for item in metadata["execution_backends"] if item["id"] == "pytorch")
     device = next(
         (item for item in status.get("devices", []) if item.get("available", True)),
         None,
@@ -109,6 +133,11 @@ def execution_worker(client: httpx.Client) -> dict[str, object]:
 
 ###############################################################################
 def native_execution_worker(client: httpx.Client) -> dict[str, object]:
+    metadata = client.get("/api/metadata").json()
+    status = next(item for item in metadata["execution_backends"] if item["id"] == "pytorch")
+    if not status["installed"]:
+        pytest.skip("PyTorch backend is not installed")
+    ensure_discovery(client, "pytorch", "native")
     metadata = client.get("/api/metadata").json()
     status = next(item for item in metadata["execution_backends"] if item["id"] == "pytorch")
     native_status = next(item for item in status.get("runtime_apis", []) if item["id"] == "native")

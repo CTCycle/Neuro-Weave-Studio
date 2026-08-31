@@ -47,7 +47,7 @@ def _log_startup_stage(stage: str, started: float) -> None:
 async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     startup_started = time.perf_counter()
     settings = cast(Settings, application.state.settings)
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, settings.log_file)
     stage_started = time.perf_counter()
     settings.export_root.mkdir(parents=True, exist_ok=True)
     _log_startup_stage("export_root", stage_started)
@@ -66,9 +66,7 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     application.state.catalog = catalog
     application.state.repository_context = repository_context
     application.state.runtime_controller = runtime_controller
-    stage_started = time.perf_counter()
-    runtime_controller.probe_statuses()
-    _log_startup_stage("runtime_discovery", stage_started)
+    LOGGER.info("runtime_discovery deferred=on_demand")
     _log_startup_stage("lifespan", startup_started)
     try:
         yield
