@@ -12,8 +12,8 @@ import { GraphEditorStore } from '../state/graph-editor.store'
   imports: [ReactiveFormsModule, LucideTrash2],
   template: `
     <aside class="builder-inspector panel" aria-label="Properties inspector">
-      <div class="inspector-heading"><div><span class="eyebrow">INSPECTOR</span><h2>Properties</h2></div></div>
       @if (selectedNode(); as node) {
+        <div class="inspector-heading"><div><span class="eyebrow">INSPECTOR</span><h2>Properties</h2></div></div>
         <form [formGroup]="form" (submit)="$event.preventDefault()">
           <div class="inspector-node-heading"><div><span class="eyebrow">{{ node.data.manifest.category }}</span><strong>{{ node.data.label }}</strong><small>{{ node.data.manifest.id }}</small></div></div>
           <label class="field-label" for="node-label">Label<input id="node-label" formControlName="label" (input)="updateLabel(node.id, $any($event.target).value)" /></label>
@@ -36,7 +36,7 @@ import { GraphEditorStore } from '../state/graph-editor.store'
           <div class="inspector-section"><span class="eyebrow">PORTS</span>@for (port of node.data.manifest.inputs; track port.id) { <div class="inspector-port"><span>Input</span><strong>{{ port.display_name }}</strong><small>{{ port.kind }}{{ port.required ? ' · required' : '' }}</small></div> }@for (port of node.data.manifest.outputs; track port.id) { <div class="inspector-port"><span>Output</span><strong>{{ port.display_name }}</strong><small>{{ port.kind }}</small></div> }</div>
           <button class="secondary danger-button" type="button" (click)="deleteNode()"><svg lucideTrash2 [size]="14"></svg>Delete node</button>
         </form>
-      } @else { <div class="inspector-empty"><span>Select an operation</span><small>Node parameters and ports will appear here.</small></div> }
+      } @else { <div class="inspector-empty"><span class="eyebrow">INSPECTOR</span><h2>No node selected</h2><p>Select a node to edit its label and parameters.</p></div> }
     </aside>
   `,
 })
