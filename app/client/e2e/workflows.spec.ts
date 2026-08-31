@@ -111,6 +111,103 @@ async function deleteProject(request: APIRequestContext, id: string): Promise<vo
   expect([204, 404]).toContain(response.status())
 }
 
+test('keeps saved builder profile, validation, and API payload synchronized', async ({ page, request }) => {
+  const fixture = await createProject(request, `Angular state ${Date.now()}`)
+  try {
+    await page.goto(`/builder/${fixture.id}`)
+    await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+    await expect(page.getByLabel('Execution backend')).toHaveValue('pytorch')
+    await expect(page.getByLabel('Enable Keras')).toBeChecked()
+    await expect(page.locator('.nw-flow-node')).toHaveCount(4)
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(3)
+
+    const validationResponse = page.waitForResponse((response) => response.url().includes('/api/validation') && response.request().method() === 'POST')
+    await page.getByRole('button', { name: 'Validate', exact: true }).click()
+    expect((await validationResponse).ok()).toBeTruthy()
+    await expect(page.locator('.validation-summary')).toContainText('Ready')
+    await page.locator('.validation-summary').click()
+    await expect(page.getByText('No validation findings.')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Description', exact: true }).click()
+    const descriptionDialog = page.getByRole('dialog', { name: 'Model description editor' })
+    await descriptionDialog.getByLabel('Model description').fill('Persisted from the Angular builder.')
+    await descriptionDialog.getByRole('button', { name: 'Save', exact: true }).click()
+    const updatedName = `${fixture.name} synced`
+    await page.getByLabel('Model name').fill(updatedName)
+    const updateResponse = page.waitForResponse((response) => response.url().includes(`/api/projects/${fixture.id}`) && response.request().method() === 'PUT')
+    await page.getByRole('button', { name: 'Save model', exact: true }).click()
+    const saved = await (await updateResponse).json() as { name: string; description: string; execution_backend: string; keras_enabled: boolean; current_revision: number; graph: { schema_version: number; nodes: unknown[]; edges: unknown[] } }
+    expect(saved.name).toBe(updatedName)
+    expect(saved.description).toBe('Persisted from the Angular builder.')
+    expect(saved.execution_backend).toBe('pytorch')
+    expect(saved.keras_enabled).toBe(true)
+    expect(saved.graph).toMatchObject({ schema_version: 3 })
+    expect(saved.graph.nodes).toHaveLength(4)
+    expect(saved.graph.edges).toHaveLength(3)
+    await expect(page.getByText(`Saved revision ${saved.current_revision}`)).toBeVisible()
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
+test('keeps edge selection, inspector details, deletion, and undo synchronized', async ({ page, request }) => {
+  const fixture = await createProject(request, `Angular edge state ${Date.now()}`)
+  try {
+    await page.goto(`/builder/${fixture.id}`)
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(3)
+    await page.locator('f-connection path.f-connection-selection').first().click({ force: true })
+    await expect(page.locator('f-connection.is-selected')).toHaveCount(1)
+    await expect(page.getByRole('heading', { name: 'Connection' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Delete connection' })).toBeVisible()
+    await expect(page.getByRole('complementary', { name: 'Properties inspector' })).toContainText('Features')
+    await expect(page.getByRole('complementary', { name: 'Properties inspector' })).toContainText('Hidden layer')
+
+    await page.locator('body').press('Delete')
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(2)
+    await expect(page.getByRole('heading', { name: 'No node selected' })).toBeVisible()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(3)
+
+    const persisted = await (await request.get(`/api/projects/${fixture.id}`)).json() as { graph: { edges: unknown[] } }
+    expect(persisted.graph.edges).toHaveLength(3)
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
+test('isolates builder tabs and exposes canvas and validation controls', async ({ page, request }) => {
+  const fixture = await createProject(request, `Angular tabs ${Date.now()}`)
+  try {
+    await page.goto(`/builder/${fixture.id}`)
+    const savedTab = page.locator('button[role="tab"]').filter({ hasText: fixture.name })
+    await expect(savedTab).toBeVisible()
+    await page.getByRole('button', { name: 'New model', exact: true }).click()
+    const draftTab = page.locator('button[role="tab"]').filter({ hasText: 'Untitled model' })
+    await expect(draftTab).toBeVisible()
+    await page.getByRole('textbox', { name: 'Search nodes' }).fill('Dense')
+    await page.getByRole('button', { name: /Dense \/ Linear/ }).click()
+    await expect(page.locator('.nw-flow-node')).toHaveCount(1)
+
+    await savedTab.click()
+    await expect(page.locator('.nw-flow-node')).toHaveCount(4)
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(3)
+    await page.getByRole('button', { name: 'Validate', exact: true }).click()
+    await expect(page.locator('.validation-summary')).toContainText('Ready')
+    await page.locator('.validation-summary').click()
+    await expect(page.getByRole('separator', { name: 'Resize validation panel' })).toBeVisible()
+
+    await draftTab.click()
+    await expect(page.locator('.nw-flow-node')).toHaveCount(1)
+    await page.getByRole('button', { name: 'Hide minimap' }).click()
+    await expect(page.getByRole('button', { name: 'Show minimap' })).toBeVisible()
+    await page.getByRole('button', { name: 'Enter full canvas' }).click()
+    await expect(page.getByRole('button', { name: 'Exit full canvas' })).toBeVisible()
+    await page.getByRole('button', { name: 'Exit full canvas' }).click()
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
 test('covers builder editing, history, focus mode, and dirty navigation', async ({ page, request }) => {
   const fixture = await createProject(request, `Angular builder ${Date.now()}`)
   try {
@@ -175,6 +272,11 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: 'Apply configuration' }).click()
     await expect(page.getByRole('button', { name: /Saved compilation settings/ })).toBeVisible()
+    const sourceResponse = page.waitForResponse((response) => response.url().includes(`/api/exports/${fixture.id}/source`) && response.request().method() === 'GET')
+    await page.getByRole('button', { name: 'Compile source', exact: true }).click()
+    expect((await sourceResponse).ok()).toBeTruthy()
+    await expect(page.getByRole('heading', { name: 'Generated Python' })).toBeVisible()
+    await expect(page.locator('.generated-code code')).toContainText('keras')
 
     await page.getByRole('link', { name: 'Export', exact: true }).click()
     await expect(page.getByRole('heading', { name: `Export ${fixture.name}` })).toBeVisible()

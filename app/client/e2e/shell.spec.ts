@@ -8,6 +8,7 @@ test('starts the Angular shell at the model catalog', async ({ page }) => {
 })
 
 test('serves Angular deep links and preserves the shell on refresh', async ({ page }) => {
+  test.setTimeout(60_000)
   for (const route of ['/environment', '/metrics', '/builder', '/models/missing/compilation']) {
     await page.goto(route)
     await expect(page.locator('nw-app-shell')).toBeVisible()

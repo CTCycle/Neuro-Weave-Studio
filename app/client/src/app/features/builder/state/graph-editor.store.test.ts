@@ -59,4 +59,29 @@ describe('neutral graph editor store', () => {
     expect(store.selectedNodeId()).toBe(nodeId)
     expect(store.past()).toHaveLength(1)
   })
+
+  it('deletes a selected edge without deleting its endpoint nodes', () => {
+    store = new GraphEditorStore()
+    store.restoreEditorSession({
+      nodes: [node('source'), node('target')],
+      edges: [{ id: 'source-target', source: 'source', sourceHandle: 'output', target: 'target', targetHandle: 'input', type: 'smoothstep' }],
+      modelConfiguration: emptyModelConfiguration(),
+      exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
+      futureTrainingConfiguration: {},
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      copiedNodeIds: [],
+      past: [],
+      future: [],
+    })
+
+    store.selectEdge('source-target')
+    store.deleteSelected()
+
+    expect(store.edges()).toEqual([])
+    expect(store.nodes().map((item) => item.id)).toEqual(['source', 'target'])
+    expect(store.selectedEdgeId()).toBeNull()
+    store.undo()
+    expect(store.edges().map((edge) => edge.id)).toEqual(['source-target'])
+  })
 })
