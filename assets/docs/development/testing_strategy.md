@@ -16,7 +16,7 @@ Retained regression coverage focuses on:
 - generated Keras and native TensorFlow/PyTorch/JAX source with backend-specific compiler settings for representative graphs;
 - native TensorFlow/PyTorch/JAX parity for deterministic common-subset graphs, including representative multi-input/multi-output cases;
 - capability discovery, clean-break `model_export` submission, format option validation, bridge availability, artifact manifests, reload/inference verification, stale revisions, cancellation, conversion failure, and atomic publication;
-- runtime discovery skips absent framework packages, records a fingerprinted environment snapshot, reuses matching snapshots, and invalidates them when package state changes;
+- runtime discovery is on demand per backend/API pair, skips absent framework packages, records a schema-versioned fingerprinted environment snapshot, deduplicates concurrent requests, bypasses the snapshot for explicit refresh, and invalidates matching results when package or environment identity changes;
 - binary Keras, native, ONNX, SafeTensors, and checkpoint export reload/restore coverage where the optional dependency is operational;
 - runtime preflight validation, device lease exclusivity, idempotent cancellation, and worker/workspace cleanup.
 

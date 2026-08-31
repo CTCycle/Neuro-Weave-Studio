@@ -38,7 +38,7 @@ flowchart TD
   W --> T[Dummy tensor smoke test or artifact export]
 ```
 
-Keras compilation uses the Keras branch of the metadata-driven capability catalog. Optimizers, losses, metrics, initializers, regularizers, constraints, and trusted formula metadata are exposed through `/api/metadata`. Native compilation is independent of Keras: TensorFlow exposes `tf.function(jit_compile=...)`, PyTorch exposes `torch.compile(...)` options, and JAX exposes `jax.jit(...)`. Runtime/compiler availability is discovered per API and unavailable runtimes show an explicit reason; matching discovery snapshots are reused until their environment fingerprint changes. These settings do not add a training loop, checkpoint manager, or native optimizer runtime.
+Keras compilation uses the Keras branch of the metadata-driven capability catalog. Optimizers, losses, metrics, initializers, regularizers, constraints, and trusted formula metadata are exposed through `/api/metadata`. Native compilation is independent of Keras: TensorFlow exposes `tf.function(jit_compile=...)`, PyTorch exposes `torch.compile(...)` options, and JAX exposes `jax.jit(...)`. Runtime/compiler availability is discovered on demand per API and unavailable runtimes show an explicit reason; matching discovery snapshots are validated and reused until their environment fingerprint changes. These settings do not add a training loop, checkpoint manager, or native optimizer runtime.
 
 ## Native execution
 
