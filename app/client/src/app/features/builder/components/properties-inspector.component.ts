@@ -54,7 +54,6 @@ import { GraphEditorStore } from '../state/graph-editor.store'
               }
             </div>
           </section>
-          <button class="secondary danger-button" type="button" (click)="deleteNode()"><svg lucideTrash2 [size]="14"></svg>Delete node</button>
         </form>
       } @else if (selectedEdge(); as edge) {
         <header class="inspector-node-header edge"><div class="inspector-node-header-copy"><span class="eyebrow">INSPECTOR · CONNECTION</span><h2>Connection</h2><code>{{ edge.id }}</code></div><button #closeButton type="button" class="panel-close" (click)="close.emit()" aria-label="Close properties inspector"><svg lucideX [size]="14"></svg></button></header>
@@ -86,7 +85,6 @@ export class PropertiesInspectorComponent {
   readonly invalid = signal<Record<string, boolean>>({})
   private configuredControlIds = new Set<string>()
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton')
-
   constructor() {
     effect(() => {
       if (this.mobileOpen()) queueMicrotask(() => this.closeButton()?.nativeElement.focus())
@@ -167,7 +165,6 @@ export class PropertiesInspectorComponent {
   isStructured(definition: ParameterDefinition): boolean { return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple' || definition.type === 'object' }
   structuredPlaceholder(definition: ParameterDefinition): string { return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple' ? '[ … ]' : '{ "class_name": "…", "config": {} }' }
   isVisible(definition: ParameterDefinition, node: { data: { parameters: Record<string, unknown> } }): boolean { return !definition.visible_when || conditionMatches(definition.visible_when, node.data.parameters) }
-
   availabilityMessage(manifest: NodeManifest, definition: ParameterDefinition, capability?: ParameterCapability): string | null {
     const mapping = manifest.implementations[implementationKey(this.executionBackend(), this.kerasEnabled())]
     if (!mapping || !implementationAvailable(manifest, this.executionBackend(), this.kerasEnabled())) return `Unavailable for ${implementationLabel(this.executionBackend(), this.kerasEnabled())}`
