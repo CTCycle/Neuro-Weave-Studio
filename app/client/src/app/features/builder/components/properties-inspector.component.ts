@@ -85,6 +85,7 @@ export class PropertiesInspectorComponent {
   readonly invalid = signal<Record<string, boolean>>({})
   private configuredControlIds = new Set<string>()
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton')
+
   constructor() {
     effect(() => {
       if (this.mobileOpen()) queueMicrotask(() => this.closeButton()?.nativeElement.focus())
@@ -165,6 +166,7 @@ export class PropertiesInspectorComponent {
   isStructured(definition: ParameterDefinition): boolean { return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple' || definition.type === 'object' }
   structuredPlaceholder(definition: ParameterDefinition): string { return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple' ? '[ … ]' : '{ "class_name": "…", "config": {} }' }
   isVisible(definition: ParameterDefinition, node: { data: { parameters: Record<string, unknown> } }): boolean { return !definition.visible_when || conditionMatches(definition.visible_when, node.data.parameters) }
+
   availabilityMessage(manifest: NodeManifest, definition: ParameterDefinition, capability?: ParameterCapability): string | null {
     const mapping = manifest.implementations[implementationKey(this.executionBackend(), this.kerasEnabled())]
     if (!mapping || !implementationAvailable(manifest, this.executionBackend(), this.kerasEnabled())) return `Unavailable for ${implementationLabel(this.executionBackend(), this.kerasEnabled())}`
