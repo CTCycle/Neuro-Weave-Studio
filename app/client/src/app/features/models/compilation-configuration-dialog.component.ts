@@ -7,6 +7,7 @@ import type {
   NativeCompilationCapability,
 } from '../../domain/types'
 import { emptyModelConfiguration } from '../../domain/types'
+import { MathFormulaComponent } from '../../shared/components/math-formula.component'
 
 type CompilationTab = 'optimizer' | 'objective' | 'metrics' | 'outputs' | 'advanced' | 'native-optimizer' | 'native-objective' | 'native-metrics' | 'native-outputs' | 'native'
 
@@ -19,6 +20,7 @@ interface CompilationTabDefinition {
 @Component({
   selector: 'nw-compilation-configuration-dialog',
   standalone: true,
+  imports: [MathFormulaComponent],
   template: `
     <div class="dialog-backdrop compilation-modal-backdrop" role="presentation" (mousedown)="closeFromBackdrop($event)">
       <section class="compilation-modal panel" role="dialog" aria-modal="true" aria-labelledby="compilation-modal-title" (mousedown)="$event.stopPropagation()">
@@ -60,13 +62,13 @@ interface CompilationTabDefinition {
               <section class="compilation-section compilation-tab-panel" role="tabpanel">
                 <div class="section-heading"><div><span class="eyebrow">LOSS</span><h3>Default objective</h3></div></div>
                 <label class="field"><span>Loss</span><select [value]="kerasLossId()" (change)="setKerasLoss($event)">@for (item of catalog.losses; track item.id) { <option [value]="item.id">{{ item.label }}</option> }</select></label>
-                @if (kerasLoss(); as loss) { <p class="compilation-description">{{ loss.description }}</p> }
+                @if (kerasLoss(); as loss) { <p class="compilation-description">{{ loss.description }}</p>@if (loss.formula) { <nw-math-formula [formula]="loss.formula"></nw-math-formula> } }
               </section>
             }
             @if (activeTab() === 'metrics') {
               <section class="compilation-section compilation-tab-panel" role="tabpanel">
                 <div class="section-heading"><div><span class="eyebrow">METRICS</span><h3>Default measurements</h3></div></div>
-                <div class="compilation-option-grid">@for (metric of catalog.metrics; track metric.id) { <label class="compilation-option"><input type="checkbox" [checked]="selectedMetricIds().includes(metric.id)" (change)="toggleKerasMetric(metric.id, $event)" /><span><strong>{{ metric.label }}</strong><small>{{ metric.description }}</small></span></label> }</div>
+                <div class="compilation-option-grid">@for (metric of catalog.metrics; track metric.id) { <label class="compilation-option"><input type="checkbox" [checked]="selectedMetricIds().includes(metric.id)" (change)="toggleKerasMetric(metric.id, $event)" /><span><strong>{{ metric.label }}</strong><small>{{ metric.description }}</small>@if (metric.formula) { <nw-math-formula [formula]="metric.formula"></nw-math-formula> }</span></label> }</div>
               </section>
             }
             @if (activeTab() === 'outputs') {
@@ -99,10 +101,10 @@ interface CompilationTabDefinition {
               </section>
             }
             @if (activeTab() === 'native-objective') {
-              <section class="compilation-section compilation-tab-panel" role="tabpanel"><div class="section-heading"><div><span class="eyebrow">NATIVE PYTORCH LOSS</span><h3>Default objective</h3></div></div><p class="compilation-description">Loss helpers are evaluated against synthetic targets during the isolated smoke check; they do not train the model.</p><label class="field"><span>Loss</span><select [value]="nativeLossId()" (change)="setNativeLoss($event)"><option value="">No default loss</option>@for (item of catalog.losses; track item.id) { <option [value]="item.id">{{ item.label }}</option> }</select></label>@if (nativeLoss(); as loss) { <p class="compilation-description">{{ loss.description }}</p> }</section>
+              <section class="compilation-section compilation-tab-panel" role="tabpanel"><div class="section-heading"><div><span class="eyebrow">NATIVE PYTORCH LOSS</span><h3>Default objective</h3></div></div><p class="compilation-description">Loss helpers are evaluated against synthetic targets during the isolated smoke check; they do not train the model.</p><label class="field"><span>Loss</span><select [value]="nativeLossId()" (change)="setNativeLoss($event)"><option value="">No default loss</option>@for (item of catalog.losses; track item.id) { <option [value]="item.id">{{ item.label }}</option> }</select></label>@if (nativeLoss(); as loss) { <p class="compilation-description">{{ loss.description }}</p>@if (loss.formula) { <nw-math-formula [formula]="loss.formula"></nw-math-formula> } }</section>
             }
             @if (activeTab() === 'native-metrics') {
-              <section class="compilation-section compilation-tab-panel" role="tabpanel"><div class="section-heading"><div><span class="eyebrow">NATIVE PYTORCH METRICS</span><h3>Default measurements</h3></div></div><div class="compilation-option-grid">@for (metric of catalog.metrics; track metric.id) { <label class="compilation-option"><input type="checkbox" [checked]="selectedNativeMetricIds().includes(metric.id)" (change)="toggleNativeMetric(metric.id, $event)" /><span><strong>{{ metric.label }}</strong><small>{{ metric.description }}</small></span></label> }</div></section>
+              <section class="compilation-section compilation-tab-panel" role="tabpanel"><div class="section-heading"><div><span class="eyebrow">NATIVE PYTORCH METRICS</span><h3>Default measurements</h3></div></div><div class="compilation-option-grid">@for (metric of catalog.metrics; track metric.id) { <label class="compilation-option"><input type="checkbox" [checked]="selectedNativeMetricIds().includes(metric.id)" (change)="toggleNativeMetric(metric.id, $event)" /><span><strong>{{ metric.label }}</strong><small>{{ metric.description }}</small>@if (metric.formula) { <nw-math-formula [formula]="metric.formula"></nw-math-formula> }</span></label> }</div></section>
             }
             @if (activeTab() === 'native-outputs') {
               <section class="compilation-section compilation-tab-panel" role="tabpanel"><div class="section-heading"><div><span class="eyebrow">NATIVE OUTPUT OVERRIDES</span><h3>Per-output loss</h3></div></div>@for (outputId of outputIds(); track outputId) { <label class="field"><span>{{ outputId }}</span><select [value]="outputLoss(draft().native.pytorch.losses, outputId)" (change)="setNativeOutputLoss(outputId, $event)"><option value="">Use default loss</option>@for (item of catalog.losses; track item.id) { <option [value]="item.id">{{ item.label }}</option> }</select></label> }</section>

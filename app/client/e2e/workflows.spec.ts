@@ -125,6 +125,7 @@ test('keeps saved builder profile, validation, and API payload synchronized', as
     await page.getByRole('button', { name: 'Validate', exact: true }).click()
     expect((await validationResponse).ok()).toBeTruthy()
     await expect(page.locator('.validation-summary')).toContainText('Ready')
+    await page.locator('.builder-notice').click()
     await page.locator('.validation-summary').click()
     await expect(page.getByText('No validation findings.')).toBeVisible()
 
@@ -193,6 +194,7 @@ test('isolates builder tabs and exposes canvas and validation controls', async (
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(3)
     await page.getByRole('button', { name: 'Validate', exact: true }).click()
     await expect(page.locator('.validation-summary')).toContainText('Ready')
+    await page.locator('.builder-notice').click()
     await page.locator('.validation-summary').click()
     await expect(page.getByRole('separator', { name: 'Resize validation panel' })).toBeVisible()
 
@@ -257,13 +259,27 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     await expect(page.locator('.builder-catalog')).toBeHidden()
     await page.getByRole('button', { name: 'Catalog', exact: true }).click()
     await expect(page.locator('.builder-catalog.is-open')).toBeVisible()
+    await page.getByRole('button', { name: 'Close node catalog', exact: true }).click()
+    await expect(page.locator('.builder-catalog')).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Catalog', exact: true })).toBeFocused()
+    await page.getByRole('button', { name: 'Catalog', exact: true }).click()
     await page.getByRole('textbox', { name: 'Search nodes' }).fill('Dense')
     await page.getByRole('button', { name: /Dense \/ Linear/ }).click()
     await page.getByRole('button', { name: 'Inspector', exact: true }).click()
     await expect(page.locator('.builder-inspector.is-open')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Properties' })).toBeVisible()
+    await page.getByRole('button', { name: 'Close properties inspector', exact: true }).click()
+    await expect(page.locator('#builder-inspector-drawer')).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Inspector', exact: true })).toBeFocused()
 
     await page.goto(`/models/${fixture.id}`)
+    const overviewBounds = await page.evaluate(() => ({
+      documentOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      contentOverflow: (document.querySelector('.app-content')?.scrollWidth ?? 0) > (document.querySelector('.app-content')?.clientWidth ?? 0) + 1,
+    }))
+    expect(overviewBounds.documentOverflow).toBeFalsy()
+    expect(overviewBounds.contentOverflow).toBeFalsy()
+
     await expect(page.getByRole('heading', { name: fixture.name })).toBeVisible()
     await page.getByRole('link', { name: 'Compilation', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Configure and generate source' })).toBeVisible()
@@ -299,6 +315,60 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     duplicateId = undefined
   } finally {
     if (duplicateId) await deleteProject(request, duplicateId)
+    await deleteProject(request, fixture.id)
+    await page.setViewportSize({ width: 1280, height: 800 })
+  }
+})
+
+test('keeps read-only previews, compact Builder controls, and modal bounds usable', async ({ page, request }) => {
+  const fixture = await createProject(request, `Angular layout ${Date.now()}`)
+  try {
+    await page.goto(`/models/${fixture.id}`)
+    await expect(page.locator('.readonly-graph-preview')).toBeVisible()
+    await expect(page.locator('.readonly-graph-preview .canvas-editor-tools')).toHaveCount(0)
+    await expect(page.locator('.readonly-graph-preview .canvas-hint')).toHaveCount(0)
+    await expect(page.getByText('Drop a node to build the model', { exact: false })).toHaveCount(0)
+
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto(`/builder/${fixture.id}`)
+    const builderLayout = await page.evaluate(() => {
+      const rect = (selector: string): DOMRect => document.querySelector(selector)?.getBoundingClientRect() ?? new DOMRect()
+      const catalog = rect('.catalog-panel')
+      const center = rect('.builder-center-workspace')
+      const inspector = rect('nw-properties-inspector > aside')
+      const canvas = rect('.canvas-shell')
+      const validation = rect('.validation-panel')
+      return {
+        sidePanelsStretch: Math.abs(catalog.height - center.height) <= 1 && Math.abs(inspector.height - center.height) <= 1,
+        validationSpansCanvas: Math.abs(validation.width - canvas.width) <= 1 && Math.abs(validation.left - canvas.left) <= 1,
+      }
+    })
+    expect(builderLayout.sidePanelsStretch).toBeTruthy()
+    expect(builderLayout.validationSpansCanvas).toBeTruthy()
+
+    await page.setViewportSize({ width: 560, height: 800 })
+    await page.goto(`/builder/${fixture.id}`)
+    await expect(page.getByRole('button', { name: 'Validate', exact: true })).toBeVisible()
+    const toolbarBounds = await page.locator('.builder-toolbar').evaluate((element) => ({
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+      visibleActions: [...element.querySelectorAll<HTMLButtonElement>('.builder-actions button')].every((button) => button.getBoundingClientRect().right <= element.getBoundingClientRect().right + 1),
+    }))
+    expect(toolbarBounds.scrollWidth).toBeLessThanOrEqual(toolbarBounds.clientWidth + 1)
+    expect(toolbarBounds.visibleActions).toBeTruthy()
+
+    await page.goto(`/models/${fixture.id}/compilation`)
+    await page.getByRole('button', { name: 'Configure compilation' }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    const dialogBounds = await dialog.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return { right: bounds.right, bottom: bounds.bottom, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight }
+    })
+    expect(dialogBounds.right).toBeLessThanOrEqual(dialogBounds.viewportWidth + 1)
+    expect(dialogBounds.bottom).toBeLessThanOrEqual(dialogBounds.viewportHeight + 1)
+    await expect(dialog.getByRole('button', { name: 'Apply configuration' })).toBeVisible()
+  } finally {
     await deleteProject(request, fixture.id)
     await page.setViewportSize({ width: 1280, height: 800 })
   }

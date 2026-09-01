@@ -1,6 +1,6 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core'
+import { Component, HostListener, computed, effect, inject, input, output, signal, viewChild, type ElementRef } from '@angular/core'
 import { ReactiveFormsModule, UntypedFormControl, UntypedFormGroup } from '@angular/forms'
-import { LucideTrash2 } from '@lucide/angular'
+import { LucideTrash2, LucideX } from '@lucide/angular'
 import type { ExecutionBackend, NodeManifest, ParameterCapability, ParameterDefinition } from '../../../domain/types'
 import { implementationKey } from '../../../domain/types'
 import { parseParameterValue, displayParameterValue, helpfulParameterDescription, type ParameterDraftValue } from '../graph/parameter-value'
@@ -9,11 +9,11 @@ import { GraphEditorStore } from '../state/graph-editor.store'
 @Component({
   selector: 'nw-properties-inspector',
   standalone: true,
-  imports: [ReactiveFormsModule, LucideTrash2],
+  imports: [ReactiveFormsModule, LucideTrash2, LucideX],
   template: `
-    <aside class="builder-inspector panel" aria-label="Properties inspector">
+    <aside class="builder-inspector panel" [attr.role]="mobileOpen() ? 'dialog' : 'complementary'" [attr.aria-modal]="mobileOpen() ? 'true' : null" aria-label="Properties inspector" (click)="$event.stopPropagation()">
       @if (selectedNode(); as node) {
-        <div class="inspector-heading"><div><span class="eyebrow">INSPECTOR</span><h2>Properties</h2></div></div>
+        <div class="inspector-heading"><div><span class="eyebrow">INSPECTOR</span><h2>Properties</h2></div><button #closeButton type="button" class="panel-close" (click)="close.emit()" aria-label="Close properties inspector"><svg lucideX [size]="14"></svg></button></div>
         <form [formGroup]="form" (submit)="$event.preventDefault()">
           <div class="inspector-node-heading"><div><span class="eyebrow">{{ node.data.manifest.category }}</span><strong>{{ node.data.label }}</strong><small>{{ node.data.manifest.id }}</small></div></div>
           <label class="field-label" for="node-label">Label<input id="node-label" formControlName="label" (input)="updateLabel(node.id, $any($event.target).value)" /></label>
@@ -37,11 +37,11 @@ import { GraphEditorStore } from '../state/graph-editor.store'
           <button class="secondary danger-button" type="button" (click)="deleteNode()"><svg lucideTrash2 [size]="14"></svg>Delete node</button>
         </form>
       } @else if (selectedEdge(); as edge) {
-        <div class="inspector-heading"><div><span class="eyebrow">INSPECTOR</span><h2>Connection</h2></div></div>
+        <div class="inspector-heading"><div><span class="eyebrow">INSPECTOR</span><h2>Connection</h2></div><button #closeButton type="button" class="panel-close" (click)="close.emit()" aria-label="Close properties inspector"><svg lucideX [size]="14"></svg></button></div>
         <div class="inspector-edge-heading"><span class="eyebrow">SELECTED EDGE</span><strong>{{ edge.id }}</strong></div>
         <div class="inspector-section inspector-connection-section"><span class="eyebrow">ROUTE</span><div class="inspector-connection-route"><div class="inspector-port"><span>Source</span><strong>{{ nodeLabel(edge.source) }}</strong><small>{{ portLabel(edge.source, 'output', edge.sourceHandle || 'output') }}</small></div><span class="inspector-connection-arrow" aria-hidden="true">→</span><div class="inspector-port"><span>Target</span><strong>{{ nodeLabel(edge.target) }}</strong><small>{{ portLabel(edge.target, 'input', edge.targetHandle || 'input') }}</small></div></div></div>
         <button class="secondary danger-button" type="button" aria-label="Delete connection" (click)="deleteEdge()"><svg lucideTrash2 [size]="14"></svg>Delete connection</button>
-      } @else { <div class="inspector-empty"><span class="eyebrow">INSPECTOR</span><h2>No node selected</h2><p>Select a node to edit its label and parameters.</p></div> }
+      } @else { <div class="inspector-heading"><div><span class="eyebrow">INSPECTOR</span><h2>Properties</h2></div><button #closeButton type="button" class="panel-close" (click)="close.emit()" aria-label="Close properties inspector"><svg lucideX [size]="14"></svg></button></div><div class="inspector-empty"><span class="eyebrow">SELECTION</span><h2>No node selected</h2><p>Select a node to edit its label and parameters.</p></div> }
     </aside>
   `,
 })
@@ -49,6 +49,8 @@ export class PropertiesInspectorComponent {
   readonly store = inject(GraphEditorStore)
   readonly executionBackend = input<ExecutionBackend>('pytorch')
   readonly kerasEnabled = input(true)
+  readonly mobileOpen = input(false)
+  readonly close = output<void>()
   readonly selectedNode = computed(() => this.store.nodes().find((node) => node.id === this.store.selectedNodeId()) ?? null)
   readonly selectedEdge = computed(() => this.store.edges().find((edge) => edge.id === this.store.selectedEdgeId()) ?? null)
   readonly groupedParameters = computed(() => {
@@ -62,8 +64,12 @@ export class PropertiesInspectorComponent {
   readonly form = new UntypedFormGroup({ label: new UntypedFormControl('') })
   readonly invalid = signal<Record<string, boolean>>({})
   private configuredControlIds = new Set<string>()
+  private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton')
 
   constructor() {
+    effect(() => {
+      if (this.mobileOpen()) queueMicrotask(() => this.closeButton()?.nativeElement.focus())
+    })
     effect(() => {
       const node = this.selectedNode()
       for (const id of this.configuredControlIds) this.form.removeControl(id)
@@ -81,6 +87,17 @@ export class PropertiesInspectorComponent {
       }
       this.invalid.set({})
     })
+  }
+
+  @HostListener('keydown', ['$event'])
+  keepFocusInside(event: KeyboardEvent): void {
+    if (!this.mobileOpen() || event.key !== 'Tab') return
+    const focusable = [...this.closeButton()?.nativeElement.closest('aside')?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]') ?? []].filter((element) => element.offsetParent !== null)
+    if (!focusable.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
   }
 
   updateLabel(nodeId: string, label: string): void { this.store.updateNode(nodeId, { label }) }
