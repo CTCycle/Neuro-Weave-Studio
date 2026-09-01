@@ -111,6 +111,62 @@ async function deleteProject(request: APIRequestContext, id: string): Promise<vo
   expect([204, 404]).toContain(response.status())
 }
 
+test('deletes a model from its catalog card without navigating', async ({ page, request }) => {
+  const fixture = await createProject(request, `Angular catalog delete ${Date.now()}`)
+  try {
+    await page.goto('/models')
+    const card = page.locator('.model-card').filter({ hasText: fixture.name })
+    await expect(card).toBeVisible()
+    await expect(card.getByRole('link')).toHaveAttribute('href', `/models/${fixture.id}`)
+
+    await card.getByRole('button', { name: `Delete model ${fixture.name}` }).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText(`Delete “${fixture.name}”?`)
+    await expect(page).toHaveURL(/\/models$/)
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(card).toBeVisible()
+
+    await card.getByRole('button', { name: `Delete model ${fixture.name}` }).click()
+    const deleteResponse = page.waitForResponse((response) => response.url().includes(`/api/projects/${fixture.id}`) && response.request().method() === 'DELETE')
+    await page.getByRole('button', { name: 'Delete permanently' }).click()
+    expect((await deleteResponse).status()).toBe(204)
+    await expect(card).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Dismiss catalog notice' })).toContainText(`Deleted “${fixture.name}”.`)
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
+test('keeps catalog deletion cancellable and reports deletion errors', async ({ page, request }) => {
+  const fixture = await createProject(request, `Angular catalog error ${Date.now()}`)
+  let releaseDelete: (() => void) | undefined
+  const deleteGate = new Promise<void>((resolve) => { releaseDelete = resolve })
+  try {
+    await page.route(`**/api/projects/${fixture.id}`, async (route) => {
+      if (route.request().method() !== 'DELETE') { await route.continue(); return }
+      await deleteGate
+      await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ detail: 'Catalog delete regression' }) })
+    })
+    await page.goto('/models')
+    const card = page.locator('.model-card').filter({ hasText: fixture.name })
+    await card.getByRole('button', { name: `Delete model ${fixture.name}` }).click()
+    const dialog = page.getByRole('alertdialog')
+    const confirm = dialog.locator('button.danger-action')
+    const cancel = dialog.getByRole('button', { name: 'Cancel' })
+    const deleteResponse = page.waitForResponse((response) => response.url().includes(`/api/projects/${fixture.id}`) && response.request().method() === 'DELETE')
+    await confirm.click()
+    await expect(confirm).toBeDisabled()
+    await expect(cancel).toBeDisabled()
+    releaseDelete?.()
+    expect((await deleteResponse).status()).toBe(500)
+    await expect(dialog.locator('.delete-dialog-error')).toContainText('Delete failed')
+    await expect(card).toBeVisible()
+    await cancel.click()
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
 test('keeps saved builder profile, validation, and API payload synchronized', async ({ page, request }) => {
   const fixture = await createProject(request, `Angular state ${Date.now()}`)
   try {
@@ -273,6 +329,7 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     await expect(page.getByRole('button', { name: 'Inspector', exact: true })).toBeFocused()
 
     await page.goto(`/models/${fixture.id}`)
+    await expect(page.locator('.workspace-actions-section')).toHaveCount(0)
     const overviewBounds = await page.evaluate(() => ({
       documentOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
       contentOverflow: (document.querySelector('.app-content')?.scrollWidth ?? 0) > (document.querySelector('.app-content')?.clientWidth ?? 0) + 1,
@@ -323,14 +380,39 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
 test('keeps read-only previews, compact Builder controls, and modal bounds usable', async ({ page, request }) => {
   const fixture = await createProject(request, `Angular layout ${Date.now()}`)
   try {
+    await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto(`/models/${fixture.id}`)
     await expect(page.locator('.readonly-graph-preview')).toBeVisible()
     await expect(page.locator('.readonly-graph-preview .canvas-editor-tools')).toHaveCount(0)
     await expect(page.locator('.readonly-graph-preview .canvas-hint')).toHaveCount(0)
     await expect(page.getByText('Drop a node to build the model', { exact: false })).toHaveCount(0)
 
-    await page.setViewportSize({ width: 1280, height: 800 })
+    const overviewGeometry = await page.evaluate(() => {
+      const preview = document.querySelector<HTMLElement>('.overview-preview')?.getBoundingClientRect()
+      const summary = document.querySelector<HTMLElement>('.overview-summary > .summary-card')?.getBoundingClientRect()
+      const readinessRows = [...document.querySelectorAll<HTMLElement>('.readiness-stack > div')]
+      const hasRowOverlap = readinessRows.some((row) => {
+        const children = [...row.children].map((child) => child.getBoundingClientRect())
+        return children.some((left, index) => children.slice(index + 1).some((right) => left.right > right.left + 0.5 && right.right > left.left + 0.5 && left.bottom > right.top + 0.5 && right.bottom > left.top + 0.5))
+      })
+      const wrappingRegions = [...document.querySelectorAll<HTMLElement>('.detail-list dd, .readiness-stack, .readiness-stack > div')]
+      return {
+        alignedAtTop: Boolean(preview && summary && Math.abs(preview.top - summary.top) <= 1),
+        noDocumentOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+        noReadinessOverflow: wrappingRegions.every((element) => element.scrollWidth <= element.clientWidth + 1),
+        noReadinessOverlap: !hasRowOverlap,
+        modelActionsRemoved: !document.querySelector('.workspace-actions-section'),
+      }
+    })
+    expect(overviewGeometry.alignedAtTop).toBeTruthy()
+    expect(overviewGeometry.noDocumentOverflow).toBeTruthy()
+    expect(overviewGeometry.noReadinessOverflow).toBeTruthy()
+    expect(overviewGeometry.noReadinessOverlap).toBeTruthy()
+    expect(overviewGeometry.modelActionsRemoved).toBeTruthy()
+
     await page.goto(`/builder/${fixture.id}`)
+    await expect(page.locator('.nw-flow-node')).toHaveCount(4)
+    await expect(page.getByRole('button', { name: 'Lock canvas' })).toBeVisible()
     const builderLayout = await page.evaluate(() => {
       const rect = (selector: string): DOMRect => document.querySelector(selector)?.getBoundingClientRect() ?? new DOMRect()
       const catalog = rect('.catalog-panel')
@@ -345,6 +427,43 @@ test('keeps read-only previews, compact Builder controls, and modal bounds usabl
     })
     expect(builderLayout.sidePanelsStretch).toBeTruthy()
     expect(builderLayout.validationSpansCanvas).toBeTruthy()
+
+    const toolbarMetrics = await page.locator('.builder-toolbar').evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      buttonFontSize: Number.parseFloat(getComputedStyle(element.querySelector('button')!).fontSize),
+    }))
+    expect(toolbarMetrics.height).toBeLessThanOrEqual(50)
+    expect(toolbarMetrics.buttonFontSize).toBeGreaterThanOrEqual(11)
+
+    const canvasBounds = await page.locator('.canvas-shell').evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }
+    })
+    const dragStart = { x: canvasBounds.left + canvasBounds.width / 2, y: canvasBounds.top + canvasBounds.height - 20 }
+    const readCanvasTransform = () => page.locator('f-canvas').evaluate((element) => `${element.getAttribute('style') ?? ''}:${getComputedStyle(element).transform}`)
+    const lockedTransform = await readCanvasTransform()
+    await page.getByRole('button', { name: 'Lock canvas' }).click()
+    const unlockButton = page.getByRole('button', { name: 'Unlock canvas' })
+    await expect(unlockButton).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'Zoom in' })).toBeDisabled()
+    await page.mouse.move(dragStart.x, dragStart.y)
+    await page.mouse.down()
+    await page.mouse.move(dragStart.x + 150, dragStart.y - 80, { steps: 5 })
+    await page.mouse.up()
+    await page.mouse.wheel(0, 500)
+    expect(await readCanvasTransform()).toBe(lockedTransform)
+    await page.keyboard.press('Control+l')
+    expect(await readCanvasTransform()).toBe(lockedTransform)
+    await page.locator('.nw-flow-node').first().click()
+    await expect(page.getByRole('heading', { name: 'Properties' })).toBeVisible()
+
+    await unlockButton.click()
+    await expect(page.getByRole('button', { name: 'Lock canvas' })).toHaveAttribute('aria-pressed', 'false')
+    await page.mouse.move(dragStart.x, dragStart.y)
+    await page.mouse.down()
+    await page.mouse.move(dragStart.x + 150, dragStart.y - 80, { steps: 5 })
+    await page.mouse.up()
+    expect(await readCanvasTransform()).not.toBe(lockedTransform)
 
     await page.setViewportSize({ width: 560, height: 800 })
     await page.goto(`/builder/${fixture.id}`)

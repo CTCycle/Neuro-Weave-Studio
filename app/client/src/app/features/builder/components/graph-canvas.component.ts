@@ -1,6 +1,6 @@
 import { Component, EventEmitter, HostListener, effect, inject, Input, Output, signal, viewChild } from '@angular/core'
-import { LucideMaximize2, LucideSave } from '@lucide/angular'
-import { FCanvasComponent, FFlowModule, FZoomDirective, type FCreateConnectionEvent, type FDeleteSelectedEvent, type FMoveNodesEvent, type FSelectionChangeEvent } from '@foblex/flow'
+import { LucideLock, LucideMaximize2, LucideSave, LucideUnlock } from '@lucide/angular'
+import { FCanvasComponent, FFlowModule, FZoomDirective, type FCreateConnectionEvent, type FDeleteSelectedEvent, type FEventTrigger, type FMoveNodesEvent, type FSelectionChangeEvent } from '@foblex/flow'
 import type { EditorNode } from '../../../domain/editor.types'
 import { GraphEditorStore } from '../state/graph-editor.store'
 import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, normalizeConnection, portOffset } from '../graph/foblex-graph.adapter'
@@ -8,13 +8,13 @@ import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, no
 @Component({
   selector: 'nw-graph-canvas',
   standalone: true,
-  imports: [FFlowModule, LucideMaximize2, LucideSave],
+  imports: [FFlowModule, LucideLock, LucideMaximize2, LucideSave, LucideUnlock],
   template: `
-    <div class="canvas-shell" [class.is-read-only]="readOnly" (dragover)="allowDrop($event)" (drop)="dropNode($event)">
-      <f-flow fDraggable [fDraggableDisabled]="readOnly" [vCellSize]="16" [hCellSize]="16" [fCellSizeWhileDragging]="16" (fDragStarted)="store.beginDrag()" (fDragEnded)="store.endDrag()" (fMoveNodes)="moveNodes($event)" (fSelectionChange)="select($event)" (fDeleteSelected)="deleteSelected($event)" (fCreateConnection)="createConnection($event)" (fNodesRendered)="fitOnNodesRendered()">
+    <div class="canvas-shell" [class.is-read-only]="readOnly" [class.is-viewport-locked]="viewportLocked()" (dragover)="allowDrop($event)" (drop)="dropNode($event)">
+      <f-flow fDraggable [fDraggableDisabled]="readOnly" [fCanvasMoveTrigger]="canvasMoveTrigger" [vCellSize]="16" [hCellSize]="16" [fCellSizeWhileDragging]="16" (fDragStarted)="store.beginDrag()" (fDragEnded)="store.endDrag()" (fMoveNodes)="moveNodes($event)" (fSelectionChange)="select($event)" (fDeleteSelected)="deleteSelected($event)" (fCreateConnection)="createConnection($event)" (fNodesRendered)="fitOnNodesRendered()">
         <f-background><f-circle-pattern color="rgba(118, 150, 164, .16)" [radius]="24"></f-circle-pattern></f-background>
         @if (minimapVisible()) { <f-minimap [fMinSize]="50" [fNodeRenderLimit]="1000"></f-minimap> }
-        <f-canvas fZoom [fZoomMinimum]="0.2" [fZoomMaximum]="2.5" [fZoomStep]="0.1">
+        <f-canvas fZoom [fZoom]="!viewportLocked()" [fZoomMinimum]="0.2" [fZoomMaximum]="2.5" [fZoomStep]="0.1">
           <f-connection-for-create fType="segment" fOffset="20"></f-connection-for-create>
           <ng-container ngProjectAs="[fConnections]">@for (edge of store.edges(); track edge.id) { <f-connection fType="segment" fOffset="20" [fSelectionDisabled]="readOnly" [fConnectionId]="edge.id" [fSourceId]="connectorId(edge.source, 'output', edge.sourceHandle || 'output')" [fTargetId]="connectorId(edge.target, 'input', edge.targetHandle || 'input')" [class.is-selected]="store.selectedEdgeId() === edge.id"></f-connection> }</ng-container>
           <ng-container ngProjectAs="[fNodes]">@for (node of store.nodes(); track node.id) {
@@ -23,8 +23,8 @@ import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, no
             </div>
           } </ng-container>
         </f-canvas>
-        <div class="flow-controls canvas-flow-controls" role="group" aria-label="Canvas zoom controls"><button type="button" class="canvas-tool" (click)="zoomIn()" aria-label="Zoom in" title="Zoom in">+</button><button type="button" class="canvas-tool" (click)="zoomOut()" aria-label="Zoom out" title="Zoom out">−</button><button type="button" class="canvas-tool" (click)="resetView()" aria-label="Reset view" title="Reset view"><svg lucideMaximize2 [size]="13"></svg></button></div>
-        @if (!readOnly) { <div class="canvas-editor-tools" [class.is-focus-mode]="fullCanvas" role="toolbar" aria-label="Graph editor controls"><button type="button" class="canvas-tool" (click)="minimapVisible.set(!minimapVisible())" [attr.aria-label]="minimapVisible() ? 'Hide minimap' : 'Show minimap'" [title]="minimapVisible() ? 'Hide minimap' : 'Show minimap'">{{ minimapVisible() ? 'Hide map' : 'Show map' }}</button>@if (fullCanvas) { <div class="canvas-focus-bar"><span class="canvas-focus-model">{{ modelName }}</span><span class="canvas-focus-draft" [class.is-dirty]="dirty">{{ busy ? 'Saving…' : dirty ? 'Draft' : 'Saved' }}</span><button type="button" class="canvas-tool canvas-focus-save" (click)="save.emit()" [disabled]="busy" aria-label="Save model"><svg lucideSave [size]="14"></svg><span>Save</span></button><button type="button" class="canvas-tool canvas-focus-exit" (click)="exitFocus.emit()" [disabled]="busy" aria-label="Exit full canvas">Exit full canvas</button></div> } @else { <button type="button" class="canvas-tool" (click)="enterFocus.emit()" aria-label="Enter full canvas">Focus</button> }</div> }
+        <div class="flow-controls canvas-flow-controls" role="group" aria-label="Canvas zoom controls"><button type="button" class="canvas-tool" (click)="zoomIn()" [disabled]="viewportLocked()" aria-label="Zoom in" [title]="viewportLocked() ? 'Unlock canvas to zoom in' : 'Zoom in'">+</button><button type="button" class="canvas-tool" (click)="zoomOut()" [disabled]="viewportLocked()" aria-label="Zoom out" [title]="viewportLocked() ? 'Unlock canvas to zoom out' : 'Zoom out'">−</button><button type="button" class="canvas-tool" (click)="resetView()" [disabled]="viewportLocked()" aria-label="Reset view" [title]="viewportLocked() ? 'Unlock canvas to reset the view' : 'Reset view'"><svg lucideMaximize2 [size]="13"></svg></button></div>
+        @if (!readOnly) { <div class="canvas-editor-tools" [class.is-focus-mode]="fullCanvas" role="toolbar" aria-label="Graph editor controls"><div class="canvas-tool-group"><button type="button" class="canvas-tool" (click)="minimapVisible.set(!minimapVisible())" [attr.aria-label]="minimapVisible() ? 'Hide minimap' : 'Show minimap'" [title]="minimapVisible() ? 'Hide minimap' : 'Show minimap'">{{ minimapVisible() ? 'Hide map' : 'Show map' }}</button><button type="button" class="canvas-tool canvas-lock-tool" [class.is-active]="viewportLocked()" [attr.aria-pressed]="viewportLocked()" [attr.aria-label]="viewportLocked() ? 'Unlock canvas' : 'Lock canvas'" [title]="viewportLocked() ? 'Unlock canvas' : 'Lock canvas'" (click)="toggleViewportLock()">@if (viewportLocked()) { <svg lucideUnlock [size]="13"></svg><span>Unlock canvas</span> } @else { <svg lucideLock [size]="13"></svg><span>Lock canvas</span> }</button></div>@if (fullCanvas) { <div class="canvas-focus-bar"><span class="canvas-focus-model">{{ modelName }}</span><span class="canvas-focus-draft" [class.is-dirty]="dirty">{{ busy ? 'Saving…' : dirty ? 'Draft' : 'Saved' }}</span><button type="button" class="canvas-tool canvas-focus-save" (click)="save.emit()" [disabled]="busy" aria-label="Save model"><svg lucideSave [size]="14"></svg><span>Save</span></button><button type="button" class="canvas-tool canvas-focus-exit" (click)="exitFocus.emit()" [disabled]="busy" aria-label="Exit full canvas">Exit full canvas</button></div> } @else { <button type="button" class="canvas-tool" (click)="enterFocus.emit()" aria-label="Enter full canvas">Focus</button> }</div> }
       </f-flow>
       @if (!readOnly && !store.nodes().length) { <div class="canvas-empty-state"><span class="eyebrow">EMPTY GRAPH</span><strong>Drop an operation here</strong><span>Choose a node from the catalog to start a model.</span></div> }
       @if (readOnly && !store.nodes().length) { <div class="preview-empty">No renderable nodes in this revision.</div> }
@@ -43,6 +43,8 @@ export class GraphCanvasComponent {
   @Output() readonly save = new EventEmitter<void>()
   readonly store = inject(GraphEditorStore)
   readonly minimapVisible = signal(true)
+  readonly viewportLocked = signal(false)
+  readonly canvasMoveTrigger: FEventTrigger = () => !this.viewportLocked()
   private readonly canvas = viewChild(FCanvasComponent)
   private readonly zoom = viewChild(FZoomDirective)
   private graphFitted = false
@@ -80,12 +82,13 @@ export class GraphCanvasComponent {
   }
   nodeSize(_node: EditorNode): { width: number; height: number } { return GRAPH_NODE_SIZE }
 
-  zoomIn(): void { this.zoom()?.zoomIn() }
-  zoomOut(): void { this.zoom()?.zoomOut() }
-  resetView(): void { this.canvas()?.resetScaleAndCenter(true) }
-  fitView(): void { this.canvas()?.fitToScreen(graphFitPadding(this.store.nodes(), 0.1, GRAPH_NODE_SIZE), true) }
+  toggleViewportLock(): void { this.viewportLocked.update((locked) => !locked) }
+  zoomIn(): void { if (!this.viewportLocked()) this.zoom()?.zoomIn() }
+  zoomOut(): void { if (!this.viewportLocked()) this.zoom()?.zoomOut() }
+  resetView(): void { if (!this.viewportLocked()) this.canvas()?.resetScaleAndCenter(true) }
+  fitView(): void { if (!this.viewportLocked()) this.canvas()?.fitToScreen(graphFitPadding(this.store.nodes(), 0.1, GRAPH_NODE_SIZE), true) }
   fitOnNodesRendered(): void {
-    if (this.graphFitted || !this.store.nodes().length) return
+    if (this.viewportLocked() || this.graphFitted || !this.store.nodes().length) return
     this.canvas()?.fitToScreen(graphFitPadding(this.store.nodes(), this.readOnly ? 0.18 : 0.1, GRAPH_NODE_SIZE), false)
     this.graphFitted = true
   }
@@ -104,7 +107,7 @@ export class GraphCanvasComponent {
     if (command && event.key.toLowerCase() === 'y') { event.preventDefault(); this.store.redo(); return }
     if (command && event.key.toLowerCase() === 'c' && !editing) { this.store.copySelected(); return }
     if (command && event.key.toLowerCase() === 'v' && !editing) { event.preventDefault(); this.store.pasteCopied(); return }
-    if (command && event.key.toLowerCase() === 'l' && !editing) { event.preventDefault(); this.store.autoLayout(this.store.nodes(), this.store.edges()); this.fitView(); return }
+    if (command && event.key.toLowerCase() === 'l' && !editing) { event.preventDefault(); this.store.autoLayout(this.store.nodes(), this.store.edges()); if (!this.viewportLocked()) this.fitView(); return }
     if (!editing && (event.key === 'Delete' || event.key === 'Backspace')) { event.preventDefault(); this.store.deleteSelected() }
   }
 }
