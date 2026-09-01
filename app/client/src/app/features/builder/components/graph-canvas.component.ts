@@ -30,7 +30,7 @@ import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, no
       @if (readOnly && !store.nodes().length) { <div class="preview-empty">No renderable nodes in this revision.</div> }
       @if (!readOnly) { <div class="canvas-hint">Drop a node to build the model • Ctrl+L auto-layout</div> }
       @if (!readOnly && canvasMenu(); as menu) { <div class="canvas-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" (click)="fitView(); closeMenus()">Fit workflow to view</button><button type="button" role="menuitem" (click)="autoLayout(); closeMenus()">Auto layout</button><button type="button" role="menuitem" class="is-destructive" (click)="requestReset(); closeMenus()">Reset canvas</button></div> }
-      @if (!readOnly && nodeMenu(); as menu) { <div class="canvas-context-menu node-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" (click)="duplicateWithDefaults(menu.nodeId); closeMenus()">Duplicate with defaults</button><button type="button" role="menuitem" (click)="duplicateExact(menu.nodeId); closeMenus()">Duplicate exact</button><button type="button" role="menuitem" (click)="copyNode(menu.nodeId); closeMenus()">Copy node</button><button type="button" role="menuitem" (click)="resetParameters(menu.nodeId); closeMenus()">Reset parameters</button><button type="button" role="menuitem" (click)="disconnectNode(menu.nodeId); closeMenus()">Disconnect all</button><button type="button" role="menuitem" (click)="toggleOutput(menu.nodeId); closeMenus()">{{ store.isOutput(menu.nodeId) ? 'Remove from outputs' : 'Mark as output' }}</button><button type="button" role="menuitem" (click)="toggleLock(menu.nodeId); closeMenus()">{{ isLocked(menu.nodeId) ? 'Unlock node' : 'Lock node' }}</button><button type="button" role="menuitem" class="is-destructive" (click)="deleteNode(menu.nodeId); closeMenus()">Delete node</button></div> }
+      @if (!readOnly && nodeMenu(); as menu) { <div class="canvas-context-menu node-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" (click)="duplicateWithDefaults(menu.nodeId); closeMenus()">Duplicate with defaults</button><button type="button" role="menuitem" (click)="duplicateExact(menu.nodeId); closeMenus()">Duplicate exact</button><button type="button" role="menuitem" (click)="copyNode(menu.nodeId); closeMenus()">Copy node</button><button type="button" role="menuitem" (click)="resetParameters(menu.nodeId); closeMenus()">Reset parameters</button><button type="button" role="menuitem" (click)="disconnectNode(menu.nodeId); closeMenus()">Disconnect all</button><button type="button" role="menuitem" [disabled]="isInput(menu.nodeId)" [title]="isInput(menu.nodeId) ? 'Input nodes cannot be workflow outputs' : ''" (click)="toggleOutput(menu.nodeId); closeMenus()">{{ store.isOutput(menu.nodeId) ? 'Remove from outputs' : 'Mark as output' }}</button><button type="button" role="menuitem" (click)="toggleLock(menu.nodeId); closeMenus()">{{ isLocked(menu.nodeId) ? 'Unlock node' : 'Lock node' }}</button><button type="button" role="menuitem" class="is-destructive" (click)="deleteNode(menu.nodeId); closeMenus()">Delete node</button></div> }
     </div>
   `,
 })
@@ -87,6 +87,9 @@ export class GraphCanvasComponent {
   toggleLock(nodeId: string): void { this.store.toggleNodeLocked(nodeId) }
   deleteNode(nodeId: string): void { this.store.selectNode(nodeId); this.store.deleteSelected() }
   isLocked(nodeId: string): boolean { return this.store.nodes().find((node) => node.id === nodeId)?.locked ?? false }
+  isInput(nodeId: string): boolean {
+    return this.store.nodes().find((node) => node.id === nodeId)?.data.manifest.semantic_role === 'input'
+  }
   private menuPosition(event: MouseEvent): { x: number; y: number } {
     const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
     const shell = target?.closest('.canvas-shell') ?? target
@@ -131,10 +134,10 @@ export class GraphCanvasComponent {
       if (Array.isArray(expected)) return expected.includes(actual)
       if (expected && typeof expected === 'object') {
         const details = expected as Record<string, unknown>
-        if ('equals' in details && actual !== details.equals) return false
-        if ('not_equals' in details && actual === details.not_equals) return false
-        if ('in' in details && Array.isArray(details.in) && !details.in.includes(actual)) return false
-        if ('not_in' in details && Array.isArray(details.not_in) && details.not_in.includes(actual)) return false
+        if ('equals' in details && actual !== details['equals']) return false
+        if ('not_equals' in details && actual === details['not_equals']) return false
+        if ('in' in details && Array.isArray(details['in']) && !details['in'].includes(actual)) return false
+        if ('not_in' in details && Array.isArray(details['not_in']) && details['not_in'].includes(actual)) return false
       } else if (actual !== expected) return false
       return true
     })

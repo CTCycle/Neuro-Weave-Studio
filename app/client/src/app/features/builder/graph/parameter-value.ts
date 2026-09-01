@@ -22,6 +22,10 @@ export function parseParameterValue(
     if (!definition.required) return { valid: true }
     return { valid: false }
   }
+  if (definition.type === 'axis' && (text.startsWith('[') || text.startsWith('('))) {
+    const value = parseSequence(text, false)
+    return { valid: value !== undefined && sequenceItemsValid(value, definition, capability) && capabilityAllowsValue(capability, value), value }
+  }
   if (definition.type === 'integer' || definition.type === 'axis') {
     if (!/^-?\d+$/.test(text)) return { valid: false }
     const value = Number(text)

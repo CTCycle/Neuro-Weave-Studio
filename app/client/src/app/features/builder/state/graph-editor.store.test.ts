@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { emptyModelConfiguration } from '../../../domain/types'
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'
+import { isGraphConnectionValid } from '../graph/graph-validation'
 import { GraphEditorStore, wouldCreateCycle } from './graph-editor.store'
 
 const manifest = {
@@ -104,6 +105,81 @@ describe('neutral graph editor store', () => {
     expect(store.nodes().find((node) => node.id === exactId)?.data.label).toBe('Configured')
     expect(store.nodes().find((node) => node.id === defaultsId)?.data.parameters).toEqual({ units: 32 })
     expect(store.edges()).toEqual([])
+  })
+
+  it('uses framework defaults for reset and default duplication', () => {
+    store = new GraphEditorStore()
+    const configuredManifest = {
+      ...manifest,
+      parameters: [{ ...manifest.parameters[0], framework_default: 16, editor_default: 32 }],
+    }
+    store.setManifests([configuredManifest])
+    store.addNode(configuredManifest, { x: 40, y: 60 })
+    const nodeId = store.nodes()[0].id
+    store.updateNode(nodeId, { parameters: { units: 128 } })
+
+    const copyId = store.duplicateWithDefaults(nodeId)
+    expect(store.nodes().find((node) => node.id === copyId)?.data.parameters).toEqual({ units: 16 })
+
+    store.resetParameters(nodeId)
+    expect(store.nodes().find((node) => node.id === nodeId)?.data.parameters).toEqual({ units: 16 })
+  })
+
+  it('uses the selected implementation capability default when one is declared', () => {
+    store = new GraphEditorStore()
+    const capabilityManifest = {
+      ...manifest,
+      implementations: {
+        keras: {
+          ...manifest.implementations.keras,
+          parameters: { units: { supported: true, constraints: {}, default: 12 } },
+        },
+      },
+    }
+    store.setManifests([capabilityManifest])
+    store.setExecutionProfile('pytorch', true)
+    store.addNode(capabilityManifest, { x: 40, y: 60 })
+    const nodeId = store.nodes()[0].id
+
+    expect(store.duplicateWithDefaults(nodeId)).not.toBeNull()
+    expect(store.nodes()[1].data.parameters).toEqual({ units: 12 })
+    store.resetParameters(nodeId)
+    expect(store.nodes()[0].data.parameters).toEqual({ units: 12 })
+  })
+
+  it('rejects invalid and duplicate port connections before they reach the graph', () => {
+    const input = {
+      ...manifest,
+      id: 'input.tensor',
+      semantic_role: 'input' as const,
+      inputs: [],
+      outputs: [{ ...manifest.outputs[0], kind: 'tensor' as const }],
+    }
+    const target = {
+      ...manifest,
+      inputs: [{ id: 'input', display_name: 'Input', kind: 'tensor' as const, required: true, accepts_multiple: false, description: '' }],
+    }
+    const disabled = {
+      ...target,
+      inputs: [{ ...target.inputs[0], enabled_when: { mode: 'enabled' } }],
+    }
+    const source: EditorNode = { id: 'source', type: 'modelNode', position: { x: 0, y: 0 }, locked: false, data: { manifest: input, parameters: {}, label: 'Source' } }
+    const destination: EditorNode = { id: 'destination', type: 'modelNode', position: { x: 0, y: 0 }, locked: false, data: { manifest: target, parameters: {}, label: 'Destination' } }
+    const blockedDestination: EditorNode = { id: 'blocked', type: 'modelNode', position: { x: 0, y: 0 }, locked: false, data: { manifest: disabled, parameters: {}, label: 'Blocked' } }
+    const connection = { source: 'source', sourceHandle: 'output', target: 'destination', targetHandle: 'input' }
+
+    expect(isGraphConnectionValid([source, destination], [], connection)).toBe(true)
+    expect(isGraphConnectionValid([source, destination], [{ id: 'existing', ...connection }], connection)).toBe(false)
+    expect(isGraphConnectionValid([source, blockedDestination], [], { ...connection, target: 'blocked' })).toBe(false)
+  })
+
+  it('does not mark input nodes as explicit outputs', () => {
+    store = new GraphEditorStore()
+    const inputManifest = { ...manifest, id: 'input.tensor', semantic_role: 'input' as const }
+    store.setManifests([inputManifest])
+    store.addNode(inputManifest, { x: 40, y: 60 })
+    store.toggleNodeOutput(store.nodes()[0].id)
+    expect(store.outputBindings()).toEqual([])
   })
 
   it('locks a node against movement while preserving configuration and output state', () => {

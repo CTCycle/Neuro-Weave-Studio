@@ -184,6 +184,7 @@ export class ModelBuilderPageComponent {
 
   private restoreTab(tab: BuilderTab): void {
     this.store.restoreEditorSession(tab.graph)
+    this.store.setExecutionProfile(tab.executionBackend, tab.kerasEnabled)
     this.name.set(tab.name)
     this.description.set(tab.description)
     this.descriptionDraft.set(tab.description)
@@ -200,6 +201,9 @@ export class ModelBuilderPageComponent {
     if (patch.description !== undefined) this.description.set(patch.description)
     if (patch.executionBackend !== undefined) this.backend.set(patch.executionBackend)
     if (patch.kerasEnabled !== undefined) this.kerasEnabled.set(patch.kerasEnabled)
+    if (patch.executionBackend !== undefined || patch.kerasEnabled !== undefined) {
+      this.store.setExecutionProfile(patch.executionBackend ?? this.backend(), patch.kerasEnabled ?? this.kerasEnabled())
+    }
   }
 
   updateActiveTab(patch: Partial<Pick<BuilderTab, 'validation' | 'validationExpanded' | 'validationHeight'>>): void {

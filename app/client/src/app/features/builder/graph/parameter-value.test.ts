@@ -23,4 +23,9 @@ describe('parameter value parser', () => {
     expect(parseParameterValue(definition('string', { required: false }), '').valid).toBe(true)
     expect(parseParameterValue(definition('tuple'), '[1, nope]').valid).toBe(false)
   })
+
+  it('round-trips list-valued axes and typed enum choices', () => {
+    expect(parseParameterValue(definition('axis', { default: [-1] }), '[-2, -1]')).toEqual({ valid: true, value: [-2, -1] })
+    expect(parseParameterValue(definition('enum', { options: [1, 2], default: 1 }), '2')).toEqual({ valid: true, value: 2 })
+  })
 })

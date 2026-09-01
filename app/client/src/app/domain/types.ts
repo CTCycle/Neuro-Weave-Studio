@@ -620,6 +620,16 @@ export function implementationKey(backend: ExecutionBackend, kerasEnabled: boole
   return kerasEnabled ? 'keras' : backend
 }
 
+export function implementationAvailable(
+  manifest: Pick<NodeManifest, 'implementations'> | undefined,
+  backend: ExecutionBackend,
+  kerasEnabled: boolean,
+): boolean {
+  const mapping = manifest?.implementations[implementationKey(backend, kerasEnabled)]
+  if (!mapping || mapping.supported === false || mapping.status === 'unsupported') return false
+  return !kerasEnabled || mapping.execution_backends?.[backend] !== false
+}
+
 export interface ProjectExportBundle {
   format: 'neuro-weave-project'
   format_version: 5
