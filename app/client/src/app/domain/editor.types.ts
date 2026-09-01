@@ -12,6 +12,7 @@ export interface EditorNode {
   type: 'modelNode'
   position: Position
   data: EditorNodeData
+  locked: boolean
   selected?: boolean
 }
 

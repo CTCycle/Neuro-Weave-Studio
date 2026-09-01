@@ -21,14 +21,19 @@ import { GraphEditorStore } from '../state/graph-editor.store'
           @for (group of groupedParameters(); track group[0]) {
             <details class="parameter-group" open><summary>{{ group[0] }}<span>{{ group[1].length }}</span></summary>
               @for (definition of group[1]; track definition.id) {
-                @let capability = capabilityFor(node.data.manifest, definition);
-                @let help = helpfulParameterDescription(definition);
-                @if (definition.type === 'boolean') {
-                  <label class="toggle-field inspector-field"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }</span><input type="checkbox" [formControlName]="definition.id" (change)="updateParameter(definition, $any($event.target).checked)" /></label>
-                } @else if (definition.type === 'enum') {
-                  <label class="field inspector-field"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }</span><select [formControlName]="definition.id" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (change)="updateParameter(definition, $any($event.target).value)">@if (definition.nullable) { <option value="">None</option> }@for (option of optionsFor(definition, capability); track $index) { <option [value]="stringValue(option)">{{ option }}</option> }</select>@if (invalid()[definition.id]) { <em class="field-error">Choose a supported option.</em> }</label>
-                } @else {
-                  <label class="field inspector-field"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }</span><input [type]="inputType(definition)" [formControlName]="definition.id" [attr.min]="bounds(definition).min" [attr.max]="bounds(definition).max" [attr.step]="bounds(definition).step" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (input)="updateParameter(definition, $any($event.target).value)" />@if (invalid()[definition.id]) { <em class="field-error">Enter a complete value within the supported range.</em> }</label>
+                @if (isVisible(definition, node)) {
+                  @let capability = capabilityFor(node.data.manifest, definition);
+                  @let help = helpfulParameterDescription(definition);
+                  @let availability = availabilityMessage(node.data.manifest, definition, capability);
+                  @if (definition.type === 'boolean') {
+                    <label class="toggle-field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><input type="checkbox" [formControlName]="definition.id" [disabled]="isDisabled(capability, definition, node)" (change)="updateParameter(definition, $any($event.target).checked)" /></label>
+                  } @else if (isChoice(definition)) {
+                    <label class="field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><select [formControlName]="definition.id" [disabled]="isDisabled(capability, definition, node)" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (change)="updateParameter(definition, $any($event.target).value)">@if (definition.nullable) { <option value="">None</option> }@for (option of optionsFor(definition, capability); track $index) { <option [value]="stringValue(option)">{{ option }}</option> }</select>@if (invalid()[definition.id]) { <em class="field-error">Choose a supported option.</em> }</label>
+                  } @else if (isStructured(definition)) {
+                    <label class="field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><textarea [formControlName]="definition.id" rows="2" [disabled]="isDisabled(capability, definition, node)" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (input)="updateParameter(definition, $any($event.target).value)" [attr.placeholder]="structuredPlaceholder(definition)"></textarea>@if (invalid()[definition.id]) { <em class="field-error">Enter valid JSON or a supported value.</em> }</label>
+                  } @else {
+                    <label class="field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><input [type]="inputType(definition)" [formControlName]="definition.id" [disabled]="isDisabled(capability, definition, node)" [attr.min]="bounds(definition).min" [attr.max]="bounds(definition).max" [attr.step]="bounds(definition).step" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (input)="updateParameter(definition, $any($event.target).value)" />@if (invalid()[definition.id]) { <em class="field-error">Enter a complete value within the supported range.</em> }</label>
+                  }
                 }
               }
             </details>
@@ -77,11 +82,12 @@ export class PropertiesInspectorComponent {
       this.form.controls['label'].setValue(node?.data.label ?? '', { emitEvent: false })
       if (!node) { this.invalid.set({}); return }
       for (const definition of node.data.manifest.parameters) {
-        const value = definition.type === 'boolean'
-          ? Boolean(node.data.parameters[definition.id] ?? definition.default)
-          : displayParameterValue(node.data.parameters[definition.id] ?? definition.default)
-        const control = new UntypedFormControl(value)
-        if (this.isDisabled(this.capabilityFor(node.data.manifest, definition))) control.disable({ emitEvent: false })
+        const value = this.parameterValue(node, definition)
+        const controlValue = definition.type === 'boolean'
+          ? Boolean(value)
+          : displayParameterValue(value)
+        const control = new UntypedFormControl(controlValue)
+        if (this.isDisabled(this.capabilityFor(node.data.manifest, definition), definition, node)) control.disable({ emitEvent: false })
         this.form.addControl(definition.id, control)
         this.configuredControlIds.add(definition.id)
       }
@@ -122,8 +128,11 @@ export class PropertiesInspectorComponent {
   helpfulParameterDescription(definition: ParameterDefinition): string | null { return helpfulParameterDescription(definition) }
   stringValue(value: unknown): string { return String(value) }
 
-  isDisabled(capability: ParameterCapability | undefined): boolean {
-    return capability?.supported === false || Boolean(capability?.allowed_values && capability.allowed_values.length === 1)
+  isDisabled(capability: ParameterCapability | undefined, definition?: ParameterDefinition, node?: { data: { parameters: Record<string, unknown> } }): boolean {
+    return capability?.supported === false
+      || capability?.status === 'unsupported'
+      || Boolean(capability?.allowed_values && capability.allowed_values.length === 1)
+      || Boolean(definition?.enabled_when && node && !conditionMatches(definition.enabled_when, node.data.parameters))
   }
 
   optionsFor(definition: ParameterDefinition, capability?: ParameterCapability): unknown[] {
@@ -132,6 +141,40 @@ export class PropertiesInspectorComponent {
 
   inputType(definition: ParameterDefinition): string {
     return definition.type === 'number' || definition.type === 'integer' || definition.type === 'axis' ? 'number' : 'text'
+  }
+
+  isChoice(definition: ParameterDefinition): boolean {
+    return (definition.type === 'enum' || definition.type === 'activation' || definition.type === 'dtype') && definition.options.length > 0
+  }
+
+  isStructured(definition: ParameterDefinition): boolean {
+    return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple'
+      || definition.type === 'object' || definition.type === 'initializer'
+      || definition.type === 'regularizer' || definition.type === 'constraint'
+  }
+
+  structuredPlaceholder(definition: ParameterDefinition): string {
+    return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple'
+      ? '[ … ]'
+      : '{ "class_name": "…", "config": {} }'
+  }
+
+  isVisible(definition: ParameterDefinition, node: { data: { parameters: Record<string, unknown> } }): boolean {
+    return !definition.visible_when || conditionMatches(definition.visible_when, node.data.parameters)
+  }
+
+  availabilityMessage(manifest: NodeManifest, definition: ParameterDefinition, capability?: ParameterCapability): string | null {
+    const mapping = manifest.implementations[implementationKey(this.executionBackend(), this.kerasEnabled())]
+    if (!mapping || mapping.supported === false || mapping.status === 'unsupported') return `Unavailable for ${this.kerasEnabled() ? 'Keras' : this.executionBackend()}`
+    if (capability?.supported === false || capability?.status === 'unsupported') return `Unavailable for ${this.kerasEnabled() ? 'Keras' : this.executionBackend()}`
+    if (capability?.status === 'unverified') return 'Backend mapping is not verified'
+    if (capability?.allowed_values?.length === 1) return `Fixed to ${String(capability.allowed_values[0])} by this backend`
+    return null
+  }
+
+  private parameterValue(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): unknown {
+    if (Object.prototype.hasOwnProperty.call(node.data.parameters, definition.id)) return node.data.parameters[definition.id]
+    return definition.editor_default !== undefined ? definition.editor_default : definition.default
   }
 
   bounds(definition: ParameterDefinition): { min?: number; max?: number; step?: number } {
@@ -154,4 +197,25 @@ export class PropertiesInspectorComponent {
     const port = (direction === 'input' ? node?.data.manifest.inputs : node?.data.manifest.outputs)?.find((item) => item.id === portId)
     return port ? `${port.display_name} · ${port.kind}` : portId
   }
+}
+
+function conditionMatches(condition: Record<string, unknown> | undefined, parameters: Record<string, unknown>): boolean {
+  if (!condition) return true
+  return Object.entries(condition).every(([parameterId, expected]) => {
+    const actual = parameters[parameterId]
+    if (typeof expected === 'object' && expected !== null && !Array.isArray(expected)) {
+      const rule = expected as Record<string, unknown>
+      if ('equals' in rule && !sameValue(actual, rule['equals'])) return false
+      if ('not_equals' in rule && sameValue(actual, rule['not_equals'])) return false
+      if ('in' in rule && Array.isArray(rule['in']) && !rule['in'].some((item) => sameValue(actual, item))) return false
+      if ('not_in' in rule && Array.isArray(rule['not_in']) && rule['not_in'].some((item) => sameValue(actual, item))) return false
+      return true
+    }
+    if (Array.isArray(expected)) return expected.some((item) => sameValue(actual, item))
+    return sameValue(actual, expected)
+  })
+}
+
+function sameValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
 }

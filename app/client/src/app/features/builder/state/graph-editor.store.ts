@@ -7,7 +7,7 @@ import {
   type EditorHistorySnapshot,
   type GraphEditorSession,
 } from '../../../domain/graph-mapper'
-import { emptyModelConfiguration, type ModelConfiguration, type ModelGraph, type NodeManifest, type ProjectDocument, type ShapeSummary } from '../../../domain/types'
+import { emptyModelConfiguration, type ModelConfiguration, type ModelGraph, type NodeManifest, type OutputBinding, type ProjectDocument, type ShapeSummary } from '../../../domain/types'
 import { layeredLayout } from '../graph/graph-layout.service'
 import { isGraphConnectionValid, type GraphConnection } from '../graph/graph-validation'
 
@@ -23,6 +23,7 @@ export interface NodePositionChange {
 export class GraphEditorStore {
   readonly nodes = signal<EditorNode[]>([])
   readonly edges = signal<EditorEdge[]>([])
+  readonly outputBindings = signal<OutputBinding[]>([])
   readonly manifests = signal<NodeManifest[]>([])
   readonly modelConfiguration = signal<ModelConfiguration>(emptyModelConfiguration())
   readonly exportSettings = signal<ModelGraph['export_settings']>(defaultExportSettings())
@@ -60,6 +61,7 @@ export class GraphEditorStore {
     if (!changes.length) return
     const positions = new Map(changes.map((change) => [change.id, change.position]))
     this.nodes.update((nodes) => nodes.map((node) => {
+      if (node.locked) return node
       const position = positions.get(node.id)
       return position ? { ...node, position: { ...position } } : node
     }))
@@ -70,9 +72,10 @@ export class GraphEditorStore {
       id: newId(manifest.id.replaceAll('.', '-')),
       type: 'modelNode',
       position: snapPosition(position),
+      locked: false,
       data: {
         manifest,
-        parameters: Object.fromEntries(manifest.parameters.map((item) => [item.id, structuredClone(item.default)])),
+        parameters: Object.fromEntries(manifest.parameters.map((item) => [item.id, structuredClone(editorDefault(item))])),
         label: manifest.display_name,
       },
     }
@@ -113,10 +116,11 @@ export class GraphEditorStore {
     this.selectedEdgeId.set(null)
   }
 
-  updateNode(nodeId: string, patch: { label?: string; parameters?: Record<string, unknown> }): void {
+  updateNode(nodeId: string, patch: { label?: string; parameters?: Record<string, unknown>; locked?: boolean }): void {
     this.checkpoint()
     this.nodes.update((nodes) => nodes.map((node) => node.id === nodeId ? {
       ...node,
+      locked: patch.locked ?? node.locked,
       data: {
         ...node.data,
         label: patch.label ?? node.data.label,
@@ -137,6 +141,7 @@ export class GraphEditorStore {
     }
     this.nodes.update((nodes) => nodes.filter((node) => node.id !== selectedNodeId))
     this.edges.update((edges) => edges.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId))
+    this.outputBindings.update((bindings) => bindings.filter((binding) => binding.node_id !== selectedNodeId))
     this.selectedNodeId.set(null)
   }
 
@@ -157,6 +162,87 @@ export class GraphEditorStore {
     this.nodes.update((nodes) => [...nodes, ...copies])
     this.selectedNodeId.set(copies[0].id)
     this.selectedEdgeId.set(null)
+  }
+
+  duplicateExact(nodeId: string): string | null {
+    const node = this.nodes().find((item) => item.id === nodeId)
+    if (!node) return null
+    const copy = this.copyNode(node, node.data.parameters, node.data.label)
+    this.checkpoint()
+    this.nodes.update((nodes) => [...nodes, copy])
+    this.selectNode(copy.id)
+    return copy.id
+  }
+
+  duplicateWithDefaults(nodeId: string): string | null {
+    const node = this.nodes().find((item) => item.id === nodeId)
+    if (!node) return null
+    const parameters = Object.fromEntries(
+      node.data.manifest.parameters.map((item) => [item.id, structuredClone(editorDefault(item))]),
+    )
+    const copy = this.copyNode(node, parameters, node.data.manifest.display_name)
+    this.checkpoint()
+    this.nodes.update((nodes) => [...nodes, copy])
+    this.selectNode(copy.id)
+    return copy.id
+  }
+
+  toggleNodeLocked(nodeId: string): void {
+    const node = this.nodes().find((item) => item.id === nodeId)
+    if (!node) return
+    this.checkpoint()
+    this.nodes.update((nodes) => nodes.map((item) => item.id === nodeId ? { ...item, locked: !item.locked } : item))
+  }
+
+  isOutput(nodeId: string): boolean {
+    return this.outputBindings().some((binding) => binding.node_id === nodeId)
+  }
+
+  isInferredOutput(nodeId: string): boolean {
+    if (this.outputBindings().length) return false
+    const node = this.nodes().find((item) => item.id === nodeId)
+    if (!node || node.data.manifest.semantic_role === 'input') return false
+    return node.data.manifest.outputs.some((port) => {
+      if (port.enabled_when && !conditionMatches(port.enabled_when, node.data.parameters)) return false
+      return !this.edges().some((edge) => edge.source === nodeId && (edge.sourceHandle ?? 'output') === port.id)
+    })
+  }
+
+  isEffectiveOutput(nodeId: string): boolean {
+    return this.isOutput(nodeId) || this.isInferredOutput(nodeId)
+  }
+
+  toggleNodeOutput(nodeId: string): void {
+    const node = this.nodes().find((item) => item.id === nodeId)
+    if (!node) return
+    const existing = this.outputBindings().filter((binding) => binding.node_id === nodeId)
+    this.checkpoint()
+    if (existing.length) {
+      this.outputBindings.update((bindings) => bindings.filter((binding) => binding.node_id !== nodeId))
+      return
+    }
+    const port = node.data.manifest.outputs.find((item) => item.id === 'output') ?? node.data.manifest.outputs[0]
+    if (!port) return
+    this.outputBindings.update((bindings) => [...bindings, { node_id: nodeId, port_id: port.id }])
+  }
+
+  disconnectNode(nodeId: string): void {
+    if (!this.nodes().some((node) => node.id === nodeId)) return
+    this.checkpoint()
+    this.edges.update((edges) => edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId))
+  }
+
+  resetParameters(nodeId: string): void {
+    const node = this.nodes().find((item) => item.id === nodeId)
+    if (!node) return
+    const parameters = Object.fromEntries(
+      node.data.manifest.parameters.map((item) => [item.id, structuredClone(editorDefault(item))]),
+    )
+    this.checkpoint()
+    this.nodes.update((nodes) => nodes.map((item) => item.id === nodeId ? {
+      ...item,
+      data: { ...item.data, parameters, shapeSummary: undefined },
+    } : item))
   }
 
   undo(): void {
@@ -195,6 +281,7 @@ export class GraphEditorStore {
       targetHandle: edge.target_port_id,
       type: 'smoothstep',
     })))
+    this.outputBindings.set(structuredClone(project.graph.output_bindings))
     this.modelConfiguration.set(structuredClone(project.graph.model_configuration))
     this.exportSettings.set(structuredClone(project.graph.export_settings))
     this.futureTrainingConfiguration.set(structuredClone(project.graph.future_training_configuration))
@@ -209,6 +296,7 @@ export class GraphEditorStore {
     return cloneEditorSession({
       nodes: this.nodes(),
       edges: this.edges(),
+      outputBindings: this.outputBindings(),
       modelConfiguration: this.modelConfiguration(),
       exportSettings: this.exportSettings(),
       futureTrainingConfiguration: this.futureTrainingConfiguration(),
@@ -224,6 +312,7 @@ export class GraphEditorStore {
     const cloned = cloneEditorSession(session)
     this.nodes.set(cloned.nodes)
     this.edges.set(cloned.edges)
+    this.outputBindings.set(cloned.outputBindings)
     this.modelConfiguration.set(cloned.modelConfiguration)
     this.exportSettings.set(cloned.exportSettings)
     this.futureTrainingConfiguration.set(cloned.futureTrainingConfiguration)
@@ -237,6 +326,7 @@ export class GraphEditorStore {
   reset(): void {
     this.nodes.set([])
     this.edges.set([])
+    this.outputBindings.set([])
     this.modelConfiguration.set(emptyModelConfiguration())
     this.exportSettings.set(defaultExportSettings())
     this.futureTrainingConfiguration.set({})
@@ -249,7 +339,7 @@ export class GraphEditorStore {
 
   toGraph(): ModelGraph {
     return {
-      schema_version: 3,
+      schema_version: 4,
       nodes: this.nodes().map((node) => ({
         id: node.id,
         definition_id: node.data.manifest.id,
@@ -257,6 +347,7 @@ export class GraphEditorStore {
         label: node.data.label,
         position: { ...node.position },
         parameters: structuredClone(node.data.parameters),
+        locked: node.locked,
       })),
       edges: this.edges().map((edge) => ({
         id: edge.id,
@@ -265,6 +356,7 @@ export class GraphEditorStore {
         target_node_id: edge.target,
         target_port_id: edge.targetHandle ?? 'input',
       })),
+      output_bindings: structuredClone(this.outputBindings()),
       model_configuration: structuredClone(this.modelConfiguration()),
       export_settings: structuredClone(this.exportSettings()),
       future_training_configuration: structuredClone(this.futureTrainingConfiguration()),
@@ -287,7 +379,10 @@ export class GraphEditorStore {
   autoLayout(nodes: EditorNode[], edges: EditorEdge[]): void {
     this.checkpoint()
     const positions = layeredLayout(nodes, edges)
-    this.nodes.set(nodes.map((node) => ({ ...node, position: positions.get(node.id) ?? { ...node.position } })))
+    this.nodes.set(nodes.map((node) => ({
+      ...node,
+      position: node.locked ? { ...node.position } : positions.get(node.id) ?? { ...node.position },
+    })))
     this.edges.set(edges.map((edge) => ({ ...edge })))
   }
 
@@ -295,6 +390,7 @@ export class GraphEditorStore {
     return {
       nodes: this.nodes().map((node) => ({ ...node, position: { ...node.position }, data: { ...node.data, parameters: structuredClone(node.data.parameters) } })),
       edges: this.edges().map((edge) => ({ ...edge })),
+      outputBindings: structuredClone(this.outputBindings()),
       modelConfiguration: structuredClone(this.modelConfiguration()),
       exportSettings: structuredClone(this.exportSettings()),
       futureTrainingConfiguration: structuredClone(this.futureTrainingConfiguration()),
@@ -304,10 +400,30 @@ export class GraphEditorStore {
   private restoreSnapshot(snapshot: EditorHistorySnapshot): void {
     this.nodes.set(snapshot.nodes.map((node) => ({ ...node, position: { ...node.position }, data: { ...node.data, parameters: structuredClone(node.data.parameters) } })))
     this.edges.set(snapshot.edges.map((edge) => ({ ...edge })))
+    this.outputBindings.set(structuredClone(snapshot.outputBindings))
     this.modelConfiguration.set(structuredClone(snapshot.modelConfiguration))
     this.exportSettings.set(structuredClone(snapshot.exportSettings))
     this.futureTrainingConfiguration.set(structuredClone(snapshot.futureTrainingConfiguration))
   }
+
+  private copyNode(node: EditorNode, parameters: Record<string, unknown>, label: string): EditorNode {
+    return {
+      id: newId(node.data.manifest.id.replaceAll('.', '-')),
+      type: 'modelNode',
+      position: { x: node.position.x + 32, y: node.position.y + 32 },
+      locked: false,
+      selected: false,
+      data: {
+        manifest: node.data.manifest,
+        label,
+        parameters: structuredClone(parameters),
+      },
+    }
+  }
+}
+
+function editorDefault(definition: NodeManifest['parameters'][number]): unknown {
+  return definition.editor_default !== undefined ? definition.editor_default : definition.default
 }
 
 function newId(prefix: string): string {
@@ -316,4 +432,24 @@ function newId(prefix: string): string {
 
 function snapPosition(position: { x: number; y: number }): { x: number; y: number } {
   return { x: Math.round(position.x / 16) * 16, y: Math.round(position.y / 16) * 16 }
+}
+
+function conditionMatches(condition: Record<string, unknown>, parameters: Record<string, unknown>): boolean {
+  return Object.entries(condition).every(([parameterId, expected]) => {
+    const actual = parameters[parameterId]
+    if (typeof expected === 'object' && expected !== null && !Array.isArray(expected)) {
+      const rule = expected as Record<string, unknown>
+      if ('equals' in rule && !sameValue(actual, rule['equals'])) return false
+      if ('not_equals' in rule && sameValue(actual, rule['not_equals'])) return false
+      if ('in' in rule && Array.isArray(rule['in']) && !rule['in'].some((item) => sameValue(actual, item))) return false
+      if ('not_in' in rule && Array.isArray(rule['not_in']) && rule['not_in'].some((item) => sameValue(actual, item))) return false
+      return true
+    }
+    if (Array.isArray(expected)) return expected.some((item) => sameValue(actual, item))
+    return sameValue(actual, expected)
+  })
+}
+
+function sameValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
 }

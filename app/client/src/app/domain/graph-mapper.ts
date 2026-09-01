@@ -1,9 +1,10 @@
 import type { EditorEdge, EditorNode, EditorNodeData } from './editor.types'
-import type { GraphNodeInstance, ModelGraph, NodeManifest, ProjectDocument } from './types'
+import type { GraphNodeInstance, ModelGraph, NodeManifest, OutputBinding, ProjectDocument } from './types'
 
 export interface GraphEditorSession {
   nodes: EditorNode[]
   edges: EditorEdge[]
+  outputBindings: OutputBinding[]
   modelConfiguration: ModelGraph['model_configuration']
   exportSettings: ModelGraph['export_settings']
   futureTrainingConfiguration: ModelGraph['future_training_configuration']
@@ -17,6 +18,7 @@ export interface GraphEditorSession {
 export interface EditorHistorySnapshot {
   nodes: EditorNode[]
   edges: EditorEdge[]
+  outputBindings: OutputBinding[]
   modelConfiguration: ModelGraph['model_configuration']
   exportSettings: ModelGraph['export_settings']
   futureTrainingConfiguration: ModelGraph['future_training_configuration']
@@ -33,6 +35,7 @@ export function editorNodeFromGraph(node: GraphNodeInstance, manifest: NodeManif
     id: node.id,
     type: 'modelNode',
     position: { ...node.position },
+    locked: node.locked,
     data: {
       manifest,
       parameters: structuredClone(node.parameters),
@@ -65,6 +68,7 @@ export function graphEditorSessionFromGraph(
   return {
     nodes,
     edges: graph.edges.map(editorEdgeFromGraph),
+    outputBindings: structuredClone(graph.output_bindings),
     modelConfiguration: structuredClone(graph.model_configuration),
     exportSettings: structuredClone(graph.export_settings),
     futureTrainingConfiguration: structuredClone(graph.future_training_configuration),
@@ -85,7 +89,7 @@ export function projectDocumentToSession(
 
 export function sessionToGraph(session: GraphEditorSession): ModelGraph {
   return {
-    schema_version: 3,
+    schema_version: 4,
     nodes: session.nodes.map((node) => ({
       id: node.id,
       definition_id: node.data.manifest.id,
@@ -93,7 +97,9 @@ export function sessionToGraph(session: GraphEditorSession): ModelGraph {
       label: node.data.label,
       position: { ...node.position },
       parameters: structuredClone(node.data.parameters),
+      locked: node.locked,
     })),
+    output_bindings: structuredClone(session.outputBindings),
     edges: session.edges.map((edge) => ({
       id: edge.id,
       source_node_id: edge.source,
@@ -125,6 +131,7 @@ export function cloneHistory(history: readonly EditorHistorySnapshot[]): EditorH
   return history.map((entry) => ({
     nodes: entry.nodes.map(cloneEditorNode),
     edges: entry.edges.map(cloneEditorEdge),
+    outputBindings: structuredClone(entry.outputBindings),
     modelConfiguration: structuredClone(entry.modelConfiguration),
     exportSettings: structuredClone(entry.exportSettings),
     futureTrainingConfiguration: structuredClone(entry.futureTrainingConfiguration),
@@ -135,6 +142,7 @@ export function cloneEditorSession(session: GraphEditorSession): GraphEditorSess
   return {
     nodes: session.nodes.map(cloneEditorNode),
     edges: session.edges.map(cloneEditorEdge),
+    outputBindings: structuredClone(session.outputBindings),
     modelConfiguration: structuredClone(session.modelConfiguration),
     exportSettings: structuredClone(session.exportSettings),
     futureTrainingConfiguration: structuredClone(session.futureTrainingConfiguration),
