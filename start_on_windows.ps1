@@ -55,7 +55,8 @@ $script:Children = [System.Collections.Generic.List[object]]::new()
 $script:LaunchHandedOff = $false
 $script:NoBrowser = $NoBrowser
 $script:NextProgressId = 1
-$script:ActiveProgressIds = [Collections.Generic.HashSet[int]]::new()
+$script:ActiveProgressActivities = [Collections.Generic.Dictionary[int, string]]::new()
+$script:LauncherInteractive = -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
 
 # ===============================================================================
 # Output and diagnostics
@@ -91,8 +92,8 @@ function Write-Fatal([string]$Message) { Write-Status -Level FAIL -Message $Mess
 function Start-LauncherProgress {
     param([Parameter(Mandatory = $true)][string]$Activity, [Parameter(Mandatory = $true)][string]$Status)
     $id = $script:NextProgressId++
-    [void]$script:ActiveProgressIds.Add($id)
-    Write-Progress -Id $id -Activity $Activity -Status $Status
+    $script:ActiveProgressActivities[$id] = $Activity
+    if ($script:LauncherInteractive) { Write-Progress -Id $id -Activity $Activity -Status $Status }
     return $id
 }
 
@@ -103,23 +104,30 @@ function Update-LauncherProgress {
         [Parameter(Mandatory = $true)][string]$Status,
         [Nullable[int]]$PercentComplete
     )
-    if (-not $script:ActiveProgressIds.Contains($Id)) { return }
-    $progress = @{ Id = $Id; Activity = $Activity; Status = $Status }
+    if (-not $script:ActiveProgressActivities.ContainsKey($Id)) { return }
+    $activity = $script:ActiveProgressActivities[$Id]
+    $progress = @{ Id = $Id; Activity = $activity; Status = $Status }
     if ($null -ne $PercentComplete) { $progress.PercentComplete = $PercentComplete }
-    Write-Progress @progress
+    if ($script:LauncherInteractive) { Write-Progress @progress }
 }
 
 function Complete-LauncherProgress([int]$Id) {
-    if ($script:ActiveProgressIds.Contains($Id)) {
-        Write-Progress -Id $Id -Activity 'NeuroWeave launcher' -Completed
-        [void]$script:ActiveProgressIds.Remove($Id)
+    if ($script:ActiveProgressActivities.ContainsKey($Id)) {
+        $activity = $script:ActiveProgressActivities[$Id]
+        try {
+            if ($script:LauncherInteractive) {
+                try { Write-Progress -Id $Id -Activity $activity -Completed } catch { }
+            }
+        }
+        finally {
+            [void]$script:ActiveProgressActivities.Remove($Id)
+        }
     }
 }
 
 function Clear-LauncherProgress {
-    foreach ($id in @($script:ActiveProgressIds)) {
-        Write-Progress -Id $id -Activity 'NeuroWeave launcher' -Completed
-        [void]$script:ActiveProgressIds.Remove($id)
+    foreach ($id in @($script:ActiveProgressActivities.Keys)) {
+        Complete-LauncherProgress -Id $id
     }
 }
 
@@ -139,6 +147,7 @@ function Invoke-TrackedLauncherAction {
         throw
     }
     finally {
+        Clear-LauncherProgress
         Write-StartupStageDuration -Name "launcher.$($Name.Replace(' ', '_'))" -Stopwatch $stopwatch
     }
 }
@@ -301,7 +310,7 @@ function Ensure-PortableRuntimes {
         $nested = Join-Path $script:NodeDir "node-v$($script:NodeVersion)-win-x64"
         if (Test-Path -LiteralPath $nested) {
             Get-ChildItem -LiteralPath $nested -Force | Move-Item -Destination $script:NodeDir -Force
-            Remove-Item -LiteralPath $nested -Recurse -Force
+[void](Remove-LauncherPath -Path $nested -Activity 'NeuroWeave: flatten runtime archive' -Strict)
         }
     }
     if (-not (Test-Path -LiteralPath $node) -or -not (Test-Path -LiteralPath $npm)) {
@@ -552,6 +561,7 @@ function ConvertTo-BackendExtras {
 }
 
 function Read-BackendSelection {
+    Clear-LauncherProgress
     Write-Host 'Keras 3: core model API, installed with the base application (not an execution backend).' -ForegroundColor DarkGray
     Write-Host 'Select an execution backend configuration:' -ForegroundColor White
     Write-Host '  [1] None                         - Keras core only' -ForegroundColor White
@@ -1242,6 +1252,7 @@ function Invoke-Launch {
 # Installation, database, and validation actions
 # ===============================================================================
 function Read-InstallationType {
+    Clear-LauncherProgress
     Write-Host '  [1] Development - include Ruff, Pyright, and pytest' -ForegroundColor White
     Write-Host '  [2] Standard    - install runtime dependencies only' -ForegroundColor White
     $selection = (Read-Host '  Select installation profile [1-2]').Trim()
@@ -1619,72 +1630,123 @@ function Remove-PythonCaches {
     }
 }
 
-function Remove-PathBestEffort {
-    param([Parameter(Mandatory = $true)][string]$Path)
+function Remove-LauncherPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [switch]$KeepRoot,
+        [string[]]$PreserveNames = @('.gitkeep'),
+        [switch]$Strict,
+        [switch]$WhatIf,
+        [string]$Activity = 'NeuroWeave: remove files'
+    )
 
+    $fullPath = [IO.Path]::GetFullPath($Path)
+    $removedPaths = [Collections.Generic.List[string]]::new()
+    $preservedEntries = [Collections.Generic.List[string]]::new()
+    $skippedPaths = [Collections.Generic.List[string]]::new()
+    $result = [ordered]@{
+        Target = $fullPath
+        Path = $fullPath
+        Planned = 0
+        PlannedCount = 0
+        Removed = 0
+        RemovedCount = 0
+        RemovedPaths = $removedPaths
+        Preserved = 0
+        PreservedEntries = $preservedEntries
+        Skipped = 0
+        SkippedPaths = $skippedPaths
+        EnumerationErrors = @()
+        WhatIf = [bool]$WhatIf
+    }
     try {
-        $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
-    } catch {
+        $item = Get-Item -LiteralPath $fullPath -Force -ErrorAction Stop
+    }
+    catch {
         if ($_.CategoryInfo.Category -eq [System.Management.Automation.ErrorCategory]::ObjectNotFound) {
-            return [pscustomobject]@{ Removed = 0; Skipped = 0 }
+            return [pscustomobject]$result
         }
-        Write-Warn "Skipped inaccessible path: $Path ($($_.Exception.Message))"
-        return [pscustomobject]@{ Removed = 0; Skipped = 1 }
+        $message = "$fullPath ($($_.Exception.Message))"
+        $result.EnumerationErrors = @($message)
+        [void]$skippedPaths.Add($message)
+        Write-Warn "Skipped inaccessible path: $message"
+        $result.Skipped = 1
+        if ($Strict) { throw }
+        return [pscustomobject]$result
     }
 
     $enumerationErrors = @()
     $entries = if ($item.PSIsContainer) {
-        @(Get-ChildItem -LiteralPath $item.FullName -Force -Recurse -ErrorAction SilentlyContinue -ErrorVariable enumerationErrors |
-            Sort-Object @{ Expression = { $_.FullName.Length }; Descending = $true }, @{ Expression = { $_.FullName.ToUpperInvariant() }; Descending = $false })
-    } else {
-        @()
+        @(Get-ChildItem -LiteralPath $item.FullName -Force -Recurse -ErrorAction SilentlyContinue -ErrorVariable enumerationErrors)
+    } else { @($item) }
+    $result.EnumerationErrors = @($enumerationErrors | ForEach-Object { [string]$_.Exception.Message })
+    foreach ($message in $result.EnumerationErrors) {
+        Write-Warn "Skipped inaccessible path below ${fullPath}: $message"
     }
 
-    try {
-        Remove-Item -LiteralPath $item.FullName -Recurse -Force -Confirm:$false -ErrorAction Stop
-        foreach ($enumerationError in $enumerationErrors) {
-            Write-Warn "Skipped inaccessible path below ${Path}: $($enumerationError.Exception.Message)"
-        }
-        return [pscustomobject]@{
-            Removed = $entries.Count + 1
-            Skipped = $enumerationErrors.Count
-        }
-    }
-    catch {
-        $failureMessages = [Collections.Generic.List[string]]::new()
-        $skippedCount = $enumerationErrors.Count
-        foreach ($enumerationError in $enumerationErrors) {
-            [void]$failureMessages.Add("Skipped inaccessible path below ${Path}: $($enumerationError.Exception.Message)")
-        }
-
-        $removedCount = 0
-        $removalItems = @($entries) + @($item)
-        $progressId = Start-LauncherProgress -Activity "NeuroWeave: recover removal of $Path" -Status "0 of $($removalItems.Count) items"
-        try {
-            for ($index = 0; $index -lt $removalItems.Count; $index++) {
-                $entry = $removalItems[$index]
-                Update-LauncherProgress -Id $progressId -Activity "NeuroWeave: recover removal of $Path" -Status "$($index + 1) of $($removalItems.Count): $($entry.Name)" -PercentComplete ([int](($index + 1) * 100 / [Math]::Max(1, $removalItems.Count)))
-                try {
-                    Remove-Item -LiteralPath $entry.FullName -Force -Confirm:$false -ErrorAction Stop
-                    $removedCount++
-                } catch {
-                    $skippedCount++
-                    [void]$failureMessages.Add("Skipped locked or inaccessible path: $($entry.FullName): $($_.Exception.Message)")
-                }
+    $preservedPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $protectedDirectories = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($entry in @($entries)) {
+        if ($entry.Name -in $PreserveNames) {
+            [void]$preservedPaths.Add($entry.FullName)
+            [void]$preservedEntries.Add($entry.FullName)
+            $result.Preserved++
+            $ancestor = [IO.Path]::GetDirectoryName($entry.FullName)
+            [void]$protectedDirectories.Add($item.FullName)
+            while ($ancestor -and $ancestor.StartsWith($item.FullName.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
+                [void]$protectedDirectories.Add($ancestor)
+                $ancestor = [IO.Path]::GetDirectoryName($ancestor)
             }
         }
-        finally {
-            Complete-LauncherProgress $progressId
+    }
+    $candidates = @($entries |
+        Where-Object { -not $preservedPaths.Contains($_.FullName) -and -not $protectedDirectories.Contains($_.FullName) } |
+        Sort-Object @{ Expression = { $_.FullName.Length }; Descending = $true }, @{ Expression = { $_.FullName.ToUpperInvariant() }; Descending = $false })
+    if ($item.PSIsContainer -and -not $KeepRoot -and $result.Preserved -eq 0) {
+        $candidates += $item
+    }
+    $result.Planned = $candidates.Count
+    $result.PlannedCount = $candidates.Count
+    $progressId = $null
+    try {
+        if ($candidates.Count -gt 0) {
+            $progressId = Start-LauncherProgress -Activity $Activity -Status "0 of $($candidates.Count) items"
         }
+        for ($index = 0; $index -lt $candidates.Count; $index++) {
+            $candidate = $candidates[$index]
+            if ($null -ne $progressId) {
+                Update-LauncherProgress -Id $progressId -Activity $Activity -Status "$($index + 1) of $($candidates.Count): $($candidate.Name)" -PercentComplete ([int](($index + 1) * 100 / [Math]::Max(1, $candidates.Count)))
+            }
+            if ($WhatIf) { continue }
+            try {
+                Remove-Item -LiteralPath $candidate.FullName -Force -Confirm:$false -ErrorAction Stop
+                [void]$removedPaths.Add($candidate.FullName)
+                $result.Removed++
+            }
+            catch {
+                $result.Skipped++
+                [void]$skippedPaths.Add("$($candidate.FullName) ($($_.Exception.Message))")
+                Write-Warn "Skipped locked or inaccessible path: $($candidate.FullName) ($($_.Exception.Message))"
+            }
+        }
+    }
+    finally {
+        if ($null -ne $progressId) { Complete-LauncherProgress -Id $progressId }
+    }
+    $result.RemovedCount = $result.Removed
+    $result.SkippedPaths = $skippedPaths
+    if ($Strict -and ($result.Skipped -gt 0 -or $result.EnumerationErrors.Count -gt 0)) {
+        throw "Removal of '$fullPath' was incomplete. Skipped $($result.Skipped) item(s) and encountered $($result.EnumerationErrors.Count) enumeration error(s)."
+    }
+    return [pscustomobject]$result
+}
 
-        foreach ($failureMessage in @($failureMessages | Sort-Object -Unique)) {
-            Write-Warn $failureMessage
-        }
-
-        return [pscustomobject]@{
-            Removed = $removedCount
-            Skipped = $skippedCount
-        }
+function Remove-PathBestEffort([string]$Path) {
+    $result = Remove-LauncherPath -Path $Path -Activity "NeuroWeave: remove $([IO.Path]::GetFileName($Path))"
+    return [pscustomobject]@{
+        Removed = $result.Removed
+        Skipped = $result.Skipped + $result.EnumerationErrors.Count
     }
 }
 
@@ -1725,6 +1787,7 @@ function Confirm-LauncherAction {
         [Parameter(Mandatory = $true)][string]$Prompt
     )
 
+    Clear-LauncherProgress
     if ([Console]::IsInputRedirected) {
         throw 'The destructive action requires an interactive console.'
     }
@@ -1803,9 +1866,10 @@ if ($Action -ne 'Menu') {
 }
 
 function Wait-ForMenuReturn {
-    if ([Console]::IsInputRedirected) { return }
+    Clear-LauncherProgress
     Write-Host
     Write-Host '  Press any key to return to the menu...' -ForegroundColor DarkGray
+    if (-not $script:LauncherInteractive) { return }
     try { [Console]::ReadKey($true) | Out-Null } catch { }
 }
 
@@ -1820,24 +1884,51 @@ function Write-MenuRule {
     Write-Host "  $($Character * 61)" -ForegroundColor DarkCyan
 }
 
+function Get-LauncherMenuEntries {
+    return @(
+        [pscustomobject]@{ Section = 'APPLICATION'; Label = 'Launch application'; Description = 'Start local backend and frontend services'; Key = 'Launch'; Destructive = $false }
+        [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Install or repair base dependencies'; Description = 'Prepare runtimes and core packages'; Key = 'Install'; Destructive = $false }
+        [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Rebuild frontend'; Description = 'Rebuild the frontend from current source'; Key = 'Rebuild'; Destructive = $false }
+        [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Manage compute backends'; Description = 'Install, inspect, or remove optional ML frameworks'; Key = 'Backends'; Destructive = $false }
+        [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Initialize or upgrade database'; Description = 'Create or migrate the schema to the Alembic head'; Key = 'Database'; Destructive = $false }
+        [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Run validation suite'; Description = 'Run backend and frontend quality gates'; Key = 'Tests'; Destructive = $false }
+        [pscustomobject]@{ Section = 'SOURCE CONTROL'; Label = 'Check for updates'; Description = 'Report main-branch status without changing files'; Key = 'Check'; Destructive = $false }
+        [pscustomobject]@{ Section = 'SOURCE CONTROL'; Label = 'Update application'; Description = 'Pull the latest changes from the main branch'; Key = 'Update'; Destructive = $false }
+        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Remove logs'; Description = 'Clear generated application logs'; Key = 'Logs'; Destructive = $true }
+        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Clear cache'; Description = 'Remove runtime and test/tool caches'; Key = 'Cache'; Destructive = $true }
+        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Remove all data'; Description = 'Delete user-generated data; preserve application files'; Key = 'AllData'; Destructive = $true }
+        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Uninstall application'; Description = 'Remove dependencies and build output'; Key = 'Uninstall'; Destructive = $true }
+        [pscustomobject]@{ Section = 'EXIT'; Label = 'Exit'; Description = 'Close this launcher'; Key = 'Exit'; Destructive = $false }
+    )
+}
+
 function Write-MenuOption {
     param(
-        [Parameter(Mandatory = $true)][string]$Number,
-        [Parameter(Mandatory = $true)][string]$Label,
-        [Parameter(Mandatory = $true)][string]$Description,
-        [switch]$Destructive,
-        [switch]$Exit
+        [Parameter(Mandatory = $true)][pscustomobject]$Entry,
+        [Parameter(Mandatory = $true)][int]$NumberWidth,
+        [Parameter(Mandatory = $true)][int]$LabelWidth
     )
 
-    $numberColor = if ($Destructive) { 'Yellow' } elseif ($Exit) { 'DarkGray' } else { 'Cyan' }
-    $labelColor = if ($Destructive) { 'Yellow' } elseif ($Exit) { 'Gray' } else { 'White' }
-    Write-Host "  [$Number] " -ForegroundColor $numberColor -NoNewline
-    Write-Host $Label.PadRight(35) -ForegroundColor $labelColor -NoNewline
-    Write-Host $Description -ForegroundColor DarkGray
+    $color = if ($Entry.Destructive) { 'Yellow' } elseif ($Entry.Key -eq 'Exit') { 'DarkGray' } else { 'White' }
+    Write-Host ("  {0,$NumberWidth}. {1,-$LabelWidth}  {2}" -f $Entry.Number, $Entry.Label, $Entry.Description) -ForegroundColor $color
 }
 
 function Show-LauncherMenu {
     Clear-MenuScreen
+    Clear-LauncherProgress
+    $entries = @(Get-LauncherMenuEntries)
+    for ($index = 0; $index -lt $entries.Count; $index++) {
+        $entries[$index] = [pscustomobject]@{
+            Number = $index + 1
+            Section = $entries[$index].Section
+            Label = $entries[$index].Label
+            Description = $entries[$index].Description
+            Key = $entries[$index].Key
+            Destructive = $entries[$index].Destructive
+        }
+    }
+    $numberWidth = ([string]$entries.Count).Length
+    $labelWidth = ($entries | ForEach-Object { $_.Label.Length } | Measure-Object -Maximum).Maximum
     Write-Host
     Write-MenuRule
     Write-Host '  NEUROWEAVE STUDIO' -ForegroundColor Cyan -NoNewline
@@ -1845,65 +1936,51 @@ function Show-LauncherMenu {
     Write-Host '  Visual machine-learning architecture editor' -ForegroundColor DarkGray
     Write-MenuRule
     Write-Host
-    Write-Host '  APPLICATION' -ForegroundColor DarkCyan
-    Write-MenuOption -Number '1' -Label 'Launch application' -Description 'Start local backend and frontend services'
-    Write-Host
-    Write-Host '  SETUP & VALIDATION' -ForegroundColor DarkCyan
-    Write-MenuOption -Number '2' -Label 'Install or repair base dependencies' -Description 'Prepare runtimes and core packages'
-    Write-MenuOption -Number '3' -Label 'Rebuild frontend' -Description 'Rebuild the frontend from current source'
-    Write-MenuOption -Number '4' -Label 'Manage compute backends' -Description 'Install, inspect, or remove optional ML frameworks'
-    Write-MenuOption -Number '5' -Label 'Initialize or upgrade database' -Description 'Create or migrate the schema to the Alembic head'
-    Write-MenuOption -Number '6' -Label 'Run validation suite' -Description 'Run backend and frontend quality gates'
-    Write-Host
-    Write-Host '  MAINTENANCE & DATA' -ForegroundColor DarkCyan
-    Write-MenuOption -Number '7' -Label 'Remove logs' -Description 'Clear generated application logs'
-    Write-MenuOption -Number '8' -Label 'Clear cache' -Description 'Remove runtime and test/tool caches'
-    Write-MenuOption -Number '9' -Label 'Remove all data' -Description 'Delete user-generated data; preserve application files' -Destructive
-    Write-MenuOption -Number '10' -Label 'Uninstall application' -Description 'Remove dependencies and build output' -Destructive
-    Write-Host
-    Write-Host '  UPDATES' -ForegroundColor DarkCyan
-    Write-MenuOption -Number '11' -Label 'Check for updates' -Description 'Report main-branch status without changing files'
-    Write-MenuOption -Number '12' -Label 'Update application' -Description 'Pull the latest changes from the main branch'
-    Write-Host
-    Write-MenuRule
-    Write-MenuOption -Number '13' -Label 'Exit' -Description 'Close this launcher' -Exit
+    $lastSection = $null
+    foreach ($entry in $entries) {
+        if ($entry.Section -ne $lastSection) {
+            if ($null -ne $lastSection) { Write-Host }
+            Write-Host ("  {0}" -f $entry.Section) -ForegroundColor DarkCyan
+            if ($entry.Section -eq 'EXIT') { Write-MenuRule -Character '-' }
+            $lastSection = $entry.Section
+        }
+        Write-MenuOption -Entry $entry -NumberWidth $numberWidth -LabelWidth $labelWidth
+    }
     Write-MenuRule
     Write-Host
+    return $entries
 }
 
 while ($true) {
-    Show-LauncherMenu
-    $rawSelection = Read-Host '  Select an option (1-13)'
+    $entries = @(Show-LauncherMenu)
+    $maxOption = $entries.Count
+    if (-not $script:LauncherInteractive) { break }
+    Clear-LauncherProgress
+    $rawSelection = Read-Host "  Select an option (1-$maxOption)"
     if ($null -eq $rawSelection) { break }
     $selection = ([string]$rawSelection).Trim()
-    if ($selection -notmatch '^(13|1[0-2]|[1-9])$') {
-        Write-Warn 'Invalid option. Enter a number from 1 to 13.'
+    if ($selection -notmatch '^[1-9][0-9]*$' -or [int]$selection -lt 1 -or [int]$selection -gt $maxOption) {
+        Write-Warn "Invalid option. Enter a number from 1 to $maxOption."
         Wait-ForMenuReturn
         continue
     }
-    if ($selection -eq '13') { break }
+    $entry = $entries[[int]$selection - 1]
+    if ($entry.Key -eq 'Exit') { break }
     try {
-        Invoke-TrackedLauncherAction -Name "menu option $selection" -Operation {
-            switch ($selection) {
-                # Application
-                '1' { Invoke-Launch; exit 0 }
-
-                # Setup and validation
-                '2' { Invoke-Install -PromptForInstallationType }
-                '3' { Invoke-FrontendRebuild }
-                '4' { Invoke-BackendManagement }
-                '5' { Invoke-DatabaseInitialization }
-                '6' { Invoke-TestSuite }
-
-                # Maintenance and data
-                '7' { Invoke-RemoveApplicationLogs }
-                '8' { Invoke-ClearApplicationCache }
-                '9' { Invoke-RemoveAllData }
-                '10' { Invoke-UninstallApplication }
-
-                # Updates
-                '11' { Invoke-CheckForUpdates }
-                '12' { Invoke-UpdateApplication }
+        Invoke-TrackedLauncherAction -Name $entry.Label -Operation {
+            switch ($entry.Key) {
+                'Launch' { Invoke-Launch; exit 0 }
+                'Install' { Invoke-Install -PromptForInstallationType }
+                'Rebuild' { Invoke-FrontendRebuild }
+                'Backends' { Invoke-BackendManagement }
+                'Database' { Invoke-DatabaseInitialization }
+                'Tests' { Invoke-TestSuite }
+                'Check' { Invoke-CheckForUpdates }
+                'Update' { Invoke-UpdateApplication }
+                'Logs' { Invoke-RemoveApplicationLogs }
+                'Cache' { Invoke-ClearApplicationCache }
+                'AllData' { Invoke-RemoveAllData }
+                'Uninstall' { Invoke-UninstallApplication }
             }
         }
     } catch {
