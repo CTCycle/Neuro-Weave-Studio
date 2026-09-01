@@ -24,6 +24,81 @@ def _checkpoint(callback: Callable[[], None] | None) -> None:
 
 
 ###############################################################################
+def _base_layer_kwargs(parameters: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: parameters[key]
+        for key in ("dtype", "trainable", "autocast")
+        if key in parameters and parameters[key] is not None
+    }
+
+
+###############################################################################
+def _recurrent_layer(
+    cell: str,
+    parameters: dict[str, Any],
+    graph: ModelGraph,
+    *,
+    name: str,
+    return_sequences: bool | None = None,
+) -> Any:
+    kwargs: dict[str, Any] = {
+        **_base_layer_kwargs(parameters),
+        "activation": parameters.get("activation", "tanh"),
+        "use_bias": parameters.get("use_bias", True),
+        "kernel_initializer": layer_option(
+            parameters, "kernel_initializer", graph, "glorot_uniform"
+        ),
+        "recurrent_initializer": layer_option(
+            parameters, "recurrent_initializer", graph, "orthogonal"
+        ),
+        "bias_initializer": layer_option(
+            parameters, "bias_initializer", graph, "zeros"
+        ),
+        "kernel_regularizer": layer_option(
+            parameters, "kernel_regularizer", graph, "none"
+        ),
+        "recurrent_regularizer": layer_option(
+            parameters, "recurrent_regularizer", graph, "none"
+        ),
+        "bias_regularizer": layer_option(
+            parameters, "bias_regularizer", graph, "none"
+        ),
+        "activity_regularizer": layer_option(
+            parameters, "activity_regularizer", graph, "none"
+        ),
+        "kernel_constraint": layer_option(
+            parameters, "kernel_constraint", graph, "none"
+        ),
+        "recurrent_constraint": layer_option(
+            parameters, "recurrent_constraint", graph, "none"
+        ),
+        "bias_constraint": layer_option(
+            parameters, "bias_constraint", graph, "none"
+        ),
+        "dropout": parameters.get("dropout", 0.0),
+        "recurrent_dropout": parameters.get("recurrent_dropout", 0.0),
+        "return_sequences": parameters.get("return_sequences", False)
+        if return_sequences is None
+        else return_sequences,
+        "return_state": parameters.get("return_state", False),
+        "go_backwards": parameters.get("go_backwards", False),
+        "stateful": parameters.get("stateful", False),
+        "unroll": parameters.get("unroll", False),
+        "seed": parameters.get("seed"),
+    }
+    if cell == "simple_rnn":
+        return layers.SimpleRNN(parameters.get("units", 64), name=name, **kwargs)
+    kwargs["recurrent_activation"] = parameters.get("recurrent_activation", "sigmoid")
+    if cell == "gru":
+        kwargs["reset_after"] = parameters.get("reset_after", True)
+        kwargs["use_cudnn"] = parameters.get("use_cudnn", "auto")
+        return layers.GRU(parameters.get("units", 64), name=name, **kwargs)
+    kwargs["unit_forget_bias"] = parameters.get("unit_forget_bias", True)
+    kwargs["use_cudnn"] = parameters.get("use_cudnn", "auto")
+    return layers.LSTM(parameters.get("units", 64), name=name, **kwargs)
+
+
+###############################################################################
 def _keras_operation_functions(catalog: NodeCatalog) -> dict[str, Callable[..., Any]]:
     symbols = {"keras.ops.shape"}
     for manifest in catalog.manifests:
@@ -155,12 +230,16 @@ def build_model(
                 activity_regularizer=layer_option(params, "activity_regularizer", graph, "none"),
                 kernel_constraint=layer_option(params, "kernel_constraint", graph, "none"),
                 bias_constraint=layer_option(params, "bias_constraint", graph, "none"),
+                lora_rank=params.get("lora_rank"),
+                lora_alpha=params.get("lora_alpha"),
+                quantization_config=params.get("quantization_config"),
+                **_base_layer_kwargs(params),
                 name=node.id,
             )(source)
         elif definition == "layer.activation":
-            tensors[node_id] = layers.Activation(params.get("activation", "relu"), name=node.id)(
-                source
-            )
+            tensors[node_id] = layers.Activation(
+                params.get("activation", "relu"), **_base_layer_kwargs(params), name=node.id
+            )(source)
         elif definition == "layer.flatten":
             tensors[node_id] = layers.Flatten(
                 data_format=params.get("data_format", "channels_last"),
@@ -168,7 +247,11 @@ def build_model(
             )(source)
         elif definition == "layer.dropout":
             tensors[node_id] = layers.Dropout(
-                params.get("rate", 0.5), seed=params.get("seed"), name=node.id
+                params.get("rate", 0.5),
+                noise_shape=params.get("noise_shape"),
+                seed=params.get("seed"),
+                **_base_layer_kwargs(params),
+                name=node.id,
             )(source)
         elif definition == "layer.batch_norm":
             tensors[node_id] = layers.BatchNormalization(
@@ -189,7 +272,11 @@ def build_model(
                 gamma_regularizer=layer_option(params, "gamma_regularizer", graph, "none"),
                 beta_constraint=layer_option(params, "beta_constraint", graph, "none"),
                 gamma_constraint=layer_option(params, "gamma_constraint", graph, "none"),
+                renorm=params.get("renorm", False),
+                renorm_clipping=params.get("renorm_clipping"),
+                renorm_momentum=params.get("renorm_momentum", 0.99),
                 synchronized=params.get("synchronized", False),
+                **_base_layer_kwargs(params),
                 name=node.id,
             )(source)
         elif definition == "layer.layer_norm":
@@ -204,8 +291,52 @@ def build_model(
                 gamma_regularizer=layer_option(params, "gamma_regularizer", graph, "none"),
                 beta_constraint=layer_option(params, "beta_constraint", graph, "none"),
                 gamma_constraint=layer_option(params, "gamma_constraint", graph, "none"),
+                **_base_layer_kwargs(params),
                 name=node.id,
             )(source)
+        elif definition == "layer.group_norm":
+            tensors[node_id] = layers.GroupNormalization(
+                groups=params.get("groups", 32),
+                axis=params.get("axis", -1),
+                epsilon=params.get("epsilon", 0.001),
+                center=params.get("center", True),
+                scale=params.get("scale", True),
+                beta_initializer=layer_option(params, "beta_initializer", graph, "zeros"),
+                gamma_initializer=layer_option(params, "gamma_initializer", graph, "ones"),
+                beta_regularizer=layer_option(params, "beta_regularizer", graph, "none"),
+                gamma_regularizer=layer_option(params, "gamma_regularizer", graph, "none"),
+                beta_constraint=layer_option(params, "beta_constraint", graph, "none"),
+                gamma_constraint=layer_option(params, "gamma_constraint", graph, "none"),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
+        elif definition == "layer.reshape":
+            tensors[node_id] = layers.Reshape(
+                tuple(params.get("target_shape", [-1])),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
+        elif definition == "layer.permute":
+            tensors[node_id] = layers.Permute(
+                tuple(params.get("axes", [2, 1])),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
+        elif definition == "layer.repeat":
+            repeats = int(params.get("repeats", 2))
+            axis = int(params.get("axis", 1))
+            if axis == 1:
+                tensors[node_id] = layers.RepeatVector(
+                    repeats,
+                    **_base_layer_kwargs(params),
+                    name=node.id,
+                )(source)
+            else:
+                tensors[node_id] = keras.layers.Lambda(
+                    lambda value: keras.ops.repeat(value, repeats, axis=axis),
+                    **_base_layer_kwargs(params),
+                    name=node.id,
+                )(source)
         elif definition == "layer.embedding":
             tensors[node_id] = layers.Embedding(
                 params.get("vocabulary_size", 10000),
@@ -220,6 +351,9 @@ def build_model(
                 embeddings_constraint=layer_option(params, "embeddings_constraint", graph, "none"),
                 mask_zero=params.get("mask_zero", False),
                 lora_rank=params.get("lora_rank"),
+                lora_alpha=params.get("lora_alpha"),
+                quantization_config=params.get("quantization_config"),
+                **_base_layer_kwargs(params),
                 name=node.id,
             )(source)
         elif definition == "conv.conv1d":
@@ -227,7 +361,7 @@ def build_model(
                 params.get("filters", 32),
                 params.get("kernel_size", [3]),
                 strides=params.get("strides", [1]),
-                padding=params.get("padding", "same"),
+                padding=params.get("padding", "valid"),
                 data_format=params.get("data_format", "channels_last"),
                 dilation_rate=params.get("dilation_rate", [1]),
                 groups=params.get("groups", 1),
@@ -242,6 +376,7 @@ def build_model(
                 activity_regularizer=layer_option(params, "activity_regularizer", graph, "none"),
                 kernel_constraint=layer_option(params, "kernel_constraint", graph, "none"),
                 bias_constraint=layer_option(params, "bias_constraint", graph, "none"),
+                **_base_layer_kwargs(params),
                 name=node.id,
             )(source)
         elif definition == "conv.conv2d":
@@ -249,7 +384,7 @@ def build_model(
                 params.get("filters", 32),
                 params.get("kernel_size", [3, 3]),
                 strides=params.get("strides", [1, 1]),
-                padding=params.get("padding", "same"),
+                padding=params.get("padding", "valid"),
                 data_format=params.get("data_format", "channels_last"),
                 dilation_rate=params.get("dilation_rate", [1, 1]),
                 groups=params.get("groups", 1),
@@ -264,6 +399,28 @@ def build_model(
                 activity_regularizer=layer_option(params, "activity_regularizer", graph, "none"),
                 kernel_constraint=layer_option(params, "kernel_constraint", graph, "none"),
                 bias_constraint=layer_option(params, "bias_constraint", graph, "none"),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
+        elif definition == "conv.conv3d":
+            tensors[node_id] = layers.Conv3D(
+                params.get("filters", 32),
+                params.get("kernel_size", [3, 3, 3]),
+                strides=params.get("strides", [1, 1, 1]),
+                padding=params.get("padding", "valid"),
+                data_format=params.get("data_format", "channels_last"),
+                dilation_rate=params.get("dilation_rate", [1, 1, 1]),
+                groups=params.get("groups", 1),
+                activation=params.get("activation", "linear"),
+                use_bias=params.get("use_bias", True),
+                kernel_initializer=layer_option(params, "kernel_initializer", graph, "glorot_uniform"),
+                bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
+                kernel_regularizer=layer_option(params, "kernel_regularizer", graph, "none"),
+                bias_regularizer=layer_option(params, "bias_regularizer", graph, "none"),
+                activity_regularizer=layer_option(params, "activity_regularizer", graph, "none"),
+                kernel_constraint=layer_option(params, "kernel_constraint", graph, "none"),
+                bias_constraint=layer_option(params, "bias_constraint", graph, "none"),
+                **_base_layer_kwargs(params),
                 name=node.id,
             )(source)
         elif definition == "conv.max_pool2d":
@@ -272,57 +429,162 @@ def build_model(
                 strides=params.get("strides"),
                 padding=params.get("padding", "valid"),
                 data_format=params.get("data_format", "channels_last"),
+                **_base_layer_kwargs(params),
                 name=node.id,
             )(source)
-        elif definition == "recurrent.lstm":
-            tensors[node_id] = layers.LSTM(
-                params.get("units", 64),
-                activation=params.get("activation", "tanh"),
-                recurrent_activation=params.get("recurrent_activation", "sigmoid"),
+        elif definition in {
+            "conv.max_pool1d",
+            "conv.max_pool3d",
+            "conv.average_pool1d",
+            "conv.average_pool2d",
+            "conv.average_pool3d",
+        }:
+            class_name = "MaxPooling" if definition.startswith("conv.max") else "AveragePooling"
+            dimensions = int(definition[-2])
+            pool_type = getattr(layers, f"{class_name}{dimensions}D")
+            tensors[node_id] = pool_type(
+                pool_size=params.get("pool_size", [2] * dimensions),
+                strides=params.get("strides"),
+                padding=params.get("padding", "valid"),
+                data_format=params.get("data_format", "channels_last"),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
+        elif definition in {
+            "conv.global_pool1d",
+            "conv.global_pool2d",
+            "conv.global_pool3d",
+        }:
+            dimensions = int(definition[-2])
+            mode = params.get("mode", "average")
+            class_name = "GlobalAveragePooling" if mode == "average" else "GlobalMaxPooling"
+            pool_type = getattr(layers, f"{class_name}{dimensions}D")
+            tensors[node_id] = pool_type(
+                data_format=params.get("data_format", "channels_last"),
+                keepdims=params.get("keepdims", False),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
+        elif definition == "conv.transposed":
+            dimensions = int(params.get("dimensions", 2))
+            layer_type = getattr(layers, f"Conv{dimensions}DTranspose")
+            tensors[node_id] = layer_type(
+                params.get("filters", 32),
+                params.get("kernel_size", [3] * dimensions),
+                strides=params.get("strides", [1] * dimensions),
+                padding=params.get("padding", "valid"),
+                output_padding=params.get("output_padding"),
+                data_format=params.get("data_format", "channels_last"),
+                dilation_rate=params.get("dilation_rate", [1] * dimensions),
+                activation=params.get("activation", "linear"),
                 use_bias=params.get("use_bias", True),
-                kernel_initializer=layer_option(
-                    params, "kernel_initializer", graph, "glorot_uniform"
-                ),
-                recurrent_initializer=layer_option(
-                    params, "recurrent_initializer", graph, "orthogonal"
-                ),
+                kernel_initializer=layer_option(params, "kernel_initializer", graph, "glorot_uniform"),
                 bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
-                unit_forget_bias=params.get("unit_forget_bias", True),
-                dropout=params.get("dropout", 0.0),
-                recurrent_dropout=params.get("recurrent_dropout", 0.0),
-                return_sequences=params.get("return_sequences", False),
-                return_state=False,
-                go_backwards=params.get("go_backwards", False),
-                stateful=params.get("stateful", False),
-                unroll=params.get("unroll", False),
-                seed=params.get("seed"),
+                kernel_regularizer=layer_option(params, "kernel_regularizer", graph, "none"),
+                bias_regularizer=layer_option(params, "bias_regularizer", graph, "none"),
+                activity_regularizer=layer_option(params, "activity_regularizer", graph, "none"),
+                kernel_constraint=layer_option(params, "kernel_constraint", graph, "none"),
+                bias_constraint=layer_option(params, "bias_constraint", graph, "none"),
+                **_base_layer_kwargs(params),
                 name=node.id,
             )(source)
-        elif definition == "recurrent.gru":
-            tensors[node_id] = layers.GRU(
-                params.get("units", 64),
-                activation=params.get("activation", "tanh"),
-                recurrent_activation=params.get("recurrent_activation", "sigmoid"),
+        elif definition == "conv.depthwise":
+            dimensions = int(params.get("dimensions", 2))
+            layer_type = getattr(layers, f"DepthwiseConv{dimensions}D")
+            tensors[node_id] = layer_type(
+                params.get("kernel_size", [3] * dimensions),
+                strides=params.get("strides", [1] * dimensions),
+                padding=params.get("padding", "valid"),
+                depth_multiplier=params.get("depth_multiplier", 1),
+                data_format=params.get("data_format", "channels_last"),
+                dilation_rate=params.get("dilation_rate", [1] * dimensions),
+                activation=params.get("activation", "linear"),
                 use_bias=params.get("use_bias", True),
-                kernel_initializer=layer_option(
-                    params, "kernel_initializer", graph, "glorot_uniform"
-                ),
-                recurrent_initializer=layer_option(
-                    params, "recurrent_initializer", graph, "orthogonal"
-                ),
+                depthwise_initializer=layer_option(params, "depthwise_initializer", graph, "glorot_uniform"),
                 bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
-                reset_after=params.get("reset_after", True),
-                dropout=params.get("dropout", 0.0),
-                recurrent_dropout=params.get("recurrent_dropout", 0.0),
-                return_sequences=params.get("return_sequences", False),
-                return_state=False,
-                go_backwards=params.get("go_backwards", False),
-                stateful=params.get("stateful", False),
-                unroll=params.get("unroll", False),
-                seed=params.get("seed"),
+                depthwise_regularizer=layer_option(params, "depthwise_regularizer", graph, "none"),
+                bias_regularizer=layer_option(params, "bias_regularizer", graph, "none"),
+                activity_regularizer=layer_option(params, "activity_regularizer", graph, "none"),
+                depthwise_constraint=layer_option(params, "depthwise_constraint", graph, "none"),
+                bias_constraint=layer_option(params, "bias_constraint", graph, "none"),
+                **_base_layer_kwargs(params),
                 name=node.id,
             )(source)
-        elif definition in {"attention.multi_head", "attention.self"}:
+        elif definition == "conv.separable":
+            dimensions = int(params.get("dimensions", 2))
+            layer_type = getattr(layers, f"SeparableConv{dimensions}D")
+            tensors[node_id] = layer_type(
+                params.get("filters", 32),
+                params.get("kernel_size", [3] * dimensions),
+                strides=params.get("strides", [1] * dimensions),
+                padding=params.get("padding", "valid"),
+                data_format=params.get("data_format", "channels_last"),
+                dilation_rate=params.get("dilation_rate", [1] * dimensions),
+                depth_multiplier=params.get("depth_multiplier", 1),
+                activation=params.get("activation", "linear"),
+                use_bias=params.get("use_bias", True),
+                depthwise_initializer=layer_option(params, "depthwise_initializer", graph, "glorot_uniform"),
+                pointwise_initializer=layer_option(params, "pointwise_initializer", graph, "glorot_uniform"),
+                bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
+                depthwise_regularizer=layer_option(params, "depthwise_regularizer", graph, "none"),
+                pointwise_regularizer=layer_option(params, "pointwise_regularizer", graph, "none"),
+                bias_regularizer=layer_option(params, "bias_regularizer", graph, "none"),
+                activity_regularizer=layer_option(params, "activity_regularizer", graph, "none"),
+                depthwise_constraint=layer_option(params, "depthwise_constraint", graph, "none"),
+                pointwise_constraint=layer_option(params, "pointwise_constraint", graph, "none"),
+                bias_constraint=layer_option(params, "bias_constraint", graph, "none"),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
+        elif definition == "conv.upsampling":
+            dimensions = int(params.get("dimensions", 2))
+            layer_type = getattr(layers, f"UpSampling{dimensions}D")
+            kwargs = {**_base_layer_kwargs(params), "name": node.id}
+            if dimensions > 1:
+                kwargs["data_format"] = params.get("data_format", "channels_last")
+            if dimensions == 2:
+                kwargs["interpolation"] = params.get("interpolation", "nearest")
+            tensors[node_id] = layer_type(params.get("size", [2] * dimensions), **kwargs)(source)
+        elif definition in {"conv.padding", "conv.cropping"}:
+            dimensions = int(params.get("dimensions", 2))
+            prefix = "ZeroPadding" if definition == "conv.padding" else "Cropping"
+            layer_type = getattr(layers, f"{prefix}{dimensions}D")
+            kwargs = {**_base_layer_kwargs(params), "name": node.id}
+            if dimensions > 1:
+                kwargs["data_format"] = params.get("data_format", "channels_last")
+            key = "padding" if definition == "conv.padding" else "cropping"
+            tensors[node_id] = layer_type(params.get(key), **kwargs)(source)
+        elif definition in {"recurrent.simple_rnn", "recurrent.lstm", "recurrent.gru"}:
+            cell = definition.removeprefix("recurrent.")
+            tensors[node_id] = _recurrent_layer(cell, params, graph, name=node.id)(source)
+        elif definition == "recurrent.bidirectional":
+            inner = _recurrent_layer(
+                params.get("cell", "lstm"),
+                params,
+                graph,
+                name=f"{node.id}_forward",
+            )
+            tensors[node_id] = layers.Bidirectional(
+                inner,
+                merge_mode=params.get("merge_mode", "concat"),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
+        elif definition == "recurrent.stack":
+            current = source
+            layer_count = int(params.get("layers", 2))
+            for index in range(layer_count):
+                current = _recurrent_layer(
+                    params.get("cell", "lstm"),
+                    params,
+                    graph,
+                    name=f"{node.id}_{index + 1}",
+                    return_sequences=(
+                        True if index < layer_count - 1 else bool(params.get("return_sequences", False))
+                    ),
+                )(current)
+            tensors[node_id] = current
+        elif definition in {"attention.multi_head", "attention.self", "attention.cross"}:
             query = inputs[0]
             value = inputs[1] if len(inputs) > 1 else query
             tensors[node_id] = layers.MultiHeadAttention(
@@ -333,10 +595,20 @@ def build_model(
                 use_bias=params.get("use_bias", True),
                 output_shape=params.get("output_shape"),
                 attention_axes=params.get("attention_axes"),
+                sliding_window=params.get("sliding_window"),
+                flash_attention=params.get("flash_attention"),
+                use_gate=params.get("use_gate", False),
                 kernel_initializer=layer_option(
                     params, "kernel_initializer", graph, "glorot_uniform"
                 ),
                 bias_initializer=layer_option(params, "bias_initializer", graph, "zeros"),
+                kernel_regularizer=layer_option(params, "kernel_regularizer", graph, "none"),
+                bias_regularizer=layer_option(params, "bias_regularizer", graph, "none"),
+                activity_regularizer=layer_option(params, "activity_regularizer", graph, "none"),
+                kernel_constraint=layer_option(params, "kernel_constraint", graph, "none"),
+                bias_constraint=layer_option(params, "bias_constraint", graph, "none"),
+                seed=params.get("seed"),
+                **_base_layer_kwargs(params),
                 name=node.id,
             )(query, value)
         elif definition in {"merge.add", "merge.residual", "merge.skip"}:
@@ -344,11 +616,90 @@ def build_model(
         elif definition == "merge.concatenate":
             tensors[node_id] = layers.Concatenate(axis=params.get("axis", -1), name=node.id)(inputs)
         elif definition == "transformer.positional_encoding":
-            tensors[node_id] = SinusoidalPositionalEncoding(name=node.id)(source)
-        elif definition == "transformer.encoder_block":
+            tensors[node_id] = SinusoidalPositionalEncoding(
+                **_base_layer_kwargs(params), name=node.id
+            )(source)
+        elif definition in {"transformer.encoder_block", "transformer.stack"}:
             tensors[node_id] = _transformer_encoder_block(source, node.id, params)
+        elif definition == "transformer.feed_forward":
+            source_dimension = source.shape[-1]
+            if source_dimension is None:
+                raise RuntimeError("Transformer feed-forward requires a known embedding dimension")
+            current = layers.Dense(
+                int(source_dimension) * int(params.get("ffn_multiplier", 4)),
+                activation=params.get("activation", "gelu"),
+                **_base_layer_kwargs(params),
+                name=f"{node.id}_expand",
+            )(source)
+            current = layers.Dropout(
+                params.get("dropout", 0.0),
+                **_base_layer_kwargs(params),
+                name=f"{node.id}_dropout",
+            )(current)
+            tensors[node_id] = layers.Dense(
+                int(source_dimension),
+                **_base_layer_kwargs(params),
+                name=f"{node.id}_project",
+            )(current)
+        elif definition == "transformer.decoder_block":
+            query = inputs[0]
+            context = inputs[1] if len(inputs) > 1 else query
+            source_dimension = query.shape[-1]
+            if source_dimension is None:
+                raise RuntimeError("Transformer decoder requires a known embedding dimension")
+            current = query
+            for index in range(int(params.get("layers", 1))):
+                suffix = f"_{index + 1}"
+                self_attention = layers.MultiHeadAttention(
+                    num_heads=params.get("num_heads", 8),
+                    key_dim=params.get("key_dim", 64),
+                    dropout=params.get("dropout", 0.0),
+                    **_base_layer_kwargs(params),
+                    name=f"{node.id}{suffix}_self_attention",
+                )(current, current)
+                current = layers.LayerNormalization(
+                    **_base_layer_kwargs(params), name=f"{node.id}{suffix}_self_norm"
+                )(layers.Add(name=f"{node.id}{suffix}_self_residual")([current, self_attention]))
+                cross_attention = layers.MultiHeadAttention(
+                    num_heads=params.get("num_heads", 8),
+                    key_dim=params.get("key_dim", 64),
+                    dropout=params.get("dropout", 0.0),
+                    **_base_layer_kwargs(params),
+                    name=f"{node.id}{suffix}_cross_attention",
+                )(current, context)
+                current = layers.LayerNormalization(
+                    **_base_layer_kwargs(params), name=f"{node.id}{suffix}_cross_norm"
+                )(layers.Add(name=f"{node.id}{suffix}_cross_residual")([current, cross_attention]))
+                feed_forward = layers.Dense(
+                    int(source_dimension) * 4,
+                    activation="gelu",
+                    **_base_layer_kwargs(params),
+                    name=f"{node.id}{suffix}_ffn_expand",
+                )(current)
+                feed_forward = layers.Dropout(
+                    params.get("dropout", 0.0),
+                    **_base_layer_kwargs(params),
+                    name=f"{node.id}{suffix}_ffn_dropout",
+                )(feed_forward)
+                feed_forward = layers.Dense(
+                    int(source_dimension),
+                    **_base_layer_kwargs(params),
+                    name=f"{node.id}{suffix}_ffn_project",
+                )(feed_forward)
+                current = layers.LayerNormalization(
+                    **_base_layer_kwargs(params), name=f"{node.id}{suffix}_output_norm"
+                )(layers.Add(name=f"{node.id}{suffix}_ffn_residual")([current, feed_forward]))
+            tensors[node_id] = current
+        elif definition == "transformer.residual":
+            tensors[node_id] = layers.Add(**_base_layer_kwargs(params), name=node.id)(inputs)
+        elif definition == "transformer.attention_mask":
+            tensors[node_id] = layers.Activation(
+                "linear", **_base_layer_kwargs(params), name=node.id
+            )(source)
         elif manifest.semantic_role == "output_adapter":
-            tensors[node_id] = layers.Activation("linear", name=node.id)(source)
+            tensors[node_id] = layers.Activation(
+                "linear", **_base_layer_kwargs(params), name=node.id
+            )(source)
         else:
             raise RuntimeError(f"Keras worker does not support node {definition}")
 

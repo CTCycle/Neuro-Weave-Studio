@@ -85,8 +85,6 @@ def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
         return isinstance(value, str)
     if schema.type in {"initializer", "regularizer", "constraint"}:
         return isinstance(value, str) or isinstance(value, dict)
-    if schema.type == "object":
-        return isinstance(value, dict)
     return True
 
 
@@ -324,7 +322,11 @@ class ValidationService:
                             details={"allowed": capability.allowed_values, "value": value},
                         )
                     )
-                if parameter.options and value not in parameter.options:
+                if (
+                    parameter.options
+                    and not isinstance(value, dict)
+                    and value not in parameter.options
+                ):
                     diagnostics.append(
                         ValidationDiagnostic(
                             code="invalid_parameter_option",
