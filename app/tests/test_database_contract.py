@@ -95,7 +95,7 @@ def test_unit_of_work_rolls_back_partial_project(tmp_path: Path) -> None:
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=3,
+                graph_schema_version=4,
                 timestamp=datetime.now(UTC),
                 validation_status=ValidationStatus.VALID,
             )
@@ -122,7 +122,7 @@ def test_project_delete_cascades_revision_graph_and_generated_source(
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=3,
+                graph_schema_version=4,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -170,7 +170,7 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=3,
+                graph_schema_version=4,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -179,7 +179,7 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=3,
+                graph_schema_version=4,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )

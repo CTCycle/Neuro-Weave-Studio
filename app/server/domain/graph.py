@@ -10,7 +10,7 @@ from common.timestamps import utc_now
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.tensor import TensorSpec
 
-GRAPH_SCHEMA_VERSION = 3
+GRAPH_SCHEMA_VERSION = 4
 
 
 ###############################################################################
@@ -27,6 +27,7 @@ class NodeInstance(BaseModel):
     label: str | None = None
     position: Position
     parameters: dict[str, Any] = Field(default_factory=dict)
+    locked: bool = False
 
 
 ###############################################################################
@@ -36,6 +37,14 @@ class EdgeInstance(BaseModel):
     source_port_id: str
     target_node_id: str
     target_port_id: str
+
+
+###############################################################################
+class OutputBinding(BaseModel):
+    """A persisted, explicit model-output port selection."""
+
+    node_id: str = Field(min_length=1, max_length=120)
+    port_id: str = Field(min_length=1, max_length=80)
 
 
 ###############################################################################
@@ -107,12 +116,58 @@ class ExportSettings(BaseModel):
 
 ###############################################################################
 class ModelGraph(BaseModel):
-    schema_version: Literal[3] = GRAPH_SCHEMA_VERSION
+    schema_version: Literal[4] = GRAPH_SCHEMA_VERSION
     nodes: list[NodeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     edges: list[EdgeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    output_bindings: list[OutputBinding] = Field(default_factory=list)
     model_configuration: ModelConfiguration = Field(default_factory=ModelConfiguration)
     export_settings: ExportSettings = Field(default_factory=ExportSettings)
     future_training_configuration: dict[str, Any] = Field(default_factory=dict)
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_payload(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        payload = dict(value)
+        version = payload.get("schema_version", 1)
+        if isinstance(version, int) and version > GRAPH_SCHEMA_VERSION:
+            return payload
+        nodes = []
+        for raw_node in payload.get("nodes", []) or []:
+            if not isinstance(raw_node, dict):
+                nodes.append(raw_node)
+                continue
+            node = dict(raw_node)
+            node.setdefault("locked", False)
+            nodes.append(node)
+        payload["nodes"] = nodes
+        if "output_bindings" not in payload:
+            payload["output_bindings"] = [
+                {"node_id": node.get("id"), "port_id": "output"}
+                for node in nodes
+                if isinstance(node, dict)
+                and isinstance(node.get("id"), str)
+                and str(node.get("definition_id", "")).startswith("output.")
+            ]
+        configuration = payload.get("model_configuration")
+        if isinstance(configuration, dict) and "keras" not in configuration:
+            payload["model_configuration"] = {
+                "keras": configuration,
+                "native": {
+                    "tensorflow": {"jit_compile": False},
+                    "pytorch": {
+                        "compile_enabled": False,
+                        "mode": "default",
+                        "fullgraph": False,
+                        "dynamic": False,
+                    },
+                    "jax": {"jit_enabled": False},
+                },
+            }
+        payload["schema_version"] = GRAPH_SCHEMA_VERSION
+        return payload
 
     # -------------------------------------------------------------------------
     @model_validator(mode="after")
@@ -191,9 +246,19 @@ class ProjectDuplicateRequest(BaseModel):
 ###############################################################################
 class ProjectExportBundle(BaseModel):
     format: Literal["neuro-weave-project"] = "neuro-weave-project"
-    format_version: Literal[4] = 4
+    format_version: Literal[5] = 5
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_bundle(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        payload = dict(value)
+        payload["format_version"] = 5
+        return payload
 
 
 ###############################################################################
