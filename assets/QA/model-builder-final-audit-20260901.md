@@ -51,6 +51,7 @@ Shape propagation covers graph branches and merges, recurrent sequence/state out
 The following checks passed during this audit:
 
 - Backend focused suite: `app/server/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --basetemp='.pytest-tmp-model-builder-final4' app/tests/test_node_catalog_audit.py app/tests/test_validation.py app/tests/test_core_ml_audit.py app/tests/test_conv1d_and_operations.py`.
+- Full backend suite: `app/server/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --basetemp='.pytest-tmp-model-builder-full2' ..\\tests` passed; the only reported cases were the repository's existing runtime-dependent skips.
 - Frontend unit suite: 3 files, 16 tests passed with `npm run test -- --run`.
 - Frontend production build passed with `npm run build`.
 - Frontend lint passed with `npm run lint`.
@@ -58,6 +59,7 @@ The following checks passed during this audit:
 - Representative native matrix multiplication passed for TensorFlow, PyTorch, and JAX in `test_conv1d_and_operations.py`.
 - Direct generated Keras catalog audit built 132 supported non-input/non-classification-output manifests under `KERAS_BACKEND=torch`: 132 passed, 0 failed.
 - Catalog introspection confirmed zero supported mappings without a symbol or adapter and zero legacy implementation adapter references.
+- Browser smoke verification at `http://127.0.0.1:6425/builder` confirmed the populated catalog, grouped inspector, exact duplication, lock/output indicators, node and canvas menus, reset confirmation/cancel/confirm behavior, and disabled native-backend-only parameters when Keras was disabled. Captures are retained in `assets/QA/model-builder-browser-backend-capability.png` and `assets/QA/model-builder-browser-reset-confirmation.png`.
 
 ## Intentional limits
 
