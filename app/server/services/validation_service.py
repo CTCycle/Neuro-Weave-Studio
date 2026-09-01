@@ -5,28 +5,46 @@ from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog
 from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
-from domain.diagnostics import ValidationDiagnostic, ValidationResult
+from domain.diagnostics import (
+    ModelTypeInference,
+    OutputReference,
+    ValidationDiagnostic,
+    ValidationResult,
+)
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph, NodeInstance
-from domain.manifests import NodeManifest, ParameterDefinition
+from domain.manifests import NodeManifest, ParameterCapability, ParameterDefinition, ParameterValueSchema
 from validation.compile_configuration import validate_model_configuration
 from validation.graph_utils import nodes_reaching, reachable_nodes, topological_order
+from validation.output_resolution import (
+    infer_model_type,
+    input_nodes as catalog_input_nodes,
+    resolved_outputs,
+)
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
 
 
 ###############################################################################
 def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
+    if parameter.value_schema is not None:
+        return _value_matches_schema(parameter.value_schema, value)
     if value is None:
         return parameter.nullable
     if parameter.type == "boolean":
         return isinstance(value, bool)
     if parameter.type == "integer" or parameter.type == "axis":
+        if parameter.type == "axis" and isinstance(value, list):
+            return all(isinstance(item, int) and not isinstance(item, bool) for item in value)
         return isinstance(value, int) and not isinstance(value, bool)
     if parameter.type == "number":
         return isinstance(value, int | float) and not isinstance(value, bool)
-    if parameter.type in {"string", "enum", "expression"}:
+    if parameter.type in {"string", "enum", "expression", "dtype", "activation"}:
         return isinstance(value, str)
+    if parameter.type in {"initializer", "regularizer", "constraint"}:
+        return isinstance(value, str) or isinstance(value, dict)
+    if parameter.type == "object":
+        return isinstance(value, dict)
     if parameter.type == "shape":
         dimensions = cast(list[Any], value) if isinstance(value, list) else []
         return isinstance(value, list) and all(
@@ -41,8 +59,67 @@ def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
 
 
 ###############################################################################
-def _output_name(node: NodeInstance) -> str:
-    return node.label or node.id
+def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
+    if schema.type == "object":
+        if not isinstance(value, dict):
+            return False
+        if any(key not in value for key in schema.required_properties):
+            return False
+        return all(
+            key not in value or _value_matches_schema(property_schema, value[key])
+            for key, property_schema in schema.properties.items()
+        )
+    if schema.type in {"list", "tuple", "shape"}:
+        if not isinstance(value, list):
+            return False
+        if schema.item is None:
+            return True
+        return all(_value_matches_schema(schema.item, item) for item in value)
+    if schema.type == "integer" or schema.type == "axis":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if schema.type == "number":
+        return isinstance(value, int | float) and not isinstance(value, bool)
+    if schema.type == "boolean":
+        return isinstance(value, bool)
+    if schema.type in {"string", "enum", "expression", "dtype", "activation"}:
+        return isinstance(value, str)
+    if schema.type in {"initializer", "regularizer", "constraint"}:
+        return isinstance(value, str) or isinstance(value, dict)
+    if schema.type == "object":
+        return isinstance(value, dict)
+    return True
+
+
+###############################################################################
+def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
+    for parameter_id, expected in condition.items():
+        actual = parameters.get(parameter_id)
+        if isinstance(expected, dict):
+            if "equals" in expected and actual != expected["equals"]:
+                return False
+            if "not_equals" in expected and actual == expected["not_equals"]:
+                return False
+            if "in" in expected and actual not in expected["in"]:
+                return False
+            if "not_in" in expected and actual in expected["not_in"]:
+                return False
+        elif isinstance(expected, list):
+            if actual not in expected:
+                return False
+        elif actual != expected:
+            return False
+    return True
+
+
+###############################################################################
+def _effective_default(
+    parameter: ParameterDefinition, capability: ParameterCapability | None
+) -> Any:
+    if capability is not None and capability.default is not None:
+        return capability.default
+    if parameter.framework_default is not None:
+        return parameter.framework_default
+    return parameter.default
 
 
 ###############################################################################
@@ -118,6 +195,18 @@ class ValidationService:
                         keras_enabled=keras_enabled,
                     )
                 )
+            elif mapping.status == "unverified":
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="unverified_implementation",
+                        severity=DiagnosticSeverity.COMPATIBILITY,
+                        message=f"{manifest.display_name} has not been verified for {implementation_label}",
+                        node_id=node.id,
+                        execution_backend=execution_backend,
+                        keras_enabled=keras_enabled,
+                        details={"notes": mapping.notes},
+                    )
+                )
             known_parameter_ids = {parameter.id for parameter in manifest.parameters}
             unknown_parameters = sorted(set(node.parameters) - known_parameter_ids)
             for parameter_id in unknown_parameters:
@@ -133,10 +222,17 @@ class ValidationService:
                     )
                 )
             for parameter in manifest.parameters:
+                if not _condition_matches(parameter.visible_when, node.parameters):
+                    continue
                 supplied = parameter.id in node.parameters
-                value = node.parameters[parameter.id] if supplied else parameter.default
                 capability = mapping.parameters.get(parameter.id) if mapping is not None else None
-                if parameter.required and not supplied:
+                default = _effective_default(parameter, capability)
+                value = node.parameters[parameter.id] if supplied else default
+                required = parameter.required or (
+                    bool(parameter.required_when)
+                    and _condition_matches(parameter.required_when, node.parameters)
+                )
+                if required and not supplied:
                     diagnostics.append(
                         ValidationDiagnostic(
                             code="missing_parameter",
@@ -182,8 +278,9 @@ class ValidationService:
                     continue
                 if (
                     capability is not None
-                    and not capability.supported
-                    and value != parameter.default
+                    and (not capability.supported or capability.status == "unsupported")
+                    and supplied
+                    and value != default
                 ):
                     diagnostics.append(
                         ValidationDiagnostic(
@@ -195,6 +292,19 @@ class ValidationService:
                             execution_backend=execution_backend,
                             keras_enabled=keras_enabled,
                             details={"value": value, "notes": capability.notes},
+                        )
+                    )
+                if capability is not None and capability.status == "unverified":
+                    diagnostics.append(
+                        ValidationDiagnostic(
+                            code="unverified_parameter_mapping",
+                            severity=DiagnosticSeverity.COMPATIBILITY,
+                            message=f"Parameter '{parameter.display_name}' has not been verified for {implementation_label}",
+                            node_id=node.id,
+                            parameter_id=parameter.id,
+                            execution_backend=execution_backend,
+                            keras_enabled=keras_enabled,
+                            details={"notes": capability.notes},
                         )
                     )
                 if (
@@ -214,11 +324,7 @@ class ValidationService:
                             details={"allowed": capability.allowed_values, "value": value},
                         )
                     )
-                if (
-                    parameter.type == "enum"
-                    and parameter.options
-                    and value not in parameter.options
-                ):
+                if parameter.options and value not in parameter.options:
                     diagnostics.append(
                         ValidationDiagnostic(
                             code="invalid_parameter_option",
@@ -231,6 +337,19 @@ class ValidationService:
                             details={"allowed": parameter.options, "value": value},
                         )
                     )
+                if supplied and not _condition_matches(parameter.enabled_when, node.parameters):
+                    if value != default:
+                        diagnostics.append(
+                            ValidationDiagnostic(
+                                code="disabled_parameter",
+                                severity=DiagnosticSeverity.ERROR,
+                                message=f"Parameter '{parameter.display_name}' is disabled by its current configuration",
+                                node_id=node.id,
+                                parameter_id=parameter.id,
+                                execution_backend=execution_backend,
+                                keras_enabled=keras_enabled,
+                            )
+                        )
                 if parameter.type == "shape" and isinstance(value, list):
                     dimensions = cast(list[Any], value)
                     invalid_dimensions = [
@@ -376,7 +495,6 @@ class ValidationService:
                                 )
                                 break
         incoming_by_port: Counter[tuple[str, str]] = Counter()
-        outgoing_by_node: Counter[str] = Counter()
         edge_contracts: Counter[tuple[str, str, str, str]] = Counter()
         for edge in graph.edges:
             source = nodes.get(edge.source_node_id)
@@ -391,6 +509,16 @@ class ValidationService:
                     )
                 )
                 continue
+            if source.id == target.id:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="self_connection",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="A node cannot connect to itself",
+                        edge_id=edge.id,
+                        node_id=source.id,
+                    )
+                )
             source_manifest = manifests.get(source.id)
             target_manifest = manifests.get(target.id)
             if source_manifest is None or target_manifest is None:
@@ -411,12 +539,25 @@ class ValidationService:
                     )
                 )
                 continue
+            if not _condition_matches(target_port.enabled_when, target.parameters):
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="disabled_port",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=f"Input port '{target_port.display_name}' is disabled by node parameters",
+                        edge_id=edge.id,
+                        node_id=target.id,
+                    )
+                )
             expected_kind = (
                 target_port.element_kind
                 if target_port.kind.value == "tensor_list"
                 else target_port.kind
             )
-            if source_port.kind != expected_kind:
+            kind_matches = source_port.kind == expected_kind
+            if source_port.kind.value == "tensor_list" and target_port.kind.value == "tensor_list":
+                kind_matches = True
+            if not kind_matches:
                 diagnostics.append(
                     ValidationDiagnostic(
                         code="incompatible_port_kind",
@@ -442,7 +583,6 @@ class ValidationService:
                     )
                 )
             incoming_by_port[(target.id, target_port.id)] += 1
-            outgoing_by_node[source.id] += 1
             if (
                 not target_port.accepts_multiple
                 and incoming_by_port[(target.id, target_port.id)] > 1
@@ -468,29 +608,93 @@ class ValidationService:
                         )
                     )
 
-        input_nodes = [node for node in graph.nodes if node.definition_id.startswith("input.")]
-        output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
-        if not input_nodes:
-            diagnostics.append(
-                ValidationDiagnostic(
-                    code="missing_model_input",
-                    severity=DiagnosticSeverity.ERROR,
-                    message="The model graph requires at least one input node",
+        resolved = resolved_outputs(graph, self._catalog)
+        explicit_outputs = bool(graph.output_bindings)
+        effective_outputs: list[OutputReference] = []
+        binding_keys: set[tuple[str, str]] = set()
+        output_names: Counter[str] = Counter()
+        for output in resolved:
+            binding = output.binding
+            if output.node is None:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="unknown_output_node",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=f"Output binding references missing node '{binding.node_id}'",
+                        node_id=binding.node_id,
+                    )
+                )
+                continue
+            if output.manifest is None:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="unknown_output_definition",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Output binding references a node with an unknown definition",
+                        node_id=binding.node_id,
+                    )
+                )
+                continue
+            if output.manifest.semantic_role == "input":
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="invalid_model_output",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Input nodes cannot be selected as model outputs",
+                        node_id=binding.node_id,
+                    )
+                )
+                continue
+            if output.port is None:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="invalid_output_port",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=f"Output binding references unknown port '{binding.port_id}'",
+                        node_id=binding.node_id,
+                    )
+                )
+                continue
+            if output.port.kind.value not in {"tensor", "tensor_list", "mask", "scalar"}:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="invalid_output_port_kind",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="Only value-producing ports can be model outputs",
+                        node_id=binding.node_id,
+                    )
+                )
+                continue
+            if (binding.node_id, binding.port_id) in binding_keys:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="duplicate_model_output",
+                        severity=DiagnosticSeverity.ERROR,
+                        message="The same model output is selected more than once",
+                        node_id=binding.node_id,
+                    )
+                )
+                continue
+            binding_keys.add((binding.node_id, binding.port_id))
+            output_names[output.name] += 1
+            effective_outputs.append(
+                OutputReference(
+                    node_id=binding.node_id,
+                    port_id=binding.port_id,
+                    name=output.name,
+                    explicit=output.explicit,
+                    task_hint=output.manifest.task_hint,
                 )
             )
-        if not output_nodes:
+        if not effective_outputs:
             diagnostics.append(
                 ValidationDiagnostic(
                     code="missing_model_output",
                     severity=DiagnosticSeverity.ERROR,
-                    message="The model graph requires at least one output node",
+                    message="The model graph requires at least one valid output binding or terminal node",
                 )
             )
-        duplicate_output_names = [
-            name
-            for name, count in Counter(_output_name(node) for node in output_nodes).items()
-            if count > 1
-        ]
+        duplicate_output_names = [name for name, count in output_names.items() if count > 1]
         if duplicate_output_names:
             diagnostics.append(
                 ValidationDiagnostic(
@@ -500,42 +704,42 @@ class ValidationService:
                     details={"labels": duplicate_output_names},
                 )
             )
-        for output in output_nodes:
-            if outgoing_by_node[output.id] > 0:
-                diagnostics.append(
-                    ValidationDiagnostic(
-                        code="output_has_outgoing_edge",
-                        severity=DiagnosticSeverity.WARNING,
-                        message="A model output usually should not feed another graph node",
-                        node_id=output.id,
-                    )
+        if not catalog_input_nodes(graph, self._catalog):
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="missing_model_input",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="The model graph requires at least one input node",
                 )
+            )
 
+        input_nodes = catalog_input_nodes(graph, self._catalog)
         input_ids = {node.id for node in input_nodes}
-        output_ids = {node.id for node in output_nodes}
+        output_ids = {item.node_id for item in effective_outputs}
         input_reachable = reachable_nodes(graph, input_ids)
         output_reachable = nodes_reaching(graph, output_ids)
         active_node_ids = input_reachable & output_reachable
-        for node in graph.nodes:
-            if node.id in active_node_ids:
-                continue
-            if node.id in input_ids:
-                code = "unreachable_model_input"
-                message = "Model input does not contribute to any model output"
-            elif node.id in output_ids:
-                code = "unreachable_model_output"
-                message = "Model output cannot be reached from a model input"
-            else:
-                code = "unreachable_graph_component"
-                message = "Graph node is not on a path from a model input to a model output"
-            diagnostics.append(
-                ValidationDiagnostic(
-                    code=code,
-                    severity=DiagnosticSeverity.ERROR,
-                    message=message,
-                    node_id=node.id,
+        if input_ids and output_ids:
+            for node in graph.nodes:
+                if node.id in active_node_ids:
+                    continue
+                if node.id in input_ids:
+                    code = "unreachable_model_input"
+                    message = "Model input does not contribute to any model output"
+                elif node.id in output_ids:
+                    code = "unreachable_model_output"
+                    message = "Model output cannot be reached from a model input"
+                else:
+                    code = "unreachable_graph_component"
+                    message = "Graph node is not on a path from a model input to a model output"
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code=code,
+                        severity=DiagnosticSeverity.ERROR,
+                        message=message,
+                        node_id=node.id,
+                    )
                 )
-            )
 
         try:
             topological_order(graph)
@@ -548,7 +752,7 @@ class ValidationService:
                 )
             )
 
-        shape_summaries = []
+        shape_summaries: list[ShapeSummary] = []
         total_parameters: int | None = 0
         configuration_diagnostic_ids = {id(item) for item in configuration_diagnostics}
         if not any(
@@ -622,9 +826,19 @@ class ValidationService:
         compatibility_errors = [
             item for item in diagnostics if item.severity == DiagnosticSeverity.COMPATIBILITY
         ]
+        inferred_type, inferred_confidence, inferred_evidence = infer_model_type(
+            graph, self._catalog, shape_summaries or None
+        )
         return ValidationResult(
             valid=not errors and not compatibility_errors,
             diagnostics=diagnostics,
             shape_summaries=shape_summaries,
             total_parameters=total_parameters,
+            effective_outputs=effective_outputs,
+            output_mode="explicit" if explicit_outputs else "inferred",
+            model_type=ModelTypeInference(
+                kind=inferred_type,
+                confidence=inferred_confidence,
+                evidence=inferred_evidence,
+            ),
         )

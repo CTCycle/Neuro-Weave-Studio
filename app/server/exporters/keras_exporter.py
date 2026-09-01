@@ -9,6 +9,7 @@ from domain.compilation_catalog import CompilationCatalog, get_compilation_catal
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
+from validation.output_resolution import resolved_outputs
 
 
 ###############################################################################
@@ -50,7 +51,11 @@ class KerasSourceExporter(SourceExporter):
     ) -> Any:
         if not configuration:
             return "None"
-        outputs = [node for node in graph.nodes if node.definition_id.startswith("output.")]
+        outputs = [
+            output.node
+            for output in resolved_outputs(graph, get_node_catalog())
+            if output.node is not None
+        ]
         values: dict[str, str] = {}
         for node in outputs:
             value = configuration.get("__default__", default)
@@ -185,7 +190,7 @@ class KerasSourceExporter(SourceExporter):
                 lines.append(
                     f"    {variable} = {emit_operation_source(manifest, 'keras', inputs, parameters)}"
                 )
-            elif definition.startswith("input."):
+            elif manifest.semantic_role == "input":
                 shape = list(parameters.get("shape", [None, 1]))
                 feature_shape = shape[1:] if shape and shape[0] is None else shape
                 lines.append(
@@ -319,7 +324,7 @@ class KerasSourceExporter(SourceExporter):
                             f"    {current} = layers.LayerNormalization(name={(node.id + suffix + '_output_norm')!r})({current})"
                         )
                 lines.append(f"    {variable} = {current}")
-            elif definition.startswith("output."):
+            elif manifest.semantic_role == "output_adapter":
                 lines.append(
                     f"    {variable} = layers.Activation('linear', name={node.id!r})({source})"
                 )
@@ -327,7 +332,9 @@ class KerasSourceExporter(SourceExporter):
                 raise ValueError(f"No Keras adapter registered for {definition}")
 
         input_variables = ", ".join(variables[node_id] for node_id in ir.input_node_ids)
-        output_variables = ", ".join(variables[node_id] for node_id in ir.output_node_ids)
+        output_variables = ", ".join(
+            variables[binding.node_id] for binding in ir.output_bindings
+        )
         lines.append(
             f"    model = keras.Model(inputs=[{input_variables}], outputs=[{output_variables}], name='neuro_weave_model')"
         )

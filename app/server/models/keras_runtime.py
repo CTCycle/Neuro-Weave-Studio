@@ -4,8 +4,10 @@ from typing import Any
 
 import keras
 
+from common.catalogs.loader import get_node_catalog
 from domain.compilation_catalog import CompilationOption, get_compilation_catalog
 from domain.graph import ModelGraph
+from validation.output_resolution import resolved_outputs
 
 
 ###############################################################################
@@ -49,11 +51,11 @@ def prepare_runtime(graph: ModelGraph) -> None:
 def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
     return [
         (
-            node.id,
-            {node.id, node.label or node.id},
+            output.binding.node_id,
+            {output.binding.node_id, output.name},
         )
-        for node in graph.nodes
-        if node.definition_id.startswith("output.")
+        for output in resolved_outputs(graph, get_node_catalog())
+        if output.node is not None
     ]
 
 

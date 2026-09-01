@@ -8,6 +8,7 @@ from domain.compilation import CanonicalModelIR, CompiledNode
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph, ShapeSummary
 from validation.graph_utils import ordered_incoming_edges, topological_order
+from validation.output_resolution import input_nodes, output_bindings
 from validation.shape_inference import infer_shapes
 
 
@@ -52,14 +53,15 @@ def compile_to_ir(
                 parameters=node.parameters,
             )
         )
+    resolved_output_bindings, _ = output_bindings(graph, catalog)
+    resolved_input_nodes = input_nodes(graph, catalog)
     return CanonicalModelIR(
         execution_backend=execution_backend,
         keras_enabled=keras_enabled,
         ordered_nodes=ordered_nodes,
-        input_node_ids=[node.id for node in graph.nodes if node.definition_id.startswith("input.")],
-        output_node_ids=[
-            node.id for node in graph.nodes if node.definition_id.startswith("output.")
-        ],
+        input_node_ids=[node.id for node in resolved_input_nodes],
+        output_node_ids=list(dict.fromkeys(binding.node_id for binding in resolved_output_bindings)),
+        output_bindings=resolved_output_bindings,
         shape_summaries=(
             shape_summaries if shape_summaries is not None else infer_shapes(graph, catalog)
         ),

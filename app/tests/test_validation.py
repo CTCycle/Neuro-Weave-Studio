@@ -1,6 +1,6 @@
 from common.catalogs.loader import get_node_catalog
 from domain.enums import DiagnosticSeverity, ExecutionBackend
-from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+from domain.graph import EdgeInstance, ModelGraph, NodeInstance, OutputBinding, Position
 from services.validation_service import ValidationService
 from validation.shape_inference import infer_shapes
 
@@ -478,3 +478,78 @@ def test_transposed_convolution_uses_declared_dimension_parameter() -> None:
     transposed = next(item for item in summaries if item.node_id == "transposed")
 
     assert transposed.outputs["output"].shape == [None, 10, 4]
+
+
+###############################################################################
+def test_terminal_operation_is_inferred_as_output_without_output_adapter() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
+            make_node("prediction", "layer.dense", {"units": 1, "activation": "sigmoid"}),
+        ],
+        edges=[
+            EdgeInstance(
+                id="e1",
+                source_node_id="input",
+                source_port_id="output",
+                target_node_id="prediction",
+                target_port_id="input",
+            )
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert result.valid
+    assert result.output_mode == "inferred"
+    assert [(item.node_id, item.port_id) for item in result.effective_outputs] == [
+        ("prediction", "output")
+    ]
+    assert result.model_type.kind == "binary_classification"
+
+
+###############################################################################
+def test_explicit_output_bindings_support_multiple_inputs_and_outputs() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("left_input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
+            make_node("right_input", "input.tabular", {"shape": [None, 3], "dtype": "float32"}),
+            make_node("left_head", "layer.dense", {"units": 1, "activation": "sigmoid"}),
+            make_node("right_head", "layer.dense", {"units": 2, "activation": "softmax"}),
+        ],
+        edges=[
+            EdgeInstance(
+                id="left",
+                source_node_id="left_input",
+                source_port_id="output",
+                target_node_id="left_head",
+                target_port_id="input",
+            ),
+            EdgeInstance(
+                id="right",
+                source_node_id="right_input",
+                source_port_id="output",
+                target_node_id="right_head",
+                target_port_id="input",
+            ),
+        ],
+        output_bindings=[
+            OutputBinding(node_id="left_head", port_id="output"),
+            OutputBinding(node_id="right_head", port_id="output"),
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert result.valid
+    assert result.output_mode == "explicit"
+    assert {item.node_id for item in result.effective_outputs} == {"left_head", "right_head"}
+    assert result.model_type.kind == "multi_output"
