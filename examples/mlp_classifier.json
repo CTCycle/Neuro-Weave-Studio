@@ -4,7 +4,7 @@
   "execution_backend": "pytorch",
   "keras_enabled": true,
   "graph": {
-    "schema_version": 3,
+    "schema_version": 4,
     "nodes": [
       {
         "id": "features",
