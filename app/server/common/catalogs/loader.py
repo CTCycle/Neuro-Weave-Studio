@@ -201,6 +201,7 @@ def _base_layer_parameters() -> list[dict[str, Any]]:
             options=_DTYPE_OPTIONS,
             nullable=True,
             framework_default=None,
+            editor_default="float32",
             ui={"control": "select", "allow_global_policy": True},
         ),
         _parameter("trainable", "Trainable", "boolean", True, group="Advanced"),
