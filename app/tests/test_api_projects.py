@@ -40,7 +40,7 @@ def project_payload() -> dict[str, object]:
         "execution_backend": "pytorch",
         "keras_enabled": True,
         "graph": {
-            "schema_version": 3,
+            "schema_version": 4,
             "nodes": [
                 {
                     "id": "input",
