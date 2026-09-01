@@ -9,9 +9,9 @@ import {
 } from '../../../domain/graph-mapper'
 import { emptyModelConfiguration, implementationKey, type ExecutionBackend, type ModelConfiguration, type ModelGraph, type NodeManifest, type OutputBinding, type ProjectDocument, type ShapeSummary } from '../../../domain/types'
 import { layeredLayout } from '../graph/graph-layout.service'
-import { isGraphConnectionValid, type GraphConnection } from '../graph/graph-validation'
+import { validateGraphConnection, type GraphConnection, type GraphConnectionValidation } from '../graph/graph-validation'
 
-export type { GraphConnection } from '../graph/graph-validation'
+export type { GraphConnection, GraphConnectionValidation } from '../graph/graph-validation'
 export { wouldCreateCycle } from '../graph/graph-validation'
 
 export interface NodePositionChange {
@@ -39,6 +39,7 @@ export class GraphEditorStore {
   private readonly activeKerasEnabled = signal(true)
 
   private dragging = false
+  private dragCheckpointed = false
 
   setManifests(manifests: NodeManifest[]): void {
     this.manifests.set(manifests)
@@ -57,15 +58,20 @@ export class GraphEditorStore {
   beginDrag(): void {
     if (this.dragging) return
     this.dragging = true
-    this.checkpoint()
+    this.dragCheckpointed = false
   }
 
   endDrag(): void {
     this.dragging = false
+    this.dragCheckpointed = false
   }
 
   moveNodes(changes: readonly NodePositionChange[]): void {
     if (!changes.length) return
+    if (this.dragging && !this.dragCheckpointed) {
+      this.checkpoint()
+      this.dragCheckpointed = true
+    }
     const positions = new Map(changes.map((change) => [change.id, change.position]))
     this.nodes.update((nodes) => nodes.map((node) => {
       if (node.locked) return node
@@ -94,18 +100,19 @@ export class GraphEditorStore {
   }
 
   isConnectionValid(connection: GraphConnection): boolean {
-    return isGraphConnectionValid(this.nodes(), this.edges(), connection)
+    return validateGraphConnection(this.nodes(), this.edges(), connection).valid
   }
 
-  connect(connection: GraphConnection): boolean {
-    if (!this.isConnectionValid(connection)) return false
+  connect(connection: GraphConnection): GraphConnectionValidation {
+    const result = validateGraphConnection(this.nodes(), this.edges(), connection)
+    if (!result.valid) return result
     this.checkpoint()
     this.edges.update((edges) => [...edges, {
       ...connection,
       id: newId('edge'),
-      type: 'smoothstep',
+      type: 'bezier',
     }])
-    return true
+    return result
   }
 
   selectNode(nodeId: string | null): void {
@@ -308,7 +315,7 @@ export class GraphEditorStore {
       sourceHandle: edge.source_port_id,
       target: edge.target_node_id,
       targetHandle: edge.target_port_id,
-      type: 'smoothstep',
+      type: 'bezier',
     })))
     this.outputBindings.set(structuredClone(project.graph.output_bindings))
     this.modelConfiguration.set(structuredClone(project.graph.model_configuration))

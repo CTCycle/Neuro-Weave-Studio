@@ -13,6 +13,7 @@ import { NodeCatalogComponent } from './components/node-catalog.component'
 import { PropertiesInspectorComponent } from './components/properties-inspector.component'
 import { ResizableValidationRegionComponent, DEFAULT_VALIDATION_HEIGHT } from './components/resizable-validation-region.component'
 import { ValidationPanelComponent } from './components/validation-panel.component'
+import { ThemedSelectComponent, type ThemedSelectOption } from '../../shared/components/themed-select.component'
 
 function draftSnapshot(name: string, description: string, executionBackend: ExecutionBackend, kerasEnabled: boolean, graph: unknown): string {
   return JSON.stringify({ name, description, executionBackend, kerasEnabled, graph })
@@ -60,7 +61,7 @@ type DraftMetadataPatch = Partial<Pick<BuilderTab, 'name' | 'description' | 'exe
 @Component({
   selector: 'nw-model-builder-page',
   standalone: true,
-  imports: [LucideFileText, LucideHammer, LucideLayoutGrid, LucidePlay, LucidePlus, LucideRedo2, LucideSave, LucideUndo2, LucideX, GraphCanvasComponent, NodeCatalogComponent, PropertiesInspectorComponent, ResizableValidationRegionComponent, ValidationPanelComponent],
+  imports: [LucideFileText, LucideHammer, LucideLayoutGrid, LucidePlay, LucidePlus, LucideRedo2, LucideSave, LucideUndo2, LucideX, ThemedSelectComponent, GraphCanvasComponent, NodeCatalogComponent, PropertiesInspectorComponent, ResizableValidationRegionComponent, ValidationPanelComponent],
   template: `
     @if (!initialized() || !activeTab()) {
       <section class="page-state panel"><span class="eyebrow">MODEL BUILDER</span><h1>{{ notice() || 'Loading authoring workspace…' }}</h1><p>Preparing the catalog, runtime profile, and isolated editor session.</p></section>
@@ -69,7 +70,7 @@ type DraftMetadataPatch = Partial<Pick<BuilderTab, 'name' | 'description' | 'exe
         <section class="builder-toolbar panel">
           <div class="builder-toolbar-heading" [class.is-dirty]="dirty()"><span class="eyebrow">MODEL BUILDER</span><span class="builder-badge" aria-live="polite"><svg lucideHammer [size]="11"></svg><span>{{ busy() ? 'Saving…' : dirty() ? 'Drafting' : 'Saved' }}</span></span></div>
           <div class="builder-identity"><input class="project-title" aria-label="Model name" [value]="name()" (input)="updateDraftMetadata({ name: $any($event.target).value })" placeholder="Untitled model" /><div class="description-control" #descriptionControl><button type="button" class="toolbar-description" [class.has-description]="description()" [attr.aria-expanded]="descriptionOpen()" aria-haspopup="dialog" (click)="toggleDescription()"><svg lucideFileText [size]="14"></svg><span>Description</span>@if (description()) { <i aria-hidden="true"></i> }</button>@if (descriptionOpen()) { <div class="description-popover" role="dialog" aria-label="Model description editor"><div class="description-popover-heading"><div><span class="eyebrow">MODEL METADATA</span><strong>Description</strong></div><button type="button" class="popover-close" (click)="cancelDescription()" aria-label="Close description editor"><svg lucideX [size]="14"></svg></button></div><textarea #descriptionInput [value]="descriptionDraft()" (input)="descriptionDraft.set($any($event.target).value)" maxlength="2000" placeholder="Describe the model purpose, inputs, or expected outputs." aria-label="Model description"></textarea><div class="description-popover-footer"><small>{{ descriptionDraft().length }}/2000</small><div><button type="button" class="secondary" (click)="cancelDescription()">Cancel</button>@if (description() || descriptionDraft()) { <button type="button" class="secondary danger-text" (click)="clearDescription()">Clear</button> }<button type="button" class="primary" (click)="saveDescription()">Save</button></div></div></div> }</div></div>
-          <label class="builder-target"><span>Backend</span><select aria-label="Execution backend" [value]="backend()" (change)="updateDraftMetadata({ executionBackend: $any($event.target).value })">@for (option of backendOptions; track option[0]) { <option [value]="option[0]" [selected]="backend() === option[0]">{{ option[1] }}</option> }</select></label><label class="toolbar-toggle" title="Optional Keras API layer over the selected native backend."><span>Enable Keras</span><input type="checkbox" aria-label="Enable Keras" [checked]="kerasEnabled()" (change)="updateDraftMetadata({ kerasEnabled: $any($event.target).checked })" /><strong>{{ kerasEnabled() ? 'On' : 'Off' }}</strong></label>
+          <div class="builder-target"><span>Backend</span><nw-themed-select ariaLabel="Execution backend" [options]="backendSelectOptions" [value]="backend()" (valueChange)="selectBackend($event)"></nw-themed-select></div><label class="toolbar-toggle" title="Optional Keras API layer over the selected native backend."><span>Enable Keras</span><input type="checkbox" aria-label="Enable Keras" [checked]="kerasEnabled()" (change)="updateDraftMetadata({ kerasEnabled: $any($event.target).checked })" /><strong>{{ kerasEnabled() ? 'On' : 'Off' }}</strong></label>
           <div class="builder-history"><button type="button" title="Undo" aria-label="Undo" (click)="store.undo()" [disabled]="!store.canUndo()"><svg lucideUndo2 [size]="14"></svg></button><button type="button" title="Redo" aria-label="Redo" (click)="store.redo()" [disabled]="!store.canRedo()"><svg lucideRedo2 [size]="14"></svg></button></div><div class="builder-actions"><button class="secondary" type="button" aria-label="Validate" (click)="validate()" [disabled]="busy()"><svg lucideLayoutGrid [size]="14"></svg><span class="action-label">Validate</span></button><button class="primary" type="button" aria-label="Save model" (click)="save()" [disabled]="busy()"><svg lucideSave [size]="14"></svg><span class="action-label">{{ busy() ? 'Saving…' : 'Save model' }}</span></button>@if (activeTab()?.projectId) { <button class="secondary" type="button" aria-label="Open workspace" (click)="openWorkspace()" [disabled]="busy()"><svg lucidePlay [size]="14"></svg><span class="action-label">Open workspace</span></button> }</div>
         </section>
         <div class="builder-mobile-actions" aria-label="Builder panels"><button #catalogToggle type="button" [class.active]="mobilePanel() === 'catalog'" [attr.aria-expanded]="mobilePanel() === 'catalog'" aria-controls="builder-catalog-drawer" (click)="togglePanel('catalog')">Catalog</button><button #inspectorToggle type="button" [class.active]="mobilePanel() === 'inspector'" [attr.aria-expanded]="mobilePanel() === 'inspector'" aria-controls="builder-inspector-drawer" (click)="togglePanel('inspector')">Inspector</button></div>
@@ -109,6 +110,7 @@ export class ModelBuilderPageComponent {
   readonly pendingCloseTabId = signal<string | null>(null)
   readonly resetCanvasOpen = signal(false)
   readonly backendOptions = Object.entries(executionBackendShortLabels) as [ExecutionBackend, string][]
+  readonly backendSelectOptions: ThemedSelectOption[] = this.backendOptions.map(([value, label]) => ({ value, label }))
   private initializedKey: string | null = null
   private allowNextNavigation = false
   private loadSequence = 0
@@ -204,6 +206,10 @@ export class ModelBuilderPageComponent {
     if (patch.executionBackend !== undefined || patch.kerasEnabled !== undefined) {
       this.store.setExecutionProfile(patch.executionBackend ?? this.backend(), patch.kerasEnabled ?? this.kerasEnabled())
     }
+  }
+
+  selectBackend(value: string): void {
+    if (this.backendOptions.some(([option]) => option === value)) this.updateDraftMetadata({ executionBackend: value as ExecutionBackend })
   }
 
   updateActiveTab(patch: Partial<Pick<BuilderTab, 'validation' | 'validationExpanded' | 'validationHeight'>>): void {

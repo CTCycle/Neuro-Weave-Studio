@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { emptyModelConfiguration } from '../../../domain/types'
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'
-import { isGraphConnectionValid } from '../graph/graph-validation'
+import { isGraphConnectionValid, validateGraphConnection } from '../graph/graph-validation'
 import { GraphEditorStore, wouldCreateCycle } from './graph-editor.store'
 
 const manifest = {
@@ -66,7 +66,7 @@ describe('neutral graph editor store', () => {
     store = new GraphEditorStore()
     store.restoreEditorSession({
       nodes: [node('source'), node('target')],
-      edges: [{ id: 'source-target', source: 'source', sourceHandle: 'output', target: 'target', targetHandle: 'input', type: 'smoothstep' }],
+      edges: [{ id: 'source-target', source: 'source', sourceHandle: 'output', target: 'target', targetHandle: 'input', type: 'bezier' }],
       outputBindings: [],
       modelConfiguration: emptyModelConfiguration(),
       exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
@@ -171,6 +171,54 @@ describe('neutral graph editor store', () => {
     expect(isGraphConnectionValid([source, destination], [], connection)).toBe(true)
     expect(isGraphConnectionValid([source, destination], [{ id: 'existing', ...connection }], connection)).toBe(false)
     expect(isGraphConnectionValid([source, blockedDestination], [], { ...connection, target: 'blocked' })).toBe(false)
+  })
+
+  it('allows output fan-out and supported multi-input connections', () => {
+    const sourceManifest = { ...manifest, id: 'source.tensor', inputs: [], outputs: [{ ...manifest.outputs[0], accepts_multiple: false }] }
+    const targetManifest = {
+      ...manifest,
+      id: 'merge.tensor',
+      inputs: [{ id: 'input', display_name: 'Input', kind: 'tensor' as const, required: true, accepts_multiple: true, description: '' }],
+      outputs: [{ ...manifest.outputs[0], accepts_multiple: false }],
+    }
+    const source = { ...node('source'), data: { ...node('source').data, manifest: sourceManifest } }
+    const sourceTwo = { ...node('source-two'), data: { ...node('source-two').data, manifest: sourceManifest } }
+    const firstTarget = { ...node('target-one'), data: { ...node('target-one').data, manifest: targetManifest } }
+    const secondTarget = { ...node('target-two'), data: { ...node('target-two').data, manifest: targetManifest } }
+    const first = { source: 'source', sourceHandle: 'output', target: 'target-one', targetHandle: 'input' }
+    const second = { source: 'source', sourceHandle: 'output', target: 'target-two', targetHandle: 'input' }
+    const mergeOne = { source: 'source', sourceHandle: 'output', target: 'target-one', targetHandle: 'input' }
+    const mergeTwo = { source: 'source-two', sourceHandle: 'output', target: 'target-one', targetHandle: 'input' }
+
+    expect(validateGraphConnection([source, firstTarget, secondTarget], [], first).valid).toBe(true)
+    expect(validateGraphConnection([source, firstTarget, secondTarget], [
+      { id: 'first', ...first },
+    ], second).valid).toBe(true)
+    expect(validateGraphConnection([source, sourceTwo, firstTarget], [
+      { id: 'merge-one', ...mergeOne },
+    ], mergeTwo).valid).toBe(true)
+  })
+
+  it('returns typed cycle feedback without adding history or an edge', () => {
+    const cycleManifest = {
+      ...manifest,
+      inputs: [{ id: 'input', display_name: 'Input', kind: 'tensor' as const, required: true, accepts_multiple: true, description: '' }],
+    }
+    const nodes = ['a', 'b', 'c'].map((id) => ({ ...node(id), data: { ...node(id).data, manifest: cycleManifest } }))
+    const edges: EditorEdge[] = [
+      { id: 'ab', source: 'a', sourceHandle: 'output', target: 'b', targetHandle: 'input' },
+      { id: 'bc', source: 'b', sourceHandle: 'output', target: 'c', targetHandle: 'input' },
+    ]
+    const connection = { source: 'c', sourceHandle: 'output', target: 'a', targetHandle: 'input' }
+    expect(validateGraphConnection(nodes, edges, connection)).toMatchObject({ valid: false, reason: 'cycle' })
+
+    store = new GraphEditorStore()
+    store.restoreEditorSession({ nodes, edges, outputBindings: [], modelConfiguration: emptyModelConfiguration(), exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' }, futureTrainingConfiguration: {}, selectedNodeId: null, selectedEdgeId: null, copiedNodeIds: [], past: [], future: [] })
+    const pastLength = store.past().length
+    const result = store.connect(connection)
+    expect(result).toMatchObject({ valid: false, reason: 'cycle' })
+    expect(store.edges()).toHaveLength(2)
+    expect(store.past()).toHaveLength(pastLength)
   })
 
   it('does not mark input nodes as explicit outputs', () => {

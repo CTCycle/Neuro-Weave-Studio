@@ -2,6 +2,26 @@ import type { ParameterCapability, ParameterDefinition } from '../../../domain/t
 
 export type ParameterDraftValue = string | boolean | number | null
 
+const finiteParameterTypes = new Set<ParameterDefinition['type']>([
+  'boolean',
+  'enum',
+  'activation',
+  'dtype',
+  'initializer',
+  'regularizer',
+  'constraint',
+])
+
+export function isFiniteParameter(definition: ParameterDefinition): boolean {
+  return finiteParameterTypes.has(definition.type)
+    || definition.options.length > 0
+    || definition.ui?.['control'] === 'select'
+}
+
+export function parameterOptions(definition: ParameterDefinition): unknown[] {
+  return definition.type === 'boolean' ? [true, false] : definition.options
+}
+
 export interface ParsedParameterValue {
   valid: boolean
   value?: unknown
@@ -13,8 +33,14 @@ export function parseParameterValue(
   capability?: ParameterCapability,
 ): ParsedParameterValue {
   if (definition.type === 'boolean') {
-    const value = Boolean(raw)
-    return { valid: capabilityAllowsValue(capability, value), value }
+    if (raw === null || raw === '') {
+      if (definition.nullable) return { valid: capabilityAllowsValue(capability, null), value: null }
+      return { valid: false }
+    }
+    const value = typeof raw === 'boolean' ? raw : raw === 'true' ? true : raw === 'false' ? false : undefined
+    return value === undefined
+      ? { valid: false }
+      : { valid: capabilityAllowsValue(capability, value), value }
   }
   const text = String(raw).trim()
   if (!text) {
@@ -39,19 +65,15 @@ export function parseParameterValue(
     const parsed = parseSequence(text, definition.type === 'list')
     return { valid: parsed !== undefined && sequenceItemsValid(parsed, definition, capability) && capabilityAllowsValue(capability, parsed), value: parsed }
   }
-  if (definition.type === 'object' || definition.type === 'initializer' || definition.type === 'regularizer' || definition.type === 'constraint') {
+  if (definition.type === 'object') {
     const value = parseJsonObject(text)
-    if (value === undefined) {
-      if (definition.type !== 'object' && typeof raw === 'string') return { valid: capabilityAllowsValue(capability, raw), value: raw }
-      return { valid: false }
-    }
+    if (value === undefined) return { valid: false }
     return { valid: capabilityAllowsValue(capability, value), value }
   }
-  if (definition.type === 'enum' || definition.type === 'activation' || definition.type === 'dtype') {
-    const option = definition.options.find((item) => String(item) === text)
-    if (definition.options.length > 0 && option === undefined) return { valid: false }
-    const value = option === undefined ? raw : option
-    return { valid: capabilityAllowsValue(capability, value), value }
+  if (isFiniteParameter(definition)) {
+    const option = parameterOptions(definition).find((item) => String(item) === text)
+    if (option === undefined) return { valid: false }
+    return { valid: capabilityAllowsValue(capability, option), value: option }
   }
   return { valid: capabilityAllowsValue(capability, raw), value: raw }
 }
