@@ -1,7 +1,7 @@
 import { Component, HostListener, computed, effect, inject, input, output, signal, viewChild, type ElementRef } from '@angular/core'
 import { LucideSearch, LucideX } from '@lucide/angular'
 import type { ExecutionBackend, NodeManifest } from '../../../domain/types'
-import { implementationKey } from '../../../domain/types'
+import { implementationAvailable } from '../../../domain/types'
 import { GraphEditorStore } from '../state/graph-editor.store'
 
 @Component({
@@ -54,7 +54,7 @@ export class NodeCatalogComponent {
 
   toggleCategory(category: string): void { this.openCategories.update((current) => ({ ...current, [category]: !current[category] })) }
   formatCategory(category: string): string { return category.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase()) }
-  isSupported(manifest: NodeManifest): boolean { return manifest.implementations[implementationKey(this.executionBackend(), this.kerasEnabled())]?.supported ?? false }
+  isSupported(manifest: NodeManifest): boolean { return implementationAvailable(manifest, this.executionBackend(), this.kerasEnabled()) }
   addNode(manifest: NodeManifest): void { this.store.addNode(manifest, { x: 48 + (this.store.nodes().length % 4) * 176, y: 48 + Math.floor(this.store.nodes().length / 4) * 128 }) }
   startDrag(event: DragEvent, manifest: NodeManifest): void { event.dataTransfer?.setData('application/neuro-weave-node', JSON.stringify({ id: manifest.id, version: manifest.version })); if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy' }
 }

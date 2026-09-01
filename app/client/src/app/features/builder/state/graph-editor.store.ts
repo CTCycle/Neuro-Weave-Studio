@@ -7,7 +7,7 @@ import {
   type EditorHistorySnapshot,
   type GraphEditorSession,
 } from '../../../domain/graph-mapper'
-import { emptyModelConfiguration, type ModelConfiguration, type ModelGraph, type NodeManifest, type OutputBinding, type ProjectDocument, type ShapeSummary } from '../../../domain/types'
+import { emptyModelConfiguration, implementationKey, type ExecutionBackend, type ModelConfiguration, type ModelGraph, type NodeManifest, type OutputBinding, type ProjectDocument, type ShapeSummary } from '../../../domain/types'
 import { layeredLayout } from '../graph/graph-layout.service'
 import { isGraphConnectionValid, type GraphConnection } from '../graph/graph-validation'
 
@@ -35,11 +35,18 @@ export class GraphEditorStore {
   readonly future = signal<EditorHistorySnapshot[]>([])
   readonly canUndo = computed(() => this.past().length > 0)
   readonly canRedo = computed(() => this.future().length > 0)
+  private readonly activeExecutionBackend = signal<ExecutionBackend>('pytorch')
+  private readonly activeKerasEnabled = signal(true)
 
   private dragging = false
 
   setManifests(manifests: NodeManifest[]): void {
     this.manifests.set(manifests)
+  }
+
+  setExecutionProfile(executionBackend: ExecutionBackend, kerasEnabled: boolean): void {
+    this.activeExecutionBackend.set(executionBackend)
+    this.activeKerasEnabled.set(kerasEnabled)
   }
 
   checkpoint(): void {
@@ -174,11 +181,17 @@ export class GraphEditorStore {
     return copy.id
   }
 
-  duplicateWithDefaults(nodeId: string): string | null {
+  duplicateWithDefaults(nodeId: string, executionBackend?: ExecutionBackend, kerasEnabled = true): string | null {
     const node = this.nodes().find((item) => item.id === nodeId)
     if (!node) return null
+    const selectedBackend = executionBackend ?? this.activeExecutionBackend()
+    const selectedKeras = executionBackend === undefined ? this.activeKerasEnabled() : kerasEnabled
+    const implementation = node.data.manifest.implementations[implementationKey(selectedBackend, selectedKeras)]
     const parameters = Object.fromEntries(
-      node.data.manifest.parameters.map((item) => [item.id, structuredClone(editorDefault(item))]),
+      node.data.manifest.parameters.map((item) => [
+        item.id,
+        structuredClone(frameworkDefault(item, implementation?.parameters?.[item.id])),
+      ]),
     )
     const copy = this.copyNode(node, parameters, node.data.manifest.display_name)
     this.checkpoint()
@@ -204,6 +217,7 @@ export class GraphEditorStore {
     if (!node || node.data.manifest.semantic_role === 'input') return false
     return node.data.manifest.outputs.some((port) => {
       if (port.enabled_when && !conditionMatches(port.enabled_when, node.data.parameters)) return false
+      if (!['tensor', 'tensor_list', 'mask', 'scalar'].includes(port.kind)) return false
       return !this.edges().some((edge) => edge.source === nodeId && (edge.sourceHandle ?? 'output') === port.id)
     })
   }
@@ -216,13 +230,22 @@ export class GraphEditorStore {
     const node = this.nodes().find((item) => item.id === nodeId)
     if (!node) return
     const existing = this.outputBindings().filter((binding) => binding.node_id === nodeId)
-    this.checkpoint()
     if (existing.length) {
+      this.checkpoint()
       this.outputBindings.update((bindings) => bindings.filter((binding) => binding.node_id !== nodeId))
       return
     }
-    const port = node.data.manifest.outputs.find((item) => item.id === 'output') ?? node.data.manifest.outputs[0]
+    if (node.data.manifest.semantic_role === 'input') return
+    const port = node.data.manifest.outputs.find((item) => (
+      ['tensor', 'tensor_list', 'mask', 'scalar'].includes(item.kind)
+      && (!item.enabled_when || conditionMatches(item.enabled_when, node.data.parameters))
+      && item.id === 'output'
+    )) ?? node.data.manifest.outputs.find((item) => (
+      ['tensor', 'tensor_list', 'mask', 'scalar'].includes(item.kind)
+      && (!item.enabled_when || conditionMatches(item.enabled_when, node.data.parameters))
+    ))
     if (!port) return
+    this.checkpoint()
     this.outputBindings.update((bindings) => [...bindings, { node_id: nodeId, port_id: port.id }])
   }
 
@@ -232,11 +255,17 @@ export class GraphEditorStore {
     this.edges.update((edges) => edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId))
   }
 
-  resetParameters(nodeId: string): void {
+  resetParameters(nodeId: string, executionBackend?: ExecutionBackend, kerasEnabled = true): void {
     const node = this.nodes().find((item) => item.id === nodeId)
     if (!node) return
+    const selectedBackend = executionBackend ?? this.activeExecutionBackend()
+    const selectedKeras = executionBackend === undefined ? this.activeKerasEnabled() : kerasEnabled
+    const implementation = node.data.manifest.implementations[implementationKey(selectedBackend, selectedKeras)]
     const parameters = Object.fromEntries(
-      node.data.manifest.parameters.map((item) => [item.id, structuredClone(editorDefault(item))]),
+      node.data.manifest.parameters.map((item) => [
+        item.id,
+        structuredClone(frameworkDefault(item, implementation?.parameters?.[item.id])),
+      ]),
     )
     this.checkpoint()
     this.nodes.update((nodes) => nodes.map((item) => item.id === nodeId ? {
@@ -424,6 +453,16 @@ export class GraphEditorStore {
 
 function editorDefault(definition: NodeManifest['parameters'][number]): unknown {
   return definition.editor_default !== undefined ? definition.editor_default : definition.default
+}
+
+function frameworkDefault(
+  definition: NodeManifest['parameters'][number],
+  capability?: { default?: unknown },
+): unknown {
+  if (capability?.default !== undefined && capability.default !== null) return capability.default
+  return Object.prototype.hasOwnProperty.call(definition, 'framework_default')
+    ? definition.framework_default
+    : definition.default
 }
 
 function newId(prefix: string): string {
