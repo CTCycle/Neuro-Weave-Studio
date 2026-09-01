@@ -19,7 +19,7 @@ import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, no
           <ng-container ngProjectAs="[fConnections]">@for (edge of store.edges(); track edge.id) { <f-connection fType="segment" fOffset="20" [fSelectionDisabled]="readOnly" [fConnectionId]="edge.id" [fSourceId]="connectorId(edge.source, 'output', edge.sourceHandle || 'output')" [fTargetId]="connectorId(edge.target, 'input', edge.targetHandle || 'input')" [class.is-selected]="store.selectedEdgeId() === edge.id"></f-connection> }</ng-container>
           <ng-container ngProjectAs="[fNodes]">@for (node of store.nodes(); track node.id) {
             <div fNode [fNodeId]="node.id" [fNodePosition]="node.position" [fNodeDraggingDisabled]="readOnly || node.locked" [fNodeSelectionDisabled]="readOnly" [fNodeSize]="nodeSize(node)" [class.is-selected]="store.selectedNodeId() === node.id" [attr.aria-label]="node.data.label" (click)="selectNode(node.id)">
-              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" aria-hidden="true">@if (node.locked) { <svg lucideLock [size]="13"></svg> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { <span class="nw-flow-port input" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { <span class="nw-flow-port output" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> }</div></div>
+              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" aria-hidden="true">@if (node.locked) { <svg lucideLock [size]="13"></svg> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { @if (portEnabled(node, 'input', port.id)) { <span class="nw-flow-port input" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> } }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { @if (portEnabled(node, 'output', port.id)) { <span class="nw-flow-port output" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> } }</div></div>
             </div>
           } </ng-container>
         </f-canvas>
@@ -118,6 +118,27 @@ export class GraphCanvasComponent {
     return shape || 'Shape pending'
   }
   nodeSize(_node: EditorNode): { width: number; height: number } { return GRAPH_NODE_SIZE }
+
+  portEnabled(node: EditorNode, direction: 'input' | 'output', portId: string): boolean {
+    const ports = direction === 'input' ? node.data.manifest.inputs : node.data.manifest.outputs
+    const port = ports.find((item) => item.id === portId)
+    return port ? this.conditionMatches(port.enabled_when ?? {}, node.data.parameters) : false
+  }
+
+  private conditionMatches(condition: Record<string, unknown>, parameters: Record<string, unknown>): boolean {
+    return Object.entries(condition).every(([parameterId, expected]) => {
+      const actual = parameters[parameterId]
+      if (Array.isArray(expected)) return expected.includes(actual)
+      if (expected && typeof expected === 'object') {
+        const details = expected as Record<string, unknown>
+        if ('equals' in details && actual !== details.equals) return false
+        if ('not_equals' in details && actual === details.not_equals) return false
+        if ('in' in details && Array.isArray(details.in) && !details.in.includes(actual)) return false
+        if ('not_in' in details && Array.isArray(details.not_in) && details.not_in.includes(actual)) return false
+      } else if (actual !== expected) return false
+      return true
+    })
+  }
 
   toggleViewportLock(): void { this.viewportLocked.update((locked) => !locked) }
   zoomIn(): void { if (!this.viewportLocked()) this.zoom()?.zoomIn() }

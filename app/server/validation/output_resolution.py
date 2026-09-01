@@ -36,12 +36,44 @@ def input_nodes(graph: ModelGraph, catalog: NodeCatalog) -> list[NodeInstance]:
 
 
 ###############################################################################
-def _tensor_output_ports(manifest: NodeManifest) -> Iterable[PortDefinition]:
+def _condition_matches(condition: dict[str, object], parameters: dict[str, object]) -> bool:
+    for parameter_id, expected in condition.items():
+        actual = parameters.get(parameter_id)
+        if isinstance(expected, dict):
+            if "equals" in expected and actual != expected["equals"]:
+                return False
+            if "not_equals" in expected and actual == expected["not_equals"]:
+                return False
+            if "in" in expected and actual not in expected["in"]:
+                return False
+            if "not_in" in expected and actual in expected["not_in"]:
+                return False
+        elif isinstance(expected, list):
+            if actual not in expected:
+                return False
+        elif actual != expected:
+            return False
+    return True
+
+
+def _tensor_output_ports(
+    manifest: NodeManifest, parameters: dict[str, object] | None = None
+) -> Iterable[PortDefinition]:
+    effective_parameters = parameters or {}
     return (
         port
         for port in manifest.outputs
+        if _condition_matches(port.enabled_when, effective_parameters)
         if port.kind.value in {"tensor", "tensor_list", "mask", "scalar"}
     )
+
+
+def _output_name(node: NodeInstance | None, manifest: NodeManifest | None, port: PortDefinition | None, fallback: str) -> str:
+    base_name = node.label or node.id if node is not None and node.label else node.id if node is not None else fallback
+    if node is None or manifest is None or port is None:
+        return base_name
+    enabled_port_ids = [item.id for item in _tensor_output_ports(manifest, node.parameters)]
+    return base_name if len(enabled_port_ids) == 1 else f"{base_name}_{port.id}"
 
 
 ###############################################################################
@@ -63,7 +95,7 @@ def inferred_output_bindings(graph: ModelGraph, catalog: NodeCatalog) -> list[Ou
             continue
         if manifest.semantic_role == "input":
             continue
-        for port in _tensor_output_ports(manifest):
+        for port in _tensor_output_ports(manifest, node.parameters):
             if (node.id, port.id) not in connected_ports:
                 bindings.append(OutputBinding(node_id=node.id, port_id=port.id))
     return bindings
@@ -97,7 +129,7 @@ def resolved_outputs(graph: ModelGraph, catalog: NodeCatalog) -> list[ResolvedOu
         result.append(
             ResolvedOutput(
                 binding=binding,
-                name=(node.label or node.id) if node is not None else binding.node_id,
+                name=_output_name(node, manifest, port, binding.node_id),
                 manifest=manifest,
                 node=node,
                 port=port,

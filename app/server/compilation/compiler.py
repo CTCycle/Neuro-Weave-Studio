@@ -4,7 +4,7 @@ import keyword
 import re
 
 from common.catalogs.loader import NodeCatalog
-from domain.compilation import CanonicalModelIR, CompiledNode
+from domain.compilation import CanonicalModelIR, CompiledNode, InputBinding
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph, ShapeSummary
 from validation.graph_utils import ordered_incoming_edges, topological_order
@@ -34,8 +34,16 @@ def compile_to_ir(
     for node_id in topological_order(graph):
         node = nodes[node_id]
         manifest = catalog.get(node.definition_id, node.definition_version)
-        input_node_ids = [
-            edge.source_node_id for edge in ordered_incoming_edges(graph, node_id, manifest)
+        incoming_edges = ordered_incoming_edges(graph, node_id, manifest)
+        input_node_ids = [edge.source_node_id for edge in incoming_edges]
+        input_bindings = [
+            InputBinding(
+                source_node_id=edge.source_node_id,
+                source_port_id=edge.source_port_id,
+                target_node_id=edge.target_node_id,
+                target_port_id=edge.target_port_id,
+            )
+            for edge in incoming_edges
         ]
         variable_name = _variable_name(node.label or node.id)
         base_name = variable_name
@@ -50,6 +58,7 @@ def compile_to_ir(
                 definition_id=node.definition_id,
                 variable_name=variable_name,
                 input_node_ids=input_node_ids,
+                input_bindings=input_bindings,
                 parameters=node.parameters,
             )
         )

@@ -553,3 +553,49 @@ def test_explicit_output_bindings_support_multiple_inputs_and_outputs() -> None:
     assert result.output_mode == "explicit"
     assert {item.node_id for item in result.effective_outputs} == {"left_head", "right_head"}
     assert result.model_type.kind == "multi_output"
+
+
+###############################################################################
+def test_recurrent_return_state_ports_are_conditional_and_shape_propagated() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.sequence", {"shape": [None, 5, 3], "dtype": "float32"}),
+            make_node("lstm", "recurrent.lstm", {"units": 4, "return_state": True}),
+        ],
+        edges=[
+            EdgeInstance(
+                id="e1",
+                source_node_id="input",
+                source_port_id="output",
+                target_node_id="lstm",
+                target_port_id="input",
+            )
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert result.valid
+    summary = next(item for item in result.shape_summaries if item.node_id == "lstm")
+    assert summary.outputs["output"].shape == [None, 4]
+    assert summary.outputs["hidden_state"].shape == [None, 4]
+    assert summary.outputs["cell_state"].shape == [None, 4]
+    assert {
+        (item.node_id, item.port_id)
+        for item in result.effective_outputs
+    } == {("lstm", "output"), ("lstm", "hidden_state"), ("lstm", "cell_state")}
+
+    disabled = graph.model_copy(deep=True)
+    disabled.nodes[1].parameters["return_state"] = False
+    disabled.output_bindings = [OutputBinding(node_id="lstm", port_id="hidden_state")]
+    disabled_result = ValidationService(get_node_catalog()).validate(
+        disabled,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+    assert not disabled_result.valid
+    assert any(item.code == "disabled_output_port" for item in disabled_result.diagnostics)

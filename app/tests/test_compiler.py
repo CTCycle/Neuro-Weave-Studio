@@ -66,3 +66,8 @@ def test_compiler_generates_unique_keyword_safe_variable_names() -> None:
     ir = compile_to_ir(graph, ExecutionBackend.PYTORCH, True, get_node_catalog())
     names = [node.variable_name for node in ir.ordered_nodes]
     assert names == ["node_class", "hidden", "hidden_2", "result"]
+    dense_binding = ir.ordered_nodes[1].input_bindings[0]
+    assert dense_binding.source_node_id == "input"
+    assert dense_binding.source_port_id == "output"
+    assert dense_binding.target_node_id == "dense-a"
+    assert dense_binding.target_port_id == "input"
