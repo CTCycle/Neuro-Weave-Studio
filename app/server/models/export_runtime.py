@@ -889,7 +889,10 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
                 return self.model(model_input)
 
         input_ids = list(handle.ir.input_node_ids)
-        output_ids = [binding.node_id for binding in handle.ir.output_bindings]
+        output_ids = [
+            output.name
+            for output in resolved_outputs(graph, get_node_catalog())
+        ]
         wrapper = Wrapper(handle.model, input_ids)
         args = tuple(handle.inputs)
         dynamic_axes = (
@@ -991,7 +994,7 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
 def _normalize_onnx_names(model_proto: Any, graph: ModelGraph) -> None:
     input_names = [node.id for node in input_nodes(graph, get_node_catalog())]
     output_names = [
-        output.binding.node_id for output in resolved_outputs(graph, get_node_catalog())
+        output.name for output in resolved_outputs(graph, get_node_catalog())
     ]
     graph_inputs = list(model_proto.graph.input)
     graph_outputs = list(model_proto.graph.output)
@@ -1146,10 +1149,21 @@ def _compare_outputs(
 def _tensor_metadata(nodes: list[Any], values: list[Any]) -> list[dict[str, object]]:
     result: list[dict[str, object]] = []
     for node, value in zip(nodes, values, strict=False):
-        node_id = node.id if hasattr(node, "id") else node.binding.node_id
-        result.append(
-            {"node_id": node_id, "shape": _concrete_shape(value), "dtype": _dtype_name(value)}
-        )
+        if hasattr(node, "binding"):
+            metadata: dict[str, object] = {
+                "node_id": node.binding.node_id,
+                "shape": _concrete_shape(value),
+                "dtype": _dtype_name(value),
+            }
+            if node.binding.port_id != "output" or node.name != node.binding.node_id:
+                metadata.update({"port_id": node.binding.port_id, "name": node.name})
+        else:
+            metadata = {
+                "node_id": node.id,
+                "shape": _concrete_shape(value),
+                "dtype": _dtype_name(value),
+            }
+        result.append(metadata)
     return result
 
 

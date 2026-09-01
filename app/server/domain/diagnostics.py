@@ -7,6 +7,18 @@ from pydantic import BaseModel, Field
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph, ShapeSummary
 
+ModelTypeKind = Literal[
+    "binary_classification",
+    "multiclass_classification",
+    "multilabel_classification",
+    "regression",
+    "embedding",
+    "sequence",
+    "multi_output",
+    "generic",
+]
+InferenceConfidence = Literal["high", "medium", "low"]
+
 
 ###############################################################################
 class ValidationDiagnostic(BaseModel):
@@ -32,17 +44,8 @@ class OutputReference(BaseModel):
 
 ###############################################################################
 class ModelTypeInference(BaseModel):
-    kind: Literal[
-        "binary_classification",
-        "multiclass_classification",
-        "multilabel_classification",
-        "regression",
-        "embedding",
-        "sequence",
-        "multi_output",
-        "generic",
-    ]
-    confidence: Literal["high", "medium", "low"]
+    kind: ModelTypeKind
+    confidence: InferenceConfidence
     evidence: list[str] = Field(default_factory=list)
 
 

@@ -354,8 +354,13 @@ def _operation_shape(
             raise ShapeInferenceError(f"{node_id} requires at least two inputs")
         if operation.shape_behavior == "matmul":
             left, right = input_specs[0], input_specs[1]
-            if left.rank < 2 or right.rank < 2:
-                raise ShapeInferenceError("Matrix multiplication requires rank-2 or higher inputs")
+            # Graph input shapes include the runtime batch dimension.  The
+            # emitted backend operation therefore consumes batch-first matrix
+            # tensors, not unbatched rank-2 matrices.
+            if left.rank < 3 or right.rank < 3:
+                raise ShapeInferenceError(
+                    "Matrix multiplication requires rank-3 or higher batch-first inputs"
+                )
             left_inner, right_inner = left.shape[-1], right.shape[-2]
             if (
                 isinstance(left_inner, int)
@@ -885,38 +890,64 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 and query.shape[0] != context.shape[0]
             ):
                 raise ShapeInferenceError("Attention query and context batch dimensions must match")
-            if node.definition_id == "transformer.encoder_block":
+            if node.definition_id in {
+                "transformer.encoder_block",
+                "transformer.stack",
+                "transformer.decoder_block",
+                "transformer.feed_forward",
+            }:
                 source_dimension = query.shape[-1]
                 if not isinstance(source_dimension, int):
                     raise ShapeInferenceError(
-                        "Transformer encoder requires a known embedding dimension"
+                        "Transformer blocks require a known embedding dimension"
                     )
-                heads = _optional_positive_int(parameters, "num_heads", 8)
-                key_dimension = _optional_positive_int(parameters, "key_dim", 64)
-                layer_count = _optional_positive_int(parameters, "layers", 1)
                 multiplier = _optional_positive_int(parameters, "ffn_multiplier", 4)
                 hidden_dimension = source_dimension * multiplier
-                mha_count = _attention_parameter_count(
-                    query_dimension=source_dimension,
-                    context_dimension=source_dimension,
-                    heads=heads,
-                    key_dimension=key_dimension,
-                    value_dimension=key_dimension,
-                    output_dimension=source_dimension,
-                    use_bias=True,
+                feed_forward_count = (
+                    source_dimension * hidden_dimension
+                    + hidden_dimension
+                    + hidden_dimension * source_dimension
+                    + source_dimension
                 )
-                if mha_count is None:
-                    parameter_count = None
+                if node.definition_id == "transformer.feed_forward":
+                    parameter_count = feed_forward_count
                 else:
-                    feed_forward_count = (
-                        source_dimension * hidden_dimension
-                        + hidden_dimension
-                        + hidden_dimension * source_dimension
-                        + source_dimension
+                    heads = _optional_positive_int(parameters, "num_heads", 8)
+                    key_dimension = _optional_positive_int(parameters, "key_dim", 64)
+                    layer_count = _optional_positive_int(parameters, "layers", 1)
+                    self_attention_count = _attention_parameter_count(
+                        query_dimension=source_dimension,
+                        context_dimension=source_dimension,
+                        heads=heads,
+                        key_dimension=key_dimension,
+                        value_dimension=key_dimension,
+                        output_dimension=source_dimension,
+                        use_bias=True,
                     )
-                    normalization_count = 4 * source_dimension
-                    parameter_count = layer_count * (
-                        mha_count + feed_forward_count + normalization_count
+                    if node.definition_id == "transformer.decoder_block":
+                        context_dimension = context.shape[-1]
+                        cross_attention_count = _attention_parameter_count(
+                            query_dimension=source_dimension,
+                            context_dimension=(
+                                context_dimension
+                                if isinstance(context_dimension, int)
+                                else None
+                            ),
+                            heads=heads,
+                            key_dimension=key_dimension,
+                            value_dimension=key_dimension,
+                            output_dimension=source_dimension,
+                            use_bias=True,
+                        )
+                        attention_count = None if self_attention_count is None else cross_attention_count
+                        normalization_count = 6 * source_dimension
+                    else:
+                        attention_count = self_attention_count
+                        normalization_count = 4 * source_dimension
+                    parameter_count = (
+                        None
+                        if attention_count is None
+                        else layer_count * (attention_count + feed_forward_count + normalization_count)
                     )
                 output = query
                 output_ports = _enabled_output_ports(manifest, parameters)
@@ -1050,9 +1081,11 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
 
         output_ports = _enabled_output_ports(manifest, parameters)
         if rule == "recurrent":
+            recurrent_source = input_specs[0]
+            state_units = _int_parameter(parameters, "units", 64)
             recurrent_state = TensorSpec(
-                shape=[source.shape[0], units],
-                dtype=source.dtype,
+                shape=[recurrent_source.shape[0], state_units],
+                dtype=recurrent_source.dtype,
             )
             outputs = {
                 port.id: output if port.id == "output" else recurrent_state

@@ -208,6 +208,54 @@ def test_unsafe_math_expression_is_rejected() -> None:
 
 
 ###############################################################################
+def test_matmul_requires_batch_first_matrix_tensors() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("left", "input.tensor", {"shape": [None, 4], "dtype": "float32"}),
+            make_node("right", "input.tensor", {"shape": [None, 4], "dtype": "float32"}),
+            make_node("matmul", "math.matmul"),
+            make_node("output", "output.custom"),
+        ],
+        edges=[
+            EdgeInstance(
+                id="e1",
+                source_node_id="left",
+                source_port_id="output",
+                target_node_id="matmul",
+                target_port_id="inputs",
+            ),
+            EdgeInstance(
+                id="e2",
+                source_node_id="right",
+                source_port_id="output",
+                target_node_id="matmul",
+                target_port_id="inputs",
+            ),
+            EdgeInstance(
+                id="e3",
+                source_node_id="matmul",
+                source_port_id="output",
+                target_node_id="output",
+                target_port_id="input",
+            ),
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert not result.valid
+    assert any(
+        item.code == "shape_inference_failed"
+        and "rank-3 or higher batch-first" in item.message
+        for item in result.diagnostics
+    )
+
+
+###############################################################################
 def test_declared_parameter_contract_rejects_null_and_unknown_values() -> None:
     def graph(parameters: dict[str, object]) -> ModelGraph:
         return ModelGraph(

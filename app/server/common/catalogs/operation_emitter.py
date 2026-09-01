@@ -195,6 +195,10 @@ def _safe_expression_source(expression: str, source: str, backend: str) -> str:
         if isinstance(node, ast.Subscript):
             if not isinstance(node.value, ast.Name) or node.value.id != "x":
                 raise OperationEmissionError("Only the input tensor may be sliced")
+            if isinstance(node.slice, ast.Slice) and all(
+                value is None for value in (node.slice.lower, node.slice.upper, node.slice.step)
+            ):
+                return source
             return f"{render(node.value)}[{render_slice(node.slice)}]"
         raise OperationEmissionError(f"Expression element '{type(node).__name__}' is not allowed")
 
@@ -262,7 +266,7 @@ def emit_operation_source(
     if behavior == "reshape":
         target = _literal(parameters.get("target_shape", [-1]))
         if backend == "keras":
-            target = f"(keras.ops.shape({inputs[0]})[0], *{target})"
+            return f"layers.Reshape(target_shape={target})({inputs[0]})"
         elif backend == "tensorflow":
             target = f"[tf.shape({inputs[0]})[0], *{target}]"
         elif backend == "pytorch":
@@ -288,15 +292,13 @@ def emit_operation_source(
         keyword = _parameter_name(mapping, "axis", backend)
         return f"{symbol}({inputs[0]}, {keyword}={_literal(parameters.get('axis', -1))})"
     if behavior == "flatten":
+        if backend == "keras":
+            return f"layers.Flatten()({inputs[0]})"
         if backend == "pytorch":
             return f"{symbol}({inputs[0]}, start_dim=1)"
         if backend == "tensorflow":
             return f"{symbol}({inputs[0]}, [tf.shape({inputs[0]})[0], -1])"
-        return (
-            f"{symbol}({inputs[0]}, (keras.ops.shape({inputs[0]})[0], -1))"
-            if backend == "keras"
-            else f"{symbol}({inputs[0]}, ({inputs[0]}.shape[0], -1))"
-        )
+        return f"{symbol}({inputs[0]}, ({inputs[0]}.shape[0], -1))"
     if behavior == "repeat":
         arguments = [inputs[0], _literal(parameters.get("repeats", 1))]
         arguments.extend(_keywords(manifest, mapping, parameters, backend))
@@ -386,6 +388,10 @@ def evaluate_safe_expression(
         if isinstance(node, ast.Subscript):
             if not isinstance(node.value, ast.Name) or node.value.id != "x":
                 raise OperationEmissionError("Only the input tensor may be sliced")
+            if isinstance(node.slice, ast.Slice) and all(
+                value is None for value in (node.slice.lower, node.slice.upper, node.slice.step)
+            ):
+                return value
 
             def evaluate_slice(slice_node: ast.AST) -> Any:
                 if isinstance(slice_node, ast.Tuple):

@@ -9,7 +9,7 @@ from domain.compilation_catalog import CompilationOption, get_compilation_catalo
 from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
-from validation.output_resolution import resolved_outputs
+from validation.output_resolution import output_selectors, resolved_outputs
 
 
 ###############################################################################
@@ -106,15 +106,13 @@ class PyTorchSourceExporter(SourceExporter):
         nodes = {node.id: node for node in graph.nodes}
         summaries = self._summary_map(ir)
         native = graph.model_configuration.native.pytorch
-        output_nodes = [
-            output.node
-            for output in resolved_outputs(graph, catalog)
-            if output.node is not None
+        output_items = [
+            output for output in resolved_outputs(graph, catalog) if output.node is not None
         ]
 
         def selected_value(configuration: dict[str, Any], output: Any, default: Any) -> Any:
             value = configuration.get("__default__", default)
-            for selector in (output.id, output.label):
+            for selector in output_selectors(output):
                 if selector and selector in configuration:
                     value = configuration[selector]
                     break
@@ -135,32 +133,32 @@ class PyTorchSourceExporter(SourceExporter):
         resolved_metrics: dict[str, list[tuple[str, str]]] = {}
         target_contracts: dict[str, str] = {}
         metric_target_contracts: dict[str, dict[str, str]] = {}
-        for output in output_nodes:
+        for output in output_items:
             loss_id = selected_value(native.losses, output, None)
             if isinstance(loss_id, str):
                 loss_option = option(compilation_catalog.losses, loss_id)
                 loss_adapter = loss_option.implementations["pytorch"].adapter
                 if loss_adapter is None:
                     raise ValueError(f"No PyTorch loss adapter registered for {loss_id}")
-                resolved_losses[output.id] = (loss_id, loss_adapter)
+                resolved_losses[output.name] = (loss_id, loss_adapter)
                 if loss_option.target_contract is not None:
-                    target_contracts[output.id] = loss_option.target_contract
+                    target_contracts[output.name] = loss_option.target_contract
             metric_values = selected_value(native.metrics, output, [])
             if isinstance(metric_values, list):
-                resolved_metrics[output.id] = []
-                for metric_id in metric_values:
+                resolved_metrics[output.name] = []
+                for metric_id in cast(list[Any], metric_values):
                     if not isinstance(metric_id, str):
                         continue
                     metric_option = option(compilation_catalog.metrics, metric_id)
                     metric_adapter = metric_option.implementations["pytorch"].adapter
                     if metric_adapter is None:
                         raise ValueError(f"No PyTorch metric adapter registered for {metric_id}")
-                    resolved_metrics[output.id].append((metric_id, metric_adapter))
-                    metric_target_contracts.setdefault(output.id, {})[metric_id] = (
+                    resolved_metrics[output.name].append((metric_id, metric_adapter))
+                    metric_target_contracts.setdefault(output.name, {})[metric_id] = (
                         metric_option.target_contract or "continuous_same_shape"
                     )
                     target_contracts.setdefault(
-                        output.id, metric_option.target_contract or "continuous_same_shape"
+                        output.name, metric_option.target_contract or "continuous_same_shape"
                     )
         lines = [
             "from __future__ import annotations",

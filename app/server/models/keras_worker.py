@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import keras
 from keras import layers
@@ -160,6 +160,7 @@ def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, 
     hidden_dimension = int(source_dimension) * int(parameters.get("ffn_multiplier", 4))
     activation = parameters.get("activation", "gelu")
     pre_norm = bool(parameters.get("pre_norm", True))
+    base_kwargs = _base_layer_kwargs(parameters)
     current = source
     for index in range(layer_count):
         suffix = f"_{index + 1}" if layer_count > 1 else ""
@@ -167,42 +168,49 @@ def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, 
         attention_norm_name = f"{node_id}{suffix}_attention_norm"
         ffn_norm_name = f"{node_id}{suffix}_ffn_norm"
         if pre_norm:
-            attention_input = layers.LayerNormalization(name=attention_norm_name)(current)
+            attention_input = layers.LayerNormalization(**base_kwargs, name=attention_norm_name)(current)
             attention = layers.MultiHeadAttention(
                 num_heads=heads,
                 key_dim=key_dim,
                 dropout=dropout,
+                **base_kwargs,
                 name=attention_name,
             )(attention_input, attention_input)
             current = layers.Add(name=f"{node_id}{suffix}_attention_residual")([current, attention])
-            feed_forward_input = layers.LayerNormalization(name=ffn_norm_name)(current)
+            feed_forward_input = layers.LayerNormalization(**base_kwargs, name=ffn_norm_name)(current)
         else:
             attention = layers.MultiHeadAttention(
                 num_heads=heads,
                 key_dim=key_dim,
                 dropout=dropout,
+                **base_kwargs,
                 name=attention_name,
             )(current, current)
-            current = layers.LayerNormalization(name=attention_norm_name)(
+            current = layers.LayerNormalization(**base_kwargs, name=attention_norm_name)(
                 layers.Add(name=f"{node_id}{suffix}_attention_residual")([current, attention])
             )
             feed_forward_input = current
         feed_forward = layers.Dense(
             hidden_dimension,
             activation=activation,
+            **base_kwargs,
             name=f"{node_id}{suffix}_ffn_expand",
         )(feed_forward_input)
         feed_forward = layers.Dense(
             int(source_dimension),
+            **base_kwargs,
             name=f"{node_id}{suffix}_ffn_project",
         )(feed_forward)
         feed_forward = layers.Dropout(
             dropout,
+            **base_kwargs,
             name=f"{node_id}{suffix}_ffn_dropout",
         )(feed_forward)
         current = layers.Add(name=f"{node_id}{suffix}_ffn_residual")([current, feed_forward])
         if not pre_norm:
-            current = layers.LayerNormalization(name=f"{node_id}{suffix}_output_norm")(current)
+            current = layers.LayerNormalization(
+                **base_kwargs, name=f"{node_id}{suffix}_output_norm"
+            )(current)
     return current
 
 
@@ -231,14 +239,24 @@ def build_model(
         source = inputs[0] if inputs else None
         params = node.parameters
         definition = node.definition_id
+        if manifest.semantic_role != "input" and source is None:
+            raise RuntimeError(f"Node {node_id} requires an inbound connection")
+        source = cast(Any, source)
         if manifest.operation is not None:
-            tensors[node_id] = apply_runtime_operation(
-                manifest,
-                "keras",
-                inputs,
-                params,
-                _keras_operation_functions(catalog),
-            )
+            if manifest.operation.shape_behavior == "reshape":
+                tensors[node_id] = layers.Reshape(
+                    target_shape=params.get("target_shape", [-1]), name=node.id
+                )(source)
+            elif manifest.operation.shape_behavior == "flatten":
+                tensors[node_id] = layers.Flatten(name=node.id)(source)
+            else:
+                tensors[node_id] = apply_runtime_operation(
+                    manifest,
+                    "keras",
+                    inputs,
+                    params,
+                    _keras_operation_functions(catalog),
+                )
         elif manifest.semantic_role == "input":
             shape = list(params.get("shape", [None, 1]))
             feature_shape = shape[1:] if shape and shape[0] is None else shape
@@ -364,7 +382,9 @@ def build_model(
                 )(source)
             else:
                 tensors[node_id] = keras.layers.Lambda(
-                    lambda value: keras.ops.repeat(value, repeats, axis=axis),
+                    lambda value, repeats=repeats, axis=axis: keras.ops.repeat(
+                        value, repeats, axis=axis
+                    ),
                     **_base_layer_kwargs(params),
                     name=node.id,
                 )(source)
@@ -679,55 +699,76 @@ def build_model(
             if source_dimension is None:
                 raise RuntimeError("Transformer decoder requires a known embedding dimension")
             current = query
+            activation = params.get("activation", "gelu")
+            hidden_dimension = int(source_dimension) * int(params.get("ffn_multiplier", 4))
+            pre_norm = bool(params.get("pre_norm", True))
+            base_kwargs = _base_layer_kwargs(params)
             for index in range(int(params.get("layers", 1))):
                 suffix = f"_{index + 1}"
+                self_norm = layers.LayerNormalization(
+                    **base_kwargs, name=f"{node.id}{suffix}_self_norm"
+                )
+                cross_norm = layers.LayerNormalization(
+                    **base_kwargs, name=f"{node.id}{suffix}_cross_norm"
+                )
+                ffn_norm = layers.LayerNormalization(
+                    **base_kwargs, name=f"{node.id}{suffix}_ffn_norm"
+                )
+                self_input = self_norm(current) if pre_norm else current
                 self_attention = layers.MultiHeadAttention(
                     num_heads=params.get("num_heads", 8),
                     key_dim=params.get("key_dim", 64),
                     dropout=params.get("dropout", 0.0),
-                    **_base_layer_kwargs(params),
+                    **base_kwargs,
                     name=f"{node.id}{suffix}_self_attention",
-                )(current, current)
-                current = layers.LayerNormalization(
-                    **_base_layer_kwargs(params), name=f"{node.id}{suffix}_self_norm"
-                )(layers.Add(name=f"{node.id}{suffix}_self_residual")([current, self_attention]))
+                )(self_input, self_input)
+                self_residual = layers.Add(name=f"{node.id}{suffix}_self_residual")(
+                    [current, self_attention]
+                )
+                current = self_residual if pre_norm else self_norm(self_residual)
+                cross_input = cross_norm(current) if pre_norm else current
                 cross_attention = layers.MultiHeadAttention(
                     num_heads=params.get("num_heads", 8),
                     key_dim=params.get("key_dim", 64),
                     dropout=params.get("dropout", 0.0),
-                    **_base_layer_kwargs(params),
+                    **base_kwargs,
                     name=f"{node.id}{suffix}_cross_attention",
-                )(current, context)
-                current = layers.LayerNormalization(
-                    **_base_layer_kwargs(params), name=f"{node.id}{suffix}_cross_norm"
-                )(layers.Add(name=f"{node.id}{suffix}_cross_residual")([current, cross_attention]))
+                )(cross_input, context)
+                cross_residual = layers.Add(name=f"{node.id}{suffix}_cross_residual")(
+                    [current, cross_attention]
+                )
+                current = cross_residual if pre_norm else cross_norm(cross_residual)
+                feed_forward_input = ffn_norm(current) if pre_norm else current
                 feed_forward = layers.Dense(
-                    int(source_dimension) * 4,
-                    activation="gelu",
-                    **_base_layer_kwargs(params),
+                    hidden_dimension,
+                    activation=activation,
+                    **base_kwargs,
                     name=f"{node.id}{suffix}_ffn_expand",
-                )(current)
+                )(feed_forward_input)
                 feed_forward = layers.Dropout(
                     params.get("dropout", 0.0),
-                    **_base_layer_kwargs(params),
+                    **base_kwargs,
                     name=f"{node.id}{suffix}_ffn_dropout",
                 )(feed_forward)
                 feed_forward = layers.Dense(
                     int(source_dimension),
-                    **_base_layer_kwargs(params),
+                    **base_kwargs,
                     name=f"{node.id}{suffix}_ffn_project",
                 )(feed_forward)
-                current = layers.LayerNormalization(
-                    **_base_layer_kwargs(params), name=f"{node.id}{suffix}_output_norm"
-                )(layers.Add(name=f"{node.id}{suffix}_ffn_residual")([current, feed_forward]))
+                ffn_residual = layers.Add(name=f"{node.id}{suffix}_ffn_residual")(
+                    [current, feed_forward]
+                )
+                current = (
+                    ffn_residual
+                    if pre_norm
+                    else layers.LayerNormalization(
+                        **base_kwargs, name=f"{node.id}{suffix}_output_norm"
+                    )(ffn_residual)
+                )
             tensors[node_id] = current
         elif definition == "transformer.residual":
             tensors[node_id] = layers.Add(**_base_layer_kwargs(params), name=node.id)(inputs)
-        elif definition == "transformer.attention_mask":
-            tensors[node_id] = layers.Activation(
-                "linear", **_base_layer_kwargs(params), name=node.id
-            )(source)
-        elif manifest.semantic_role == "output_adapter":
+        elif definition == "transformer.attention_mask" or manifest.semantic_role == "output_adapter":
             tensors[node_id] = layers.Activation(
                 "linear", **_base_layer_kwargs(params), name=node.id
             )(source)

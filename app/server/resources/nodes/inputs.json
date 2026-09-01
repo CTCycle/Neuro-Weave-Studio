@@ -419,7 +419,7 @@
         {
           "id": "output",
           "display_name": "Output",
-          "kind": "tensor",
+          "kind": "mask",
           "required": true,
           "accepts_multiple": false,
           "rank": null

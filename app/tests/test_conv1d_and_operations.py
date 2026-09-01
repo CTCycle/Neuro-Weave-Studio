@@ -235,6 +235,7 @@ def test_native_conv1d_executes_with_exact_output_shape(backend: ExecutionBacken
         ("math.sum", [[None, 4]], {"axis": -1}, (1,)),
         ("math.reshape", [[None, 2, 2]], {"target_shape": [4]}, (1, 4)),
         ("math.concatenate", [[None, 2], [None, 2]], {"axis": -1}, (1, 4)),
+        ("math.matmul", [[None, 3, 4], [None, 4, 2]], {}, (1, 3, 2)),
         ("math.slice", [[None, 4, 3]], {"expression": "x[:, 1:3]"}, (1, 2, 3)),
     ],
 )
