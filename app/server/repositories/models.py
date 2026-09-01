@@ -35,7 +35,7 @@ class ProjectRecord(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    graph_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    graph_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
     execution_backend: Mapped[str] = mapped_column(
         String(32), nullable=False, default=ExecutionBackend.PYTORCH.value
     )
@@ -99,6 +99,9 @@ class ProjectGraphSettingsRecord(Base):
     project_id: Mapped[str] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
     )
+    output_bindings_json: Mapped[list[object]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
     model_configuration_json: Mapped[dict[str, object]] = mapped_column(
         JSON, nullable=False, default=dict
     )
@@ -140,6 +143,11 @@ class ProjectNodeRecord(Base):
     position_x: Mapped[float] = mapped_column(Float, nullable=False)
     position_y: Mapped[float] = mapped_column(Float, nullable=False)
     parameters_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    locked: Mapped[bool] = mapped_column(
+        Boolean(create_constraint=True, name="ck_project_nodes_locked"),
+        nullable=False,
+        default=False,
+    )
 
     project: Mapped[ProjectRecord] = relationship(back_populates="nodes")
 

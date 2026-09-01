@@ -11,15 +11,22 @@ CATALOG_EXTENSION_PATH = RESOURCE_ROOT.parent / "catalog_extensions.json"
 
 _INITIALIZER_OPTIONS = [
     "uniform",
+    "normal",
+    "truncated_normal",
+    "constant",
+    "variance_scaling",
     "glorot_uniform",
     "glorot_normal",
     "he_uniform",
     "he_normal",
+    "lecun_uniform",
+    "lecun_normal",
     "zeros",
     "ones",
     "random_normal",
     "random_uniform",
     "orthogonal",
+    "identity",
 ]
 _REGULARIZER_OPTIONS = ["none", "l1", "l2", "l1_l2"]
 _CONSTRAINT_OPTIONS = ["none", "max_norm", "min_max_norm", "non_neg", "unit_norm"]
@@ -399,7 +406,28 @@ def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
         seen_parameters.add(identifier)
         unique_parameters.append(parameter)
     item["parameters"] = unique_parameters
+    category = str(item.get("category", ""))
+    if category == "inputs":
+        item.setdefault("semantic_role", "input")
+    elif category == "outputs":
+        item.setdefault("semantic_role", "output_adapter")
+        item.setdefault("task_hint", _output_task_hint(node_id))
+    else:
+        item.setdefault("semantic_role", "operation")
     return item
+
+
+###############################################################################
+def _output_task_hint(node_id: str) -> str | None:
+    return {
+        "output.classification": "classification",
+        "output.regression": "regression",
+        "output.segmentation": "segmentation",
+        "output.sequence": "sequence",
+        "output.multi_head": "multi_output",
+        "output.detection_placeholder": "detection",
+        "output.custom": "generic",
+    }.get(node_id)
 
 
 ###############################################################################

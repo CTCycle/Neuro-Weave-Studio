@@ -173,7 +173,7 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
                     text("SELECT graph_schema_version FROM projects WHERE id = :id"),
                     {"id": project_id},
                 ).scalar_one()
-                == 3
+                == 4
             )
             migrated_snapshot = connection.execute(
                 text("SELECT graph_snapshot_json FROM project_revisions WHERE project_id = :id"),
@@ -184,7 +184,8 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
                 if isinstance(migrated_snapshot, str)
                 else migrated_snapshot
             )
-            assert migrated_snapshot["schema_version"] == 3
+            assert migrated_snapshot["schema_version"] == 4
+            assert migrated_snapshot["output_bindings"] == []
             assert migrated_snapshot["model_configuration"]["native"]["jax"]["jit_enabled"] is False
 
             command.downgrade(config, "20260821_execution_profile")

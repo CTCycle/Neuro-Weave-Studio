@@ -13,6 +13,7 @@ from domain.graph import (
     ModelConfiguration,
     ModelGraph,
     NodeInstance,
+    OutputBinding,
     Position,
 )
 from repositories.contracts import GraphSummary
@@ -47,7 +48,7 @@ class GraphRepository:
             .order_by(ProjectEdgeRecord.ordinal)
         ).all()
         return ModelGraph(
-            schema_version=cast(Literal[3], graph_schema_version),
+            schema_version=cast(Literal[4], graph_schema_version),
             nodes=[
                 NodeInstance(
                     id=node.node_id,
@@ -56,6 +57,7 @@ class GraphRepository:
                     label=node.label,
                     position=Position(x=node.position_x, y=node.position_y),
                     parameters=node.parameters_json,
+                    locked=node.locked,
                 )
                 for node in nodes
             ],
@@ -68,6 +70,10 @@ class GraphRepository:
                     target_port_id=edge.target_port_id,
                 )
                 for edge in edges
+            ],
+            output_bindings=[
+                OutputBinding.model_validate(item)
+                for item in settings.output_bindings_json
             ],
             model_configuration=ModelConfiguration.model_validate(
                 settings.model_configuration_json
@@ -124,6 +130,9 @@ class GraphRepository:
         self._session.add(
             ProjectGraphSettingsRecord(
                 project_id=project_key,
+                output_bindings_json=[
+                    binding.model_dump(mode="json") for binding in graph.output_bindings
+                ],
                 model_configuration_json=graph.model_configuration.model_dump(mode="json"),
                 include_comments=graph.export_settings.include_comments,
                 include_shape_assertions=graph.export_settings.include_shape_assertions,
@@ -143,6 +152,7 @@ class GraphRepository:
                     position_x=node.position.x,
                     position_y=node.position.y,
                     parameters_json=node.parameters,
+                    locked=node.locked,
                 )
                 for ordinal, node in enumerate(graph.nodes)
             ]

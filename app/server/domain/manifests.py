@@ -8,8 +8,25 @@ from pydantic import BaseModel, Field, model_validator
 from domain.enums import ExecutionBackend, PortKind
 
 ParameterType = Literal[
-    "string", "integer", "number", "boolean", "enum", "shape", "axis", "list", "tuple", "expression"
+    "string",
+    "integer",
+    "number",
+    "boolean",
+    "enum",
+    "shape",
+    "axis",
+    "list",
+    "tuple",
+    "object",
+    "dtype",
+    "activation",
+    "initializer",
+    "regularizer",
+    "constraint",
+    "expression",
 ]
+NodeRole = Literal["input", "operation", "output_adapter"]
+CapabilityStatus = Literal["verified", "unsupported", "unverified"]
 OperationFamily = Literal["unary", "binary", "elementwise", "reduction", "tensor"]
 OperationShapeBehavior = Literal[
     "preserve",
@@ -48,6 +65,7 @@ class PortDefinition(BaseModel):
     rank: int | None = Field(default=None, ge=0)
     element_kind: PortKind | None = None
     description: str = ""
+    enabled_when: dict[str, Any] = Field(default_factory=dict)
 
     # -------------------------------------------------------------------------
     @model_validator(mode="after")
@@ -57,6 +75,16 @@ class PortDefinition(BaseModel):
         if self.kind is not PortKind.TENSOR_LIST and self.element_kind is not None:
             raise ValueError("Only tensor_list ports may declare element_kind")
         return self
+
+
+###############################################################################
+class ParameterValueSchema(BaseModel):
+    """Recursive JSON-safe value metadata shared by validation and the UI."""
+
+    type: ParameterType
+    item: ParameterValueSchema | None = None
+    properties: dict[str, ParameterValueSchema] = Field(default_factory=dict)
+    required_properties: list[str] = Field(default_factory=list)
 
 
 ###############################################################################
@@ -72,6 +100,12 @@ class ParameterDefinition(BaseModel):
     group: str = "General"
     nullable: bool = False
     ui: dict[str, Any] = Field(default_factory=dict)
+    value_schema: ParameterValueSchema | None = None
+    visible_when: dict[str, Any] = Field(default_factory=dict)
+    enabled_when: dict[str, Any] = Field(default_factory=dict)
+    required_when: dict[str, Any] = Field(default_factory=dict)
+    framework_default: Any = None
+    editor_default: Any = None
 
 
 ###############################################################################
@@ -79,10 +113,12 @@ class ParameterCapability(BaseModel):
     """Declarative target-specific support for one canonical parameter."""
 
     supported: bool = True
+    status: CapabilityStatus = "verified"
     allowed_values: list[Any] | None = None
     constraints: dict[str, Any] = Field(default_factory=dict)
     mapping: str | None = None
     notes: str | None = None
+    default: Any = None
 
 
 ###############################################################################
@@ -119,6 +155,7 @@ class ImplementationMapping(BaseModel):
     """Capability metadata for one Keras or native node implementation."""
 
     supported: bool = True
+    status: CapabilityStatus = "verified"
     symbol: str | None = None
     adapter: str | None = None
     notes: str | None = None
@@ -148,6 +185,8 @@ class NodeManifest(BaseModel):
     display_name: str
     category: str
     description: str
+    semantic_role: NodeRole = "operation"
+    task_hint: str | None = None
     inputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     outputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     parameters: list[ParameterDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
