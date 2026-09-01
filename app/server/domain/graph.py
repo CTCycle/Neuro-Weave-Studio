@@ -125,51 +125,6 @@ class ModelGraph(BaseModel):
     future_training_configuration: dict[str, Any] = Field(default_factory=dict)
 
     # -------------------------------------------------------------------------
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_legacy_payload(cls, value: Any) -> Any:
-        if not isinstance(value, dict):
-            return value
-        payload = dict(value)
-        version = payload.get("schema_version", 1)
-        if isinstance(version, int) and version > GRAPH_SCHEMA_VERSION:
-            return payload
-        nodes = []
-        for raw_node in payload.get("nodes", []) or []:
-            if not isinstance(raw_node, dict):
-                nodes.append(raw_node)
-                continue
-            node = dict(raw_node)
-            node.setdefault("locked", False)
-            nodes.append(node)
-        payload["nodes"] = nodes
-        if "output_bindings" not in payload:
-            payload["output_bindings"] = [
-                {"node_id": node.get("id"), "port_id": "output"}
-                for node in nodes
-                if isinstance(node, dict)
-                and isinstance(node.get("id"), str)
-                and str(node.get("definition_id", "")).startswith("output.")
-            ]
-        configuration = payload.get("model_configuration")
-        if isinstance(configuration, dict) and "keras" not in configuration:
-            payload["model_configuration"] = {
-                "keras": configuration,
-                "native": {
-                    "tensorflow": {"jit_compile": False},
-                    "pytorch": {
-                        "compile_enabled": False,
-                        "mode": "default",
-                        "fullgraph": False,
-                        "dynamic": False,
-                    },
-                    "jax": {"jit_enabled": False},
-                },
-            }
-        payload["schema_version"] = GRAPH_SCHEMA_VERSION
-        return payload
-
-    # -------------------------------------------------------------------------
     @model_validator(mode="after")
     def unique_ids(self) -> ModelGraph:
         nodes = self.nodes  # pyright: ignore[reportUnknownVariableType]
@@ -249,16 +204,6 @@ class ProjectExportBundle(BaseModel):
     format_version: Literal[5] = 5
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
-
-    # -------------------------------------------------------------------------
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_legacy_bundle(cls, value: Any) -> Any:
-        if not isinstance(value, dict):
-            return value
-        payload = dict(value)
-        payload["format_version"] = 5
-        return payload
 
 
 ###############################################################################

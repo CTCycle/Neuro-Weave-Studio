@@ -11,7 +11,7 @@ import pytest
 def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
     shape = input_shape or [None, 4]
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "nodes": [
             {
                 "id": "input",
