@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from domain.enums import DiagnosticSeverity, ExecutionBackend
@@ -20,11 +22,43 @@ class ValidationDiagnostic(BaseModel):
 
 
 ###############################################################################
+class OutputReference(BaseModel):
+    node_id: str
+    port_id: str
+    name: str
+    explicit: bool
+    task_hint: str | None = None
+
+
+###############################################################################
+class ModelTypeInference(BaseModel):
+    kind: Literal[
+        "binary_classification",
+        "multiclass_classification",
+        "multilabel_classification",
+        "regression",
+        "embedding",
+        "sequence",
+        "multi_output",
+        "generic",
+    ]
+    confidence: Literal["high", "medium", "low"]
+    evidence: list[str] = Field(default_factory=list)
+
+
+###############################################################################
 class ValidationResult(BaseModel):
     valid: bool
     diagnostics: list[ValidationDiagnostic]
     shape_summaries: list[ShapeSummary] = Field(default_factory=lambda: list[ShapeSummary]())
     total_parameters: int | None = None
+    effective_outputs: list[OutputReference] = Field(default_factory=list)
+    output_mode: Literal["explicit", "inferred"] = "inferred"
+    model_type: ModelTypeInference = Field(
+        default_factory=lambda: ModelTypeInference(
+            kind="generic", confidence="low", evidence=[]
+        )
+    )
 
 
 ###############################################################################

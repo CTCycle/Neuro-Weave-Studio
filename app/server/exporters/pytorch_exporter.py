@@ -9,6 +9,7 @@ from domain.compilation_catalog import CompilationOption, get_compilation_catalo
 from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
+from validation.output_resolution import resolved_outputs
 
 
 ###############################################################################
@@ -105,7 +106,11 @@ class PyTorchSourceExporter(SourceExporter):
         nodes = {node.id: node for node in graph.nodes}
         summaries = self._summary_map(ir)
         native = graph.model_configuration.native.pytorch
-        output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
+        output_nodes = [
+            output.node
+            for output in resolved_outputs(graph, catalog)
+            if output.node is not None
+        ]
 
         def selected_value(configuration: dict[str, Any], output: Any, default: Any) -> Any:
             value = configuration.get("__default__", default)
@@ -389,7 +394,7 @@ class PyTorchSourceExporter(SourceExporter):
                     f"        {name} = {emit_operation_source(manifest, 'pytorch', source_vars, params)}"
                 )
                 variables[item.node_id] = name
-            elif definition.startswith("input."):
+            elif manifest.semantic_role == "input":
                 expression = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{node.id!r}]"
                 lines.append(f"        {name} = {expression}")
                 variables[item.node_id] = name
@@ -514,13 +519,13 @@ class PyTorchSourceExporter(SourceExporter):
                     f"        {name} = torch.cat([{', '.join(source_vars)}], dim={axis!r})"
                 )
                 variables[item.node_id] = name
-            elif definition.startswith("output."):
+            elif manifest.semantic_role == "output_adapter":
                 lines.append(f"        {name} = {source}")
                 variables[item.node_id] = name
             else:
                 raise ValueError(f"No PyTorch adapter registered for {definition}")
 
-        outputs = [variables[node_id] for node_id in ir.output_node_ids]
+        outputs = [variables[binding.node_id] for binding in ir.output_bindings]
         result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
         lines.append(f"        return {result}")
         optimizer_parameters = {

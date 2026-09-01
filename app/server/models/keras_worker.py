@@ -14,6 +14,7 @@ from domain.graph import ModelGraph
 from models.keras_layers import SinusoidalPositionalEncoding
 from models.keras_runtime import layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
+from validation.output_resolution import input_nodes, resolved_outputs
 
 
 ###############################################################################
@@ -132,7 +133,7 @@ def build_model(
                 params,
                 _keras_operation_functions(catalog),
             )
-        elif definition.startswith("input."):
+        elif manifest.semantic_role == "input":
             shape = list(params.get("shape", [None, 1]))
             feature_shape = shape[1:] if shape and shape[0] is None else shape
             tensors[node_id] = keras.Input(
@@ -346,11 +347,11 @@ def build_model(
             tensors[node_id] = SinusoidalPositionalEncoding(name=node.id)(source)
         elif definition == "transformer.encoder_block":
             tensors[node_id] = _transformer_encoder_block(source, node.id, params)
-        elif definition.startswith("output."):
+        elif manifest.semantic_role == "output_adapter":
             tensors[node_id] = layers.Activation("linear", name=node.id)(source)
         else:
             raise RuntimeError(f"Keras worker does not support node {definition}")
 
-    inputs = [tensors[node.id] for node in graph.nodes if node.definition_id.startswith("input.")]
-    outputs = [tensors[node.id] for node in graph.nodes if node.definition_id.startswith("output.")]
+    inputs = [tensors[node.id] for node in input_nodes(graph, catalog)]
+    outputs = [tensors[output.binding.node_id] for output in resolved_outputs(graph, catalog)]
     return keras.Model(inputs=inputs, outputs=outputs, name="neuro_weave_model")

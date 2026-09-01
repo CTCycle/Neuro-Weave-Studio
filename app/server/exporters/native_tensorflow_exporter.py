@@ -364,7 +364,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(
                     f"        {name} = {emit_operation_source(manifest, 'tensorflow', source_vars, params)}"
                 )
-            elif definition.startswith("input."):
+            elif manifest.semantic_role == "input":
                 expression = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{node.id!r}]"
                 lines.append(f"        {name} = {expression}")
             elif definition == "layer.dense":
@@ -462,12 +462,12 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(
                     f"        {name} = tf.concat([{', '.join(source_vars)}], axis={int(params.get('axis', -1))!r})"
                 )
-            elif definition.startswith("output."):
+            elif manifest.semantic_role == "output_adapter":
                 lines.append(f"        {name} = {source}")
             else:
                 raise ValueError(f"No native TensorFlow adapter registered for {definition}")
             variables[item.node_id] = name
-        outputs = [variables[node_id] for node_id in ir.output_node_ids]
+        outputs = [variables[binding.node_id] for binding in ir.output_bindings]
         lines.append(
             f"        return {outputs[0] if len(outputs) == 1 else '(' + ', '.join(outputs) + ')'}"
         )

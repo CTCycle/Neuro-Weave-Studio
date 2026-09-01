@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from common.catalogs.loader import get_node_catalog
 from domain.enums import ExecutionBackend
 from domain.exports import (
     ExportArtifactFile,
@@ -30,6 +31,7 @@ from models.export_artifacts import (
     package_files,
     write_json,
 )
+from validation.output_resolution import input_nodes, resolved_outputs
 
 
 ###############################################################################
@@ -687,8 +689,8 @@ def _manifest(
     if project_id:
         with contextlib.suppress(ValueError):
             parsed_project_id = UUID(project_id)
-    input_nodes = [node for node in graph.nodes if node.definition_id.startswith("input.")]
-    output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
+    graph_inputs = input_nodes(graph, get_node_catalog())
+    graph_outputs = resolved_outputs(graph, get_node_catalog())
     manifest = ExportArtifactManifest(
         format=export_format,
         filename=destination.name,
@@ -701,8 +703,8 @@ def _manifest(
         project_revision=project_revision,
         graph_sha256=graph_sha256(graph),
         files=[ExportArtifactFile.model_validate(item) for item in files],
-        inputs=_tensor_metadata(input_nodes, input_values),
-        outputs=_tensor_metadata(output_nodes, outputs),
+        inputs=_tensor_metadata(graph_inputs, input_values),
+        outputs=_tensor_metadata(graph_outputs, outputs),
         compilation=graph.model_configuration.model_dump(mode="json"),
         tool_versions=_tool_versions(backend, api, export_format),
         verification=verification,
@@ -886,8 +888,8 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
                 )
                 return self.model(model_input)
 
-        input_ids = [node.id for node in graph.nodes if node.definition_id.startswith("input.")]
-        output_ids = [node.id for node in graph.nodes if node.definition_id.startswith("output.")]
+        input_ids = list(handle.ir.input_node_ids)
+        output_ids = [binding.node_id for binding in handle.ir.output_bindings]
         wrapper = Wrapper(handle.model, input_ids)
         args = tuple(handle.inputs)
         dynamic_axes = (
@@ -928,17 +930,17 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
         import tensorflow as tf
         import tf2onnx
 
-        input_nodes = [node for node in graph.nodes if node.definition_id.startswith("input.")]
+        graph_inputs = input_nodes(graph, get_node_catalog())
         specs = [
             tf.TensorSpec(tuple(_concrete_shape(value)), value.dtype, name=node.id)
-            for node, value in zip(input_nodes, handle.inputs, strict=True)
+            for node, value in zip(graph_inputs, handle.inputs, strict=True)
         ]
 
         def call(*values: Any) -> Any:
             model_input = (
                 values[0]
                 if len(values) == 1
-                else {node.id: value for node, value in zip(input_nodes, values, strict=True)}
+                else {node.id: value for node, value in zip(graph_inputs, values, strict=True)}
             )
             return handle.model(model_input)
 
@@ -955,17 +957,17 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
     import tf2onnx
     from jax.experimental import jax2tf
 
-    input_nodes = [node for node in graph.nodes if node.definition_id.startswith("input.")]
+    graph_inputs = input_nodes(graph, get_node_catalog())
     specs = [
         tf.TensorSpec(tuple(_concrete_shape(value)), value.dtype, name=node.id)
-        for node, value in zip(input_nodes, handle.inputs, strict=True)
+        for node, value in zip(graph_inputs, handle.inputs, strict=True)
     ]
 
     def call_jax(*values: Any) -> Any:
         model_input = (
             values[0]
             if len(values) == 1
-            else {node.id: value for node, value in zip(input_nodes, values, strict=True)}
+            else {node.id: value for node, value in zip(graph_inputs, values, strict=True)}
         )
         return handle.model.apply(handle.variables, model_input)
 
@@ -987,8 +989,10 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
 
 ###############################################################################
 def _normalize_onnx_names(model_proto: Any, graph: ModelGraph) -> None:
-    input_names = [node.id for node in graph.nodes if node.definition_id.startswith("input.")]
-    output_names = [node.id for node in graph.nodes if node.definition_id.startswith("output.")]
+    input_names = [node.id for node in input_nodes(graph, get_node_catalog())]
+    output_names = [
+        output.binding.node_id for output in resolved_outputs(graph, get_node_catalog())
+    ]
     graph_inputs = list(model_proto.graph.input)
     graph_outputs = list(model_proto.graph.output)
     replacements: dict[str, str] = {}
@@ -1140,10 +1144,13 @@ def _compare_outputs(
 
 ###############################################################################
 def _tensor_metadata(nodes: list[Any], values: list[Any]) -> list[dict[str, object]]:
-    return [
-        {"node_id": node.id, "shape": _concrete_shape(value), "dtype": _dtype_name(value)}
-        for node, value in zip(nodes, values, strict=False)
-    ]
+    result: list[dict[str, object]] = []
+    for node, value in zip(nodes, values, strict=False):
+        node_id = node.id if hasattr(node, "id") else node.binding.node_id
+        result.append(
+            {"node_id": node_id, "shape": _concrete_shape(value), "dtype": _dtype_name(value)}
+        )
+    return result
 
 
 ###############################################################################

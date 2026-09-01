@@ -34,12 +34,17 @@ def _error(
 
 ###############################################################################
 def _output_selectors(graph: ModelGraph) -> set[str]:
-    return {
-        selector
-        for node in graph.nodes
-        if node.definition_id.startswith("output.")
-        for selector in (node.id, node.label or node.id)
-    }
+    nodes = {node.id: node for node in graph.nodes}
+    if graph.output_bindings:
+        selected = [nodes[binding.node_id] for binding in graph.output_bindings if binding.node_id in nodes]
+    else:
+        selected = [
+            node
+            for node in graph.nodes
+            if not node.definition_id.startswith("input.")
+            and not any(edge.source_node_id == node.id for edge in graph.edges)
+        ]
+    return {selector for node in selected for selector in (node.id, node.label or node.id)}
 
 
 ###############################################################################
@@ -174,7 +179,7 @@ def _validate_mappings(
 
 ###############################################################################
 def _terminal_head(graph: ModelGraph, output_id: str) -> tuple[str | None, int | None]:
-    """Find the final activation and class width feeding one output node."""
+    """Find the final activation and class width for one selected output."""
 
     nodes = {node.id: node for node in graph.nodes}
     incoming = {
@@ -182,16 +187,23 @@ def _terminal_head(graph: ModelGraph, output_id: str) -> tuple[str | None, int |
         for edge in graph.edges
         if edge.target_port_id == "input"
     }
-    current = incoming.get(output_id)
+    current = nodes.get(output_id)
     visited: set[str] = set()
-    while current is not None and current not in visited:
-        visited.add(current)
-        node = nodes.get(current)
-        if node is None:
-            return None, None
+    while current is not None and current.id not in visited:
+        visited.add(current.id)
+        node = current
+        if node.definition_id.startswith("output."):
+            source_id = incoming.get(node.id)
+            current = nodes.get(source_id) if source_id is not None else None
+            continue
         if node.definition_id == "layer.activation":
             return str(node.parameters.get("activation", "linear")), None
-        if node.definition_id in {"layer.dense", "conv.conv1d", "conv.conv2d"}:
+        if node.definition_id in {
+            "layer.dense",
+            "conv.conv1d",
+            "conv.conv2d",
+            "layer.embedding",
+        }:
             width_value = node.parameters.get("units", node.parameters.get("filters"))
             width = (
                 width_value
@@ -199,7 +211,8 @@ def _terminal_head(graph: ModelGraph, output_id: str) -> tuple[str | None, int |
                 else None
             )
             return str(node.parameters.get("activation", "linear")), width
-        current = incoming.get(current)
+        source_id = incoming.get(node.id)
+        current = nodes.get(source_id) if source_id is not None else None
     return None, None
 
 
@@ -221,7 +234,12 @@ def _validate_semantics(
     diagnostics: list[ValidationDiagnostic] = []
     losses = {item.id: item for item in catalog.losses}
     metrics = {item.id: item for item in catalog.metrics}
-    output_nodes = [node for node in graph.nodes if node.definition_id.startswith("output.")]
+    output_ids = {
+        selector
+        for selector in _output_selectors(graph)
+        if any(node.id == selector for node in graph.nodes)
+    }
+    output_nodes = [node for node in graph.nodes if node.id in output_ids]
     for output in output_nodes:
         activation, width = _terminal_head(graph, output.id)
         task = _output_task(output, width)

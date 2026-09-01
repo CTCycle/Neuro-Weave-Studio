@@ -13,6 +13,7 @@ from domain.graph import ModelGraph
 from exporters.native_jax_exporter import NativeJaxSourceExporter
 from exporters.native_tensorflow_exporter import NativeTensorFlowSourceExporter
 from exporters.pytorch_exporter import PyTorchSourceExporter
+from validation.output_resolution import input_nodes
 
 
 ###############################################################################
@@ -72,13 +73,14 @@ def build_native_model(
         else model
     )
     inputs = _dummy_inputs(graph, backend, ir.input_node_ids)
+    graph_inputs = input_nodes(graph, catalog)
     model_input: Any = (
         inputs[0]
         if len(inputs) == 1
         else {
             node.id: value
             for node, value in zip(
-                [node for node in graph.nodes if node.definition_id.startswith("input.")],
+                graph_inputs,
                 inputs,
                 strict=True,
             )
