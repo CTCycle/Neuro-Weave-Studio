@@ -2,11 +2,13 @@ import { Component, inject, Input } from '@angular/core'
 import { LucideActivity, LucideInfo } from '@lucide/angular'
 import type { CompilationOption } from '../../domain/types'
 import { AppResourcesService } from '../../core/state/app-resources.service'
+import { MathFormulaComponent } from '../../shared/components/math-formula.component'
 
 @Component({
   selector: 'nw-metrics-section',
   standalone: true,
-  template: `<section class="metrics-section panel"><div class="section-heading"><div><span class="eyebrow">{{ eyebrow }}</span><h2>{{ title }}</h2></div><span class="catalog-count">{{ items.length }}</span></div><div class="metrics-list">@for (item of items; track item.id) { <article class="metrics-card"><div class="metrics-card-heading"><div><strong>{{ item.label }}</strong><code>{{ item.id }}</code></div><span class="read-only-badge">READ ONLY</span></div><div class="metrics-card-body"><p>{{ item.description }}</p>@if (item.formula) { <div class="metrics-formula"><span>Formula</span><code>{{ item.formula }}</code></div> }</div></article> }</div></section>`,
+  imports: [MathFormulaComponent],
+  template: `<section class="metrics-section panel"><div class="section-heading"><div><span class="eyebrow">{{ eyebrow }}</span><h2>{{ title }}</h2></div><span class="catalog-count">{{ items.length }}</span></div><div class="metrics-list">@for (item of items; track item.id) { <article class="metrics-card"><div class="metrics-card-heading"><div><strong>{{ item.label }}</strong><code>{{ item.id }}</code></div><span class="read-only-badge">READ ONLY</span></div><div class="metrics-card-body" [class.has-formula]="!!item.formula"><p>{{ item.description }}</p>@if (item.formula) { <div class="metrics-formula"><span>Formula</span><nw-math-formula [formula]="item.formula"></nw-math-formula></div> }</div></article> }</div></section>`,
 })
 export class MetricsSectionComponent {
   @Input() title = ''
