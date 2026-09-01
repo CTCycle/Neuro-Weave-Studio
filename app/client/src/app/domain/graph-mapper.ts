@@ -51,7 +51,7 @@ export function editorEdgeFromGraph(edge: ModelGraph['edges'][number]): EditorEd
     sourceHandle: edge.source_port_id,
     target: edge.target_node_id,
     targetHandle: edge.target_port_id,
-    type: 'smoothstep',
+    type: 'bezier',
   }
 }
 

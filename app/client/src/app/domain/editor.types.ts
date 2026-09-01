@@ -22,6 +22,6 @@ export interface EditorEdge {
   target: string
   sourceHandle?: string
   targetHandle?: string
-  type?: 'smoothstep'
+  type?: 'bezier'
   selected?: boolean
 }

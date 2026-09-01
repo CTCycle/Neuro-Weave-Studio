@@ -4,7 +4,7 @@ type CreatedProject = { id: string; current_revision: number; name: string }
 
 function graph() {
   return {
-    schema_version: 3,
+    schema_version: 4,
     nodes: [
       {
         id: 'input-tabular-e2e',
@@ -98,9 +98,43 @@ function graph() {
   }
 }
 
-async function createProject(request: APIRequestContext, name: string): Promise<CreatedProject> {
+function fanOutGraph() {
+  const base = graph()
+  const denseParameters = (units: number, activation: string) => ({
+    units,
+    activation,
+    use_bias: true,
+    kernel_initializer: 'glorot_uniform',
+    bias_initializer: 'zeros',
+    kernel_regularizer: 'none',
+    bias_regularizer: 'none',
+    activity_regularizer: 'none',
+    kernel_constraint: 'none',
+    bias_constraint: 'none',
+  })
+  return {
+    ...base,
+    nodes: [
+      { ...base.nodes[0], id: 'input-branch-e2e', label: 'Branch source', position: { x: 48, y: 160 } },
+      { ...base.nodes[1], id: 'dense-primary-e2e', label: 'Primary branch', position: { x: 352, y: 80 }, parameters: denseParameters(16, 'relu') },
+      { ...base.nodes[2], id: 'merge-add-e2e', definition_id: 'merge.add', label: 'Merge', position: { x: 656, y: 160 }, parameters: {} },
+      { ...base.nodes[1], id: 'dense-downstream-e2e', label: 'Downstream', position: { x: 960, y: 80 }, parameters: denseParameters(16, 'relu') },
+      { ...base.nodes[3], id: 'output-branch-e2e', label: 'Prediction', position: { x: 1264, y: 80 } },
+      { ...base.nodes[1], id: 'dense-fanout-e2e', label: 'Fan-out target', position: { x: 352, y: 360 }, parameters: denseParameters(8, 'tanh') },
+      { ...base.nodes[2], id: 'mask-target-e2e', definition_id: 'transformer.attention_mask', label: 'Mask target', position: { x: 656, y: 440 }, parameters: {} },
+    ],
+    edges: [
+      { id: 'edge-branch-1', source_node_id: 'input-branch-e2e', source_port_id: 'output', target_node_id: 'dense-primary-e2e', target_port_id: 'input' },
+      { id: 'edge-branch-2', source_node_id: 'dense-primary-e2e', source_port_id: 'output', target_node_id: 'merge-add-e2e', target_port_id: 'inputs' },
+      { id: 'edge-branch-3', source_node_id: 'merge-add-e2e', source_port_id: 'output', target_node_id: 'dense-downstream-e2e', target_port_id: 'input' },
+      { id: 'edge-branch-4', source_node_id: 'dense-downstream-e2e', source_port_id: 'output', target_node_id: 'output-branch-e2e', target_port_id: 'input' },
+    ],
+  }
+}
+
+async function createProject(request: APIRequestContext, name: string, modelGraph = graph()): Promise<CreatedProject> {
   const response = await request.post('/api/projects', {
-    data: { name, description: 'Browser regression fixture', execution_backend: 'pytorch', keras_enabled: true, graph: graph() },
+    data: { name, description: 'Browser regression fixture', execution_backend: 'pytorch', keras_enabled: true, graph: modelGraph },
   })
   expect(response.ok()).toBeTruthy()
   return response.json() as Promise<CreatedProject>
@@ -109,6 +143,18 @@ async function createProject(request: APIRequestContext, name: string): Promise<
 async function deleteProject(request: APIRequestContext, id: string): Promise<void> {
   const response = await request.delete(`/api/projects/${id}`)
   expect([204, 404]).toContain(response.status())
+}
+
+async function dragConnection(page: import('@playwright/test').Page, sourceId: string, targetId: string): Promise<void> {
+  const source = page.locator(`[data-f-connector-id="${sourceId}"]`)
+  const target = page.locator(`[data-f-connector-id="${targetId}"]`)
+  const sourceBounds = await source.boundingBox()
+  const targetBounds = await target.boundingBox()
+  expect(sourceBounds).not.toBeNull()
+  expect(targetBounds).not.toBeNull()
+  await page.mouse.move(sourceBounds!.x + sourceBounds!.width / 2, sourceBounds!.y + sourceBounds!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(targetBounds!.x + targetBounds!.width / 2, targetBounds!.y + targetBounds!.height / 2, { steps: 8 })
 }
 
 test('deletes a model from its catalog card without navigating', async ({ page, request }) => {
@@ -172,10 +218,11 @@ test('keeps saved builder profile, validation, and API payload synchronized', as
   try {
     await page.goto(`/builder/${fixture.id}`)
     await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
-    await expect(page.getByLabel('Execution backend')).toHaveValue('pytorch')
+    await expect(page.getByRole('combobox', { name: 'Execution backend' })).toHaveAttribute('data-value', 'pytorch')
     await expect(page.getByLabel('Enable Keras')).toBeChecked()
     await expect(page.locator('.nw-flow-node')).toHaveCount(4)
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(3)
+    await expect(page.locator('f-connection path.f-connection-selection').first()).toHaveAttribute('d', /C/)
 
     const validationResponse = page.waitForResponse((response) => response.url().includes('/api/validation') && response.request().method() === 'POST')
     await page.getByRole('button', { name: 'Validate', exact: true }).click()
@@ -198,10 +245,79 @@ test('keeps saved builder profile, validation, and API payload synchronized', as
     expect(saved.description).toBe('Persisted from the Angular builder.')
     expect(saved.execution_backend).toBe('pytorch')
     expect(saved.keras_enabled).toBe(true)
-    expect(saved.graph).toMatchObject({ schema_version: 3 })
+    expect(saved.graph).toMatchObject({ schema_version: 4 })
     expect(saved.graph.nodes).toHaveLength(4)
     expect(saved.graph.edges).toHaveLength(3)
     await expect(page.getByText(`Saved revision ${saved.current_revision}`)).toBeVisible()
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
+test('keeps Inspector controls contract-driven and Backend picker dark and keyboard accessible', async ({ page, request }) => {
+  const fixture = await createProject(request, `Angular Inspector ${Date.now()}`)
+  try {
+    await page.goto(`/builder/${fixture.id}`)
+    const inspector = page.getByRole('complementary', { name: 'Properties inspector' })
+    await page.locator('.nw-flow-node').nth(1).click()
+    await expect(inspector.locator('.inspector-node-header')).toBeVisible()
+    await expect(inspector.locator('.inspector-node-header')).toContainText('Hidden layer')
+    await expect(inspector.locator('.port-spec-row')).toHaveCount(2)
+    await expect(inspector.locator('.port-spec-section')).toContainText('Connected')
+    const initializer = inspector.locator('label.inspector-field').filter({ hasText: 'Kernel initializer' })
+    await expect(initializer.locator('select')).toHaveCount(1)
+    await expect(initializer.locator('textarea')).toHaveCount(0)
+    const useBias = inspector.locator('label.inspector-field').filter({ hasText: 'Use bias' })
+    await expect(useBias.locator('select')).toHaveCount(1)
+    await expect(useBias.locator('select option')).toHaveCount(2)
+
+    const backend = page.getByRole('combobox', { name: 'Execution backend' })
+    await backend.click()
+    const listbox = page.getByRole('listbox', { name: 'Execution backend' })
+    await expect(listbox).toBeVisible()
+    await expect(listbox.locator('[role="option"]')).toHaveCount(3)
+    const menuBackground = await listbox.evaluate((element) => getComputedStyle(element).backgroundColor)
+    expect(menuBackground).not.toBe('rgb(255, 255, 255)')
+    await backend.press('ArrowDown')
+    await backend.press('Enter')
+    await expect(backend).toHaveAttribute('data-value', /^(tensorflow|jax)$/)
+    await backend.press('Escape')
+    await expect(listbox).toBeHidden()
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
+test('renders live Bezier previews, fan-out connections, and cycle rejection feedback', async ({ page, request }) => {
+  const branchGraph = fanOutGraph()
+  const fixture = await createProject(request, `Angular graph UX ${Date.now()}`, branchGraph)
+  try {
+    await page.goto(`/builder/${fixture.id}`)
+    await expect(page.locator('.nw-flow-node')).toHaveCount(7)
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(4)
+
+    await dragConnection(page, 'input-branch-e2e|output|output', 'dense-fanout-e2e|input|input')
+    const preview = page.locator('f-connection-for-create path').first()
+    await expect(preview).toBeVisible()
+    await expect(preview).toHaveAttribute('d', /C/)
+    await expect(page.locator('[data-f-connector-id="dense-fanout-e2e|input|input"]')).toHaveClass(/f-connector-connectable/)
+    await page.mouse.up()
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
+
+    const saveResponse = page.waitForResponse((response) => response.url().includes(`/api/projects/${fixture.id}`) && response.request().method() === 'PUT')
+    await page.getByRole('button', { name: 'Save model', exact: true }).click()
+    const saved = await (await saveResponse).json() as { graph: { edges: unknown[] } }
+    expect(saved.graph.edges).toHaveLength(5)
+
+    await dragConnection(page, 'dense-downstream-e2e|output|output', 'merge-add-e2e|input|inputs')
+    await page.mouse.up()
+    await expect(page.getByRole('status')).toContainText('cycle')
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
+
+    await dragConnection(page, 'input-branch-e2e|output|output', 'mask-target-e2e|input|input')
+    await expect(page.locator('[data-f-connector-id="mask-target-e2e|input|input"]')).not.toHaveClass(/f-connector-connectable/)
+    await page.mouse.up()
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
   } finally {
     await deleteProject(request, fixture.id)
   }
