@@ -10,12 +10,12 @@ from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from common.catalogs.loader import get_node_catalog
 from domain.enums import ExecutionBackend, keras_backend_value
 from domain.exports import ExportFormat, ExportOptions
 from domain.graph import ModelGraph
 from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
-from common.catalogs.loader import get_node_catalog
-from validation.output_resolution import input_nodes, resolved_outputs
+from validation.output_resolution import input_nodes, output_selectors, resolved_outputs
 
 
 ###############################################################################
@@ -156,11 +156,7 @@ def run_keras_smoke(
         for node, tensor in zip(graph_inputs, input_values, strict=False)
     ]
     outputs = [
-        {
-            "node_id": output.binding.node_id,
-            "shape": _concrete_shape(tensor),
-            "dtype": _dtype_name(tensor),
-        }
+        _output_metadata(output, tensor)
         for output, tensor in zip(graph_outputs, actual_outputs, strict=False)
     ]
     return {
@@ -213,11 +209,7 @@ def run_native_smoke(
             for node, tensor in zip(graph_inputs, handle.inputs, strict=False)
         ],
         "outputs": [
-            {
-                "node_id": output.binding.node_id,
-                "shape": _concrete_shape(tensor),
-                "dtype": _dtype_name(tensor),
-            }
+            _output_metadata(output, tensor)
             for output, tensor in zip(graph_outputs, actual_outputs, strict=False)
         ],
         "parameter_count": handle.parameter_count(),
@@ -233,15 +225,13 @@ def _configured_compilation_summary(graph: ModelGraph, api: str) -> dict[str, ob
         if api == "keras"
         else graph.model_configuration.native.pytorch
     )
-    output_nodes = [
-        output.node
-        for output in resolved_outputs(graph, get_node_catalog())
-        if output.node is not None
+    output_items = [
+        output for output in resolved_outputs(graph, get_node_catalog()) if output.node is not None
     ]
 
     def selected(values: dict[str, Any], output: Any, default: Any) -> Any:
         value = values.get("__default__", default)
-        for selector in (output.id, output.label):
+        for selector in output_selectors(output):
             if selector and selector in values:
                 value = values[selector]
                 break
@@ -254,17 +244,29 @@ def _configured_compilation_summary(graph: ModelGraph, api: str) -> dict[str, ob
             "instantiated": True,
         },
         "losses": {
-            output.id: selected(configuration.losses, output, None)
-            for output in output_nodes
+            output.name: selected(configuration.losses, output, None)
+            for output in output_items
             if selected(configuration.losses, output, None) is not None
         },
         "metrics": {
-            output.id: selected(configuration.metrics, output, [])
-            for output in output_nodes
+            output.name: selected(configuration.metrics, output, [])
+            for output in output_items
             if selected(configuration.metrics, output, [])
         },
         "training": "not_run",
     }
+
+
+###############################################################################
+def _output_metadata(output: Any, tensor: Any) -> dict[str, object]:
+    metadata: dict[str, object] = {
+        "node_id": output.binding.node_id,
+        "shape": _concrete_shape(tensor),
+        "dtype": _dtype_name(tensor),
+    }
+    if output.binding.port_id != "output" or output.name != output.binding.node_id:
+        metadata.update({"port_id": output.binding.port_id, "name": output.name})
+    return metadata
 
 
 ###############################################################################
@@ -281,9 +283,10 @@ def _verify_native_compilation(
 
     compilation = handle.compilation
     output_bindings = resolved_outputs(graph, get_node_catalog())
-    output_values = dict(
-        zip((output.binding.node_id for output in output_bindings), handle.outputs, strict=False)
-    )
+    output_values = {
+        output.name: value
+        for output, value in zip(output_bindings, handle.outputs, strict=True)
+    }
     loss_functions = compilation.get("losses", {})
     loss_ids = compilation.get("loss_ids", {})
     metric_functions = compilation.get("metrics", {})

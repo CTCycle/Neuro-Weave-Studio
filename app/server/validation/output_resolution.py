@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Iterable
+from collections import Counter
+from collections.abc import Iterable
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 from common.catalogs.loader import NodeCatalog
 from domain.graph import ModelGraph, NodeInstance, OutputBinding, ShapeSummary
 from domain.manifests import NodeManifest, PortDefinition
 from domain.tensor import TensorSpec
+
+if TYPE_CHECKING:
+    from domain.diagnostics import InferenceConfidence, ModelTypeKind
 
 
 ###############################################################################
@@ -20,6 +25,19 @@ class ResolvedOutput:
     node: NodeInstance | None
     port: PortDefinition | None
     explicit: bool
+
+
+def output_selectors(output: ResolvedOutput) -> tuple[str, ...]:
+    """Return stable configuration keys for one resolved output port."""
+
+    values = [
+        output.name,
+        output.binding.node_id,
+        f"{output.binding.node_id}:{output.binding.port_id}",
+    ]
+    if output.node is not None and output.node.label:
+        values.append(output.node.label)
+    return tuple(dict.fromkeys(value for value in values if value))
 
 
 ###############################################################################
@@ -69,7 +87,7 @@ def _tensor_output_ports(
 
 
 def _output_name(node: NodeInstance | None, manifest: NodeManifest | None, port: PortDefinition | None, fallback: str) -> str:
-    base_name = node.label or node.id if node is not None and node.label else node.id if node is not None else fallback
+    base_name = fallback if node is None else node.label or node.id
     if node is None or manifest is None or port is None:
         return base_name
     enabled_port_ids = [item.id for item in _tensor_output_ports(manifest, node.parameters)]
@@ -136,7 +154,21 @@ def resolved_outputs(graph: ModelGraph, catalog: NodeCatalog) -> list[ResolvedOu
                 explicit=explicit,
             )
         )
-    return result
+    name_counts = Counter(item.name for item in result)
+    used_names: set[str] = set()
+    unique_result: list[ResolvedOutput] = []
+    for item in result:
+        name = item.name
+        if name_counts[name] > 1:
+            name = f"{name}_{item.binding.node_id}"
+        candidate = name
+        suffix = 2
+        while candidate in used_names:
+            candidate = f"{name}_{suffix}"
+            suffix += 1
+        used_names.add(candidate)
+        unique_result.append(replace(item, name=candidate))
+    return unique_result
 
 
 ###############################################################################
@@ -200,7 +232,7 @@ def infer_model_type(
     graph: ModelGraph,
     catalog: NodeCatalog,
     shape_summaries: list[ShapeSummary] | None = None,
-) -> tuple[str, str, list[str]]:
+) -> tuple[ModelTypeKind, InferenceConfidence, list[str]]:
     """Infer a non-binding task hint without constraining graph execution."""
 
     outputs = resolved_outputs(graph, catalog)

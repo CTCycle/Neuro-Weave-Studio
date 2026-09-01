@@ -65,6 +65,36 @@ _DATA_FORMAT_OPTIONS = ["channels_last", "channels_first"]
 _PADDING_OPTIONS = ["valid", "same"]
 _UNSET = object()
 
+_NATIVE_BRANCH_ADAPTERS: dict[tuple[str, str], str] = {
+    ("conv.conv1d", "pytorch"): "conv1d",
+    ("conv.conv2d", "pytorch"): "conv2d",
+    ("conv.max_pool2d", "pytorch"): "max_pool2d",
+    ("layer.activation", "pytorch"): "activation",
+    ("layer.batch_norm", "pytorch"): "batch_norm",
+    ("layer.dense", "pytorch"): "dense",
+    ("layer.dropout", "pytorch"): "dropout",
+    ("layer.embedding", "pytorch"): "embedding",
+    ("layer.flatten", "pytorch"): "flatten",
+    ("layer.layer_norm", "pytorch"): "layer_norm",
+    ("input.image", "pytorch"): "identity",
+    ("input.tensor", "pytorch"): "identity",
+    ("input.mask", "pytorch"): "identity",
+    ("input.sequence", "pytorch"): "identity",
+    ("input.tabular", "pytorch"): "identity",
+    ("input.token", "pytorch"): "identity",
+    ("merge.residual", "pytorch"): "add",
+    ("merge.skip", "pytorch"): "add",
+    ("output.classification", "pytorch"): "identity",
+    ("output.custom", "pytorch"): "identity",
+    ("output.multi_head", "pytorch"): "identity",
+    ("output.regression", "pytorch"): "identity",
+    ("output.segmentation", "pytorch"): "identity",
+    ("output.sequence", "pytorch"): "identity",
+    ("recurrent.gru", "pytorch"): "gru",
+    ("recurrent.lstm", "pytorch"): "lstm",
+}
+_PYTORCH_ACTIVATIONS = ["linear", "relu", "gelu", "sigmoid", "tanh", "softmax"]
+
 
 ###############################################################################
 def _parameter(
@@ -662,7 +692,14 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
             _parameter("stateful", "Stateful", "boolean", False, group="Behavior"),
             _parameter("unroll", "Unroll", "boolean", False, group="Behavior"),
             _parameter("seed", "Seed", "integer", None, group="Behavior", nullable=True),
-            _parameter("use_cudnn", "Use cuDNN", "enum", "auto", group="Backend-specific", options=["auto"]),
+            _parameter(
+                "use_cudnn",
+                "Use cuDNN",
+                "enum",
+                "auto",
+                group="Backend-specific",
+                options=["auto", True, False],
+            ),
         ]
         recurrent_controls.append(
             _parameter(
@@ -715,11 +752,67 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
             _constraint_parameter("bias_constraint", "Bias constraint"),
             _parameter("seed", "Seed", "integer", None, group="Behavior", nullable=True),
         ]
-    if node_id == "transformer.encoder_block":
+    if node_id in {
+        "transformer.encoder_block",
+        "transformer.stack",
+        "transformer.decoder_block",
+    }:
         return [
-            _parameter("activation", "Feed-forward activation", "activation", "gelu", group="Activation", options=_ACTIVATION_OPTIONS),
-            _parameter("ffn_multiplier", "Feed-forward multiplier", "integer", 4, group="Shape", constraints={"min": 1}),
+            _parameter("num_heads", "Num heads", "integer", 8, group="Attention", constraints={"min": 1}),
+            _parameter("key_dim", "Key dimension", "integer", 64, group="Attention", constraints={"min": 1}),
+            _parameter(
+                "dropout",
+                "Dropout",
+                "number",
+                0.0,
+                group="Regularization",
+                constraints={"min": 0, "max": 0.999},
+            ),
+            _parameter("layers", "Layers", "integer", 1, group="Structure", constraints={"min": 1}),
+            _parameter(
+                "activation",
+                "Feed-forward activation",
+                "activation",
+                "gelu",
+                group="Activation",
+                options=_ACTIVATION_OPTIONS,
+            ),
+            _parameter(
+                "ffn_multiplier",
+                "Feed-forward multiplier",
+                "integer",
+                4,
+                group="Shape",
+                constraints={"min": 1},
+            ),
             _parameter("pre_norm", "Pre-normalization", "boolean", True, group="Behavior"),
+        ]
+    if node_id == "transformer.feed_forward":
+        return [
+            _parameter(
+                "activation",
+                "Feed-forward activation",
+                "activation",
+                "gelu",
+                group="Activation",
+                options=_ACTIVATION_OPTIONS,
+            ),
+            _parameter(
+                "ffn_multiplier",
+                "Feed-forward multiplier",
+                "integer",
+                4,
+                group="Shape",
+                constraints={"min": 1},
+            ),
+            _parameter(
+                "dropout",
+                "Dropout",
+                "number",
+                0.0,
+                group="Regularization",
+                constraints={"min": 0, "max": 0.999},
+            ),
         ]
     return []
 
@@ -732,15 +825,22 @@ def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
     node_id = str(item.get("id", ""))
     parameters: list[dict[str, Any]] = []
     extra_parameters = _safe_layer_parameters(node_id)
-    if node_id.startswith(("layer.", "conv.", "recurrent.", "attention.")):
+    if node_id.startswith(("layer.", "conv.", "recurrent.", "attention.", "transformer.")):
         extra_parameters = [*_base_layer_parameters(), *extra_parameters]
+    if node_id in {
+        "transformer.encoder_block",
+        "transformer.stack",
+        "transformer.decoder_block",
+        "transformer.feed_forward",
+    }:
+        # The JSON resources intentionally share a compact placeholder shape for
+        # transformer blocks.  The executable catalog owns the node contract and
+        # replaces that placeholder with the parameters each implementation uses.
+        item["parameters"] = []
     for parameter in [*item.get("parameters", []), *extra_parameters]:
         normalized = dict(parameter)
         identifier = str(normalized.get("id", ""))
-        if identifier == "activation":
-            normalized["type"] = "activation"
-            normalized["options"] = list(_ACTIVATION_OPTIONS)
-        elif identifier == "recurrent_activation":
+        if identifier in {"activation", "recurrent_activation"}:
             normalized["type"] = "activation"
             normalized["options"] = list(_ACTIVATION_OPTIONS)
         elif identifier == "dtype":
@@ -876,6 +976,29 @@ def _merge_manifest_data(
             and not mapping.get("adapter")
         ):
             mapping["adapter"] = adapter
+        implementations[implementation] = mapping
+    node_id = str(item.get("id", ""))
+    for (adapter_node_id, implementation), adapter in _NATIVE_BRANCH_ADAPTERS.items():
+        if adapter_node_id != node_id:
+            continue
+        mapping = dict(implementations.get(implementation, {}))
+        if mapping.get("supported", True) and not mapping.get("symbol") and not mapping.get("adapter"):
+            mapping["adapter"] = adapter
+        if implementation == "pytorch" and node_id in {
+            "conv.conv1d",
+            "conv.conv2d",
+            "layer.activation",
+            "layer.dense",
+        }:
+            mapping_parameters = dict(mapping.get("parameters", {}))
+            mapping_parameters.setdefault(
+                "activation",
+                {
+                    "allowed_values": _PYTORCH_ACTIVATIONS,
+                    "notes": "The native PyTorch adapter supports the listed activation functions.",
+                },
+            )
+            mapping["parameters"] = mapping_parameters
         implementations[implementation] = mapping
     if implementations:
         item["implementations"] = implementations

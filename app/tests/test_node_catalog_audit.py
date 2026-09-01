@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from common.catalogs.loader import get_node_catalog
+from compilation.compiler import compile_to_ir
+from domain.enums import ExecutionBackend
+from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+from exporters.keras_exporter import KerasSourceExporter
 
 
 def test_catalog_contract_is_unique_and_round_trips() -> None:
@@ -129,3 +133,63 @@ def test_keras_layer_surface_matches_current_constructor_contract() -> None:
         if parameter.id == "padding"
     )
     assert padding.default == "valid"
+
+
+def test_every_supported_keras_node_has_a_source_adapter() -> None:
+    catalog = get_node_catalog()
+    exporter = KerasSourceExporter()
+    for manifest in catalog.manifests:
+        mapping = manifest.implementations.get("keras")
+        if mapping is None or not mapping.supported or manifest.semantic_role == "input":
+            continue
+        parameters = {
+            parameter.id: parameter.default
+            for parameter in manifest.parameters
+            if parameter.default is not None
+        }
+        node = NodeInstance(
+            id="node",
+            definition_id=manifest.id,
+            definition_version=manifest.version,
+            position=Position(x=240, y=0),
+            parameters=parameters,
+        )
+        input_count = 2 if manifest.inputs and manifest.inputs[0].accepts_multiple else len(manifest.inputs)
+        input_nodes = [
+            NodeInstance(
+                id=f"input_{index + 1}",
+                definition_id="input.tensor",
+                position=Position(x=0, y=index * 160),
+                parameters={"shape": [None, 8, 8, 3], "dtype": "float32"},
+            )
+            for index in range(input_count)
+        ]
+        input_ports = (
+            [manifest.inputs[0].id] * input_count
+            if manifest.inputs and manifest.inputs[0].accepts_multiple
+            else [port.id for port in manifest.inputs]
+        )
+        graph = ModelGraph(
+            nodes=[*input_nodes, node],
+            edges=[
+                EdgeInstance(
+                    id=f"edge_{index + 1}",
+                    source_node_id=input_node.id,
+                    source_port_id="output",
+                    target_node_id="node",
+                    target_port_id=target_port,
+                )
+                for index, (input_node, target_port) in enumerate(
+                    zip(input_nodes, input_ports, strict=True)
+                )
+            ],
+        )
+        ir = compile_to_ir(
+            graph,
+            ExecutionBackend.PYTORCH,
+            True,
+            catalog,
+            shape_summaries=[],
+        )
+        source = exporter.generate(graph, ir, catalog)
+        assert "No Keras adapter registered" not in source

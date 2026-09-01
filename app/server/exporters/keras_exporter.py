@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
@@ -9,7 +9,7 @@ from domain.compilation_catalog import CompilationCatalog, get_compilation_catal
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
-from validation.output_resolution import resolved_outputs
+from validation.output_resolution import output_selectors, resolved_outputs
 
 
 ###############################################################################
@@ -62,6 +62,97 @@ class KerasSourceExporter(SourceExporter):
 
     # -------------------------------------------------------------------------
     @classmethod
+    def _constructor_kwargs(
+        cls,
+        parameters: dict[str, Any],
+        graph: ModelGraph,
+        values: dict[str, Any] | None = None,
+    ) -> str:
+        """Render explicit layer kwargs while preserving Keras defaults."""
+
+        resolved = dict(values or {})
+        for key in ("dtype", "trainable", "autocast"):
+            value = parameters.get(key)
+            if value is not None:
+                resolved[key] = value
+        return ", ".join(f"{key}={value!r}" for key, value in resolved.items())
+
+    # -------------------------------------------------------------------------
+    @classmethod
+    def _recurrent_kwargs(
+        cls,
+        parameters: dict[str, Any],
+        graph: ModelGraph,
+        *,
+        cell: str,
+        name: str,
+        return_sequences: bool | None = None,
+        return_state: bool = False,
+    ) -> tuple[str, str]:
+        values: dict[str, Any] = {
+            "units": parameters.get("units", 64),
+            "activation": parameters.get("activation", "tanh"),
+            "use_bias": parameters.get("use_bias", True),
+            "kernel_initializer": cls._layer_option(
+                parameters, "kernel_initializer", graph, "glorot_uniform"
+            ),
+            "recurrent_initializer": cls._layer_option(
+                parameters, "recurrent_initializer", graph, "orthogonal"
+            ),
+            "bias_initializer": cls._layer_option(
+                parameters, "bias_initializer", graph, "zeros"
+            ),
+            "kernel_regularizer": cls._layer_option(
+                parameters, "kernel_regularizer", graph, "none"
+            ),
+            "recurrent_regularizer": cls._layer_option(
+                parameters, "recurrent_regularizer", graph, "none"
+            ),
+            "bias_regularizer": cls._layer_option(
+                parameters, "bias_regularizer", graph, "none"
+            ),
+            "activity_regularizer": cls._layer_option(
+                parameters, "activity_regularizer", graph, "none"
+            ),
+            "kernel_constraint": cls._layer_option(
+                parameters, "kernel_constraint", graph, "none"
+            ),
+            "recurrent_constraint": cls._layer_option(
+                parameters, "recurrent_constraint", graph, "none"
+            ),
+            "bias_constraint": cls._layer_option(
+                parameters, "bias_constraint", graph, "none"
+            ),
+            "dropout": parameters.get("dropout", 0.0),
+            "recurrent_dropout": parameters.get("recurrent_dropout", 0.0),
+            "return_sequences": (
+                parameters.get("return_sequences", False)
+                if return_sequences is None
+                else return_sequences
+            ),
+            "return_state": return_state,
+            "go_backwards": parameters.get("go_backwards", False),
+            "stateful": parameters.get("stateful", False),
+            "unroll": parameters.get("unroll", False),
+            "seed": parameters.get("seed"),
+            "name": name,
+        }
+        if cell != "simple_rnn":
+            values["recurrent_activation"] = parameters.get("recurrent_activation", "sigmoid")
+        if cell == "gru":
+            values["reset_after"] = parameters.get("reset_after", True)
+            values["use_cudnn"] = parameters.get("use_cudnn", "auto")
+            layer_name = "GRU"
+        elif cell == "lstm":
+            values["unit_forget_bias"] = parameters.get("unit_forget_bias", True)
+            values["use_cudnn"] = parameters.get("use_cudnn", "auto")
+            layer_name = "LSTM"
+        else:
+            layer_name = "SimpleRNN"
+        return layer_name, cls._constructor_kwargs(parameters, graph, values)
+
+    # -------------------------------------------------------------------------
+    @classmethod
     def _compile_mapping_source(
         cls,
         graph: ModelGraph,
@@ -73,34 +164,41 @@ class KerasSourceExporter(SourceExporter):
         if not configuration:
             return "None"
         outputs = [
-            output.node
+            output
             for output in resolved_outputs(graph, get_node_catalog())
             if output.node is not None
         ]
-        values: dict[str, str] = {}
-        for node in outputs:
+        values: list[str] = []
+        for output in outputs:
+            node = output.node
+            assert node is not None
             value = configuration.get("__default__", default)
-            if node.id in configuration:
-                value = configuration[node.id]
-            elif node.label and node.label in configuration:
-                value = configuration[node.label]
+            for selector in output_selectors(output):
+                if selector and selector in configuration:
+                    value = configuration[selector]
+                    break
             if category == "losses":
                 if not isinstance(value, str):
-                    values[node.id] = "None"
+                    values.append("None")
                 else:
                     option = cls._catalog_option(compilation_catalog, category, value)
                     symbol = option.implementations["keras"].symbol
-                    values[node.id] = f"keras.losses.{symbol}()"
+                    values.append(f"keras.losses.{symbol}()")
             else:
-                metric_expressions = []
-                for metric in value if isinstance(value, list) else []:
+                metric_expressions: list[str] = []
+                metric_values = cast(list[Any], value) if isinstance(value, list) else []
+                for metric in metric_values:
+                    if not isinstance(metric, str):
+                        raise ValueError(
+                            f"Keras metric identifiers must be strings, got {metric!r}"
+                        )
                     option = cls._catalog_option(compilation_catalog, category, metric)
                     symbol = option.implementations["keras"].symbol
                     metric_expressions.append(f"keras.metrics.{symbol}()")
-                values[node.id] = "[" + ", ".join(metric_expressions) + "]"
+                values.append("[" + ", ".join(metric_expressions) + "]")
         if len(values) == 1:
-            return next(iter(values.values()))
-        return "{" + ", ".join(f"{key!r}: {value}" for key, value in values.items()) + "}"
+            return values[0]
+        return "[" + ", ".join(values) + "]"
 
     # -------------------------------------------------------------------------
     @staticmethod
@@ -222,62 +320,695 @@ class KerasSourceExporter(SourceExporter):
                     f"    {variable} = keras.Input(shape={feature_shape!r}, name={node.id!r}, dtype={parameters.get('dtype', 'float32')!r})"
                 )
             elif definition == "layer.dense":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "units": parameters.get("units", 32),
+                        "activation": parameters.get("activation", "linear"),
+                        "use_bias": parameters.get("use_bias", True),
+                        "kernel_initializer": self._layer_option(
+                            parameters, "kernel_initializer", graph, "glorot_uniform"
+                        ),
+                        "bias_initializer": self._layer_option(
+                            parameters, "bias_initializer", graph, "zeros"
+                        ),
+                        "kernel_regularizer": self._layer_option(
+                            parameters, "kernel_regularizer", graph, "none"
+                        ),
+                        "bias_regularizer": self._layer_option(
+                            parameters, "bias_regularizer", graph, "none"
+                        ),
+                        "activity_regularizer": self._layer_option(
+                            parameters, "activity_regularizer", graph, "none"
+                        ),
+                        "kernel_constraint": self._layer_option(
+                            parameters, "kernel_constraint", graph, "none"
+                        ),
+                        "bias_constraint": self._layer_option(
+                            parameters, "bias_constraint", graph, "none"
+                        ),
+                        "lora_rank": parameters.get("lora_rank"),
+                        "lora_alpha": parameters.get("lora_alpha"),
+                        "quantization_config": parameters.get("quantization_config"),
+                        "name": node.id,
+                    },
+                )
                 lines.append(
-                    f"    {variable} = layers.Dense({parameters.get('units', 32)!r}, activation={parameters.get('activation', 'linear')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, kernel_regularizer={self._layer_option(parameters, 'kernel_regularizer', graph, 'none')!r}, bias_regularizer={self._layer_option(parameters, 'bias_regularizer', graph, 'none')!r}, activity_regularizer={self._layer_option(parameters, 'activity_regularizer', graph, 'none')!r}, kernel_constraint={self._layer_option(parameters, 'kernel_constraint', graph, 'none')!r}, bias_constraint={self._layer_option(parameters, 'bias_constraint', graph, 'none')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.Dense({kwargs})({source})"
                 )
             elif definition == "layer.activation":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {"activation": parameters.get("activation", "relu"), "name": node.id},
+                )
                 lines.append(
-                    f"    {variable} = layers.Activation({parameters.get('activation', 'relu')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.Activation({kwargs})({source})"
                 )
             elif definition == "layer.dropout":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "rate": parameters.get("rate", 0.5),
+                        "noise_shape": parameters.get("noise_shape"),
+                        "seed": parameters.get("seed"),
+                        "name": node.id,
+                    },
+                )
                 lines.append(
-                    f"    {variable} = layers.Dropout({parameters.get('rate', 0.5)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.Dropout({kwargs})({source})"
                 )
             elif definition == "layer.flatten":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {"data_format": parameters.get("data_format", "channels_last"), "name": node.id},
+                )
                 lines.append(
-                    f"    {variable} = layers.Flatten(data_format={parameters.get('data_format', 'channels_last')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.Flatten({kwargs})({source})"
                 )
             elif definition == "layer.batch_norm":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "axis": parameters.get("axis", -1),
+                        "momentum": parameters.get("momentum", 0.99),
+                        "epsilon": parameters.get("epsilon", 0.001),
+                        "center": parameters.get("center", True),
+                        "scale": parameters.get("scale", True),
+                        "beta_initializer": self._layer_option(
+                            parameters, "beta_initializer", graph, "zeros"
+                        ),
+                        "gamma_initializer": self._layer_option(
+                            parameters, "gamma_initializer", graph, "ones"
+                        ),
+                        "moving_mean_initializer": self._layer_option(
+                            parameters, "moving_mean_initializer", graph, "zeros"
+                        ),
+                        "moving_variance_initializer": self._layer_option(
+                            parameters, "moving_variance_initializer", graph, "ones"
+                        ),
+                        "beta_regularizer": self._layer_option(
+                            parameters, "beta_regularizer", graph, "none"
+                        ),
+                        "gamma_regularizer": self._layer_option(
+                            parameters, "gamma_regularizer", graph, "none"
+                        ),
+                        "beta_constraint": self._layer_option(
+                            parameters, "beta_constraint", graph, "none"
+                        ),
+                        "gamma_constraint": self._layer_option(
+                            parameters, "gamma_constraint", graph, "none"
+                        ),
+                        "renorm": parameters.get("renorm", False),
+                        "renorm_clipping": parameters.get("renorm_clipping"),
+                        "renorm_momentum": parameters.get("renorm_momentum", 0.99),
+                        "synchronized": parameters.get("synchronized", False),
+                        "name": node.id,
+                    },
+                )
                 lines.append(
-                    f"    {variable} = layers.BatchNormalization(axis={parameters.get('axis', -1)!r}, momentum={parameters.get('momentum', 0.99)!r}, epsilon={parameters.get('epsilon', 0.001)!r}, center={parameters.get('center', True)!r}, scale={parameters.get('scale', True)!r}, beta_initializer={self._layer_option(parameters, 'beta_initializer', graph, 'zeros')!r}, gamma_initializer={self._layer_option(parameters, 'gamma_initializer', graph, 'ones')!r}, moving_mean_initializer={self._layer_option(parameters, 'moving_mean_initializer', graph, 'zeros')!r}, moving_variance_initializer={self._layer_option(parameters, 'moving_variance_initializer', graph, 'ones')!r}, beta_regularizer={self._layer_option(parameters, 'beta_regularizer', graph, 'none')!r}, gamma_regularizer={self._layer_option(parameters, 'gamma_regularizer', graph, 'none')!r}, beta_constraint={self._layer_option(parameters, 'beta_constraint', graph, 'none')!r}, gamma_constraint={self._layer_option(parameters, 'gamma_constraint', graph, 'none')!r}, synchronized={parameters.get('synchronized', False)!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.BatchNormalization({kwargs})({source})"
                 )
             elif definition == "layer.layer_norm":
-                lines.append(
-                    f"    {variable} = layers.LayerNormalization(axis={parameters.get('axis', [-1])!r}, epsilon={parameters.get('epsilon', 0.001)!r}, center={parameters.get('center', True)!r}, scale={parameters.get('scale', True)!r}, beta_initializer={self._layer_option(parameters, 'beta_initializer', graph, 'zeros')!r}, gamma_initializer={self._layer_option(parameters, 'gamma_initializer', graph, 'ones')!r}, beta_regularizer={self._layer_option(parameters, 'beta_regularizer', graph, 'none')!r}, gamma_regularizer={self._layer_option(parameters, 'gamma_regularizer', graph, 'none')!r}, beta_constraint={self._layer_option(parameters, 'beta_constraint', graph, 'none')!r}, gamma_constraint={self._layer_option(parameters, 'gamma_constraint', graph, 'none')!r}, name={node.id!r})({source})"
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "axis": parameters.get("axis", [-1]),
+                        "epsilon": parameters.get("epsilon", 0.001),
+                        "center": parameters.get("center", True),
+                        "scale": parameters.get("scale", True),
+                        "beta_initializer": self._layer_option(
+                            parameters, "beta_initializer", graph, "zeros"
+                        ),
+                        "gamma_initializer": self._layer_option(
+                            parameters, "gamma_initializer", graph, "ones"
+                        ),
+                        "beta_regularizer": self._layer_option(
+                            parameters, "beta_regularizer", graph, "none"
+                        ),
+                        "gamma_regularizer": self._layer_option(
+                            parameters, "gamma_regularizer", graph, "none"
+                        ),
+                        "beta_constraint": self._layer_option(
+                            parameters, "beta_constraint", graph, "none"
+                        ),
+                        "gamma_constraint": self._layer_option(
+                            parameters, "gamma_constraint", graph, "none"
+                        ),
+                        "name": node.id,
+                    },
                 )
-            elif definition == "layer.embedding":
                 lines.append(
-                    f"    {variable} = layers.Embedding({parameters.get('vocabulary_size', 10000)!r}, {parameters.get('embedding_dim', 128)!r}, embeddings_initializer={self._layer_option(parameters, 'embeddings_initializer', graph, 'uniform')!r}, embeddings_regularizer={self._layer_option(parameters, 'embeddings_regularizer', graph, 'none')!r}, activity_regularizer={self._layer_option(parameters, 'activity_regularizer', graph, 'none')!r}, embeddings_constraint={self._layer_option(parameters, 'embeddings_constraint', graph, 'none')!r}, mask_zero={parameters.get('mask_zero', False)!r}, lora_rank={parameters.get('lora_rank')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.LayerNormalization({kwargs})({source})"
+                )
+            elif definition == "layer.group_norm":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "groups": parameters.get("groups", 32),
+                        "axis": parameters.get("axis", -1),
+                        "epsilon": parameters.get("epsilon", 0.001),
+                        "center": parameters.get("center", True),
+                        "scale": parameters.get("scale", True),
+                        "beta_initializer": self._layer_option(
+                            parameters, "beta_initializer", graph, "zeros"
+                        ),
+                        "gamma_initializer": self._layer_option(
+                            parameters, "gamma_initializer", graph, "ones"
+                        ),
+                        "beta_regularizer": self._layer_option(
+                            parameters, "beta_regularizer", graph, "none"
+                        ),
+                        "gamma_regularizer": self._layer_option(
+                            parameters, "gamma_regularizer", graph, "none"
+                        ),
+                        "beta_constraint": self._layer_option(
+                            parameters, "beta_constraint", graph, "none"
+                        ),
+                        "gamma_constraint": self._layer_option(
+                            parameters, "gamma_constraint", graph, "none"
+                        ),
+                        "name": node.id,
+                    },
+                )
+                lines.append(f"    {variable} = layers.GroupNormalization({kwargs})({source})")
+            elif definition == "layer.reshape":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {"name": node.id},
+                )
+                lines.append(
+                    f"    {variable} = layers.Reshape({tuple(parameters.get('target_shape', [-1]))!r}, {kwargs})({source})"
+                )
+            elif definition == "layer.permute":
+                kwargs = self._constructor_kwargs(parameters, graph, {"name": node.id})
+                lines.append(
+                    f"    {variable} = layers.Permute({tuple(parameters.get('axes', [2, 1]))!r}, {kwargs})({source})"
+                )
+            elif definition == "layer.repeat":
+                repeats = int(parameters.get("repeats", 2))
+                axis = int(parameters.get("axis", 1))
+                kwargs = self._constructor_kwargs(parameters, graph, {"name": node.id})
+                if axis == 1:
+                    lines.append(
+                        f"    {variable} = layers.RepeatVector({repeats!r}, {kwargs})({source})"
+                    )
+                else:
+                    lines.append(
+                        f"    {variable} = layers.Lambda(lambda value: keras.ops.repeat(value, {repeats!r}, axis={axis!r}), {kwargs})({source})"
+                    )
+            elif definition == "layer.embedding":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "input_dim": parameters.get("vocabulary_size", 10000),
+                        "output_dim": parameters.get("embedding_dim", 128),
+                        "embeddings_initializer": self._layer_option(
+                            parameters, "embeddings_initializer", graph, "uniform"
+                        ),
+                        "embeddings_regularizer": self._layer_option(
+                            parameters, "embeddings_regularizer", graph, "none"
+                        ),
+                        "activity_regularizer": self._layer_option(
+                            parameters, "activity_regularizer", graph, "none"
+                        ),
+                        "embeddings_constraint": self._layer_option(
+                            parameters, "embeddings_constraint", graph, "none"
+                        ),
+                        "mask_zero": parameters.get("mask_zero", False),
+                        "lora_rank": parameters.get("lora_rank"),
+                        "lora_alpha": parameters.get("lora_alpha"),
+                        "quantization_config": parameters.get("quantization_config"),
+                        "name": node.id,
+                    },
+                )
+                lines.append(
+                    f"    {variable} = layers.Embedding({kwargs})({source})"
                 )
             elif definition == "conv.conv1d":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "filters": parameters.get("filters", 32),
+                        "kernel_size": parameters.get("kernel_size", [3]),
+                        "strides": parameters.get("strides", [1]),
+                        "padding": parameters.get("padding", "valid"),
+                        "data_format": parameters.get("data_format", "channels_last"),
+                        "dilation_rate": parameters.get("dilation_rate", [1]),
+                        "groups": parameters.get("groups", 1),
+                        "activation": parameters.get("activation", "linear"),
+                        "use_bias": parameters.get("use_bias", True),
+                        "kernel_initializer": self._layer_option(
+                            parameters, "kernel_initializer", graph, "glorot_uniform"
+                        ),
+                        "bias_initializer": self._layer_option(
+                            parameters, "bias_initializer", graph, "zeros"
+                        ),
+                        "kernel_regularizer": self._layer_option(
+                            parameters, "kernel_regularizer", graph, "none"
+                        ),
+                        "bias_regularizer": self._layer_option(
+                            parameters, "bias_regularizer", graph, "none"
+                        ),
+                        "activity_regularizer": self._layer_option(
+                            parameters, "activity_regularizer", graph, "none"
+                        ),
+                        "kernel_constraint": self._layer_option(
+                            parameters, "kernel_constraint", graph, "none"
+                        ),
+                        "bias_constraint": self._layer_option(
+                            parameters, "bias_constraint", graph, "none"
+                        ),
+                        "name": node.id,
+                    },
+                )
                 lines.append(
-                    f"    {variable} = layers.Conv1D({parameters.get('filters', 32)!r}, {parameters.get('kernel_size', [3])!r}, strides={parameters.get('strides', [1])!r}, padding={parameters.get('padding', 'same')!r}, data_format={parameters.get('data_format', 'channels_last')!r}, dilation_rate={parameters.get('dilation_rate', [1])!r}, groups={parameters.get('groups', 1)!r}, activation={parameters.get('activation', 'linear')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, kernel_regularizer={self._layer_option(parameters, 'kernel_regularizer', graph, 'none')!r}, bias_regularizer={self._layer_option(parameters, 'bias_regularizer', graph, 'none')!r}, activity_regularizer={self._layer_option(parameters, 'activity_regularizer', graph, 'none')!r}, kernel_constraint={self._layer_option(parameters, 'kernel_constraint', graph, 'none')!r}, bias_constraint={self._layer_option(parameters, 'bias_constraint', graph, 'none')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.Conv1D({kwargs})({source})"
                 )
             elif definition == "conv.conv2d":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "filters": parameters.get("filters", 32),
+                        "kernel_size": parameters.get("kernel_size", [3, 3]),
+                        "strides": parameters.get("strides", [1, 1]),
+                        "padding": parameters.get("padding", "valid"),
+                        "data_format": parameters.get("data_format", "channels_last"),
+                        "dilation_rate": parameters.get("dilation_rate", [1, 1]),
+                        "groups": parameters.get("groups", 1),
+                        "activation": parameters.get("activation", "linear"),
+                        "use_bias": parameters.get("use_bias", True),
+                        "kernel_initializer": self._layer_option(
+                            parameters, "kernel_initializer", graph, "glorot_uniform"
+                        ),
+                        "bias_initializer": self._layer_option(
+                            parameters, "bias_initializer", graph, "zeros"
+                        ),
+                        "kernel_regularizer": self._layer_option(
+                            parameters, "kernel_regularizer", graph, "none"
+                        ),
+                        "bias_regularizer": self._layer_option(
+                            parameters, "bias_regularizer", graph, "none"
+                        ),
+                        "activity_regularizer": self._layer_option(
+                            parameters, "activity_regularizer", graph, "none"
+                        ),
+                        "kernel_constraint": self._layer_option(
+                            parameters, "kernel_constraint", graph, "none"
+                        ),
+                        "bias_constraint": self._layer_option(
+                            parameters, "bias_constraint", graph, "none"
+                        ),
+                        "name": node.id,
+                    },
+                )
                 lines.append(
-                    f"    {variable} = layers.Conv2D({parameters.get('filters', 32)!r}, {parameters.get('kernel_size', [3, 3])!r}, strides={parameters.get('strides', [1, 1])!r}, padding={parameters.get('padding', 'same')!r}, data_format={parameters.get('data_format', 'channels_last')!r}, dilation_rate={parameters.get('dilation_rate', [1, 1])!r}, groups={parameters.get('groups', 1)!r}, activation={parameters.get('activation', 'linear')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, kernel_regularizer={self._layer_option(parameters, 'kernel_regularizer', graph, 'none')!r}, bias_regularizer={self._layer_option(parameters, 'bias_regularizer', graph, 'none')!r}, activity_regularizer={self._layer_option(parameters, 'activity_regularizer', graph, 'none')!r}, kernel_constraint={self._layer_option(parameters, 'kernel_constraint', graph, 'none')!r}, bias_constraint={self._layer_option(parameters, 'bias_constraint', graph, 'none')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.Conv2D({kwargs})({source})"
                 )
             elif definition == "conv.max_pool2d":
-                lines.append(
-                    f"    {variable} = layers.MaxPooling2D(pool_size={parameters.get('pool_size', [2, 2])!r}, strides={parameters.get('strides')!r}, padding={parameters.get('padding', 'valid')!r}, data_format={parameters.get('data_format', 'channels_last')!r}, name={node.id!r})({source})"
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "pool_size": parameters.get("pool_size", [2, 2]),
+                        "strides": parameters.get("strides"),
+                        "padding": parameters.get("padding", "valid"),
+                        "data_format": parameters.get("data_format", "channels_last"),
+                        "name": node.id,
+                    },
                 )
-            elif definition == "recurrent.simple_rnn":
                 lines.append(
-                    f"    {variable} = layers.SimpleRNN({parameters.get('units', 64)!r}, activation={parameters.get('activation', 'tanh')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, recurrent_initializer={self._layer_option(parameters, 'recurrent_initializer', graph, 'orthogonal')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, return_sequences={parameters.get('return_sequences', False)!r}, return_state={parameters.get('return_state', False)!r}, go_backwards={parameters.get('go_backwards', False)!r}, stateful={parameters.get('stateful', False)!r}, unroll={parameters.get('unroll', False)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.MaxPooling2D({kwargs})({source})"
+                )
+            elif definition == "conv.conv3d":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "filters": parameters.get("filters", 32),
+                        "kernel_size": parameters.get("kernel_size", [3, 3, 3]),
+                        "strides": parameters.get("strides", [1, 1, 1]),
+                        "padding": parameters.get("padding", "valid"),
+                        "data_format": parameters.get("data_format", "channels_last"),
+                        "dilation_rate": parameters.get("dilation_rate", [1, 1, 1]),
+                        "groups": parameters.get("groups", 1),
+                        "activation": parameters.get("activation", "linear"),
+                        "use_bias": parameters.get("use_bias", True),
+                        "kernel_initializer": self._layer_option(
+                            parameters, "kernel_initializer", graph, "glorot_uniform"
+                        ),
+                        "bias_initializer": self._layer_option(
+                            parameters, "bias_initializer", graph, "zeros"
+                        ),
+                        "kernel_regularizer": self._layer_option(
+                            parameters, "kernel_regularizer", graph, "none"
+                        ),
+                        "bias_regularizer": self._layer_option(
+                            parameters, "bias_regularizer", graph, "none"
+                        ),
+                        "activity_regularizer": self._layer_option(
+                            parameters, "activity_regularizer", graph, "none"
+                        ),
+                        "kernel_constraint": self._layer_option(
+                            parameters, "kernel_constraint", graph, "none"
+                        ),
+                        "bias_constraint": self._layer_option(
+                            parameters, "bias_constraint", graph, "none"
+                        ),
+                        "name": node.id,
+                    },
+                )
+                lines.append(f"    {variable} = layers.Conv3D({kwargs})({source})")
+            elif definition in {
+                "conv.max_pool1d",
+                "conv.max_pool3d",
+                "conv.average_pool1d",
+                "conv.average_pool2d",
+                "conv.average_pool3d",
+            }:
+                dimensions = int(definition[-2])
+                pooling = "MaxPooling" if definition.startswith("conv.max") else "AveragePooling"
+                layer_name = f"{pooling}{dimensions}D"
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "pool_size": parameters.get("pool_size", [2] * dimensions),
+                        "strides": parameters.get("strides"),
+                        "padding": parameters.get("padding", "valid"),
+                        "data_format": parameters.get("data_format", "channels_last"),
+                        "name": node.id,
+                    },
+                )
+                lines.append(f"    {variable} = layers.{layer_name}({kwargs})({source})")
+            elif definition in {
+                "conv.global_pool1d",
+                "conv.global_pool2d",
+                "conv.global_pool3d",
+            }:
+                dimensions = int(definition[-2])
+                mode = parameters.get("mode", "average")
+                pooling = "GlobalAveragePooling" if mode == "average" else "GlobalMaxPooling"
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "data_format": parameters.get("data_format", "channels_last"),
+                        "keepdims": parameters.get("keepdims", False),
+                        "name": node.id,
+                    },
+                )
+                lines.append(
+                    f"    {variable} = layers.{pooling}{dimensions}D({kwargs})({source})"
+                )
+            elif definition == "conv.transposed":
+                dimensions = int(parameters.get("dimensions", 2))
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "filters": parameters.get("filters", 32),
+                        "kernel_size": parameters.get("kernel_size", [3] * dimensions),
+                        "strides": parameters.get("strides", [1] * dimensions),
+                        "padding": parameters.get("padding", "valid"),
+                        "output_padding": parameters.get("output_padding"),
+                        "data_format": parameters.get("data_format", "channels_last"),
+                        "dilation_rate": parameters.get("dilation_rate", [1] * dimensions),
+                        "activation": parameters.get("activation", "linear"),
+                        "use_bias": parameters.get("use_bias", True),
+                        "kernel_initializer": self._layer_option(
+                            parameters, "kernel_initializer", graph, "glorot_uniform"
+                        ),
+                        "bias_initializer": self._layer_option(
+                            parameters, "bias_initializer", graph, "zeros"
+                        ),
+                        "kernel_regularizer": self._layer_option(
+                            parameters, "kernel_regularizer", graph, "none"
+                        ),
+                        "bias_regularizer": self._layer_option(
+                            parameters, "bias_regularizer", graph, "none"
+                        ),
+                        "activity_regularizer": self._layer_option(
+                            parameters, "activity_regularizer", graph, "none"
+                        ),
+                        "kernel_constraint": self._layer_option(
+                            parameters, "kernel_constraint", graph, "none"
+                        ),
+                        "bias_constraint": self._layer_option(
+                            parameters, "bias_constraint", graph, "none"
+                        ),
+                        "name": node.id,
+                    },
+                )
+                lines.append(f"    {variable} = layers.Conv{dimensions}DTranspose({kwargs})({source})")
+            elif definition == "conv.depthwise":
+                dimensions = int(parameters.get("dimensions", 2))
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "kernel_size": parameters.get("kernel_size", [3] * dimensions),
+                        "strides": parameters.get("strides", [1] * dimensions),
+                        "padding": parameters.get("padding", "valid"),
+                        "depth_multiplier": parameters.get("depth_multiplier", 1),
+                        "data_format": parameters.get("data_format", "channels_last"),
+                        "dilation_rate": parameters.get("dilation_rate", [1] * dimensions),
+                        "activation": parameters.get("activation", "linear"),
+                        "use_bias": parameters.get("use_bias", True),
+                        "depthwise_initializer": self._layer_option(
+                            parameters, "depthwise_initializer", graph, "glorot_uniform"
+                        ),
+                        "bias_initializer": self._layer_option(
+                            parameters, "bias_initializer", graph, "zeros"
+                        ),
+                        "depthwise_regularizer": self._layer_option(
+                            parameters, "depthwise_regularizer", graph, "none"
+                        ),
+                        "bias_regularizer": self._layer_option(
+                            parameters, "bias_regularizer", graph, "none"
+                        ),
+                        "activity_regularizer": self._layer_option(
+                            parameters, "activity_regularizer", graph, "none"
+                        ),
+                        "depthwise_constraint": self._layer_option(
+                            parameters, "depthwise_constraint", graph, "none"
+                        ),
+                        "bias_constraint": self._layer_option(
+                            parameters, "bias_constraint", graph, "none"
+                        ),
+                        "name": node.id,
+                    },
+                )
+                lines.append(f"    {variable} = layers.DepthwiseConv{dimensions}D({kwargs})({source})")
+            elif definition == "conv.separable":
+                dimensions = int(parameters.get("dimensions", 2))
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "filters": parameters.get("filters", 32),
+                        "kernel_size": parameters.get("kernel_size", [3] * dimensions),
+                        "strides": parameters.get("strides", [1] * dimensions),
+                        "padding": parameters.get("padding", "valid"),
+                        "data_format": parameters.get("data_format", "channels_last"),
+                        "dilation_rate": parameters.get("dilation_rate", [1] * dimensions),
+                        "depth_multiplier": parameters.get("depth_multiplier", 1),
+                        "activation": parameters.get("activation", "linear"),
+                        "use_bias": parameters.get("use_bias", True),
+                        "depthwise_initializer": self._layer_option(
+                            parameters, "depthwise_initializer", graph, "glorot_uniform"
+                        ),
+                        "pointwise_initializer": self._layer_option(
+                            parameters, "pointwise_initializer", graph, "glorot_uniform"
+                        ),
+                        "bias_initializer": self._layer_option(
+                            parameters, "bias_initializer", graph, "zeros"
+                        ),
+                        "depthwise_regularizer": self._layer_option(
+                            parameters, "depthwise_regularizer", graph, "none"
+                        ),
+                        "pointwise_regularizer": self._layer_option(
+                            parameters, "pointwise_regularizer", graph, "none"
+                        ),
+                        "bias_regularizer": self._layer_option(
+                            parameters, "bias_regularizer", graph, "none"
+                        ),
+                        "activity_regularizer": self._layer_option(
+                            parameters, "activity_regularizer", graph, "none"
+                        ),
+                        "depthwise_constraint": self._layer_option(
+                            parameters, "depthwise_constraint", graph, "none"
+                        ),
+                        "pointwise_constraint": self._layer_option(
+                            parameters, "pointwise_constraint", graph, "none"
+                        ),
+                        "bias_constraint": self._layer_option(
+                            parameters, "bias_constraint", graph, "none"
+                        ),
+                        "name": node.id,
+                    },
+                )
+                lines.append(f"    {variable} = layers.SeparableConv{dimensions}D({kwargs})({source})")
+            elif definition == "conv.upsampling":
+                dimensions = int(parameters.get("dimensions", 2))
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "size": parameters.get("size", [2] * dimensions),
+                        "name": node.id,
+                    },
+                )
+                if dimensions > 1:
+                    kwargs = f"{kwargs}, data_format={parameters.get('data_format', 'channels_last')!r}"
+                if dimensions == 2:
+                    kwargs = f"{kwargs}, interpolation={parameters.get('interpolation', 'nearest')!r}"
+                lines.append(f"    {variable} = layers.UpSampling{dimensions}D({kwargs})({source})")
+            elif definition in {"conv.padding", "conv.cropping"}:
+                dimensions = int(parameters.get("dimensions", 2))
+                prefix = "ZeroPadding" if definition == "conv.padding" else "Cropping"
+                key = "padding" if definition == "conv.padding" else "cropping"
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {key: parameters.get(key), "name": node.id},
+                )
+                if dimensions > 1:
+                    kwargs = f"{kwargs}, data_format={parameters.get('data_format', 'channels_last')!r}"
+                lines.append(f"    {variable} = layers.{prefix}{dimensions}D({kwargs})({source})")
+            elif definition == "recurrent.simple_rnn":
+                layer_name, kwargs = self._recurrent_kwargs(
+                    parameters,
+                    graph,
+                    cell="simple_rnn",
+                    name=node.id,
+                    return_state=bool(parameters.get("return_state", False)),
+                )
+                lines.append(
+                    f"    {variable} = layers.{layer_name}({kwargs})({source})"
                 )
             elif definition == "recurrent.lstm":
+                layer_name, kwargs = self._recurrent_kwargs(
+                    parameters,
+                    graph,
+                    cell="lstm",
+                    name=node.id,
+                    return_state=bool(parameters.get("return_state", False)),
+                )
                 lines.append(
-                    f"    {variable} = layers.LSTM({parameters.get('units', 64)!r}, activation={parameters.get('activation', 'tanh')!r}, recurrent_activation={parameters.get('recurrent_activation', 'sigmoid')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, recurrent_initializer={self._layer_option(parameters, 'recurrent_initializer', graph, 'orthogonal')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, unit_forget_bias={parameters.get('unit_forget_bias', True)!r}, dropout={parameters.get('dropout', 0.0)!r}, recurrent_dropout={parameters.get('recurrent_dropout', 0.0)!r}, return_sequences={parameters.get('return_sequences', False)!r}, return_state={parameters.get('return_state', False)!r}, go_backwards={parameters.get('go_backwards', False)!r}, stateful={parameters.get('stateful', False)!r}, unroll={parameters.get('unroll', False)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.{layer_name}({kwargs})({source})"
                 )
             elif definition == "recurrent.gru":
-                lines.append(
-                    f"    {variable} = layers.GRU({parameters.get('units', 64)!r}, activation={parameters.get('activation', 'tanh')!r}, recurrent_activation={parameters.get('recurrent_activation', 'sigmoid')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, recurrent_initializer={self._layer_option(parameters, 'recurrent_initializer', graph, 'orthogonal')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, reset_after={parameters.get('reset_after', True)!r}, dropout={parameters.get('dropout', 0.0)!r}, recurrent_dropout={parameters.get('recurrent_dropout', 0.0)!r}, return_sequences={parameters.get('return_sequences', False)!r}, return_state={parameters.get('return_state', False)!r}, go_backwards={parameters.get('go_backwards', False)!r}, stateful={parameters.get('stateful', False)!r}, unroll={parameters.get('unroll', False)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
+                layer_name, kwargs = self._recurrent_kwargs(
+                    parameters,
+                    graph,
+                    cell="gru",
+                    name=node.id,
+                    return_state=bool(parameters.get("return_state", False)),
                 )
-            elif definition in {"attention.multi_head", "attention.self"}:
+                lines.append(
+                    f"    {variable} = layers.{layer_name}({kwargs})({source})"
+                )
+            elif definition == "recurrent.bidirectional":
+                cell = str(parameters.get("cell", "lstm"))
+                inner_name, inner_kwargs = self._recurrent_kwargs(
+                    parameters,
+                    graph,
+                    cell=cell,
+                    name=f"{node.id}_inner",
+                    return_state=False,
+                )
+                wrapper_kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "merge_mode": parameters.get("merge_mode", "concat"),
+                        "name": node.id,
+                    },
+                )
+                lines.extend(
+                    [
+                        f"    {variable}_inner = layers.{inner_name}({inner_kwargs})",
+                        f"    {variable} = layers.Bidirectional({variable}_inner, {wrapper_kwargs})({source})",
+                    ]
+                )
+            elif definition == "recurrent.stack":
+                cell = str(parameters.get("cell", "lstm"))
+                layer_count = int(parameters.get("layers", 2))
+                current = source
+                for index in range(layer_count):
+                    inner_name, inner_kwargs = self._recurrent_kwargs(
+                        parameters,
+                        graph,
+                        cell=cell,
+                        name=f"{node.id}_{index + 1}",
+                        return_sequences=(
+                            True
+                            if index < layer_count - 1
+                            else bool(parameters.get("return_sequences", False))
+                        ),
+                        return_state=False,
+                    )
+                    current_name = f"{variable}_{index + 1}"
+                    lines.append(
+                        f"    {current_name} = layers.{inner_name}({inner_kwargs})({current})"
+                    )
+                    current = current_name
+                lines.append(f"    {variable} = {current}")
+            elif definition in {"attention.multi_head", "attention.self", "attention.cross"}:
                 query = inputs[0]
                 value = inputs[1] if len(inputs) > 1 else query
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "num_heads": parameters.get("num_heads", 8),
+                        "key_dim": parameters.get("key_dim", 64),
+                        "value_dim": parameters.get("value_dim"),
+                        "dropout": parameters.get("dropout", 0.0),
+                        "use_bias": parameters.get("use_bias", True),
+                        "output_shape": parameters.get("output_shape"),
+                        "attention_axes": parameters.get("attention_axes"),
+                        "sliding_window": parameters.get("sliding_window"),
+                        "flash_attention": parameters.get("flash_attention"),
+                        "use_gate": parameters.get("use_gate", False),
+                        "kernel_initializer": self._layer_option(
+                            parameters, "kernel_initializer", graph, "glorot_uniform"
+                        ),
+                        "bias_initializer": self._layer_option(
+                            parameters, "bias_initializer", graph, "zeros"
+                        ),
+                        "kernel_regularizer": self._layer_option(
+                            parameters, "kernel_regularizer", graph, "none"
+                        ),
+                        "bias_regularizer": self._layer_option(
+                            parameters, "bias_regularizer", graph, "none"
+                        ),
+                        "activity_regularizer": self._layer_option(
+                            parameters, "activity_regularizer", graph, "none"
+                        ),
+                        "kernel_constraint": self._layer_option(
+                            parameters, "kernel_constraint", graph, "none"
+                        ),
+                        "bias_constraint": self._layer_option(
+                            parameters, "bias_constraint", graph, "none"
+                        ),
+                        "seed": parameters.get("seed"),
+                        "name": node.id,
+                    },
+                )
                 lines.append(
-                    f"    {variable} = layers.MultiHeadAttention(num_heads={parameters.get('num_heads', 8)!r}, key_dim={parameters.get('key_dim', 64)!r}, value_dim={parameters.get('value_dim')!r}, dropout={parameters.get('dropout', 0.0)!r}, use_bias={parameters.get('use_bias', True)!r}, output_shape={parameters.get('output_shape')!r}, attention_axes={parameters.get('attention_axes')!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, name={node.id!r})({query}, {value})"
+                    f"    {variable} = layers.MultiHeadAttention({kwargs})({query}, {value})"
                 )
             elif definition in {"merge.add", "merge.residual", "merge.skip"}:
                 lines.append(
@@ -291,7 +1022,7 @@ class KerasSourceExporter(SourceExporter):
                 lines.append(
                     f"    {variable} = SinusoidalPositionalEncoding(name={node.id!r})({source})"
                 )
-            elif definition == "transformer.encoder_block":
+            elif definition in {"transformer.encoder_block", "transformer.stack"}:
                 layer_count = int(parameters.get("layers", 1))
                 multiplier = int(parameters.get("ffn_multiplier", 4))
                 activation = parameters.get("activation", "gelu")
@@ -317,22 +1048,57 @@ class KerasSourceExporter(SourceExporter):
                         attention = f"{variable}_attention_{index + 1}"
                         attention_residual = f"{variable}_attention_residual_{index + 1}"
                         ffn_input = f"{variable}_ffn_input_{index + 1}"
+                        attention_norm_kwargs = self._constructor_kwargs(
+                            parameters,
+                            graph,
+                            {"name": attention_norm_name},
+                        )
+                        attention_kwargs = self._constructor_kwargs(
+                            parameters,
+                            graph,
+                            {
+                                "num_heads": parameters.get("num_heads", 8),
+                                "key_dim": parameters.get("key_dim", 64),
+                                "dropout": parameters.get("dropout", 0.0),
+                                "name": attention_name,
+                            },
+                        )
+                        ffn_norm_kwargs = self._constructor_kwargs(
+                            parameters,
+                            graph,
+                            {"name": ffn_norm_name},
+                        )
                         lines.extend(
                             [
-                                f"    {attention_input} = layers.LayerNormalization(name={attention_norm_name!r})({current})",
-                                f"    {attention} = layers.MultiHeadAttention(num_heads={parameters.get('num_heads', 8)!r}, key_dim={parameters.get('key_dim', 64)!r}, dropout={parameters.get('dropout', 0.0)!r}, name={attention_name!r})({attention_input}, {attention_input})",
+                                f"    {attention_input} = layers.LayerNormalization({attention_norm_kwargs})({current})",
+                                f"    {attention} = layers.MultiHeadAttention({attention_kwargs})({attention_input}, {attention_input})",
                                 f"    {attention_residual} = layers.Add(name={residual_name!r})([{current}, {attention}])",
-                                f"    {ffn_input} = layers.LayerNormalization(name={ffn_norm_name!r})({attention_residual})",
+                                f"    {ffn_input} = layers.LayerNormalization({ffn_norm_kwargs})({attention_residual})",
                             ]
                         )
                     else:
                         attention = f"{variable}_attention_{index + 1}"
                         attention_residual = f"{variable}_attention_residual_{index + 1}"
                         ffn_input = f"{variable}_ffn_input_{index + 1}"
+                        attention_kwargs = self._constructor_kwargs(
+                            parameters,
+                            graph,
+                            {
+                                "num_heads": parameters.get("num_heads", 8),
+                                "key_dim": parameters.get("key_dim", 64),
+                                "dropout": parameters.get("dropout", 0.0),
+                                "name": attention_name,
+                            },
+                        )
+                        attention_norm_kwargs = self._constructor_kwargs(
+                            parameters,
+                            graph,
+                            {"name": attention_norm_name},
+                        )
                         lines.extend(
                             [
-                                f"    {attention} = layers.MultiHeadAttention(num_heads={parameters.get('num_heads', 8)!r}, key_dim={parameters.get('key_dim', 64)!r}, dropout={parameters.get('dropout', 0.0)!r}, name={attention_name!r})({current}, {current})",
-                                f"    {attention_residual} = layers.LayerNormalization(name={attention_norm_name!r})(layers.Add(name={residual_name!r})([{current}, {attention}]))",
+                                f"    {attention} = layers.MultiHeadAttention({attention_kwargs})({current}, {current})",
+                                f"    {attention_residual} = layers.LayerNormalization({attention_norm_kwargs})(layers.Add(name={residual_name!r})([{current}, {attention}]))",
                                 f"    {ffn_input} = {attention_residual}",
                             ]
                         )
@@ -340,22 +1106,215 @@ class KerasSourceExporter(SourceExporter):
                     feed_forward_projected = f"{variable}_feed_forward_projected_{index + 1}"
                     feed_forward_dropout = f"{variable}_feed_forward_dropout_{index + 1}"
                     current = f"{variable}_output_{index + 1}"
+                    expand_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {"activation": activation, "name": node.id + suffix + "_ffn_expand"},
+                    )
+                    project_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {"name": node.id + suffix + "_ffn_project"},
+                    )
+                    dropout_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {
+                            "rate": parameters.get("dropout", 0.0),
+                            "name": node.id + suffix + "_ffn_dropout",
+                        },
+                    )
                     lines.extend(
                         [
-                            f"    {feed_forward} = layers.Dense({hidden_dim}, activation={activation!r}, name={(node.id + suffix + '_ffn_expand')!r})({ffn_input})",
-                            f"    {feed_forward_projected} = layers.Dense({model_dim}, name={(node.id + suffix + '_ffn_project')!r})({feed_forward})",
-                            f"    {feed_forward_dropout} = layers.Dropout({parameters.get('dropout', 0.0)!r}, name={(node.id + suffix + '_ffn_dropout')!r})({feed_forward_projected})",
+                            f"    {feed_forward} = layers.Dense({hidden_dim}, {expand_kwargs})({ffn_input})",
+                            f"    {feed_forward_projected} = layers.Dense({model_dim}, {project_kwargs})({feed_forward})",
+                            f"    {feed_forward_dropout} = layers.Dropout({dropout_kwargs})({feed_forward_projected})",
                             f"    {current} = layers.Add(name={ffn_residual_name!r})([{attention_residual}, {feed_forward_dropout}])",
                         ]
                     )
                     if not pre_norm:
+                        output_norm_kwargs = self._constructor_kwargs(
+                            parameters,
+                            graph,
+                            {"name": node.id + suffix + "_output_norm"},
+                        )
                         lines.append(
-                            f"    {current} = layers.LayerNormalization(name={(node.id + suffix + '_output_norm')!r})({current})"
+                            f"    {current} = layers.LayerNormalization({output_norm_kwargs})({current})"
                         )
                 lines.append(f"    {variable} = {current}")
-            elif manifest.semantic_role == "output_adapter":
+            elif definition == "transformer.feed_forward":
+                source_dimension = f"int({source}.shape[-1])"
+                hidden_dimension = f"{source_dimension} * {int(parameters.get('ffn_multiplier', 4))!r}"
+                current = f"{variable}_expand"
+                expand_kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "activation": parameters.get("activation", "gelu"),
+                        "name": node.id + "_expand",
+                    },
+                )
+                dropout_kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "rate": parameters.get("dropout", 0.0),
+                        "name": node.id + "_dropout",
+                    },
+                )
+                project_kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {"name": node.id + "_project"},
+                )
+                lines.extend(
+                    [
+                        f"    {current} = layers.Dense({hidden_dimension}, {expand_kwargs})({source})",
+                        f"    {variable}_dropout = layers.Dropout({dropout_kwargs})({current})",
+                        f"    {variable} = layers.Dense({source_dimension}, {project_kwargs})({variable}_dropout)",
+                    ]
+                )
+            elif definition == "transformer.decoder_block":
+                query = inputs[0]
+                context = inputs[1] if len(inputs) > 1 else query
+                model_dimension = f"int({query}.shape[-1])"
+                current = query
+                activation = parameters.get("activation", "gelu")
+                multiplier = int(parameters.get("ffn_multiplier", 4))
+                pre_norm = bool(parameters.get("pre_norm", True))
+                for index in range(int(parameters.get("layers", 1))):
+                    suffix = f"_{index + 1}"
+                    self_attention = f"{variable}_self_attention_{index + 1}"
+                    self_residual = f"{variable}_self_residual_{index + 1}"
+                    current_self = f"{variable}_self_norm_{index + 1}"
+                    cross_attention = f"{variable}_cross_attention_{index + 1}"
+                    cross_residual = f"{variable}_cross_residual_{index + 1}"
+                    current_cross = f"{variable}_cross_norm_{index + 1}"
+                    feed_forward = f"{variable}_ffn_expand_{index + 1}"
+                    feed_forward_dropout = f"{variable}_ffn_dropout_{index + 1}"
+                    feed_forward_projected = f"{variable}_ffn_project_{index + 1}"
+                    ffn_residual = f"{variable}_ffn_residual_{index + 1}"
+                    next_current = f"{variable}_output_{index + 1}"
+                    self_input = f"{variable}_self_input_{index + 1}"
+                    cross_input = f"{variable}_cross_input_{index + 1}"
+                    ffn_input = f"{variable}_ffn_input_{index + 1}"
+                    attention_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {
+                            "num_heads": parameters.get("num_heads", 8),
+                            "key_dim": parameters.get("key_dim", 64),
+                            "dropout": parameters.get("dropout", 0.0),
+                            "name": node.id + suffix + "_self_attention",
+                        },
+                    )
+                    cross_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {
+                            "num_heads": parameters.get("num_heads", 8),
+                            "key_dim": parameters.get("key_dim", 64),
+                            "dropout": parameters.get("dropout", 0.0),
+                            "name": node.id + suffix + "_cross_attention",
+                        },
+                    )
+                    norm_self_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {"name": node.id + suffix + "_self_norm"},
+                    )
+                    norm_cross_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {"name": node.id + suffix + "_cross_norm"},
+                    )
+                    norm_ffn_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {"name": node.id + suffix + "_ffn_norm"},
+                    )
+                    expand_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {
+                            "activation": activation,
+                            "name": node.id + suffix + "_ffn_expand",
+                        },
+                    )
+                    dropout_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {
+                            "rate": parameters.get("dropout", 0.0),
+                            "name": node.id + suffix + "_ffn_dropout",
+                        },
+                    )
+                    project_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {"name": node.id + suffix + "_ffn_project"},
+                    )
+                    output_norm_kwargs = self._constructor_kwargs(
+                        parameters,
+                        graph,
+                        {"name": node.id + suffix + "_output_norm"},
+                    )
+                    if pre_norm:
+                        lines.extend(
+                            [
+                                f"    {self_input} = layers.LayerNormalization({norm_self_kwargs})({current})",
+                                f"    {self_attention} = layers.MultiHeadAttention({attention_kwargs})({self_input}, {self_input})",
+                                f"    {self_residual} = layers.Add(name={node.id + suffix + '_self_residual'!r})([{current}, {self_attention}])",
+                                f"    {current_self} = {self_residual}",
+                            ]
+                        )
+                    else:
+                        lines.extend(
+                            [
+                                f"    {self_attention} = layers.MultiHeadAttention({attention_kwargs})({current}, {current})",
+                                f"    {self_residual} = layers.Add(name={node.id + suffix + '_self_residual'!r})([{current}, {self_attention}])",
+                                f"    {current_self} = layers.LayerNormalization({norm_self_kwargs})({self_residual})",
+                            ]
+                        )
+                    if pre_norm:
+                        lines.extend(
+                            [
+                                f"    {cross_input} = layers.LayerNormalization({norm_cross_kwargs})({current_self})",
+                                f"    {cross_attention} = layers.MultiHeadAttention({cross_kwargs})({cross_input}, {context})",
+                                f"    {cross_residual} = layers.Add(name={node.id + suffix + '_cross_residual'!r})([{current_self}, {cross_attention}])",
+                                f"    {current_cross} = {cross_residual}",
+                                f"    {ffn_input} = layers.LayerNormalization({norm_ffn_kwargs})({current_cross})",
+                            ]
+                        )
+                    else:
+                        lines.extend(
+                            [
+                                f"    {cross_attention} = layers.MultiHeadAttention({cross_kwargs})({current_self}, {context})",
+                                f"    {cross_residual} = layers.Add(name={node.id + suffix + '_cross_residual'!r})([{current_self}, {cross_attention}])",
+                                f"    {current_cross} = layers.LayerNormalization({norm_cross_kwargs})({cross_residual})",
+                                f"    {ffn_input} = {current_cross}",
+                            ]
+                        )
+                    lines.extend(
+                        [
+                            f"    {feed_forward} = layers.Dense({model_dimension} * {multiplier!r}, {expand_kwargs})({ffn_input})",
+                            f"    {feed_forward_dropout} = layers.Dropout({dropout_kwargs})({feed_forward})",
+                            f"    {feed_forward_projected} = layers.Dense({model_dimension}, {project_kwargs})({feed_forward_dropout})",
+                            f"    {ffn_residual} = layers.Add(name={node.id + suffix + '_ffn_residual'!r})([{current_cross}, {feed_forward_projected}])",
+                            f"    {next_current} = {ffn_residual}",
+                        ]
+                    )
+                    if not pre_norm:
+                        lines[-1] = f"    {next_current} = layers.LayerNormalization({output_norm_kwargs})({ffn_residual})"
+                    current = next_current
+                lines.append(f"    {variable} = {current}")
+            elif definition == "transformer.residual":
                 lines.append(
-                    f"    {variable} = layers.Activation('linear', name={node.id!r})({source})"
+                    f"    {variable} = layers.Add({self._constructor_kwargs(parameters, graph, {'name': node.id})})([{', '.join(inputs)}])"
+                )
+            elif definition == "transformer.attention_mask" or manifest.semantic_role == "output_adapter":
+                lines.append(
+                    f"    {variable} = layers.Activation('linear', {self._constructor_kwargs(parameters, graph, {'name': node.id})})({source})"
                 )
             else:
                 raise ValueError(f"No Keras adapter registered for {definition}")

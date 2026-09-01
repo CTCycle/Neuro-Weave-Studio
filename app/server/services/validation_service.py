@@ -6,21 +6,28 @@ from typing import Any, cast
 from common.catalogs.loader import NodeCatalog
 from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
 from domain.diagnostics import (
+    InferenceConfidence,
     ModelTypeInference,
+    ModelTypeKind,
     OutputReference,
     ValidationDiagnostic,
     ValidationResult,
 )
 from domain.enums import DiagnosticSeverity, ExecutionBackend
-from domain.graph import ModelGraph, NodeInstance
-from domain.manifests import NodeManifest, ParameterCapability, ParameterDefinition, ParameterValueSchema
+from domain.graph import ModelGraph, ShapeSummary
+from domain.manifests import (
+    NodeManifest,
+    ParameterCapability,
+    ParameterDefinition,
+    ParameterValueSchema,
+)
 from validation.compile_configuration import validate_model_configuration
 from validation.graph_utils import nodes_reaching, reachable_nodes, topological_order
 from validation.output_resolution import (
     infer_model_type,
-    input_nodes as catalog_input_nodes,
     resolved_outputs,
 )
+from validation.output_resolution import input_nodes as catalog_input_nodes
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
 
@@ -35,14 +42,17 @@ def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
         return isinstance(value, bool)
     if parameter.type == "integer" or parameter.type == "axis":
         if parameter.type == "axis" and isinstance(value, list):
-            return all(isinstance(item, int) and not isinstance(item, bool) for item in value)
+            items = cast(list[Any], value)
+            return all(isinstance(item, int) and not isinstance(item, bool) for item in items)
         return isinstance(value, int) and not isinstance(value, bool)
     if parameter.type == "number":
         return isinstance(value, int | float) and not isinstance(value, bool)
-    if parameter.type in {"string", "enum", "expression", "dtype", "activation"}:
+    if parameter.type == "enum":
+        return not parameter.options or value in parameter.options
+    if parameter.type in {"string", "expression", "dtype", "activation"}:
         return isinstance(value, str)
     if parameter.type in {"initializer", "regularizer", "constraint"}:
-        return isinstance(value, str) or isinstance(value, dict)
+        return isinstance(value, (str, dict))
     if parameter.type == "object":
         return isinstance(value, dict)
     if parameter.type == "shape":
@@ -74,7 +84,8 @@ def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
             return False
         if schema.item is None:
             return True
-        return all(_value_matches_schema(schema.item, item) for item in value)
+        items = cast(list[Any], value)
+        return all(_value_matches_schema(schema.item, item) for item in items)
     if schema.type == "integer" or schema.type == "axis":
         return isinstance(value, int) and not isinstance(value, bool)
     if schema.type == "number":
@@ -84,7 +95,7 @@ def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
     if schema.type in {"string", "enum", "expression", "dtype", "activation"}:
         return isinstance(value, str)
     if schema.type in {"initializer", "regularizer", "constraint"}:
-        return isinstance(value, str) or isinstance(value, dict)
+        return isinstance(value, (str, dict))
     return True
 
 
@@ -113,9 +124,9 @@ def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) ->
 def _effective_default(
     parameter: ParameterDefinition, capability: ParameterCapability | None
 ) -> Any:
-    if capability is not None and capability.default is not None:
+    if capability is not None and "default" in capability.model_fields_set:
         return capability.default
-    if parameter.framework_default is not None:
+    if "framework_default" in parameter.model_fields_set:
         return parameter.framework_default
     return parameter.default
 
@@ -339,19 +350,22 @@ class ValidationService:
                             details={"allowed": parameter.options, "value": value},
                         )
                     )
-                if supplied and not _condition_matches(parameter.enabled_when, node.parameters):
-                    if value != default:
-                        diagnostics.append(
-                            ValidationDiagnostic(
-                                code="disabled_parameter",
-                                severity=DiagnosticSeverity.ERROR,
-                                message=f"Parameter '{parameter.display_name}' is disabled by its current configuration",
-                                node_id=node.id,
-                                parameter_id=parameter.id,
-                                execution_backend=execution_backend,
-                                keras_enabled=keras_enabled,
-                            )
+                if (
+                    supplied
+                    and not _condition_matches(parameter.enabled_when, node.parameters)
+                    and value != default
+                ):
+                    diagnostics.append(
+                        ValidationDiagnostic(
+                            code="disabled_parameter",
+                            severity=DiagnosticSeverity.ERROR,
+                            message=f"Parameter '{parameter.display_name}' is disabled by its current configuration",
+                            node_id=node.id,
+                            parameter_id=parameter.id,
+                            execution_backend=execution_backend,
+                            keras_enabled=keras_enabled,
                         )
+                    )
                 if parameter.type == "shape" and isinstance(value, list):
                     dimensions = cast(list[Any], value)
                     invalid_dimensions = [
@@ -848,6 +862,8 @@ class ValidationService:
         compatibility_errors = [
             item for item in diagnostics if item.severity == DiagnosticSeverity.COMPATIBILITY
         ]
+        inferred_type: ModelTypeKind
+        inferred_confidence: InferenceConfidence
         inferred_type, inferred_confidence, inferred_evidence = infer_model_type(
             graph, self._catalog, shape_summaries or None
         )

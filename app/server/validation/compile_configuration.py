@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, cast
 
+from common.catalogs.loader import get_node_catalog
 from domain.compilation_catalog import (
     CompilationCatalog,
     get_compilation_catalog,
@@ -11,6 +12,7 @@ from domain.compilation_catalog import (
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
+from validation.output_resolution import output_selectors, resolved_outputs
 
 
 ###############################################################################
@@ -34,23 +36,21 @@ def _error(
 
 ###############################################################################
 def _output_selectors(graph: ModelGraph) -> set[str]:
-    nodes = {node.id: node for node in graph.nodes}
-    if graph.output_bindings:
-        selected = [nodes[binding.node_id] for binding in graph.output_bindings if binding.node_id in nodes]
-    else:
-        selected = [
-            node
-            for node in graph.nodes
-            if not node.definition_id.startswith("input.")
-            and not any(edge.source_node_id == node.id for edge in graph.edges)
-        ]
-    return {selector for node in selected for selector in (node.id, node.label or node.id)}
+    return {
+        selector
+        for output in resolved_outputs(graph, get_node_catalog())
+        for selector in output_selectors(output)
+    }
 
 
 ###############################################################################
 def _selected_value(configuration: dict[str, Any], output: Any, default: Any) -> Any:
     value = configuration.get("__default__", default)
-    for selector in (output.id, output.label):
+    selectors = output_selectors(output) if hasattr(output, "binding") else (
+        output.id,
+        output.label,
+    )
+    for selector in selectors:
         if selector and selector in configuration:
             value = configuration[selector]
             break
@@ -311,7 +311,16 @@ def _validate_semantics(
 
         selected_metrics = _selected_value(configuration.metrics, output, [])
         if isinstance(selected_metrics, list):
-            for metric_id in selected_metrics:
+            for metric_id in cast(list[Any], selected_metrics):
+                if not isinstance(metric_id, str):
+                    diagnostics.append(
+                        _error(
+                            "invalid_compile_metric",
+                            "Metrics must be selected by string identifier",
+                            node_id=output.id,
+                        )
+                    )
+                    continue
                 metric = metrics.get(metric_id)
                 if metric is not None and task not in metric.supported_tasks:
                     diagnostics.append(

@@ -7,7 +7,7 @@ import keras
 from common.catalogs.loader import get_node_catalog
 from domain.compilation_catalog import CompilationOption, get_compilation_catalog
 from domain.graph import ModelGraph
-from validation.output_resolution import resolved_outputs
+from validation.output_resolution import output_selectors, resolved_outputs
 
 
 ###############################################################################
@@ -51,8 +51,8 @@ def prepare_runtime(graph: ModelGraph) -> None:
 def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
     return [
         (
-            output.binding.node_id,
-            {output.binding.node_id, output.name},
+            output.name,
+            set(output_selectors(output)),
         )
         for output in resolved_outputs(graph, get_node_catalog())
         if output.node is not None
@@ -86,7 +86,7 @@ def _compile_value(values: dict[str, Any], output_count: int) -> Any:
         return None
     if output_count == 1:
         return next(iter(values.values()))
-    return values
+    return list(values.values())
 
 
 ###############################################################################
