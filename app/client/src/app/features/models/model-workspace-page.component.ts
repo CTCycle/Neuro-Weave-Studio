@@ -1,6 +1,6 @@
 import { Component, effect, inject, input, signal } from '@angular/core'
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
-import { LucideArrowLeft, LucideBox, LucideCopy, LucideFileCode2, LucideGitBranch, LucideSettings2, LucideTrash2, LucideUploadCloud } from '@lucide/angular'
+import { LucideArrowLeft, LucideBox, LucideCopy, LucideFileCode2, LucideGitBranch, LucideSettings2, LucideTrash2 } from '@lucide/angular'
 import { AppResourcesService } from '../../core/state/app-resources.service'
 import { implementationLabel } from '../../domain/types'
 import { CompilationStatusBadgeComponent, ValidationStatusBadgeComponent } from '../../shared/components/model-status-badge.component'
@@ -10,7 +10,7 @@ import { ModelWorkspaceState } from './model-workspace.state'
   selector: 'nw-model-workspace-page',
   standalone: true,
   providers: [ModelWorkspaceState],
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, LucideArrowLeft, LucideBox, LucideCopy, LucideFileCode2, LucideGitBranch, LucideSettings2, LucideTrash2, LucideUploadCloud, ValidationStatusBadgeComponent, CompilationStatusBadgeComponent],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, LucideArrowLeft, LucideBox, LucideCopy, LucideFileCode2, LucideGitBranch, LucideSettings2, LucideTrash2, ValidationStatusBadgeComponent, CompilationStatusBadgeComponent],
   template: `
     @if (state.loading()) {
       <section class="page-state panel"><span class="eyebrow">MODEL WORKSPACE</span><h1>Loading model…</h1></section>
@@ -26,7 +26,6 @@ import { ModelWorkspaceState } from './model-workspace.state'
           <nav class="workspace-tabs" aria-label="Model workspace sections"><a [routerLink]="['/models', project.id]" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Overview</a><a [routerLink]="['/models', project.id, 'compilation']" routerLinkActive="active">Compilation</a><a [routerLink]="['/models', project.id, 'export']" routerLinkActive="active">Export</a><a [routerLink]="['/models', project.id, 'inference']" routerLinkActive="active">Inference</a></nav>
         </header>
         <div class="workspace-body"><router-outlet /></div>
-        <div class="workspace-footer-actions"><a class="secondary inline-action" [routerLink]="['/models', project.id, 'export']"><svg lucideUploadCloud [size]="15"></svg>Open export center</a><a class="secondary inline-action" [routerLink]="['/models', project.id, 'compilation']"><svg lucideFileCode2 [size]="15"></svg>Open compilation</a></div>
         @if (deleteOpen()) { <div class="dialog-backdrop"><section class="confirm-dialog panel" role="alertdialog" aria-modal="true" aria-labelledby="delete-model-title"><span class="eyebrow">DELETE MODEL</span><h2 id="delete-model-title">Delete “{{ project.name }}”?</h2><p>This permanently removes the saved architecture, revisions, and generated snapshots. This action cannot be undone.</p><div class="dialog-actions"><button class="secondary" type="button" (click)="deleteOpen.set(false)" [disabled]="deleteBusy()">Cancel</button><button class="primary danger-action" type="button" (click)="remove()" [disabled]="deleteBusy()">{{ deleteBusy() ? 'Deleting…' : 'Delete permanently' }}</button></div></section></div> }
       </div>
     }
