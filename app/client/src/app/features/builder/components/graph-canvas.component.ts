@@ -10,7 +10,7 @@ import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, no
   standalone: true,
   imports: [FFlowModule, LucideLock, LucideMaximize2, LucideSave, LucideUnlock],
   template: `
-    <div class="canvas-shell" [class.is-read-only]="readOnly" [class.is-viewport-locked]="viewportLocked()" (dragover)="allowDrop($event)" (drop)="dropNode($event)">
+    <div class="canvas-shell" [class.is-read-only]="readOnly" [class.is-viewport-locked]="viewportLocked()" (contextmenu)="openCanvasMenu($event)" (dragover)="allowDrop($event)" (drop)="dropNode($event)">
       <f-flow fDraggable [fDraggableDisabled]="readOnly" [fCanvasMoveTrigger]="canvasMoveTrigger" [vCellSize]="16" [hCellSize]="16" [fCellSizeWhileDragging]="16" (fDragStarted)="store.beginDrag()" (fDragEnded)="store.endDrag()" (fMoveNodes)="moveNodes($event)" (fSelectionChange)="select($event)" (fDeleteSelected)="deleteSelected($event)" (fCreateConnection)="createConnection($event)" (fNodesRendered)="fitOnNodesRendered()">
         <f-background><f-circle-pattern color="rgba(118, 150, 164, .16)" [radius]="24"></f-circle-pattern></f-background>
         @if (minimapVisible()) { <f-minimap [fMinSize]="50" [fNodeRenderLimit]="1000"></f-minimap> }
@@ -18,8 +18,8 @@ import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, no
           <f-connection-for-create fType="segment" fOffset="20"></f-connection-for-create>
           <ng-container ngProjectAs="[fConnections]">@for (edge of store.edges(); track edge.id) { <f-connection fType="segment" fOffset="20" [fSelectionDisabled]="readOnly" [fConnectionId]="edge.id" [fSourceId]="connectorId(edge.source, 'output', edge.sourceHandle || 'output')" [fTargetId]="connectorId(edge.target, 'input', edge.targetHandle || 'input')" [class.is-selected]="store.selectedEdgeId() === edge.id"></f-connection> }</ng-container>
           <ng-container ngProjectAs="[fNodes]">@for (node of store.nodes(); track node.id) {
-            <div fNode [fNodeId]="node.id" [fNodePosition]="node.position" [fNodeDraggingDisabled]="readOnly" [fNodeSelectionDisabled]="readOnly" [fNodeSize]="nodeSize(node)" [class.is-selected]="store.selectedNodeId() === node.id" [attr.aria-label]="node.data.label" (click)="selectNode(node.id)">
-              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent"><div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { <span class="nw-flow-port input" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { <span class="nw-flow-port output" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> }</div></div>
+            <div fNode [fNodeId]="node.id" [fNodePosition]="node.position" [fNodeDraggingDisabled]="readOnly || node.locked" [fNodeSelectionDisabled]="readOnly" [fNodeSize]="nodeSize(node)" [class.is-selected]="store.selectedNodeId() === node.id" [attr.aria-label]="node.data.label" (click)="selectNode(node.id)">
+              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" aria-hidden="true">@if (node.locked) { <svg lucideLock [size]="13"></svg> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { <span class="nw-flow-port input" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { <span class="nw-flow-port output" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> }</div></div>
             </div>
           } </ng-container>
         </f-canvas>
@@ -29,6 +29,8 @@ import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, no
       @if (!readOnly && !store.nodes().length) { <div class="canvas-empty-state"><span class="eyebrow">EMPTY GRAPH</span><strong>Drop an operation here</strong><span>Choose a node from the catalog to start a model.</span></div> }
       @if (readOnly && !store.nodes().length) { <div class="preview-empty">No renderable nodes in this revision.</div> }
       @if (!readOnly) { <div class="canvas-hint">Drop a node to build the model • Ctrl+L auto-layout</div> }
+      @if (!readOnly && canvasMenu(); as menu) { <div class="canvas-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" (click)="fitView(); closeMenus()">Fit workflow to view</button><button type="button" role="menuitem" (click)="autoLayout(); closeMenus()">Auto layout</button><button type="button" role="menuitem" class="is-destructive" (click)="requestReset(); closeMenus()">Reset canvas</button></div> }
+      @if (!readOnly && nodeMenu(); as menu) { <div class="canvas-context-menu node-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" (click)="duplicateWithDefaults(menu.nodeId); closeMenus()">Duplicate with defaults</button><button type="button" role="menuitem" (click)="duplicateExact(menu.nodeId); closeMenus()">Duplicate exact</button><button type="button" role="menuitem" (click)="copyNode(menu.nodeId); closeMenus()">Copy node</button><button type="button" role="menuitem" (click)="resetParameters(menu.nodeId); closeMenus()">Reset parameters</button><button type="button" role="menuitem" (click)="disconnectNode(menu.nodeId); closeMenus()">Disconnect all</button><button type="button" role="menuitem" (click)="toggleOutput(menu.nodeId); closeMenus()">{{ store.isOutput(menu.nodeId) ? 'Remove from outputs' : 'Mark as output' }}</button><button type="button" role="menuitem" (click)="toggleLock(menu.nodeId); closeMenus()">{{ isLocked(menu.nodeId) ? 'Unlock node' : 'Lock node' }}</button><button type="button" role="menuitem" class="is-destructive" (click)="deleteNode(menu.nodeId); closeMenus()">Delete node</button></div> }
     </div>
   `,
 })
@@ -41,6 +43,7 @@ export class GraphCanvasComponent {
   @Output() readonly enterFocus = new EventEmitter<void>()
   @Output() readonly exitFocus = new EventEmitter<void>()
   @Output() readonly save = new EventEmitter<void>()
+  @Output() readonly resetRequested = new EventEmitter<void>()
   readonly store = inject(GraphEditorStore)
   readonly minimapVisible = signal(true)
   readonly viewportLocked = signal(false)
@@ -48,6 +51,8 @@ export class GraphCanvasComponent {
   private readonly canvas = viewChild(FCanvasComponent)
   private readonly zoom = viewChild(FZoomDirective)
   private graphFitted = false
+  readonly canvasMenu = signal<{ x: number; y: number } | null>(null)
+  readonly nodeMenu = signal<{ x: number; y: number; nodeId: string } | null>(null)
 
   constructor() {
     effect(() => {
@@ -56,6 +61,38 @@ export class GraphCanvasComponent {
   }
 
   allowDrop(event: DragEvent): void { if (!this.readOnly) event.preventDefault() }
+  openCanvasMenu(event: MouseEvent): void {
+    if (this.readOnly) return
+    event.preventDefault()
+    this.nodeMenu.set(null)
+    this.canvasMenu.set(this.menuPosition(event))
+  }
+  openNodeMenu(event: MouseEvent, nodeId: string): void {
+    if (this.readOnly) return
+    event.preventDefault()
+    event.stopPropagation()
+    this.store.selectNode(nodeId)
+    this.canvasMenu.set(null)
+    this.nodeMenu.set({ ...this.menuPosition(event), nodeId })
+  }
+  closeMenus(): void { this.canvasMenu.set(null); this.nodeMenu.set(null) }
+  requestReset(): void { this.resetRequested.emit() }
+  autoLayout(): void { this.store.autoLayout(this.store.nodes(), this.store.edges()); if (!this.viewportLocked()) this.fitView() }
+  duplicateWithDefaults(nodeId: string): void { this.store.duplicateWithDefaults(nodeId) }
+  duplicateExact(nodeId: string): void { this.store.duplicateExact(nodeId) }
+  copyNode(nodeId: string): void { this.store.selectNode(nodeId); this.store.copySelected() }
+  resetParameters(nodeId: string): void { this.store.resetParameters(nodeId) }
+  disconnectNode(nodeId: string): void { this.store.disconnectNode(nodeId) }
+  toggleOutput(nodeId: string): void { this.store.toggleNodeOutput(nodeId) }
+  toggleLock(nodeId: string): void { this.store.toggleNodeLocked(nodeId) }
+  deleteNode(nodeId: string): void { this.store.selectNode(nodeId); this.store.deleteSelected() }
+  isLocked(nodeId: string): boolean { return this.store.nodes().find((node) => node.id === nodeId)?.locked ?? false }
+  private menuPosition(event: MouseEvent): { x: number; y: number } {
+    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+    const shell = target?.closest('.canvas-shell') ?? target
+    const bounds = shell?.getBoundingClientRect()
+    return { x: Math.max(8, event.clientX - (bounds?.left ?? 0)), y: Math.max(8, event.clientY - (bounds?.top ?? 0)) }
+  }
   dropNode(event: DragEvent): void {
     if (this.readOnly) return
     event.preventDefault()
@@ -95,6 +132,7 @@ export class GraphCanvasComponent {
 
   @HostListener('document:keydown', ['$event'])
   handleKeyboard(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && (this.canvasMenu() || this.nodeMenu())) { event.preventDefault(); this.closeMenus(); return }
     const command = event.ctrlKey || event.metaKey
     const target = event.target
     const editing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
@@ -109,5 +147,12 @@ export class GraphCanvasComponent {
     if (command && event.key.toLowerCase() === 'v' && !editing) { event.preventDefault(); this.store.pasteCopied(); return }
     if (command && event.key.toLowerCase() === 'l' && !editing) { event.preventDefault(); this.store.autoLayout(this.store.nodes(), this.store.edges()); if (!this.viewportLocked()) this.fitView(); return }
     if (!editing && (event.key === 'Delete' || event.key === 'Backspace')) { event.preventDefault(); this.store.deleteSelected() }
+  }
+
+  @HostListener('document:pointerdown', ['$event'])
+  closeMenusOnOutsidePointer(event: PointerEvent): void {
+    const target = event.target instanceof Element ? event.target : null
+    if (target?.closest('.canvas-context-menu')) return
+    this.closeMenus()
   }
 }

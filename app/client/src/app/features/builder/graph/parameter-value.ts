@@ -1,6 +1,6 @@
 import type { ParameterCapability, ParameterDefinition } from '../../../domain/types'
 
-export type ParameterDraftValue = string | boolean
+export type ParameterDraftValue = string | boolean | number | null
 
 export interface ParsedParameterValue {
   valid: boolean
@@ -32,15 +32,29 @@ export function parseParameterValue(
     return { valid: Number.isFinite(value) && withinConstraints(definition, value, capability) && capabilityAllowsValue(capability, value), value }
   }
   if (definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple') {
-    const parsed = parseSequence(text)
+    const parsed = parseSequence(text, definition.type === 'list')
     return { valid: parsed !== undefined && sequenceItemsValid(parsed, definition, capability) && capabilityAllowsValue(capability, parsed), value: parsed }
   }
-  if (definition.type === 'enum' && definition.options.length > 0 && !definition.options.some((item) => String(item) === text)) return { valid: false }
+  if (definition.type === 'object' || definition.type === 'initializer' || definition.type === 'regularizer' || definition.type === 'constraint') {
+    const value = parseJsonObject(text)
+    if (value === undefined) {
+      if (definition.type !== 'object' && typeof raw === 'string') return { valid: capabilityAllowsValue(capability, raw), value: raw }
+      return { valid: false }
+    }
+    return { valid: capabilityAllowsValue(capability, value), value }
+  }
+  if (definition.type === 'enum' || definition.type === 'activation' || definition.type === 'dtype') {
+    const option = definition.options.find((item) => String(item) === text)
+    if (definition.options.length > 0 && option === undefined) return { valid: false }
+    const value = option === undefined ? raw : option
+    return { valid: capabilityAllowsValue(capability, value), value }
+  }
   return { valid: capabilityAllowsValue(capability, raw), value: raw }
 }
 
 export function displayParameterValue(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map((item) => item === null ? '?' : displayParameterValue(item)).join(', ')}]`
+  if (typeof value === 'object' && value !== null) return JSON.stringify(value)
   return value === null || value === undefined ? '' : String(value)
 }
 
@@ -73,7 +87,7 @@ function splitSequence(text: string): string[] {
   return values.filter(Boolean)
 }
 
-function parseSequence(text: string): unknown[] | undefined {
+function parseSequence(text: string, allowStrings: boolean): unknown[] | undefined {
   const trimmed = text.trim()
   if (!trimmed) return []
   const unwrapped = (trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('(') && trimmed.endsWith(')'))
@@ -83,18 +97,31 @@ function parseSequence(text: string): unknown[] | undefined {
   const parsed: unknown[] = []
   for (const value of values) {
     if ((value.startsWith('[') && value.endsWith(']')) || (value.startsWith('(') && value.endsWith(')'))) {
-      const nested = parseSequence(value)
+      const nested = parseSequence(value, allowStrings)
       if (!nested) return undefined
       parsed.push(nested)
     } else if (value === '?' || value.toLowerCase() === 'none' || value.toLowerCase() === 'null') {
       parsed.push(null)
-    } else if (/^-?\d+$/.test(value)) {
+    } else if (/^-?\d+(?:\.\d+)?$/.test(value)) {
       parsed.push(Number(value))
+    } else if (allowStrings && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))) {
+      parsed.push(value.slice(1, -1))
+    } else if (allowStrings && (value.toLowerCase() === 'true' || value.toLowerCase() === 'false')) {
+      parsed.push(value.toLowerCase() === 'true')
     } else {
       return undefined
     }
   }
   return parsed
+}
+
+function parseJsonObject(text: string): unknown | undefined {
+  try {
+    const parsed: unknown = JSON.parse(text)
+    return parsed !== null && typeof parsed === 'object' ? parsed : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function sequenceItemsValid(value: unknown, definition: ParameterDefinition, capability?: ParameterCapability): boolean {
@@ -111,7 +138,9 @@ function sequenceItemsValid(value: unknown, definition: ParameterDefinition, cap
   const valid = (item: unknown): boolean => {
     if (item === null) return true
     if (Array.isArray(item)) return item.every(valid)
-    return typeof item === 'number' && Number.isSafeInteger(item)
+    if (definition.type === 'list' && (typeof item === 'string' || typeof item === 'boolean')) return true
+    return typeof item === 'number' && Number.isFinite(item)
+      && (definition.type === 'list' || Number.isSafeInteger(item))
       && (typeof itemMin !== 'number' || item >= itemMin)
       && (typeof itemMax !== 'number' || item <= itemMax)
   }

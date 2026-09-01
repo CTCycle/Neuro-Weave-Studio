@@ -854,6 +854,9 @@ nw-graph-canvas { display: contents; }
 .canvas-shell [fNode]:active { cursor: grabbing; }
 .inspector-empty p { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .nw-flow-node { position: relative; width: 100%; height: 100%; min-width: 196px; padding: 10px 11px 8px; border: 1px solid #3b5262; border-top: 3px solid var(--node-accent, var(--cyan)); border-radius: 6px; background: linear-gradient(155deg, #1a2731, #111920); box-shadow: 0 14px 30px rgba(0,0,0,.22); color: var(--text); }
+.nw-flow-node-status { position: absolute; top: 7px; right: 8px; display: flex; color: var(--accent-bright); }
+.nw-flow-output-indicator { position: absolute; top: 10px; right: 30px; width: 8px; height: 8px; border: 2px solid #0c1319; border-radius: 50%; background: #67c98b; box-shadow: 0 0 0 1px rgba(103,201,139,.55); }
+.nw-flow-node:has(.nw-flow-node-status svg) { border-top-color: var(--accent-bright); }
 .nw-flow-node.is-selected, [fNode].is-selected .nw-flow-node { border-color: var(--accent-bright); box-shadow: 0 0 0 2px rgba(210,138,90,.18), 0 14px 30px rgba(0,0,0,.3); }
 .nw-flow-node-heading { display: flex; align-items: center; gap: 6px; }
 .nw-flow-node-heading strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -871,6 +874,11 @@ nw-graph-canvas { display: contents; }
 .canvas-empty-state { position: absolute; inset: 50% auto auto 50%; z-index: 3; display: flex; width: 240px; transform: translate(-50%, -50%); align-items: center; flex-direction: column; gap: 6px; padding: 22px; border: 1px dashed var(--border-strong); background: rgba(13,21,28,.8); color: var(--muted); text-align: center; pointer-events: none; }
 .canvas-empty-state strong { color: var(--text); font-size: 13px; }
 .canvas-empty-state > span:last-child { font-size: 10px; line-height: 1.4; }
+.canvas-context-menu { position: absolute; z-index: 20; display: flex; min-width: 188px; flex-direction: column; padding: 5px; border: 1px solid var(--border-strong); border-radius: 6px; background: #18242d; box-shadow: 0 14px 34px rgba(0,0,0,.45); }
+.canvas-context-menu button { display: block; width: 100%; padding: 8px 9px; border: 0; border-radius: 4px; background: transparent; color: var(--text); text-align: left; font-size: 10px; cursor: pointer; }
+.canvas-context-menu button:hover, .canvas-context-menu button:focus-visible { background: rgba(101,201,212,.12); color: var(--cyan); outline: none; }
+.canvas-context-menu button.is-destructive { color: #ed9b91; }
+.canvas-context-menu button.is-destructive:hover, .canvas-context-menu button.is-destructive:focus-visible { background: rgba(237,155,145,.12); color: #ffb6ac; }
 .inspector-node-heading { align-items: center; margin: 14px 0 6px; padding: 10px; border: 1px solid var(--border); background: var(--surface-2); }
 .inspector-node-heading > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .inspector-node-heading strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -882,6 +890,9 @@ nw-graph-canvas { display: contents; }
 .inspector-connection-arrow { flex: 0 0 auto; color: var(--accent-bright); font-size: 16px; }
 .field-label { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
 .field-label input { height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: 4px; background: #0c141b; color: var(--text); font-size: 11px; text-transform: none; letter-spacing: 0; }
+.inspector-field textarea { min-height: 46px; resize: vertical; padding: 7px 8px; border: 1px solid var(--border); border-radius: 4px; background: #0c141b; color: var(--text); font: 10px/1.35 'IBM Plex Mono', Consolas, monospace; }
+.inspector-field.is-unavailable { opacity: .72; }
+.parameter-availability { color: var(--warning) !important; }
 .inspector-section { display: flex; flex-direction: column; gap: 5px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
 .inspector-port { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 2px 7px; padding: 6px 7px; border: 1px solid var(--border); background: #0d151c; }
 .inspector-port span { color: var(--cyan); font: 8px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; }

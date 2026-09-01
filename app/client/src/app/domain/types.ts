@@ -14,12 +14,38 @@ export interface PortDefinition {
   rank?: number | null
   element_kind?: PortKind | null
   description: string
+  enabled_when?: Record<string, unknown>
+}
+
+export type ParameterType =
+  | 'string'
+  | 'integer'
+  | 'number'
+  | 'boolean'
+  | 'enum'
+  | 'shape'
+  | 'axis'
+  | 'expression'
+  | 'list'
+  | 'tuple'
+  | 'object'
+  | 'dtype'
+  | 'activation'
+  | 'initializer'
+  | 'regularizer'
+  | 'constraint'
+
+export interface ParameterValueSchema {
+  type: ParameterType
+  item?: ParameterValueSchema | null
+  properties?: Record<string, ParameterValueSchema>
+  required_properties?: string[]
 }
 
 export interface ParameterDefinition {
   id: string
   display_name: string
-  type: 'string' | 'integer' | 'number' | 'boolean' | 'enum' | 'shape' | 'axis' | 'expression' | 'list' | 'tuple'
+  type: ParameterType
   default: unknown
   required: boolean
   constraints: Record<string, unknown>
@@ -28,18 +54,29 @@ export interface ParameterDefinition {
   group?: string
   nullable?: boolean
   ui?: Record<string, unknown>
+  value_schema?: ParameterValueSchema | null
+  visible_when?: Record<string, unknown>
+  enabled_when?: Record<string, unknown>
+  required_when?: Record<string, unknown>
+  framework_default?: unknown
+  editor_default?: unknown
 }
+
+export type CapabilityStatus = 'verified' | 'unsupported' | 'unverified'
 
 export interface ParameterCapability {
   supported: boolean
+  status?: CapabilityStatus
   allowed_values?: unknown[] | null
   constraints: Record<string, unknown>
   mapping?: string | null
   notes?: string | null
+  default?: unknown
 }
 
 export interface ImplementationMapping {
   supported: boolean
+  status?: CapabilityStatus
   symbol?: string
   adapter?: string
   notes?: string
@@ -66,6 +103,8 @@ export interface NodeManifest {
   display_name: string
   category: string
   description: string
+  semantic_role?: 'input' | 'operation' | 'output_adapter'
+  task_hint?: string | null
   inputs: PortDefinition[]
   outputs: PortDefinition[]
   parameters: ParameterDefinition[]
@@ -89,6 +128,7 @@ export interface GraphNodeInstance {
   label?: string | null
   position: Position
   parameters: Record<string, unknown>
+  locked: boolean
 }
 
 export interface GraphEdgeInstance {
@@ -97,6 +137,11 @@ export interface GraphEdgeInstance {
   source_port_id: string
   target_node_id: string
   target_port_id: string
+}
+
+export interface OutputBinding {
+  node_id: string
+  port_id: string
 }
 
 export interface KerasCompilationConfiguration {
@@ -199,9 +244,10 @@ export interface CompilationCapabilities {
 }
 
 export interface ModelGraph {
-  schema_version: number
+  schema_version: 4
   nodes: GraphNodeInstance[]
   edges: GraphEdgeInstance[]
+  output_bindings: OutputBinding[]
   model_configuration: ModelConfiguration
   export_settings: {
     include_comments: boolean
@@ -269,6 +315,23 @@ export interface ValidationResult {
   diagnostics: ValidationDiagnostic[]
   shape_summaries: ShapeSummary[]
   total_parameters?: number | null
+  effective_outputs?: OutputReference[]
+  output_mode?: 'explicit' | 'inferred'
+  model_type?: ModelTypeInference
+}
+
+export interface OutputReference {
+  node_id: string
+  port_id: string
+  name: string
+  explicit: boolean
+  task_hint?: string | null
+}
+
+export interface ModelTypeInference {
+  kind: 'binary_classification' | 'multiclass_classification' | 'multilabel_classification' | 'regression' | 'embedding' | 'sequence' | 'multi_output' | 'generic'
+  confidence: 'high' | 'medium' | 'low'
+  evidence: string[]
 }
 
 export interface CompilationResult {
@@ -559,7 +622,7 @@ export function implementationKey(backend: ExecutionBackend, kerasEnabled: boole
 
 export interface ProjectExportBundle {
   format: 'neuro-weave-project'
-  format_version: 4
+  format_version: 5
   exported_at: string
   project: {
     name: string

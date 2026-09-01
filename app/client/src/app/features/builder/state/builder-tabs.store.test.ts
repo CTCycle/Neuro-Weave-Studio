@@ -3,7 +3,7 @@ import { emptyModelConfiguration } from '../../../domain/types'
 import type { GraphEditorSession } from '../../../domain/graph-mapper'
 import { BuilderTabsStore } from './builder-tabs.store'
 
-const session = (label: string): GraphEditorSession => ({ nodes: [], edges: [], modelConfiguration: { ...emptyModelConfiguration(), keras: { ...emptyModelConfiguration().keras, optimizer: label } }, exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' }, futureTrainingConfiguration: {}, selectedNodeId: null, selectedEdgeId: null, copiedNodeIds: [], past: [], future: [] })
+const session = (label: string): GraphEditorSession => ({ nodes: [], edges: [], outputBindings: [], modelConfiguration: { ...emptyModelConfiguration(), keras: { ...emptyModelConfiguration().keras, optimizer: label } }, exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' }, futureTrainingConfiguration: {}, selectedNodeId: null, selectedEdgeId: null, copiedNodeIds: [], past: [], future: [] })
 function tab(projectId: string | null, label: string) { return { projectId, name: projectId ? `Project ${projectId}` : 'Untitled model', description: '', executionBackend: 'pytorch' as const, kerasEnabled: true, revision: 1, graph: session(label), validation: null, validationExpanded: false, validationHeight: 160, savedBaseline: label } }
 
 describe('builder tabs store', () => {
