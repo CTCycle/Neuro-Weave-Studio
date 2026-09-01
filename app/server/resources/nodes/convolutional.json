@@ -56,7 +56,7 @@
           "id": "padding",
           "display_name": "Padding",
           "type": "enum",
-          "default": "same",
+          "default": "valid",
           "required": false,
           "options": [
             "valid",
@@ -429,7 +429,7 @@
           "id": "padding",
           "display_name": "Padding",
           "type": "enum",
-          "default": "same",
+          "default": "valid",
           "required": false,
           "options": [
             "valid",
@@ -827,7 +827,7 @@
           "id": "padding",
           "display_name": "Padding",
           "type": "enum",
-          "default": "same",
+          "default": "valid",
           "required": false,
           "options": [
             "valid",
@@ -1272,13 +1272,27 @@
       ],
       "parameters": [
         {
-          "id": "filters",
-          "display_name": "Filters",
+          "id": "dimensions",
+          "display_name": "Dimensions",
+          "type": "enum",
+          "default": 2,
+          "required": false,
+          "options": [
+            1,
+            2
+          ],
+          "constraints": {}
+        },
+        {
+          "id": "depth_multiplier",
+          "display_name": "Depth Multiplier",
           "type": "integer",
-          "default": 32,
+          "default": 1,
           "required": false,
           "options": [],
-          "constraints": {}
+          "constraints": {
+            "min": 1
+          }
         },
         {
           "id": "kernel_size",
@@ -1290,7 +1304,10 @@
           ],
           "required": false,
           "options": [],
-          "constraints": {}
+          "constraints": {
+            "length": 2,
+            "item_min": 1
+          }
         }
       ],
       "shape_rule": {
