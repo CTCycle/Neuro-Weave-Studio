@@ -28,7 +28,9 @@ import { GraphEditorStore } from '../state/graph-editor.store'
                   @let capability = capabilityFor(node.data.manifest, definition);
                   @let help = helpfulParameterDescription(definition);
                   @let availability = availabilityMessage(node.data.manifest, definition, capability);
-                  @if (isChoice(definition)) {
+                  @if (isBinaryCheckbox(definition)) {
+                    <label class="toggle-field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node, node.data.manifest)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><span class="compact-toggle"><input type="checkbox" [formControlName]="definition.id" [attr.aria-label]="definition.display_name" (change)="updateParameter(definition, $any($event.target).checked)" /><strong>{{ binaryStateLabel(node, definition) }}</strong></span></label>
+                  } @else if (isChoice(definition)) {
                     <label class="field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node, node.data.manifest)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><select [formControlName]="definition.id" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (change)="updateParameter(definition, $any($event.target).value)">@if (definition.nullable) { <option value="">None</option> }@if (hasUnsupportedChoiceValue(definition, node, capability)) { <option [value]="currentParameterDisplay(node, definition)" disabled>Unavailable: {{ currentParameterDisplay(node, definition) }}</option> }@for (option of optionsFor(definition, capability); track $index) { <option [value]="stringValue(option)">{{ optionLabel(definition, option) }}</option> }</select>@if (invalid()[definition.id]) { <em class="field-error">Choose a supported option.</em> }</label>
                   } @else if (isStructured(definition)) {
                     <label class="field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node, node.data.manifest)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><textarea [formControlName]="definition.id" rows="2" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (input)="updateParameter(definition, $any($event.target).value)" [attr.placeholder]="structuredPlaceholder(definition)"></textarea>@if (invalid()[definition.id]) { <em class="field-error">Enter valid JSON or a supported value.</em> }</label>
@@ -98,7 +100,7 @@ export class PropertiesInspectorComponent {
       if (!node) { this.invalid.set({}); return }
       for (const definition of node.data.manifest.parameters) {
         const value = this.parameterValue(node, definition)
-        const controlValue = isFiniteParameter(definition) ? displayParameterValue(value) : definition.type === 'boolean' ? Boolean(value) : displayParameterValue(value)
+        const controlValue = this.isBinaryCheckbox(definition) ? Boolean(value) : displayParameterValue(value)
         const control = new UntypedFormControl(controlValue)
         if (this.isDisabled(this.capabilityFor(node.data.manifest, definition), definition, node, node.data.manifest)) control.disable({ emitEvent: false })
         this.form.addControl(definition.id, control)
@@ -162,6 +164,8 @@ export class PropertiesInspectorComponent {
 
   currentParameterDisplay(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): string { return displayParameterValue(this.parameterValue(node, definition)) }
   inputType(definition: ParameterDefinition): string { return definition.type === 'number' || definition.type === 'integer' || definition.type === 'axis' ? 'number' : 'text' }
+  isBinaryCheckbox(definition: ParameterDefinition): boolean { return definition.type === 'boolean' && !definition.nullable }
+  binaryStateLabel(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): string { return this.parameterValue(node, definition) === true ? 'On' : 'Off' }
   isChoice(definition: ParameterDefinition): boolean { return isFiniteParameter(definition) }
   isStructured(definition: ParameterDefinition): boolean { return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple' || definition.type === 'object' }
   structuredPlaceholder(definition: ParameterDefinition): string { return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple' ? '[ … ]' : '{ "class_name": "…", "config": {} }' }
