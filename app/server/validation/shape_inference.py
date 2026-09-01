@@ -18,6 +18,35 @@ class ShapeInferenceError(ValueError):
 
 
 ###############################################################################
+def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
+    for parameter_id, expected in condition.items():
+        actual = parameters.get(parameter_id)
+        if isinstance(expected, dict):
+            if "equals" in expected and actual != expected["equals"]:
+                return False
+            if "not_equals" in expected and actual == expected["not_equals"]:
+                return False
+            if "in" in expected and actual not in expected["in"]:
+                return False
+            if "not_in" in expected and actual in expected["not_in"]:
+                return False
+        elif isinstance(expected, list):
+            if actual not in expected:
+                return False
+        elif actual != expected:
+            return False
+    return True
+
+
+def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any]:
+    return [
+        port
+        for port in manifest.outputs
+        if _condition_matches(port.enabled_when, parameters)
+    ]
+
+
+###############################################################################
 def _int_parameter(parameters: dict[str, Any], key: str, default: int | None = None) -> int:
     value = parameters.get(key, default)
     if not isinstance(value, int) or isinstance(value, bool):
@@ -752,10 +781,6 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             source = input_specs[0]
             if source.rank != 3:
                 raise ShapeInferenceError("Recurrent layers require rank 3: batch, time, features")
-            if parameters.get("return_state", False):
-                raise ShapeInferenceError(
-                    "return_state is not supported because this graph node has one output port"
-                )
             units = _int_parameter(parameters, "units", 64)
             return_sequences = bool(parameters.get("return_sequences", False))
             output_shape = (
@@ -894,7 +919,7 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                         mha_count + feed_forward_count + normalization_count
                     )
                 output = query
-                output_ports = manifest.outputs or []
+                output_ports = _enabled_output_ports(manifest, parameters)
                 outputs = {port.id: output for port in output_ports}
                 outputs_by_node[node_id] = outputs
                 summaries.append(
@@ -1023,8 +1048,18 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             output = input_specs[0]
             parameter_count = None
 
-        output_ports = manifest.outputs or []
-        outputs = {port.id: output for port in output_ports}
+        output_ports = _enabled_output_ports(manifest, parameters)
+        if rule == "recurrent":
+            recurrent_state = TensorSpec(
+                shape=[source.shape[0], units],
+                dtype=source.dtype,
+            )
+            outputs = {
+                port.id: output if port.id == "output" else recurrent_state
+                for port in output_ports
+            }
+        else:
+            outputs = {port.id: output for port in output_ports}
         outputs_by_node[node_id] = outputs
         summaries.append(
             ShapeSummary(node_id=node_id, outputs=outputs, parameter_count=parameter_count)

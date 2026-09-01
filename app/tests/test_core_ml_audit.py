@@ -314,6 +314,63 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
 
 
 ###############################################################################
+def test_generated_keras_source_preserves_recurrent_state_ports(tmp_path: Path) -> None:
+    backend = available_backend()
+    if backend is None:
+        pytest.skip("No operational Keras backend is installed")
+
+    graph = ModelGraph(
+        nodes=[
+            node(
+                "input",
+                "input.sequence",
+                {"shape": [None, 5, 3], "dtype": "float32"},
+            ),
+            node(
+                "lstm",
+                "recurrent.lstm",
+                {"units": 4, "return_state": True},
+            ),
+        ],
+        edges=[edge("e1", "input", "lstm")],
+    )
+    result = validate(graph)
+    assert result.valid
+    assert {
+        (item.node_id, item.port_id)
+        for item in result.effective_outputs
+    } == {("lstm", "output"), ("lstm", "hidden_state"), ("lstm", "cell_state")}
+
+    source = KerasSourceExporter().generate(
+        graph,
+        compile_to_ir(graph, ExecutionBackend.PYTORCH, True, get_node_catalog()),
+    )
+    source_path = tmp_path / "generated_recurrent.py"
+    source_path.write_text(source, encoding="utf-8")
+    environment = os.environ.copy()
+    environment["KERAS_BACKEND"] = keras_backend_value(backend)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import importlib.util; "
+                f"spec=importlib.util.spec_from_file_location('generated_recurrent', r'{source_path}'); "
+                "module=importlib.util.module_from_spec(spec); "
+                "spec.loader.exec_module(module); "
+                "model=module.build_model(); "
+                "assert model.output_shape == [(None, 4), (None, 4), (None, 4)]"
+            ),
+        ],
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+###############################################################################
 def test_multi_output_compile_selectors_generate_executable_transformer_source(
     tmp_path: Path,
 ) -> None:

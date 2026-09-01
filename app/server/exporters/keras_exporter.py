@@ -20,6 +20,27 @@ class KerasSourceExporter(SourceExporter):
         return None if value in (None, "", "none") else value
 
     # -------------------------------------------------------------------------
+    @staticmethod
+    def _condition_matches(condition: dict[str, object], parameters: dict[str, object]) -> bool:
+        for parameter_id, expected in condition.items():
+            actual = parameters.get(parameter_id)
+            if isinstance(expected, dict):
+                if "equals" in expected and actual != expected["equals"]:
+                    return False
+                if "not_equals" in expected and actual == expected["not_equals"]:
+                    return False
+                if "in" in expected and actual not in expected["in"]:
+                    return False
+                if "not_in" in expected and actual in expected["not_in"]:
+                    return False
+            elif isinstance(expected, list):
+                if actual not in expected:
+                    return False
+            elif actual != expected:
+                return False
+        return True
+
+    # -------------------------------------------------------------------------
     @classmethod
     def _layer_option(
         cls,
@@ -177,12 +198,16 @@ class KerasSourceExporter(SourceExporter):
         lines.append(f"    keras.mixed_precision.set_global_policy({policy!r})")
 
         variables: dict[str, str] = {}
+        port_variables: dict[tuple[str, str], str] = {}
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
             parameters = node.parameters
             variable = item.variable_name
             variables[item.node_id] = variable
-            inputs = [variables[source_id] for source_id in item.input_node_ids]
+            inputs = [
+                port_variables[(binding.source_node_id, binding.source_port_id)]
+                for binding in item.input_bindings
+            ]
             source = inputs[0] if inputs else ""
             definition = item.definition_id
             manifest = catalog.get(definition, node.definition_version)
@@ -236,13 +261,17 @@ class KerasSourceExporter(SourceExporter):
                 lines.append(
                     f"    {variable} = layers.MaxPooling2D(pool_size={parameters.get('pool_size', [2, 2])!r}, strides={parameters.get('strides')!r}, padding={parameters.get('padding', 'valid')!r}, data_format={parameters.get('data_format', 'channels_last')!r}, name={node.id!r})({source})"
                 )
+            elif definition == "recurrent.simple_rnn":
+                lines.append(
+                    f"    {variable} = layers.SimpleRNN({parameters.get('units', 64)!r}, activation={parameters.get('activation', 'tanh')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, recurrent_initializer={self._layer_option(parameters, 'recurrent_initializer', graph, 'orthogonal')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, return_sequences={parameters.get('return_sequences', False)!r}, return_state={parameters.get('return_state', False)!r}, go_backwards={parameters.get('go_backwards', False)!r}, stateful={parameters.get('stateful', False)!r}, unroll={parameters.get('unroll', False)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
+                )
             elif definition == "recurrent.lstm":
                 lines.append(
-                    f"    {variable} = layers.LSTM({parameters.get('units', 64)!r}, activation={parameters.get('activation', 'tanh')!r}, recurrent_activation={parameters.get('recurrent_activation', 'sigmoid')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, recurrent_initializer={self._layer_option(parameters, 'recurrent_initializer', graph, 'orthogonal')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, unit_forget_bias={parameters.get('unit_forget_bias', True)!r}, dropout={parameters.get('dropout', 0.0)!r}, recurrent_dropout={parameters.get('recurrent_dropout', 0.0)!r}, return_sequences={parameters.get('return_sequences', False)!r}, return_state=False, go_backwards={parameters.get('go_backwards', False)!r}, stateful={parameters.get('stateful', False)!r}, unroll={parameters.get('unroll', False)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.LSTM({parameters.get('units', 64)!r}, activation={parameters.get('activation', 'tanh')!r}, recurrent_activation={parameters.get('recurrent_activation', 'sigmoid')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, recurrent_initializer={self._layer_option(parameters, 'recurrent_initializer', graph, 'orthogonal')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, unit_forget_bias={parameters.get('unit_forget_bias', True)!r}, dropout={parameters.get('dropout', 0.0)!r}, recurrent_dropout={parameters.get('recurrent_dropout', 0.0)!r}, return_sequences={parameters.get('return_sequences', False)!r}, return_state={parameters.get('return_state', False)!r}, go_backwards={parameters.get('go_backwards', False)!r}, stateful={parameters.get('stateful', False)!r}, unroll={parameters.get('unroll', False)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
                 )
             elif definition == "recurrent.gru":
                 lines.append(
-                    f"    {variable} = layers.GRU({parameters.get('units', 64)!r}, activation={parameters.get('activation', 'tanh')!r}, recurrent_activation={parameters.get('recurrent_activation', 'sigmoid')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, recurrent_initializer={self._layer_option(parameters, 'recurrent_initializer', graph, 'orthogonal')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, reset_after={parameters.get('reset_after', True)!r}, dropout={parameters.get('dropout', 0.0)!r}, recurrent_dropout={parameters.get('recurrent_dropout', 0.0)!r}, return_sequences={parameters.get('return_sequences', False)!r}, return_state=False, go_backwards={parameters.get('go_backwards', False)!r}, stateful={parameters.get('stateful', False)!r}, unroll={parameters.get('unroll', False)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
+                    f"    {variable} = layers.GRU({parameters.get('units', 64)!r}, activation={parameters.get('activation', 'tanh')!r}, recurrent_activation={parameters.get('recurrent_activation', 'sigmoid')!r}, use_bias={parameters.get('use_bias', True)!r}, kernel_initializer={self._layer_option(parameters, 'kernel_initializer', graph, 'glorot_uniform')!r}, recurrent_initializer={self._layer_option(parameters, 'recurrent_initializer', graph, 'orthogonal')!r}, bias_initializer={self._layer_option(parameters, 'bias_initializer', graph, 'zeros')!r}, reset_after={parameters.get('reset_after', True)!r}, dropout={parameters.get('dropout', 0.0)!r}, recurrent_dropout={parameters.get('recurrent_dropout', 0.0)!r}, return_sequences={parameters.get('return_sequences', False)!r}, return_state={parameters.get('return_state', False)!r}, go_backwards={parameters.get('go_backwards', False)!r}, stateful={parameters.get('stateful', False)!r}, unroll={parameters.get('unroll', False)!r}, seed={parameters.get('seed')!r}, name={node.id!r})({source})"
                 )
             elif definition in {"attention.multi_head", "attention.self"}:
                 query = inputs[0]
@@ -331,9 +360,27 @@ class KerasSourceExporter(SourceExporter):
             else:
                 raise ValueError(f"No Keras adapter registered for {definition}")
 
+            output_ports = [
+                port
+                for port in manifest.outputs
+                if self._condition_matches(port.enabled_when, parameters)
+            ]
+            if not output_ports:
+                raise ValueError(f"No enabled Keras output port registered for {definition}")
+            if len(output_ports) > 1:
+                lines.append(
+                    f"    {variable}_outputs = {variable}"
+                )
+                for index, port in enumerate(output_ports):
+                    port_variables[(item.node_id, port.id)] = f"{variable}_outputs[{index}]"
+                variables[item.node_id] = f"{variable}_outputs[0]"
+            else:
+                port_variables[(item.node_id, output_ports[0].id)] = variable
+                variables[item.node_id] = variable
+
         input_variables = ", ".join(variables[node_id] for node_id in ir.input_node_ids)
         output_variables = ", ".join(
-            variables[binding.node_id] for binding in ir.output_bindings
+            port_variables[(binding.node_id, binding.port_id)] for binding in ir.output_bindings
         )
         lines.append(
             f"    model = keras.Model(inputs=[{input_variables}], outputs=[{output_variables}], name='neuro_weave_model')"

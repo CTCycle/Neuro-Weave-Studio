@@ -33,6 +33,35 @@ def _base_layer_kwargs(parameters: dict[str, Any]) -> dict[str, Any]:
 
 
 ###############################################################################
+def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
+    for parameter_id, expected in condition.items():
+        actual = parameters.get(parameter_id)
+        if isinstance(expected, dict):
+            if "equals" in expected and actual != expected["equals"]:
+                return False
+            if "not_equals" in expected and actual == expected["not_equals"]:
+                return False
+            if "in" in expected and actual not in expected["in"]:
+                return False
+            if "not_in" in expected and actual in expected["not_in"]:
+                return False
+        elif isinstance(expected, list):
+            if actual not in expected:
+                return False
+        elif actual != expected:
+            return False
+    return True
+
+
+def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any]:
+    return [
+        port
+        for port in manifest.outputs
+        if _condition_matches(port.enabled_when, parameters)
+    ]
+
+
+###############################################################################
 def _recurrent_layer(
     cell: str,
     parameters: dict[str, Any],
@@ -189,13 +218,15 @@ def build_model(
     catalog = catalog or get_node_catalog()
     nodes = {node.id: node for node in graph.nodes}
     tensors: dict[str, Any] = {}
+    port_tensors: dict[tuple[str, str], Any] = {}
     for node_id in topological_order(graph):
         _checkpoint(checkpoint)
         node = nodes[node_id]
         manifest = catalog.get(node.definition_id, node.definition_version)
+        incoming_edges = ordered_incoming_edges(graph, node_id, manifest)
         inputs = [
-            tensors[edge.source_node_id]
-            for edge in ordered_incoming_edges(graph, node_id, manifest)
+            port_tensors[(edge.source_node_id, edge.source_port_id)]
+            for edge in incoming_edges
         ]
         source = inputs[0] if inputs else None
         params = node.parameters
@@ -703,6 +734,25 @@ def build_model(
         else:
             raise RuntimeError(f"Keras worker does not support node {definition}")
 
+        output_ports = _enabled_output_ports(manifest, params)
+        if not output_ports:
+            raise RuntimeError(f"Node {node_id} does not expose an enabled output port")
+        result = tensors[node_id]
+        if len(output_ports) > 1:
+            if not isinstance(result, (tuple, list)) or len(result) != len(output_ports):
+                raise RuntimeError(
+                    f"Node {node_id} returned {type(result).__name__}, expected "
+                    f"{len(output_ports)} output values"
+                )
+            for port, value in zip(output_ports, result, strict=True):
+                port_tensors[(node_id, port.id)] = value
+            tensors[node_id] = result[0]
+        else:
+            port_tensors[(node_id, output_ports[0].id)] = result
+
     inputs = [tensors[node.id] for node in input_nodes(graph, catalog)]
-    outputs = [tensors[output.binding.node_id] for output in resolved_outputs(graph, catalog)]
+    outputs = [
+        port_tensors[(output.binding.node_id, output.binding.port_id)]
+        for output in resolved_outputs(graph, catalog)
+    ]
     return keras.Model(inputs=inputs, outputs=outputs, name="neuro_weave_model")

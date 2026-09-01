@@ -551,6 +551,16 @@ class ValidationService:
                         node_id=target.id,
                     )
                 )
+            if not _condition_matches(source_port.enabled_when, source.parameters):
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="disabled_port",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=f"Output port '{source_port.display_name}' is disabled by node parameters",
+                        edge_id=edge.id,
+                        node_id=source.id,
+                    )
+                )
             expected_kind = (
                 target_port.element_kind
                 if target_port.kind.value == "tensor_list"
@@ -653,6 +663,16 @@ class ValidationService:
                         code="invalid_output_port",
                         severity=DiagnosticSeverity.ERROR,
                         message=f"Output binding references unknown port '{binding.port_id}'",
+                        node_id=binding.node_id,
+                    )
+                )
+                continue
+            if not _condition_matches(output.port.enabled_when, output.node.parameters):
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="disabled_output_port",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=f"Output port '{output.port.display_name}' is disabled by node parameters",
                         node_id=binding.node_id,
                     )
                 )

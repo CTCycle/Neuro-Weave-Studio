@@ -8,17 +8,28 @@ from domain.graph import ModelGraph, OutputBinding, ShapeSummary
 
 
 ###############################################################################
+class InputBinding(BaseModel):
+    """A compiled edge retaining both endpoint port identities."""
+
+    source_node_id: str
+    source_port_id: str
+    target_node_id: str
+    target_port_id: str
+
+
+###############################################################################
 class CompiledNode(BaseModel):
     node_id: str
     definition_id: str
     variable_name: str
     input_node_ids: list[str]
+    input_bindings: list[InputBinding]
     parameters: dict[str, object] = Field(default_factory=dict)
 
 
 ###############################################################################
 class CanonicalModelIR(BaseModel):
-    schema_version: int = 2
+    schema_version: int = 3
     execution_backend: ExecutionBackend
     keras_enabled: bool
     ordered_nodes: list[CompiledNode]
