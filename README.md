@@ -1,5 +1,7 @@
 # NeuroWeave Studio
 
+Last updated: 2026-09-01
+
 NeuroWeave Studio is a local-first visual editor for designing machine-learning model architectures without writing code. It uses a framework-independent graph schema, manifest-defined nodes, a FastAPI backend, and an Angular plus Foblex frontend.
 
 The current product release is `1.0.0`, following Semantic Versioning. The frontend package, backend package, runtime API metadata, and lockfiles use this same release version.
@@ -47,12 +49,12 @@ The launcher menu provides these actions:
 - Manage compute backends
 - Initialize or upgrade database
 - Run the validation suite
+- Check for updates
+- Update application
 - Remove logs
 - Clear cache
 - Remove all data
 - Uninstall application
-- Check for updates
-- Update application
 - Exit
 
 The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. Option 2 installs or repairs dependencies and rebuilds the frontend; option 3 rebuilds only the frontend from current source using the existing frontend dependencies; option 1 reuses the existing build and never rebuilds it automatically. If `app/tests/cache/frontend-dist/index.html` is missing, run the standalone rebuild before launching. **Check for updates** performs a read-only remote status check, while **Update application** requires a non-detached, clean checkout of `main` and runs `git pull --ff-only origin main`; it never switches branches or modifies local changes. **Remove all data** deletes generated database/runtime/export/job/log data while preserving application files, settings, runtimes, dependencies, caches, and build output. Use `.\start_on_windows.ps1 -Action RebuildFrontend` to run the standalone rebuild directly. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, waits for both readiness checks, opens the frontend in the default browser when possible, and then closes the initial PowerShell menu while leaving the independent application process roots running. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening.
