@@ -628,6 +628,8 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             if not isinstance(target_shape, list):
                 raise ShapeInferenceError("target_shape must be a list")
             target_dimensions = cast(list[Any], target_shape)
+            if not target_dimensions:
+                raise ShapeInferenceError("target_shape must contain at least one dimension")
             if sum(dimension == -1 for dimension in target_dimensions) > 1:
                 raise ShapeInferenceError("target_shape can contain at most one inferred dimension")
             if any(
@@ -662,6 +664,18 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                     resolved_shape[validated_target_dimensions.index(-1)] = (
                         source_size // known_target
                     )
+            else:
+                source_dimensions = source.shape[1:]
+                integer_source_dimensions = [
+                    dimension for dimension in source_dimensions if isinstance(dimension, int)
+                ]
+                if len(integer_source_dimensions) == len(source_dimensions):
+                    source_size = prod(integer_source_dimensions)
+                    target_size = prod(validated_target_dimensions)
+                    if source_size != target_size:
+                        raise ShapeInferenceError(
+                            "target_shape is incompatible with the input element count"
+                        )
             output = TensorSpec(
                 shape=[source.shape[0], *resolved_shape],
                 dtype=source.dtype,

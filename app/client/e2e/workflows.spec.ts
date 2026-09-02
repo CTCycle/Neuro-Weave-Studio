@@ -222,7 +222,7 @@ test('keeps saved builder profile, validation, and API payload synchronized', as
     await expect(page.getByLabel('Enable Keras')).toBeChecked()
     await expect(page.locator('.nw-flow-node')).toHaveCount(4)
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(3)
-    await expect(page.locator('f-connection path.f-connection-selection').first()).toHaveAttribute('d', /C/)
+    await expect(page.locator('f-connection path.f-connection-selection').first()).toHaveAttribute('d', /L/)
 
     const validationResponse = page.waitForResponse((response) => response.url().includes('/api/validation') && response.request().method() === 'POST')
     await page.getByRole('button', { name: 'Validate', exact: true }).click()
@@ -287,7 +287,7 @@ test('keeps Inspector controls contract-driven and Backend picker dark and keybo
   }
 })
 
-test('renders live Bezier previews, fan-out connections, and cycle rejection feedback', async ({ page, request }) => {
+test('renders stable connection previews, fan-out connections, and cycle rejection feedback', async ({ page, request }) => {
   const branchGraph = fanOutGraph()
   const fixture = await createProject(request, `Angular graph UX ${Date.now()}`, branchGraph)
   try {
@@ -298,7 +298,7 @@ test('renders live Bezier previews, fan-out connections, and cycle rejection fee
     await dragConnection(page, 'input-branch-e2e|output|output', 'dense-fanout-e2e|input|input')
     const preview = page.locator('f-connection-for-create path').first()
     await expect(preview).toBeVisible()
-    await expect(preview).toHaveAttribute('d', /C/)
+    await expect(preview).toHaveAttribute('d', /L/)
     await expect(page.locator('[data-f-connector-id="dense-fanout-e2e|input|input"]')).toHaveClass(/f-connector-connectable/)
     await page.mouse.up()
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
