@@ -23,7 +23,6 @@
           "display_name": "Shape",
           "type": "shape",
           "default": [
-            null,
             32
           ],
           "required": false,
@@ -104,7 +103,6 @@
           "display_name": "Shape",
           "type": "shape",
           "default": [
-            null,
             224,
             224,
             3
@@ -187,7 +185,6 @@
           "display_name": "Shape",
           "type": "shape",
           "default": [
-            null,
             100,
             64
           ],
@@ -269,7 +266,6 @@
           "display_name": "Shape",
           "type": "shape",
           "default": [
-            null,
             20
           ],
           "required": false,
@@ -350,7 +346,6 @@
           "display_name": "Shape",
           "type": "shape",
           "default": [
-            null,
             128
           ],
           "required": false,
@@ -431,7 +426,6 @@
           "display_name": "Shape",
           "type": "shape",
           "default": [
-            null,
             128
           ],
           "required": false,
@@ -512,7 +506,6 @@
           "display_name": "Shape",
           "type": "shape",
           "default": [
-            null,
             1
           ],
           "required": false,
