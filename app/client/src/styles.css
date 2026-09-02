@@ -953,3 +953,256 @@ nw-graph-canvas { display: contents; }
 @media (prefers-reduced-motion: reduce) {
   .canvas-shell f-flow.f-connections-dragging .nw-flow-port { transition: none; }
 }
+
+/* Enterprise layout refinement: preserve the drafting-board language while
+   keeping content, controls, and status surfaces comfortably separated. */
+:root {
+  --radius-panel: 6px;
+  --radius-control: 4px;
+}
+
+.catalog-page .panel,
+.model-card,
+.model-workspace-page .overview-preview,
+.model-workspace-page .summary-card,
+.compilation-page .panel,
+.metrics-section,
+.metrics-card,
+.inference-controls,
+.smoke-test-panel,
+.model-export-page,
+.model-export-config {
+  border-radius: var(--radius-panel);
+}
+
+.catalog-filter-tabs button,
+.metrics-card,
+.export-format-option,
+.workflow-stat-row > div {
+  border-radius: var(--radius-control);
+}
+
+.catalog-page-header {
+  margin-bottom: 16px;
+}
+
+.catalog-controls {
+  gap: 12px;
+  padding: 12px;
+}
+
+.catalog-filter-tabs {
+  min-width: 0;
+}
+
+.catalog-filter-tabs button {
+  min-width: 0;
+}
+
+.model-card-grid {
+  gap: 14px;
+}
+
+.model-card-title,
+.model-card-meta,
+.model-card-stats,
+.model-card footer {
+  min-width: 0;
+}
+
+.model-card-title h2 {
+  min-width: 0;
+}
+
+.model-card-meta {
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.model-card-meta > nw-validation-status-badge,
+.model-card-meta > nw-compilation-status-badge {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.model-profile-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-card-stats {
+  column-gap: 12px;
+  row-gap: 8px;
+  padding-block: 14px;
+}
+
+.model-card footer {
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.model-card footer > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-title-row > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.workspace-title-row h1 {
+  overflow-wrap: anywhere;
+}
+
+.workspace-header-actions {
+  gap: 10px;
+}
+
+.workspace-meta {
+  column-gap: 14px;
+  row-gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: rgba(17, 26, 34, .66);
+}
+
+.workspace-meta .status-indicator {
+  min-height: 20px;
+}
+
+.workspace-tabs {
+  margin-top: 14px;
+}
+
+.workspace-body {
+  padding-top: 18px;
+}
+
+.canvas-hint {
+  right: 14px;
+  left: 50px;
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 561px) and (max-width: 760.99px) {
+  .builder-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "identity history"
+      "target toggle"
+      "actions actions";
+    align-items: center;
+    gap: 6px;
+    min-height: 0;
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .builder-identity {
+    grid-area: identity;
+    width: 100%;
+    min-width: 0;
+    flex: none;
+    gap: 6px;
+  }
+
+  .builder-target {
+    grid-area: target;
+    width: 100%;
+    min-width: 0;
+    flex: none;
+  }
+
+  .toolbar-toggle {
+    grid-area: toggle;
+    width: auto;
+    min-width: 0;
+    justify-content: flex-end;
+  }
+
+  .builder-history {
+    grid-area: history;
+    justify-content: flex-end;
+  }
+
+  .builder-actions {
+    grid-area: actions;
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-end;
+    flex: none;
+    gap: 6px;
+  }
+
+  .builder-actions button {
+    min-width: 32px;
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 720.99px) {
+  .catalog-controls {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .catalog-controls .search-field {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .catalog-filter-label {
+    margin-top: 2px;
+  }
+
+  .catalog-filter-tabs {
+    width: 100%;
+  }
+
+  .catalog-filter-tabs button {
+    flex: 1 1 96px;
+  }
+
+  .catalog-controls .catalog-count-text {
+    align-self: flex-end;
+    margin-left: 0;
+  }
+
+  .workspace-meta {
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 560.99px) {
+  .model-card-grid {
+    gap: 12px;
+  }
+
+  .model-card {
+    padding: 16px;
+  }
+
+  .model-card-stats {
+    column-gap: 10px;
+  }
+
+  .canvas-hint {
+    right: 10px;
+    left: 46px;
+  }
+
+  f-minimap {
+    width: 144px;
+    height: 94px;
+  }
+}
