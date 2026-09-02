@@ -53,31 +53,31 @@ import { ModelWorkspaceState } from './model-workspace.state'
     .compilation-context { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); padding:10px 14px; gap:0; }
     .compilation-context > div { min-width:0; display:grid; gap:4px; padding:2px 12px; border-left:1px solid var(--border); }
     .compilation-context > div:first-child { border-left:0; padding-left:0; }
-    .compilation-context span { color:var(--text-muted); font:600 9px/1 var(--font-mono); text-transform:uppercase; letter-spacing:.06em; }
+    .compilation-context span { color:var(--muted); font:600 9px/1 'IBM Plex Mono', Consolas, monospace; text-transform:uppercase; letter-spacing:.06em; }
     .compilation-context strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; }
-    .status-good { color:var(--cyan); } .status-bad { color:var(--copper); }
+    .status-good { color:var(--cyan); } .status-bad { color:var(--accent-bright); }
     .compilation-layout { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(310px,.75fr); gap:14px; }
     .configuration-card, .readiness-card { min-width:0; }
     .compact-action { min-height:31px; padding:5px 9px; }
     .configuration-line { display:flex; justify-content:space-between; gap:14px; padding:9px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); font-size:11px; }
-    .configuration-line span { color:var(--text-muted); }
+    .configuration-line span { color:var(--muted); }
     .output-summary-list { display:grid; gap:0; margin-top:5px; }
     .output-summary { padding:11px 0; border-bottom:1px solid color-mix(in srgb, var(--border) 72%, transparent); }
     .output-summary:last-child { border-bottom:0; }
     .output-summary-heading { display:flex; justify-content:space-between; gap:10px; align-items:center; }
-    .output-summary-heading > span { color:var(--cyan); font:600 9px/1 var(--font-mono); text-transform:uppercase; }
+    .output-summary-heading > span { color:var(--cyan); font:600 9px/1 'IBM Plex Mono', Consolas, monospace; text-transform:uppercase; }
     .output-summary dl { display:grid; grid-template-columns:1fr 1.4fr; gap:12px; margin:8px 0 0; }
     .output-summary dl > div { min-width:0; }
-    .output-summary dt { color:var(--text-muted); font:600 9px/1 var(--font-mono); text-transform:uppercase; }
-    .output-summary dd { margin:4px 0 0; color:var(--text-secondary); font-size:11px; overflow-wrap:anywhere; }
-    .empty-output-summary { display:grid; gap:4px; padding:14px 0; color:var(--text-muted); }
+    .output-summary dt { color:var(--muted); font:600 9px/1 'IBM Plex Mono', Consolas, monospace; text-transform:uppercase; }
+    .output-summary dd { margin:4px 0 0; color:var(--text); font-size:11px; overflow-wrap:anywhere; }
+    .empty-output-summary { display:grid; gap:4px; padding:14px 0; color:var(--muted); }
     .readiness-steps { display:grid; gap:12px; margin:8px 0 16px; }
     .readiness-steps > div { display:grid; grid-template-columns:26px 1fr; gap:9px; align-items:start; }
-    .readiness-steps > div > span { display:grid; place-items:center; width:24px; height:24px; border:1px solid var(--border); border-radius:50%; color:var(--text-muted); font:600 10px/1 var(--font-mono); }
+    .readiness-steps > div > span { display:grid; place-items:center; width:24px; height:24px; border:1px solid var(--border); border-radius:50%; color:var(--muted); font:600 10px/1 'IBM Plex Mono', Consolas, monospace; }
     .readiness-steps > div.complete > span { border-color:var(--cyan); color:var(--cyan); }
     .readiness-steps strong, .readiness-steps small { display:block; }
-    .readiness-steps small { margin-top:3px; color:var(--text-muted); line-height:1.4; }
-    .source-state { display:inline-flex; align-items:center; gap:5px; color:var(--cyan); font:600 10px/1 var(--font-mono); }
+    .readiness-steps small { margin-top:3px; color:var(--muted); line-height:1.4; }
+    .source-state { display:inline-flex; align-items:center; gap:5px; color:var(--cyan); font:600 10px/1 'IBM Plex Mono', Consolas, monospace; }
     @media (max-width: 1100px) { .compilation-context { grid-template-columns:repeat(3,minmax(0,1fr)); row-gap:10px; } .compilation-context > div:nth-child(4) { border-left:0; padding-left:0; } .compilation-layout { grid-template-columns:1fr; } }
     @media (max-width: 700px) { .compilation-context { grid-template-columns:1fr 1fr; } .compilation-context > div:nth-child(odd) { border-left:0; padding-left:0; } .output-summary dl { grid-template-columns:1fr; } }
   `],
@@ -97,7 +97,7 @@ export class ModelCompilationPageComponent {
   readonly kerasCatalog = computed(() => this.resources.compilationCapabilities()?.keras ?? null)
   readonly nativeCapability = computed<NativeCompilationCapability | null>(() => { const project = this.state.project(); return project ? this.resources.compilationCapabilities()?.native[project.execution_backend] ?? null : null })
   readonly ioSummary = computed(() => { const project = this.state.project(); return project ? summarizeGraphIo(project.graph, this.resources.manifests()) : { inputCount: 0, outputCount: 0, inputs: [], outputs: [] } })
-  readonly compilationOutputs = computed<CompilationOutputDescriptor[]>(() => this.ioSummary().outputs.map((item) => ({ id: item.name, label: item.name, task_hint: item.task_hint })))
+  readonly compilationOutputs = computed<CompilationOutputDescriptor[]>(() => this.ioSummary().outputs.map((item) => ({ id: `${item.node_id}:${item.port_id}`, label: item.name, task_hint: item.task_hint })))
 
   constructor() {
     void this.resources.loadRuntimeMetadata()
