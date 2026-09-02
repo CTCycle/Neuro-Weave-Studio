@@ -1,4 +1,7 @@
+import path from 'node:path'
 import { expect, test, type APIRequestContext } from '@playwright/test'
+
+const visualEvidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'model-builder-evaluation-20260902', 'screenshots')
 
 type CreatedProject = { id: string; current_revision: number; name: string }
 
@@ -231,6 +234,7 @@ test('keeps saved builder profile, validation, and API payload synchronized', as
     await page.locator('.builder-notice').click()
     await page.locator('.validation-summary').click()
     await expect(page.getByText('No validation findings.')).toBeVisible()
+    await page.screenshot({ path: path.join(visualEvidenceDir, 'final-builder-valid.png'), fullPage: true })
 
     await page.getByRole('button', { name: 'Description', exact: true }).click()
     const descriptionDialog = page.getByRole('dialog', { name: 'Model description editor' })
@@ -312,6 +316,7 @@ test('renders stable connection previews, fan-out connections, and cycle rejecti
     await page.mouse.up()
     await expect(page.getByRole('status')).toContainText('cycle')
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
+    await page.screenshot({ path: path.join(visualEvidenceDir, 'final-builder-validation.png'), fullPage: true })
 
     await dragConnection(page, 'input-branch-e2e|output|output', 'mask-target-e2e|input|input')
     await expect(page.locator('[data-f-connector-id="mask-target-e2e|input|input"]')).not.toHaveClass(/f-connector-connectable/)
@@ -386,6 +391,7 @@ test('covers builder editing, history, focus mode, and dirty navigation', async 
   try {
     await page.goto('/builder')
     await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+    await page.screenshot({ path: path.join(visualEvidenceDir, 'final-builder-empty.png'), fullPage: true })
 
     await page.getByRole('textbox', { name: 'Search nodes' }).fill('Dense')
     await page.getByRole('button', { name: /Dense \/ Linear/ }).click()
