@@ -6,6 +6,7 @@ from typing import Any, cast
 from common.catalogs.loader import NodeCatalog
 from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
 from domain.diagnostics import (
+    ConnectionValidationResult,
     InferenceConfidence,
     ModelTypeInference,
     ModelTypeKind,
@@ -14,7 +15,7 @@ from domain.diagnostics import (
     ValidationResult,
 )
 from domain.enums import DiagnosticSeverity, ExecutionBackend
-from domain.graph import ModelGraph, ShapeSummary
+from domain.graph import EdgeInstance, ModelGraph, NodeInstance, ShapeSummary
 from domain.manifests import (
     NodeManifest,
     ParameterCapability,
@@ -22,7 +23,13 @@ from domain.manifests import (
     ParameterValueSchema,
 )
 from validation.compile_configuration import validate_model_configuration
-from validation.graph_utils import nodes_reaching, reachable_nodes, topological_order
+from validation.graph_utils import (
+    nodes_reaching,
+    reachable_nodes,
+    topological_order,
+    would_create_cycle,
+)
+from domain.tensor import TensorSpec
 from validation.output_resolution import (
     infer_model_type,
     is_effective_output,
@@ -133,6 +140,62 @@ def _effective_default(
 
 
 ###############################################################################
+def _graph_subset(graph: ModelGraph, node_ids: set[str]) -> ModelGraph:
+    """Build the smallest graph needed to infer a selected node's inputs."""
+
+    return graph.model_copy(
+        deep=True,
+        update={
+            "nodes": [node for node in graph.nodes if node.id in node_ids],
+            "edges": [
+                edge
+                for edge in graph.edges
+                if edge.source_node_id in node_ids and edge.target_node_id in node_ids
+            ],
+            "output_bindings": [],
+        },
+    )
+
+
+###############################################################################
+def _infer_port_spec(
+    graph: ModelGraph,
+    catalog: NodeCatalog,
+    node_id: str,
+    port_id: str,
+) -> TensorSpec | None:
+    """Infer a port without making unrelated incomplete draft nodes fatal."""
+
+    node_ids = nodes_reaching(graph, {node_id})
+    try:
+        summaries = infer_shapes(_graph_subset(graph, node_ids), catalog)
+    except (ShapeInferenceError, ValueError):
+        return None
+    summary = next((item for item in summaries if item.node_id == node_id), None)
+    return summary.outputs.get(port_id) if summary is not None else None
+
+
+###############################################################################
+def _shape_error_is_pending(
+    graph: ModelGraph,
+    node: NodeInstance,
+    manifest: NodeManifest,
+) -> bool:
+    """Return whether a target is incomplete rather than shape-incompatible."""
+
+    incoming = [edge for edge in graph.edges if edge.target_node_id == node.id]
+    incoming_ports = {edge.target_port_id for edge in incoming}
+    if any(
+        port.required
+        and _condition_matches(port.enabled_when, node.parameters)
+        and port.id not in incoming_ports
+        for port in manifest.inputs
+    ):
+        return True
+    return manifest.shape_rule.kind in {"merge_same", "concatenate"} and len(incoming) < 2
+
+
+###############################################################################
 class ValidationService:
     """Application-facing graph validation service."""
 
@@ -145,6 +208,285 @@ class ValidationService:
         self._catalog = catalog
         self._compilation_catalog_provider = (
             compilation_catalog_provider or get_compilation_catalog_provider()
+        )
+
+    # -------------------------------------------------------------------------
+    def validate_connection(
+        self,
+        graph: ModelGraph,
+        connection: EdgeInstance,
+        execution_backend: ExecutionBackend,
+        keras_enabled: bool,
+    ) -> ConnectionValidationResult:
+        """Validate one proposed edge without requiring a complete draft.
+
+        The Builder must be able to connect nodes before the graph has a model
+        input, output, or every required branch.  This focused endpoint keeps
+        those draft-level errors out of the gesture while still applying the
+        same manifest and shape contracts used by full graph validation.
+        """
+
+        diagnostics: list[ValidationDiagnostic] = []
+        nodes = {node.id: node for node in graph.nodes}
+        manifests: dict[str, NodeManifest] = {}
+        for node in graph.nodes:
+            try:
+                manifests[node.id] = self._catalog.get(node.definition_id, node.definition_version)
+            except KeyError:
+                continue
+
+        source = nodes.get(connection.source_node_id)
+        target = nodes.get(connection.target_node_id)
+        if source is None or target is None:
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="dangling_connection",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="The proposed connection references a missing node",
+                    edge_id=connection.id,
+                )
+            )
+            return ConnectionValidationResult(valid=False, diagnostics=diagnostics)
+        if source.id == target.id:
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="self_connection",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="A node cannot connect to itself",
+                    node_id=source.id,
+                    edge_id=connection.id,
+                )
+            )
+
+        source_manifest = manifests.get(source.id)
+        target_manifest = manifests.get(target.id)
+        if source_manifest is None or target_manifest is None:
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="unknown_connection_definition",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Both nodes must use known catalog definitions before they can be connected",
+                    edge_id=connection.id,
+                )
+            )
+            return ConnectionValidationResult(valid=False, diagnostics=diagnostics)
+
+        source_port = next(
+            (port for port in source_manifest.outputs if port.id == connection.source_port_id),
+            None,
+        )
+        target_port = next(
+            (port for port in target_manifest.inputs if port.id == connection.target_port_id),
+            None,
+        )
+        if source_port is None or target_port is None:
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="invalid_port_reference",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="The proposed connection must start at an output port and end at an input port",
+                    edge_id=connection.id,
+                    details={
+                        "source_node_id": source.id,
+                        "source_port_id": connection.source_port_id,
+                        "target_node_id": target.id,
+                        "target_port_id": connection.target_port_id,
+                    },
+                )
+            )
+            return ConnectionValidationResult(valid=False, diagnostics=diagnostics)
+
+        if not _condition_matches(source_port.enabled_when, source.parameters):
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="disabled_port",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Output port '{source_port.display_name}' is disabled by the source node parameters",
+                    node_id=source.id,
+                    edge_id=connection.id,
+                    details={"port_id": source_port.id},
+                )
+            )
+        if not _condition_matches(target_port.enabled_when, target.parameters):
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="disabled_port",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Input port '{target_port.display_name}' is disabled by the target node parameters",
+                    node_id=target.id,
+                    edge_id=connection.id,
+                    details={"port_id": target_port.id},
+                )
+            )
+        expected_kind = (
+            target_port.element_kind
+            if target_port.kind.value == "tensor_list"
+            else target_port.kind
+        )
+        kind_matches = source_port.kind == expected_kind
+        if source_port.kind.value == "tensor_list" and target_port.kind.value == "tensor_list":
+            kind_matches = True
+        if not kind_matches:
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="incompatible_port_kind",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=(
+                        f"Cannot connect {source_port.display_name} ({source_port.kind.value}) "
+                        f"to {target_port.display_name} ({target_port.kind.value})"
+                    ),
+                    node_id=target.id,
+                    edge_id=connection.id,
+                    details={
+                        "source_kind": source_port.kind.value,
+                        "target_kind": target_port.kind.value,
+                        "source_port_id": source_port.id,
+                        "target_port_id": target_port.id,
+                    },
+                )
+            )
+        if any(
+            edge.source_node_id == connection.source_node_id
+            and edge.source_port_id == connection.source_port_id
+            and edge.target_node_id == connection.target_node_id
+            and edge.target_port_id == connection.target_port_id
+            for edge in graph.edges
+        ):
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="duplicate_connection",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="This port connection already exists",
+                    node_id=target.id,
+                    edge_id=connection.id,
+                )
+            )
+        if (
+            not target_port.accepts_multiple
+            and any(
+                edge.target_node_id == connection.target_node_id
+                and edge.target_port_id == connection.target_port_id
+                for edge in graph.edges
+            )
+        ):
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="multiple_connections_not_allowed",
+                    severity=DiagnosticSeverity.ERROR,
+                    message=f"Input port '{target_port.display_name}' accepts only one connection",
+                    node_id=target.id,
+                    edge_id=connection.id,
+                    details={"port_id": target_port.id, "accepts_multiple": False},
+                )
+            )
+        if would_create_cycle(graph, connection.source_node_id, connection.target_node_id):
+            diagnostics.append(
+                ValidationDiagnostic(
+                    code="cycle_detected",
+                    severity=DiagnosticSeverity.ERROR,
+                    message="Connection blocked because it would create a cycle",
+                    node_id=target.id,
+                    edge_id=connection.id,
+                )
+            )
+
+        if diagnostics:
+            return ConnectionValidationResult(valid=False, diagnostics=diagnostics)
+
+        candidate = graph.model_copy(deep=True)
+        candidate.edges.append(connection)
+        source_spec = _infer_port_spec(candidate, self._catalog, source.id, source_port.id)
+        if source_spec is not None:
+            if source_port.rank is not None and source_spec.rank != source_port.rank:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="port_rank_mismatch",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=(
+                            f"Source port '{source_port.display_name}' expects rank {source_port.rank}, "
+                            f"received rank {source_spec.rank}"
+                        ),
+                        node_id=source.id,
+                        edge_id=connection.id,
+                        details={
+                            "port_id": source_port.id,
+                            "expected_rank": source_port.rank,
+                            "received_rank": source_spec.rank,
+                        },
+                    )
+                )
+            if target_port.rank is not None and source_spec.rank != target_port.rank:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="port_rank_mismatch",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=(
+                            f"Input port '{target_port.display_name}' expects rank {target_port.rank}, "
+                            f"received rank {source_spec.rank} from {source.label or source.id}"
+                        ),
+                        node_id=target.id,
+                        edge_id=connection.id,
+                        details={
+                            "port_id": target_port.id,
+                            "expected_rank": target_port.rank,
+                            "received_rank": source_spec.rank,
+                            "upstream_node_id": source.id,
+                            "upstream_port_id": source_port.id,
+                            "received_shape": source_spec.shape,
+                        },
+                    )
+                )
+
+        target_node_ids = nodes_reaching(candidate, {target.id})
+        target_graph = _graph_subset(candidate, target_node_ids)
+        try:
+            target_summaries = infer_shapes(target_graph, self._catalog)
+        except (ShapeInferenceError, ValueError) as exc:
+            if not _shape_error_is_pending(target_graph, target, target_manifest):
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="incompatible_connection_shape",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=(
+                            f"Cannot connect to '{target.label or target.id}': {exc}"
+                        ),
+                        node_id=target.id,
+                        edge_id=connection.id,
+                        details={
+                            "source_node_id": source.id,
+                            "source_port_id": source_port.id,
+                            "target_port_id": target_port.id,
+                            "received_shape": source_spec.shape if source_spec is not None else None,
+                            "upstream_node_id": source.id,
+                        },
+                    )
+                )
+        else:
+            target_shape = next(
+                (summary for summary in target_summaries if summary.node_id == target.id),
+                None,
+            )
+            if target_shape is None and target_manifest.inputs:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        code="shape_unknown",
+                        severity=DiagnosticSeverity.WARNING,
+                        message=f"The shape produced by '{target.label or target.id}' is not known yet",
+                        node_id=target.id,
+                        edge_id=connection.id,
+                        details={"upstream_node_id": source.id, "upstream_port_id": source_port.id},
+                    )
+                )
+
+        blocking_diagnostics = [
+            item
+            for item in diagnostics
+            if item.severity
+            in {DiagnosticSeverity.ERROR, DiagnosticSeverity.COMPATIBILITY}
+        ]
+        return ConnectionValidationResult(
+            valid=not blocking_diagnostics,
+            diagnostics=diagnostics,
         )
 
     # -------------------------------------------------------------------------
@@ -618,13 +960,21 @@ class ValidationService:
 
         for node_id, manifest in manifests.items():
             for port in manifest.inputs:
-                if port.required and incoming_by_port[(node_id, port.id)] == 0:
+                if (
+                    port.required
+                    and _condition_matches(
+                        port.enabled_when,
+                        nodes[node_id].parameters,
+                    )
+                    and incoming_by_port[(node_id, port.id)] == 0
+                ):
                     diagnostics.append(
                         ValidationDiagnostic(
                             code="missing_required_connection",
                             severity=DiagnosticSeverity.ERROR,
                             message=f"Required input '{port.display_name}' is not connected",
                             node_id=node_id,
+                            details={"port_id": port.id},
                         )
                     )
 
@@ -833,7 +1183,10 @@ class ValidationService:
                     source_spec = shape_by_port.get((edge.source_node_id, edge.source_port_id))
                     if source_port is None or target_port is None or source_spec is None:
                         continue
-                    for port, label in ((source_port, "source"), (target_port, "target")):
+                    for port, label, node_id in (
+                        (source_port, "source", edge.source_node_id),
+                        (target_port, "target", edge.target_node_id),
+                    ):
                         if port.rank is not None and source_spec.rank != port.rank:
                             diagnostics.append(
                                 ValidationDiagnostic(
@@ -843,7 +1196,16 @@ class ValidationService:
                                         f"{label.title()} port '{port.display_name}' expects rank "
                                         f"{port.rank}, received rank {source_spec.rank}"
                                     ),
+                                    node_id=node_id,
                                     edge_id=edge.id,
+                                    details={
+                                        "port_id": port.id,
+                                        "expected_rank": port.rank,
+                                        "received_rank": source_spec.rank,
+                                        "received_shape": source_spec.shape,
+                                        "upstream_node_id": edge.source_node_id,
+                                        "upstream_port_id": edge.source_port_id,
+                                    },
                                 )
                             )
                 known_counts = [item.parameter_count for item in shape_summaries]

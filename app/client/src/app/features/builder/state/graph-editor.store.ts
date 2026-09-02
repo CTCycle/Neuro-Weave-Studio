@@ -34,6 +34,9 @@ export class GraphEditorStore {
   readonly copiedNodeIds = signal<string[]>([])
   readonly past = signal<EditorHistorySnapshot[]>([])
   readonly future = signal<EditorHistorySnapshot[]>([])
+  readonly graphRevision = signal(0)
+  readonly shapeSummaries = signal<ShapeSummary[]>([])
+  readonly shapeSummaryByNode = computed(() => new Map(this.shapeSummaries().map((summary) => [summary.node_id, summary])))
   readonly canUndo = computed(() => this.past().length > 0)
   readonly canRedo = computed(() => this.future().length > 0)
   private readonly activeExecutionBackend = signal<ExecutionBackend>('pytorch')
@@ -49,6 +52,15 @@ export class GraphEditorStore {
   setExecutionProfile(executionBackend: ExecutionBackend, kerasEnabled: boolean): void {
     this.activeExecutionBackend.set(executionBackend)
     this.activeKerasEnabled.set(kerasEnabled)
+  }
+
+  shapeSummary(nodeId: string): ShapeSummary | undefined {
+    return this.shapeSummaryByNode().get(nodeId)
+  }
+
+  invalidateDerivedState(): void {
+    this.graphRevision.update((revision) => revision + 1)
+    this.shapeSummaries.set([])
   }
 
   checkpoint(): void {
@@ -97,6 +109,7 @@ export class GraphEditorStore {
     this.nodes.update((nodes) => [...nodes, node])
     this.selectedNodeId.set(node.id)
     this.selectedEdgeId.set(null)
+    this.invalidateDerivedState()
     return node.id
   }
 
@@ -107,13 +120,22 @@ export class GraphEditorStore {
   connect(connection: GraphConnection): GraphConnectionValidation {
     const result = validateGraphConnection(this.nodes(), this.edges(), connection)
     if (!result.valid) return result
+    this.commitConnection(connection, this.graphRevision())
+    return result
+  }
+
+  commitConnection(connection: GraphConnection, expectedRevision: number): boolean {
+    if (expectedRevision !== this.graphRevision()) return false
+    const result = validateGraphConnection(this.nodes(), this.edges(), connection)
+    if (!result.valid) return false
     this.checkpoint()
     this.edges.update((edges) => [...edges, {
       ...connection,
       id: newId('edge'),
       type: 'bezier',
     }])
-    return result
+    this.invalidateDerivedState()
+    return true
   }
 
   selectNode(nodeId: string | null): void {
@@ -142,6 +164,7 @@ export class GraphEditorStore {
         parameters: patch.parameters ?? node.data.parameters,
       },
     } : node))
+    this.invalidateDerivedState()
   }
 
   deleteSelected(): void {
@@ -152,12 +175,14 @@ export class GraphEditorStore {
     if (selectedEdgeId) {
       this.edges.update((edges) => edges.filter((edge) => edge.id !== selectedEdgeId))
       this.selectedEdgeId.set(null)
+      this.invalidateDerivedState()
       return
     }
     this.nodes.update((nodes) => nodes.filter((node) => node.id !== selectedNodeId))
     this.edges.update((edges) => edges.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId))
     this.outputBindings.update((bindings) => bindings.filter((binding) => binding.node_id !== selectedNodeId))
     this.selectedNodeId.set(null)
+    this.invalidateDerivedState()
   }
 
   copySelected(): void {
@@ -177,6 +202,7 @@ export class GraphEditorStore {
     this.nodes.update((nodes) => [...nodes, ...copies])
     this.selectedNodeId.set(copies[0].id)
     this.selectedEdgeId.set(null)
+    this.invalidateDerivedState()
   }
 
   duplicateExact(nodeId: string): string | null {
@@ -186,6 +212,7 @@ export class GraphEditorStore {
     this.checkpoint()
     this.nodes.update((nodes) => [...nodes, copy])
     this.selectNode(copy.id)
+    this.invalidateDerivedState()
     return copy.id
   }
 
@@ -205,6 +232,7 @@ export class GraphEditorStore {
     this.checkpoint()
     this.nodes.update((nodes) => [...nodes, copy])
     this.selectNode(copy.id)
+    this.invalidateDerivedState()
     return copy.id
   }
 
@@ -213,10 +241,11 @@ export class GraphEditorStore {
     if (!node) return
     this.checkpoint()
     this.nodes.update((nodes) => nodes.map((item) => item.id === nodeId ? { ...item, locked: !item.locked } : item))
+    this.invalidateDerivedState()
   }
 
-  isOutput(nodeId: string): boolean {
-    return this.outputBindings().some((binding) => binding.node_id === nodeId)
+  isOutput(nodeId: string, portId?: string): boolean {
+    return this.outputBindings().some((binding) => binding.node_id === nodeId && (!portId || binding.port_id === portId))
   }
 
   isInferredOutput(nodeId: string): boolean {
@@ -234,33 +263,38 @@ export class GraphEditorStore {
     return this.isOutput(nodeId) || this.isInferredOutput(nodeId)
   }
 
-  toggleNodeOutput(nodeId: string): void {
+  toggleNodeOutput(nodeId: string, portId?: string): void {
     const node = this.nodes().find((item) => item.id === nodeId)
     if (!node) return
-    const existing = this.outputBindings().filter((binding) => binding.node_id === nodeId)
-    if (existing.length) {
+    if (node.data.manifest.semantic_role === 'input') return
+    const candidate = portId
+      ? node.data.manifest.outputs.find((port) => port.id === portId)
+      : node.data.manifest.outputs.find((port) => (
+        ['tensor', 'tensor_list', 'mask', 'scalar'].includes(port.kind)
+        && (!port.enabled_when || conditionMatches(port.enabled_when, node.data.parameters))
+        && port.id === 'output'
+      )) ?? node.data.manifest.outputs.find((port) => (
+        ['tensor', 'tensor_list', 'mask', 'scalar'].includes(port.kind)
+        && (!port.enabled_when || conditionMatches(port.enabled_when, node.data.parameters))
+      ))
+    if (!candidate || !['tensor', 'tensor_list', 'mask', 'scalar'].includes(candidate.kind)) return
+    const existing = this.outputBindings().some((binding) => binding.node_id === nodeId && binding.port_id === candidate.id)
+    if (existing) {
       this.checkpoint()
-      this.outputBindings.update((bindings) => bindings.filter((binding) => binding.node_id !== nodeId))
+      this.outputBindings.update((bindings) => bindings.filter((binding) => !(binding.node_id === nodeId && binding.port_id === candidate.id)))
+      this.invalidateDerivedState()
       return
     }
-    if (node.data.manifest.semantic_role === 'input') return
-    const port = node.data.manifest.outputs.find((item) => (
-      ['tensor', 'tensor_list', 'mask', 'scalar'].includes(item.kind)
-      && (!item.enabled_when || conditionMatches(item.enabled_when, node.data.parameters))
-      && item.id === 'output'
-    )) ?? node.data.manifest.outputs.find((item) => (
-      ['tensor', 'tensor_list', 'mask', 'scalar'].includes(item.kind)
-      && (!item.enabled_when || conditionMatches(item.enabled_when, node.data.parameters))
-    ))
-    if (!port) return
     this.checkpoint()
-    this.outputBindings.update((bindings) => [...bindings, { node_id: nodeId, port_id: port.id }])
+    this.outputBindings.update((bindings) => [...bindings, { node_id: nodeId, port_id: candidate.id }])
+    this.invalidateDerivedState()
   }
 
   disconnectNode(nodeId: string): void {
     if (!this.nodes().some((node) => node.id === nodeId)) return
     this.checkpoint()
     this.edges.update((edges) => edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId))
+    this.invalidateDerivedState()
   }
 
   resetParameters(nodeId: string, executionBackend?: ExecutionBackend, kerasEnabled = true): void {
@@ -278,8 +312,9 @@ export class GraphEditorStore {
     this.checkpoint()
     this.nodes.update((nodes) => nodes.map((item) => item.id === nodeId ? {
       ...item,
-      data: { ...item.data, parameters, shapeSummary: undefined },
+      data: { ...item.data, parameters },
     } : item))
+    this.invalidateDerivedState()
   }
 
   undo(): void {
@@ -290,6 +325,7 @@ export class GraphEditorStore {
     this.restoreSnapshot(previous)
     this.selectedNodeId.set(null)
     this.selectedEdgeId.set(null)
+    this.invalidateDerivedState()
   }
 
   redo(): void {
@@ -300,6 +336,7 @@ export class GraphEditorStore {
     this.restoreSnapshot(next)
     this.selectedNodeId.set(null)
     this.selectedEdgeId.set(null)
+    this.invalidateDerivedState()
   }
 
   replaceGraph(project: ProjectDocument): void {
@@ -327,6 +364,7 @@ export class GraphEditorStore {
     this.copiedNodeIds.set([])
     this.past.set([])
     this.future.set([])
+    this.invalidateDerivedState()
   }
 
   captureEditorSession(): GraphEditorSession {
@@ -358,6 +396,7 @@ export class GraphEditorStore {
     this.copiedNodeIds.set(cloned.copiedNodeIds)
     this.past.set(cloned.past)
     this.future.set(cloned.future)
+    this.invalidateDerivedState()
   }
 
   reset(): void {
@@ -372,6 +411,7 @@ export class GraphEditorStore {
     this.copiedNodeIds.set([])
     this.past.set([])
     this.future.set([])
+    this.invalidateDerivedState()
   }
 
   toGraph(): ModelGraph {
@@ -390,17 +430,16 @@ export class GraphEditorStore {
     })
   }
 
-  applyShapeSummaries(summaries: ShapeSummary[]): void {
-    const shapeByNode = new Map(summaries.map((summary) => [summary.node_id, summary]))
-    this.nodes.update((nodes) => nodes.map((node) => ({
-      ...node,
-      data: { ...node.data, shapeSummary: shapeByNode.get(node.id) },
-    })))
+  applyShapeSummaries(summaries: ShapeSummary[], expectedRevision = this.graphRevision()): boolean {
+    if (expectedRevision !== this.graphRevision()) return false
+    this.shapeSummaries.set(structuredClone(summaries))
+    return true
   }
 
   updateConfiguration(configuration: ModelConfiguration): void {
     this.checkpoint()
     this.modelConfiguration.set(structuredClone(configuration))
+    this.invalidateDerivedState()
   }
 
   autoLayout(nodes: EditorNode[], edges: EditorEdge[]): void {
@@ -411,6 +450,7 @@ export class GraphEditorStore {
       position: node.locked ? { ...node.position } : positions.get(node.id) ?? { ...node.position },
     })))
     this.edges.set(edges.map((edge) => ({ ...edge })))
+    this.invalidateDerivedState()
   }
 
   private snapshot(): EditorHistorySnapshot {

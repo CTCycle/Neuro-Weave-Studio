@@ -3,6 +3,7 @@ export type RuntimeApi = 'keras' | 'native'
 export type RuntimeDiscoveryState = 'unchecked' | 'checking' | 'verified' | 'unavailable' | 'failed'
 export type MemoryPolicyKind = 'default' | 'tensorflow_growth' | 'tensorflow_limit_mb' | 'jax_no_preallocation' | 'jax_preallocate_fraction' | 'jax_platform_allocator' | 'pytorch_fraction'
 export type DiagnosticSeverity = 'error' | 'warning' | 'compatibility' | 'info'
+export type ValidationState = 'not-run' | 'checking' | 'stale' | 'ready' | 'blocked' | 'error'
 export type PortKind = 'tensor' | 'tensor_list' | 'scalar' | 'mask'
 
 export interface PortDefinition {
@@ -323,6 +324,11 @@ export interface ValidationResult {
   effective_outputs?: OutputReference[]
   output_mode?: 'explicit' | 'inferred'
   model_type?: ModelTypeInference
+}
+
+export interface ConnectionValidationResult {
+  valid: boolean
+  diagnostics: ValidationDiagnostic[]
 }
 
 export interface OutputReference {
