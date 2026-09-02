@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 from concurrent.futures import ThreadPoolExecutor
+from importlib import import_module
 from pathlib import Path
 from threading import Barrier
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from alembic import command
@@ -92,6 +93,24 @@ def test_failed_migration_rolls_back_and_releases_lock(
 
 
 ###############################################################################
+def test_runtime_batch_shape_migration_preserves_nonbatched_parameter_nodes() -> None:
+    migration = cast(Any, import_module("migrations.versions.20260902_runtime_batch_shapes"))
+
+    assert migration._migrate_parameters(
+        "input.tensor", {"shape": [None, 4]}, downgrade=False
+    ) == {"shape": [4]}
+    assert migration._migrate_parameters(
+        "input.tensor", {"shape": [4]}, downgrade=True
+    ) == {"shape": [None, 4]}
+    assert migration._migrate_parameters(
+        "input.parameter", {"shape": [1]}, downgrade=True
+    ) == {"shape": [1]}
+    assert migration._migrate_parameters(
+        "layer.dense", {"quantization_config": {"class_name": "", "config": {}}}, downgrade=False
+    ) == {}
+
+
+###############################################################################
 def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
     tmp_path: Path,
 ) -> None:
@@ -173,7 +192,7 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
                     text("SELECT graph_schema_version FROM projects WHERE id = :id"),
                     {"id": project_id},
                 ).scalar_one()
-                == 4
+                == 5
             )
             migrated_snapshot = connection.execute(
                 text("SELECT graph_snapshot_json FROM project_revisions WHERE project_id = :id"),
@@ -184,7 +203,7 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
                 if isinstance(migrated_snapshot, str)
                 else migrated_snapshot
             )
-            assert migrated_snapshot["schema_version"] == 4
+            assert migrated_snapshot["schema_version"] == 5
             assert migrated_snapshot["output_bindings"] == []
             assert migrated_snapshot["model_configuration"]["native"]["jax"]["jit_enabled"] is False
 
