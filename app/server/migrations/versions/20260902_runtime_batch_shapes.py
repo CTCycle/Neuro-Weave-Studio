@@ -13,6 +13,18 @@ down_revision = "20260901_model_builder_graph_boundaries"
 branch_labels = None
 depends_on = None
 
+_BATCHED_INPUT_DEFINITIONS = frozenset(
+    {
+        "input.tensor",
+        "input.image",
+        "input.sequence",
+        "input.tabular",
+        "input.token",
+        "input.mask",
+        "input.constant",
+    }
+)
+
 
 ###############################################################################
 def _json_object(value: object) -> dict[str, Any]:
@@ -45,7 +57,7 @@ def _migrate_parameters(
     downgrade: bool,
 ) -> dict[str, Any]:
     migrated = dict(parameters)
-    if definition_id.startswith("input."):
+    if definition_id in _BATCHED_INPUT_DEFINITIONS:
         shape = migrated.get("shape")
         if isinstance(shape, list):
             if downgrade:
