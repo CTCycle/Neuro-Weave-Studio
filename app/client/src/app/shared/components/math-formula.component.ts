@@ -32,8 +32,10 @@ export class MathFormulaComponent {
 
   private observeAndFit(element: HTMLElement): void {
     this.resizeObserver?.disconnect()
-    this.resizeObserver = new ResizeObserver(() => this.fitFormula(element))
-    this.resizeObserver.observe(element)
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => this.fitFormula(element))
+      this.resizeObserver.observe(element)
+    }
     queueMicrotask(() => this.fitFormula(element))
   }
 
