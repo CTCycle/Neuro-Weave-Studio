@@ -1,8 +1,9 @@
-import { Component, computed, inject, signal } from '@angular/core'
+import { Component, inject, signal } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
-import { LucideActivity, LucideBox, LucideFilePlus2, LucideFolderOpen, LucideInfo, LucideTrash2, LucideX } from '@lucide/angular'
+import { LucideBox, LucideFilePlus2, LucideFolderOpen, LucideInfo, LucideTrash2, LucideX } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
-import { DatasetKind, DatasetReference, ExperimentDraftsService } from '../../core/state/experiment-drafts.service'
+import { ExperimentDraftsService } from '../../core/state/experiment-drafts.service'
+import type { DatasetKind, DatasetReference } from '../../core/state/experiment-drafts.service'
 import { FilesystemBrowserComponent } from '../../shared/components/filesystem-browser.component'
 
 interface DatasetTypeOption {
@@ -26,7 +27,7 @@ const DATASET_TYPES: DatasetTypeOption[] = [
 @Component({
   selector: 'nw-datasets-page',
   standalone: true,
-  imports: [ReactiveFormsModule, LucideActivity, LucideBox, LucideFilePlus2, LucideFolderOpen, LucideInfo, LucideTrash2, LucideX, FilesystemBrowserComponent],
+  imports: [ReactiveFormsModule, LucideBox, LucideFilePlus2, LucideFolderOpen, LucideInfo, LucideTrash2, LucideX, FilesystemBrowserComponent],
   template: `
     <div class="datasets-page">
       <header class="catalog-page-header">
@@ -142,7 +143,6 @@ export class DatasetsPageComponent {
     customNotes: '',
   })
   readonly splitForm = this.fb.nonNullable.group({ train: 80, validation: 10, test: 10 })
-  readonly splitTotal = computed(() => Number(this.splitForm.controls.train.value) + Number(this.splitForm.controls.validation.value) + Number(this.splitForm.controls.test.value))
 
   openWizard(): void {
     this.datasetForm.reset({ kind: 'tabular', name: '', primaryPath: '', referencePath: '', customSourceMode: 'directory', header: 'auto', delimiter: 'auto', arrayMode: 'auto', memoryMap: true, labelStrategy: 'folders', recursive: true, referenceMatch: 'stem', documentMode: 'text', sequenceMode: 'timestamp', sequenceKey: '', customNotes: '' })
@@ -198,6 +198,7 @@ export class DatasetsPageComponent {
   savePreprocessing(dataset: DatasetReference): void { const choices = [...this.preprocessSelection()]; this.drafts.updateDataset(dataset.id, (item) => ({ ...item, preprocessing: choices })); this.closeDetail(); this.notice.set('Preprocessing draft updated. No source files were modified.') }
   applySmartSplit(dataset: DatasetReference): void { this.drafts.updateDataset(dataset.id, (item) => ({ ...item, split: { mode: 'smart', train: 80, validation: 10, test: 10 } })); this.notice.set(`Smart split drafted for “${dataset.name}”: 80% train, 10% validation, 10% test.`) }
   openCustomSplit(dataset: DatasetReference): void { this.activeDataset.set(dataset); this.splitForm.setValue({ train: dataset.split.mode === 'none' ? 80 : dataset.split.train, validation: dataset.split.mode === 'none' ? 10 : dataset.split.validation, test: dataset.split.mode === 'none' ? 10 : dataset.split.test }); this.detailMode.set('split') }
+  splitTotal(): number { return Number(this.splitForm.controls.train.value) + Number(this.splitForm.controls.validation.value) + Number(this.splitForm.controls.test.value) }
   saveCustomSplit(dataset: DatasetReference): void { if (this.splitTotal() !== 100) return; const values = this.splitForm.getRawValue(); this.drafts.updateDataset(dataset.id, (item) => ({ ...item, split: { mode: 'custom', ...values } })); this.closeDetail(); this.notice.set(`Custom split updated for “${dataset.name}”.`) }
   closeDetail(): void { this.detailMode.set(null); this.activeDataset.set(null) }
   splitLabel(dataset: DatasetReference): string { return dataset.split.mode === 'none' ? 'Split not configured' : `${dataset.split.mode === 'smart' ? 'Smart' : 'Custom'} ${dataset.split.train}/${dataset.split.validation}/${dataset.split.test}` }
