@@ -77,12 +77,12 @@ import { GraphEditorStore } from '../state/graph-editor.store'
   `,
   styles: [`
     .runtime-batch-control, .optional-config-state { margin:7px 0 2px; padding:8px 0; border-top:1px solid color-mix(in srgb, var(--border) 75%, transparent); border-bottom:1px solid color-mix(in srgb, var(--border) 75%, transparent); }
-    .runtime-batch-control label { display:flex; align-items:center; gap:8px; color:var(--text-secondary); font-size:11px; cursor:pointer; }
-    .runtime-batch-control input { accent-color:var(--copper); }
+    .runtime-batch-control label { display:flex; align-items:center; gap:8px; color:var(--text); font-size:11px; cursor:pointer; }
+    .runtime-batch-control input { accent-color:var(--accent-bright); }
     .runtime-batch-control code { display:block; margin-top:7px; color:var(--cyan); font-size:10px; overflow-wrap:anywhere; }
-    .runtime-batch-control small, .optional-config-state small { display:block; margin-top:4px; color:var(--text-muted); font-size:10px; line-height:1.4; }
-    .optional-config-state strong { color:var(--text-secondary); font:600 10px/1.2 var(--font-mono); text-transform:uppercase; letter-spacing:.05em; }
-    .optional-config-state.configured strong { color:var(--copper); }
+    .runtime-batch-control small, .optional-config-state small { display:block; margin-top:4px; color:var(--muted); font-size:10px; line-height:1.4; }
+    .optional-config-state strong { color:var(--muted); font:600 10px/1.2 'IBM Plex Mono', Consolas, monospace; text-transform:uppercase; letter-spacing:.05em; }
+    .optional-config-state.configured strong { color:var(--accent-bright); }
   `],
 })
 export class PropertiesInspectorComponent {
@@ -150,7 +150,7 @@ export class PropertiesInspectorComponent {
       const node = this.selectedNode()
       if (!node) return
       const parameters = { ...node.data.parameters }
-      if (parsed.value === undefined || (definition.id === 'quantization_config' && parsed.value === null)) delete parameters[definition.id]
+      if (parsed.value === undefined || (definition.id === 'quantization_config' && emptyQuantizationConfiguration(parsed.value))) delete parameters[definition.id]
       else parameters[definition.id] = parsed.value
       this.store.updateNode(node.id, { parameters })
     }
@@ -192,7 +192,7 @@ export class PropertiesInspectorComponent {
   isVisible(definition: ParameterDefinition, node: { data: { parameters: Record<string, unknown> } }): boolean { return !definition.visible_when || conditionMatches(definition.visible_when, node.data.parameters) }
   isRuntimeInputShape(manifest: NodeManifest, definition: ParameterDefinition): boolean { return manifest.semantic_role === 'input' && definition.id === 'shape' }
   isQuantizationConfiguration(definition: ParameterDefinition): boolean { return definition.id === 'quantization_config' }
-  hasExplicitConfiguration(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): boolean { const value = node.data.parameters[definition.id]; return value !== null && value !== undefined && !(typeof value === 'object' && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length === 0) }
+  hasExplicitConfiguration(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): boolean { return definition.id === 'quantization_config' ? !emptyQuantizationConfiguration(node.data.parameters[definition.id]) : node.data.parameters[definition.id] !== null && node.data.parameters[definition.id] !== undefined }
   runtimeShapePreview(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): string { const value = this.parameterValue(node, definition); return `runtime: [batch${Array.isArray(value) && value.length ? `, ${value.map((item) => item === null ? '?' : String(item)).join(', ')}` : ''}]` }
 
   availabilityMessage(manifest: NodeManifest, definition: ParameterDefinition, capability?: ParameterCapability): string | null {
@@ -261,6 +261,18 @@ export class PropertiesInspectorComponent {
     const port = (direction === 'input' ? node?.data.manifest.inputs : node?.data.manifest.outputs)?.find((item) => item.id === portId)
     return port ? `${port.display_name} · ${this.portKindLabel(port)}` : portId
   }
+}
+
+function emptyQuantizationConfiguration(value: unknown): boolean {
+  if (value === null || value === undefined) return true
+  if (typeof value !== 'object' || Array.isArray(value)) return false
+  const object = value as Record<string, unknown>
+  if (!Object.keys(object).length) return true
+  const className = object['class_name']
+  const config = object['config']
+  const emptyClass = className === null || className === undefined || String(className).trim() === ''
+  const emptyConfig = config === null || config === undefined || (Array.isArray(config) && config.length === 0) || (typeof config === 'object' && !Array.isArray(config) && Object.keys(config as Record<string, unknown>).length === 0)
+  return emptyClass && emptyConfig
 }
 
 function conditionMatches(condition: Record<string, unknown> | undefined, parameters: Record<string, unknown>): boolean {
