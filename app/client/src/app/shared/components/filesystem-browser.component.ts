@@ -1,4 +1,5 @@
-import { Component, EventEmitter, Input, OnChanges, Output, inject, signal } from '@angular/core'
+import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core'
+import type { OnChanges } from '@angular/core'
 import { FormControl, ReactiveFormsModule } from '@angular/forms'
 import { LucideChevronLeft, LucideFile, LucideFolder, LucideHardDrive, LucideRefreshCw, LucideX } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
