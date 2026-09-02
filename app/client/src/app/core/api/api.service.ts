@@ -23,12 +23,6 @@ import type {
 
 const API_BASE = '/api'
 
-type CanonicalModelGraph = Omit<ModelGraph, 'schema_version'> & { schema_version: 5 }
-
-function canonicalGraph(graph: ModelGraph): CanonicalModelGraph {
-  return { ...graph, schema_version: 5 }
-}
-
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient)
@@ -87,7 +81,7 @@ export class ApiService {
     keras_enabled: boolean
     graph: ModelGraph
   }): Promise<ProjectDocument> {
-    return this.request('/projects', 'POST', { ...payload, graph: canonicalGraph(payload.graph) })
+    return this.request('/projects', 'POST', payload)
   }
 
   updateProject(id: string, payload: {
@@ -98,7 +92,7 @@ export class ApiService {
     graph: ModelGraph
     expected_revision: number
   }): Promise<ProjectDocument> {
-    return this.request(`/projects/${id}`, 'PUT', { ...payload, graph: canonicalGraph(payload.graph) })
+    return this.request(`/projects/${id}`, 'PUT', payload)
   }
 
   duplicateProject(id: string, name?: string): Promise<ProjectDocument> {
@@ -132,15 +126,15 @@ export class ApiService {
   }
 
   validate(graph: ModelGraph, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ValidationResult> {
-    return this.request('/validation', 'POST', { graph: canonicalGraph(graph), execution_backend, keras_enabled })
+    return this.request('/validation', 'POST', { graph, execution_backend, keras_enabled })
   }
 
   compile(graph: ModelGraph, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<CompilationResult> {
-    return this.request('/compilation', 'POST', { graph: canonicalGraph(graph), execution_backend, keras_enabled })
+    return this.request('/compilation', 'POST', { graph, execution_backend, keras_enabled })
   }
 
   submitSmokeInference(project_id: string, graph: ModelGraph, worker: WorkerConfiguration): Promise<JobResponse> {
-    return this.request('/execution/jobs', 'POST', { operation: { type: 'smoke_inference', project_id, graph: canonicalGraph(graph) }, worker })
+    return this.request('/execution/jobs', 'POST', { operation: { type: 'smoke_inference', project_id, graph }, worker })
   }
 
   submitModelExport(project_id: string, format: ExportFormat, filename_stem: string, options: ExportOptions, worker: WorkerConfiguration): Promise<JobResponse> {
