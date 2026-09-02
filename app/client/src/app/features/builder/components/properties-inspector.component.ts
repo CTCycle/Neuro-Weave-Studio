@@ -28,6 +28,15 @@ import { GraphEditorStore } from '../state/graph-editor.store'
                   @let capability = capabilityFor(node.data.manifest, definition);
                   @let help = helpfulParameterDescription(definition);
                   @let availability = availabilityMessage(node.data.manifest, definition, capability);
+                  @if (isRuntimeInputShape(node.data.manifest, definition)) {
+                    <div class="runtime-batch-control">
+                      <label><input type="checkbox" [checked]="showBatchDimension()" (change)="showBatchDimension.set($any($event.target).checked)" /><span>Show batch dimension</span></label>
+                      @if (showBatchDimension()) { <code>{{ runtimeShapePreview(node, definition) }}</code><small>Batch is supplied at runtime and is never saved in the model shape.</small> }
+                    </div>
+                  }
+                  @if (isQuantizationConfiguration(definition)) {
+                    <div class="optional-config-state" [class.configured]="hasExplicitConfiguration(node, definition)"><strong>{{ hasExplicitConfiguration(node, definition) ? 'Explicit quantization' : 'Quantization disabled' }}</strong><small>{{ hasExplicitConfiguration(node, definition) ? 'This node will serialize the configuration below.' : 'Leave this field empty to use the layer without quantization configuration.' }}</small></div>
+                  }
                   @if (isBinaryCheckbox(definition)) {
                     <label class="toggle-field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node, node.data.manifest)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><span class="compact-toggle"><input type="checkbox" [formControlName]="definition.id" [attr.aria-label]="definition.display_name" (change)="updateParameter(definition, $any($event.target).checked)" /><strong>{{ binaryStateLabel(node, definition) }}</strong></span></label>
                   } @else if (isChoice(definition)) {
@@ -66,6 +75,15 @@ import { GraphEditorStore } from '../state/graph-editor.store'
       }
     </aside>
   `,
+  styles: [`
+    .runtime-batch-control, .optional-config-state { margin:7px 0 2px; padding:8px 0; border-top:1px solid color-mix(in srgb, var(--border) 75%, transparent); border-bottom:1px solid color-mix(in srgb, var(--border) 75%, transparent); }
+    .runtime-batch-control label { display:flex; align-items:center; gap:8px; color:var(--text-secondary); font-size:11px; cursor:pointer; }
+    .runtime-batch-control input { accent-color:var(--copper); }
+    .runtime-batch-control code { display:block; margin-top:7px; color:var(--cyan); font-size:10px; overflow-wrap:anywhere; }
+    .runtime-batch-control small, .optional-config-state small { display:block; margin-top:4px; color:var(--text-muted); font-size:10px; line-height:1.4; }
+    .optional-config-state strong { color:var(--text-secondary); font:600 10px/1.2 var(--font-mono); text-transform:uppercase; letter-spacing:.05em; }
+    .optional-config-state.configured strong { color:var(--copper); }
+  `],
 })
 export class PropertiesInspectorComponent {
   readonly store = inject(GraphEditorStore)
@@ -75,6 +93,7 @@ export class PropertiesInspectorComponent {
   readonly close = output<void>()
   readonly selectedNode = computed(() => this.store.nodes().find((node) => node.id === this.store.selectedNodeId()) ?? null)
   readonly selectedEdge = computed(() => this.store.edges().find((edge) => edge.id === this.store.selectedEdgeId()) ?? null)
+  readonly showBatchDimension = signal(false)
   readonly groupedParameters = computed(() => {
     const groups = new Map<string, ParameterDefinition[]>()
     for (const definition of this.selectedNode()?.data.manifest.parameters ?? []) {
@@ -94,6 +113,7 @@ export class PropertiesInspectorComponent {
     })
     effect(() => {
       const node = this.selectedNode()
+      this.showBatchDimension.set(false)
       for (const id of this.configuredControlIds) this.form.removeControl(id)
       this.configuredControlIds.clear()
       this.form.controls['label'].setValue(node?.data.label ?? '', { emitEvent: false })
@@ -130,7 +150,7 @@ export class PropertiesInspectorComponent {
       const node = this.selectedNode()
       if (!node) return
       const parameters = { ...node.data.parameters }
-      if (parsed.value === undefined) delete parameters[definition.id]
+      if (parsed.value === undefined || (definition.id === 'quantization_config' && parsed.value === null)) delete parameters[definition.id]
       else parameters[definition.id] = parsed.value
       this.store.updateNode(node.id, { parameters })
     }
@@ -168,8 +188,12 @@ export class PropertiesInspectorComponent {
   binaryStateLabel(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): string { return this.parameterValue(node, definition) === true ? 'On' : 'Off' }
   isChoice(definition: ParameterDefinition): boolean { return isFiniteParameter(definition) }
   isStructured(definition: ParameterDefinition): boolean { return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple' || definition.type === 'object' }
-  structuredPlaceholder(definition: ParameterDefinition): string { return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple' ? '[ … ]' : '{ "class_name": "…", "config": {} }' }
+  structuredPlaceholder(definition: ParameterDefinition): string { return definition.id === 'quantization_config' ? 'Leave empty to keep quantization disabled' : definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple' ? '[ … ]' : '{ "class_name": "…", "config": {} }' }
   isVisible(definition: ParameterDefinition, node: { data: { parameters: Record<string, unknown> } }): boolean { return !definition.visible_when || conditionMatches(definition.visible_when, node.data.parameters) }
+  isRuntimeInputShape(manifest: NodeManifest, definition: ParameterDefinition): boolean { return manifest.semantic_role === 'input' && definition.id === 'shape' }
+  isQuantizationConfiguration(definition: ParameterDefinition): boolean { return definition.id === 'quantization_config' }
+  hasExplicitConfiguration(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): boolean { const value = node.data.parameters[definition.id]; return value !== null && value !== undefined && !(typeof value === 'object' && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length === 0) }
+  runtimeShapePreview(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): string { const value = this.parameterValue(node, definition); return `runtime: [batch${Array.isArray(value) && value.length ? `, ${value.map((item) => item === null ? '?' : String(item)).join(', ')}` : ''}]` }
 
   availabilityMessage(manifest: NodeManifest, definition: ParameterDefinition, capability?: ParameterCapability): string | null {
     const mapping = manifest.implementations[implementationKey(this.executionBackend(), this.kerasEnabled())]
