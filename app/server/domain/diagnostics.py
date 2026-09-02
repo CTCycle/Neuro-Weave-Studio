@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from domain.enums import DiagnosticSeverity, ExecutionBackend
-from domain.graph import ModelGraph, ShapeSummary
+from domain.graph import EdgeInstance, ModelGraph, ShapeSummary
 
 ModelTypeKind = Literal[
     "binary_classification",
@@ -62,6 +62,20 @@ class ValidationResult(BaseModel):
             kind="generic", confidence="low", evidence=[]
         )
     )
+
+
+###############################################################################
+class ConnectionValidationRequest(BaseModel):
+    graph: ModelGraph
+    connection: EdgeInstance
+    execution_backend: ExecutionBackend
+    keras_enabled: bool = True
+
+
+###############################################################################
+class ConnectionValidationResult(BaseModel):
+    valid: bool
+    diagnostics: list[ValidationDiagnostic] = Field(default_factory=list)
 
 
 ###############################################################################

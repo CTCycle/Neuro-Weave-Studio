@@ -1,6 +1,7 @@
 import { Component, HostListener, computed, effect, inject, input, output, signal, viewChild, type ElementRef } from '@angular/core'
 import { ReactiveFormsModule, UntypedFormControl, UntypedFormGroup } from '@angular/forms'
 import { LucideTrash2, LucideX } from '@lucide/angular'
+import type { EditorNode } from '../../../domain/editor.types'
 import type { ExecutionBackend, NodeManifest, ParameterCapability, ParameterDefinition, PortDefinition } from '../../../domain/types'
 import { implementationAvailable, implementationKey, implementationLabel } from '../../../domain/types'
 import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
@@ -60,8 +61,8 @@ import { GraphEditorStore } from '../state/graph-editor.store'
                 </div>
               }
               @for (port of node.data.manifest.outputs; track port.id) {
-                <div class="port-spec-row output" [class.is-connected]="portConnectionCount(node.id, 'output', port.id) > 0" [class.is-disabled]="portStatus(node, 'output', port) === 'Disabled'" [title]="port.description">
-                  <span class="port-direction output">OUT</span><div class="port-spec-main"><strong>{{ port.display_name }}</strong><small>{{ portKindLabel(port) }} · {{ portShapeLabel(node, port, 'output') }}</small></div><div class="port-spec-meta"><span class="port-badge">{{ port.required ? 'REQ' : 'OPT' }}</span><span class="port-badge">{{ multiplicityLabel(port, 'output') }}</span><span class="port-status">{{ portStatus(node, 'output', port) }}</span></div>
+                  <div class="port-spec-row output" [class.is-connected]="portConnectionCount(node.id, 'output', port.id) > 0" [class.is-disabled]="portStatus(node, 'output', port) === 'Disabled'" [title]="port.description">
+                  <span class="port-direction output">OUT</span><div class="port-spec-main"><strong>{{ port.display_name }}</strong><small>{{ portKindLabel(port) }} · {{ portShapeLabel(node, port, 'output') }}</small></div><div class="port-spec-meta"><span class="port-badge">{{ port.required ? 'REQ' : 'OPT' }}</span><span class="port-badge">{{ multiplicityLabel(port, 'output') }}</span><span class="port-status">{{ portStatus(node, 'output', port) }}</span><button type="button" class="port-output-toggle" [class.is-active]="store.isOutput(node.id, port.id)" [attr.aria-pressed]="store.isOutput(node.id, port.id)" [attr.aria-label]="store.isOutput(node.id, port.id) ? 'Remove ' + port.display_name + ' from model outputs' : 'Use ' + port.display_name + ' as a model output'" (click)="toggleOutput(node.id, port.id); $event.stopPropagation()">{{ store.isOutput(node.id, port.id) ? 'OUTPUT' : 'Use output' }}</button></div>
                 </div>
               }
             </div>
@@ -84,6 +85,9 @@ import { GraphEditorStore } from '../state/graph-editor.store'
     .runtime-batch-control small, .optional-config-state small { display:block; margin-top:4px; color:var(--muted); font-size:10px; line-height:1.4; }
     .optional-config-state strong { color:var(--muted); font:600 10px/1.2 'IBM Plex Mono', Consolas, monospace; text-transform:uppercase; letter-spacing:.05em; }
     .optional-config-state.configured strong { color:var(--accent-bright); }
+    .port-output-toggle { min-height:24px; padding:3px 6px; border:1px solid color-mix(in srgb, var(--accent-bright) 45%, var(--border)); border-radius:4px; background:transparent; color:var(--muted); font:600 9px/1.1 'IBM Plex Mono', Consolas, monospace; letter-spacing:.04em; cursor:pointer; }
+    .port-output-toggle:hover, .port-output-toggle:focus-visible { border-color:var(--accent-bright); color:var(--text); }
+    .port-output-toggle.is-active { background:color-mix(in srgb, var(--accent-bright) 16%, transparent); border-color:var(--accent-bright); color:var(--accent-bright); }
   `],
 })
 export class PropertiesInspectorComponent {
@@ -228,14 +232,23 @@ export class PropertiesInspectorComponent {
   }
 
   portKindLabel(port: PortDefinition): string { return port.kind === 'tensor_list' ? `tensor list · ${port.element_kind ?? 'tensor'}` : port.kind }
-  portShapeLabel(node: { data: { shapeSummary?: { outputs: Record<string, { shape: Array<number | null | { name: string }>; dtype: string }> } } }, port: PortDefinition, direction: 'input' | 'output'): string {
-    const summary = direction === 'output' ? node.data.shapeSummary?.outputs[port.id] : undefined
+  portShapeLabel(node: EditorNode, port: PortDefinition, direction: 'input' | 'output'): string {
+    const summary = direction === 'output'
+      ? this.store.shapeSummary(node.id)?.outputs[port.id]
+      : this.inputShape(node.id, port.id)
     if (summary) return `${summary.shape.map((value) => value === null ? '?' : typeof value === 'object' ? value.name : value).join(' × ')} · ${summary.dtype}`
     if (port.rank !== undefined && port.rank !== null) return `rank ${port.rank}`
     return port.kind === 'scalar' || port.kind === 'mask' ? 'value' : 'shape unknown'
   }
   multiplicityLabel(port: PortDefinition, direction: 'input' | 'output'): string { return direction === 'output' ? 'fan-out' : port.accepts_multiple ? 'many' : '1' }
   isPortEnabled(node: { data: { parameters: Record<string, unknown> } }, port: PortDefinition): boolean { return conditionMatches(port.enabled_when, node.data.parameters) }
+
+  toggleOutput(nodeId: string, portId: string): void { this.store.toggleNodeOutput(nodeId, portId) }
+
+  private inputShape(nodeId: string, portId: string): { shape: Array<number | null | { name: string }>; dtype: string } | undefined {
+    const edge = this.store.edges().find((item) => item.target === nodeId && (item.targetHandle ?? 'input') === portId)
+    return edge ? this.store.shapeSummary(edge.source)?.outputs[edge.sourceHandle ?? 'output'] : undefined
+  }
 
   private parameterValue(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): unknown {
     if (Object.prototype.hasOwnProperty.call(node.data.parameters, definition.id)) return node.data.parameters[definition.id]

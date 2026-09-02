@@ -3,7 +3,7 @@ import { Router } from '@angular/router'
 import { LucideFileText, LucideHammer, LucideLayoutGrid, LucidePlay, LucidePlus, LucideRedo2, LucideSave, LucideUndo2, LucideX } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
 import { AppResourcesService } from '../../core/state/app-resources.service'
-import type { ExecutionBackend, ProjectDocument, ValidationResult } from '../../domain/types'
+import type { ExecutionBackend, ProjectDocument, ValidationResult, ValidationState } from '../../domain/types'
 import { executionBackendShortLabels } from '../../domain/types'
 import type { GraphEditorSession } from '../../domain/graph-mapper'
 import { GraphEditorStore } from './state/graph-editor.store'
@@ -71,10 +71,10 @@ type DraftMetadataPatch = Partial<Pick<BuilderTab, 'name' | 'description' | 'exe
           <div class="builder-toolbar-heading" [class.is-dirty]="dirty()"><span class="eyebrow">MODEL BUILDER</span><span class="builder-badge" aria-live="polite"><svg lucideHammer [size]="11"></svg><span>{{ busy() ? 'Saving…' : dirty() ? 'Drafting' : 'Saved' }}</span></span></div>
           <div class="builder-identity"><input class="project-title" aria-label="Model name" [value]="name()" (input)="updateDraftMetadata({ name: $any($event.target).value })" placeholder="Untitled model" /><div class="description-control" #descriptionControl><button type="button" class="toolbar-description" [class.has-description]="description()" [attr.aria-expanded]="descriptionOpen()" aria-haspopup="dialog" (click)="toggleDescription()"><svg lucideFileText [size]="14"></svg><span>Description</span>@if (description()) { <i aria-hidden="true"></i> }</button>@if (descriptionOpen()) { <div class="description-popover" role="dialog" aria-label="Model description editor"><div class="description-popover-heading"><div><span class="eyebrow">MODEL METADATA</span><strong>Description</strong></div><button type="button" class="popover-close" (click)="cancelDescription()" aria-label="Close description editor"><svg lucideX [size]="14"></svg></button></div><textarea #descriptionInput [value]="descriptionDraft()" (input)="descriptionDraft.set($any($event.target).value)" maxlength="2000" placeholder="Describe the model purpose, inputs, or expected outputs." aria-label="Model description"></textarea><div class="description-popover-footer"><small>{{ descriptionDraft().length }}/2000</small><div><button type="button" class="secondary" (click)="cancelDescription()">Cancel</button>@if (description() || descriptionDraft()) { <button type="button" class="secondary danger-text" (click)="clearDescription()">Clear</button> }<button type="button" class="primary" (click)="saveDescription()">Save</button></div></div></div> }</div></div>
           <div class="builder-target"><span>Backend</span><nw-themed-select ariaLabel="Execution backend" [options]="backendSelectOptions" [value]="backend()" (valueChange)="selectBackend($event)"></nw-themed-select></div><label class="toolbar-toggle" title="Optional Keras API layer over the selected native backend."><span>Enable Keras</span><input type="checkbox" aria-label="Enable Keras" [checked]="kerasEnabled()" (change)="updateDraftMetadata({ kerasEnabled: $any($event.target).checked })" /><strong>{{ kerasEnabled() ? 'On' : 'Off' }}</strong></label>
-          <div class="builder-history"><button type="button" title="Undo" aria-label="Undo" (click)="store.undo()" [disabled]="!store.canUndo()"><svg lucideUndo2 [size]="14"></svg></button><button type="button" title="Redo" aria-label="Redo" (click)="store.redo()" [disabled]="!store.canRedo()"><svg lucideRedo2 [size]="14"></svg></button></div><div class="builder-actions"><button class="secondary" type="button" aria-label="Validate" (click)="validate()" [disabled]="busy()"><svg lucideLayoutGrid [size]="14"></svg><span class="action-label">Validate</span></button><button class="primary" type="button" aria-label="Save model" (click)="save()" [disabled]="busy()"><svg lucideSave [size]="14"></svg><span class="action-label">{{ busy() ? 'Saving…' : 'Save model' }}</span></button>@if (activeTab()?.projectId) { <button class="secondary" type="button" aria-label="Open workspace" (click)="openWorkspace()" [disabled]="busy()"><svg lucidePlay [size]="14"></svg><span class="action-label">Open workspace</span></button> }</div>
+          <div class="builder-history"><button type="button" title="Undo" aria-label="Undo" (click)="store.undo()" [disabled]="!store.canUndo()"><svg lucideUndo2 [size]="14"></svg></button><button type="button" title="Redo" aria-label="Redo" (click)="store.redo()" [disabled]="!store.canRedo()"><svg lucideRedo2 [size]="14"></svg></button></div><div class="builder-actions"><button class="secondary" type="button" aria-label="Validate" (click)="validate()" [disabled]="busy() || validationBusy()"><svg lucideLayoutGrid [size]="14"></svg><span class="action-label">{{ validationBusy() ? 'Checking…' : 'Validate' }}</span></button><button class="primary" type="button" aria-label="Save model" (click)="save()" [disabled]="busy()"><svg lucideSave [size]="14"></svg><span class="action-label">{{ busy() ? 'Saving…' : 'Save model' }}</span></button>@if (activeTab()?.projectId) { <button class="secondary" type="button" aria-label="Open workspace" (click)="openWorkspace()" [disabled]="busy()"><svg lucidePlay [size]="14"></svg><span class="action-label">Open workspace</span></button> }</div>
         </section>
         <div class="builder-mobile-actions" aria-label="Builder panels"><button #catalogToggle type="button" [class.active]="mobilePanel() === 'catalog'" [attr.aria-expanded]="mobilePanel() === 'catalog'" aria-controls="builder-catalog-drawer" (click)="togglePanel('catalog')">Catalog</button><button #inspectorToggle type="button" [class.active]="mobilePanel() === 'inspector'" [attr.aria-expanded]="mobilePanel() === 'inspector'" aria-controls="builder-inspector-drawer" (click)="togglePanel('inspector')">Inspector</button></div>
-        <div class="builder-workspace-grid"><div id="builder-catalog-drawer" class="drawer-slot builder-catalog" [class.is-open]="mobilePanel() === 'catalog'" (click)="closeMobilePanel()"><nw-node-catalog [executionBackend]="backend()" [kerasEnabled]="kerasEnabled()" [mobileOpen]="mobilePanel() === 'catalog'" (close)="closeMobilePanel()"></nw-node-catalog></div><section id="builder-editor-workspace" class="builder-center-workspace"><nav class="model-tab-bar panel" aria-label="Open models"><div class="model-tab-list" role="tablist" aria-label="Model editor tabs">@for (tab of tabs(); track tab.id) { <div class="model-tab" [class.active]="tab.id === activeTabId()"><button type="button" role="tab" class="model-tab-select" [attr.aria-selected]="tab.id === activeTabId()" title="Open {{ tab.name || 'Untitled model' }}" (click)="switchTab(tab.id)"><span class="model-tab-status" [class.dirty]="tab.dirty">{{ tab.dirty ? '●' : '○' }}</span><span class="model-tab-name">{{ tab.name || 'Untitled model' }}</span><small>{{ tab.projectId ? 'r' + tab.revision : 'draft' }}</small></button><button type="button" class="model-tab-close" [attr.aria-label]="'Close ' + (tab.name || 'Untitled model')" (click)="requestCloseTab(tab.id)"><svg lucideX [size]="14"></svg></button></div> }</div><button type="button" class="model-tab-new" aria-label="New model" (click)="openNewTab()"><svg lucidePlus [size]="15"></svg><span class="action-label">New model</span></button></nav><nw-graph-canvas [modelName]="name()" [dirty]="dirty()" [busy]="busy()" [fullCanvas]="fullCanvas()" (enterFocus)="fullCanvas.set(true)" (exitFocus)="fullCanvas.set(false)" (save)="save()" (resetRequested)="requestResetCanvas()"></nw-graph-canvas><nw-resizable-validation-region [expanded]="validationExpanded()" [height]="validationHeight()" (heightChange)="updateActiveTab({ validationHeight: $event })"><nw-validation-panel [result]="validation()" [expanded]="validationExpanded()" (expandedChange)="updateActiveTab({ validationExpanded: $event })"></nw-validation-panel></nw-resizable-validation-region></section><div id="builder-inspector-drawer" class="drawer-slot builder-inspector" [class.is-open]="mobilePanel() === 'inspector'" (click)="closeMobilePanel()"><nw-properties-inspector [executionBackend]="backend()" [kerasEnabled]="kerasEnabled()" [mobileOpen]="mobilePanel() === 'inspector'" (close)="closeMobilePanel()"></nw-properties-inspector></div></div>
+         <div class="builder-workspace-grid"><div id="builder-catalog-drawer" class="drawer-slot builder-catalog" [class.is-open]="mobilePanel() === 'catalog'" (click)="closeMobilePanel()"><nw-node-catalog [executionBackend]="backend()" [kerasEnabled]="kerasEnabled()" [mobileOpen]="mobilePanel() === 'catalog'" (close)="closeMobilePanel()"></nw-node-catalog></div><section id="builder-editor-workspace" class="builder-center-workspace"><nav class="model-tab-bar panel" aria-label="Open models"><div class="model-tab-list" role="tablist" aria-label="Model editor tabs">@for (tab of tabs(); track tab.id) { <div class="model-tab" [class.active]="tab.id === activeTabId()"><button type="button" role="tab" class="model-tab-select" [attr.aria-selected]="tab.id === activeTabId()" title="Open {{ tab.name || 'Untitled model' }}" (click)="switchTab(tab.id)"><span class="model-tab-status" [class.dirty]="tab.dirty">{{ tab.dirty ? '●' : '○' }}</span><span class="model-tab-name">{{ tab.name || 'Untitled model' }}</span><small>{{ tab.projectId ? 'r' + tab.revision : 'draft' }}</small></button><button type="button" class="model-tab-close" [attr.aria-label]="'Close ' + (tab.name || 'Untitled model')" (click)="requestCloseTab(tab.id)"><svg lucideX [size]="14"></svg></button></div> }</div><button type="button" class="model-tab-new" aria-label="New model" (click)="openNewTab()"><svg lucidePlus [size]="15"></svg><span class="action-label">New model</span></button></nav><nw-graph-canvas [modelName]="name()" [dirty]="dirty()" [busy]="busy()" [executionBackend]="backend()" [kerasEnabled]="kerasEnabled()" [validation]="validation()" [fullCanvas]="fullCanvas()" (enterFocus)="fullCanvas.set(true)" (exitFocus)="fullCanvas.set(false)" (save)="save()" (resetRequested)="requestResetCanvas()"></nw-graph-canvas><nw-resizable-validation-region [expanded]="validationExpanded()" [height]="validationHeight()" (heightChange)="updateActiveTab({ validationHeight: $event })"><nw-validation-panel [result]="validation()" [state]="validationState()" [expanded]="validationExpanded()" (expandedChange)="updateActiveTab({ validationExpanded: $event })"></nw-validation-panel></nw-resizable-validation-region></section><div id="builder-inspector-drawer" class="drawer-slot builder-inspector" [class.is-open]="mobilePanel() === 'inspector'" (click)="closeMobilePanel()"><nw-properties-inspector [executionBackend]="backend()" [kerasEnabled]="kerasEnabled()" [mobileOpen]="mobilePanel() === 'inspector'" (close)="closeMobilePanel()"></nw-properties-inspector></div></div>
         @if (leaveNavigation()) { <div class="dialog-backdrop"><section class="confirm-dialog panel" role="dialog" aria-modal="true" aria-labelledby="leave-builder-title"><span class="eyebrow">UNSAVED CHANGES</span><h2 id="leave-builder-title">Leave the Model Builder?</h2><p>{{ dirtyTabCount() === 1 ? 'One model tab has unsaved changes.' : dirtyTabCount() + ' model tabs have unsaved changes.' }} Leave and discard them?</p><div class="dialog-actions"><button type="button" class="secondary" (click)="stayOnBuilder()">Stay</button><button type="button" class="primary" (click)="discardAndLeave()">Discard changes</button></div></section></div> } @if (pendingCloseTabId()) { <div class="dialog-backdrop"><section class="confirm-dialog panel" role="dialog" aria-modal="true" aria-labelledby="close-tab-title"><span class="eyebrow">UNSAVED TAB</span><h2 id="close-tab-title">Close this model tab?</h2><p>Its architecture edits have not been saved. Close and discard them?</p><div class="dialog-actions"><button type="button" class="secondary" (click)="pendingCloseTabId.set(null)">Keep tab</button><button type="button" class="primary" (click)="confirmCloseTab()">Close tab</button></div></section></div> } @if (resetCanvasOpen()) { <div class="dialog-backdrop"><section class="confirm-dialog panel" role="dialog" aria-modal="true" aria-labelledby="reset-canvas-title"><span class="eyebrow">DESTRUCTIVE ACTION</span><h2 id="reset-canvas-title">Reset this canvas?</h2><p>All nodes and connections will be removed from the current workflow. This cannot be undone after the draft is discarded.</p><div class="dialog-actions"><button type="button" class="secondary" (click)="resetCanvasOpen.set(false)">Cancel</button><button type="button" class="primary danger-button" (click)="confirmResetCanvas()">Reset canvas</button></div></section></div> } @if (notice()) { <button class="notice builder-notice" type="button" (click)="notice.set(null)">{{ notice() }}</button> }
       </div>
     }
@@ -99,9 +99,11 @@ export class ModelBuilderPageComponent {
   readonly kerasEnabled = signal(true)
   readonly projectRevision = signal<number | null>(null)
   readonly validation = signal<ValidationResult | null>(null)
+  readonly validationState = signal<ValidationState>('not-run')
   readonly validationExpanded = signal(false)
   readonly validationHeight = signal(DEFAULT_VALIDATION_HEIGHT)
   readonly busy = signal(false)
+  readonly validationBusy = signal(false)
   readonly notice = signal<string | null>(null)
   readonly mobilePanel = signal<'catalog' | 'inspector' | null>(null)
   readonly fullCanvas = signal(false)
@@ -114,6 +116,10 @@ export class ModelBuilderPageComponent {
   private initializedKey: string | null = null
   private allowNextNavigation = false
   private loadSequence = 0
+  private lastGraphRevision: number | null = null
+  private validationRequest = 0
+  private validationTimer: ReturnType<typeof setTimeout> | null = null
+  private restoringTab = false
   private readonly descriptionControl = viewChild<ElementRef<HTMLElement>>('descriptionControl')
   private readonly catalogToggle = viewChild<ElementRef<HTMLButtonElement>>('catalogToggle')
   private readonly inspectorToggle = viewChild<ElementRef<HTMLButtonElement>>('inspectorToggle')
@@ -128,6 +134,21 @@ export class ModelBuilderPageComponent {
       if (!this.resources.catalogReady() || routeKey === this.initializedKey) return
       this.initializedKey = routeKey
       void this.initialize(id, ++this.loadSequence)
+    })
+    effect(() => {
+      const revision = this.store.graphRevision()
+      if (this.restoringTab || !this.initialized() || !this.activeTabId()) {
+        this.lastGraphRevision = revision
+        return
+      }
+      if (this.lastGraphRevision === null) {
+        this.lastGraphRevision = revision
+        return
+      }
+      if (revision === this.lastGraphRevision) return
+      this.lastGraphRevision = revision
+      this.invalidateValidation('Graph changed. Checking the updated architecture…')
+      this.scheduleValidation()
     })
     effect(() => {
       const activeId = this.activeTabId()
@@ -185,17 +206,27 @@ export class ModelBuilderPageComponent {
   }
 
   private restoreTab(tab: BuilderTab): void {
-    this.store.restoreEditorSession(tab.graph)
-    this.store.setExecutionProfile(tab.executionBackend, tab.kerasEnabled)
-    this.name.set(tab.name)
-    this.description.set(tab.description)
-    this.descriptionDraft.set(tab.description)
-    this.backend.set(tab.executionBackend)
-    this.kerasEnabled.set(tab.kerasEnabled)
-    this.projectRevision.set(tab.projectId ? tab.revision : null)
-    this.validation.set(tab.validation)
-    this.validationExpanded.set(tab.validationExpanded)
-    this.validationHeight.set(tab.validationHeight)
+    this.restoringTab = true
+    this.clearValidationTimer()
+    this.validationRequest += 1
+    try {
+      this.store.restoreEditorSession(tab.graph)
+      this.store.setExecutionProfile(tab.executionBackend, tab.kerasEnabled)
+      this.name.set(tab.name)
+      this.description.set(tab.description)
+      this.descriptionDraft.set(tab.description)
+      this.backend.set(tab.executionBackend)
+      this.kerasEnabled.set(tab.kerasEnabled)
+      this.projectRevision.set(tab.projectId ? tab.revision : null)
+      this.validation.set(tab.validation)
+      this.store.applyShapeSummaries(tab.validation?.shape_summaries ?? [])
+      this.validationState.set(tab.validation ? (tab.validation.valid ? 'ready' : 'blocked') : 'not-run')
+      this.validationExpanded.set(tab.validationExpanded)
+      this.validationHeight.set(tab.validationHeight)
+      this.lastGraphRevision = this.store.graphRevision()
+    } finally {
+      this.restoringTab = false
+    }
   }
 
   updateDraftMetadata(patch: DraftMetadataPatch): void {
@@ -205,6 +236,9 @@ export class ModelBuilderPageComponent {
     if (patch.kerasEnabled !== undefined) this.kerasEnabled.set(patch.kerasEnabled)
     if (patch.executionBackend !== undefined || patch.kerasEnabled !== undefined) {
       this.store.setExecutionProfile(patch.executionBackend ?? this.backend(), patch.kerasEnabled ?? this.kerasEnabled())
+      this.store.invalidateDerivedState()
+      this.invalidateValidation('Execution profile changed. Checking the updated architecture…')
+      this.scheduleValidation()
     }
   }
 
@@ -271,7 +305,11 @@ export class ModelBuilderPageComponent {
   confirmCloseTab(): void { const id = this.pendingCloseTabId(); this.pendingCloseTabId.set(null); if (id) this.closeTabAndNavigate(id) }
 
   requestResetCanvas(): void { this.resetCanvasOpen.set(true) }
-  confirmResetCanvas(): void { this.resetCanvasOpen.set(false); this.store.reset(); this.validation.set(null) }
+  confirmResetCanvas(): void {
+    this.resetCanvasOpen.set(false)
+    this.store.reset()
+    this.invalidateValidation('Canvas reset. Add nodes, then validate the new graph.')
+  }
 
   private syncActiveTab(): void {
     const id = this.activeTabId();
@@ -294,15 +332,67 @@ export class ModelBuilderPageComponent {
     if (this.router.url !== nextPath) void this.router.navigateByUrl(nextPath, { replaceUrl: true })
   }
 
+  private clearValidationTimer(): void {
+    if (this.validationTimer !== null) {
+      clearTimeout(this.validationTimer)
+      this.validationTimer = null
+    }
+  }
+
+  private invalidateValidation(message?: string): void {
+    this.validationRequest += 1
+    this.validation.set(null)
+    this.store.applyShapeSummaries([])
+    this.validationState.set(this.initialized() ? 'stale' : 'not-run')
+    this.updateActiveTab({ validation: null })
+    if (message) this.notice.set(message)
+  }
+
+  private scheduleValidation(): void {
+    if (!this.initialized() || !this.activeTabId()) return
+    this.clearValidationTimer()
+    this.validationState.set('stale')
+    this.validationTimer = setTimeout(() => {
+      this.validationTimer = null
+      void this.validate()
+    }, 350)
+  }
+
   async validate(): Promise<void> {
-    this.busy.set(true)
+    if (!this.initialized() || !this.activeTabId()) return
+    this.clearValidationTimer()
+    const requestId = ++this.validationRequest
+    const graphRevision = this.store.graphRevision()
+    const tabId = this.activeTabId()
+    const backend = this.backend()
+    const kerasEnabled = this.kerasEnabled()
+    this.validationBusy.set(true)
+    this.validationState.set('checking')
+    this.validation.set(null)
+    this.store.applyShapeSummaries([])
+    this.updateActiveTab({ validation: null })
+    this.notice.set('Checking graph topology, parameters, and tensor shapes…')
     try {
-      const result = await this.api.validate(this.store.toGraph(), this.backend(), this.kerasEnabled())
+      const result = await this.api.validate(this.store.toGraph(), backend, kerasEnabled)
+      const current = requestId === this.validationRequest
+        && graphRevision === this.store.graphRevision()
+        && tabId === this.activeTabId()
+        && backend === this.backend()
+        && kerasEnabled === this.kerasEnabled()
+      if (!current) return
       this.validation.set(result)
+      this.store.applyShapeSummaries(result.shape_summaries, graphRevision)
+      this.validationState.set(result.valid ? 'ready' : 'blocked')
       this.updateActiveTab({ validation: result })
-      this.store.applyShapeSummaries(result.shape_summaries)
-      this.notice.set(result.valid ? 'Model execution profile is valid.' : 'Model has blocking findings.')
-    } catch (reason) { this.notice.set(`Validation failed: ${reason instanceof Error ? reason.message : String(reason)}`) } finally { this.busy.set(false) }
+      this.notice.set(result.valid ? 'Model graph is valid.' : 'Model graph has blocking findings.')
+    } catch (reason) {
+      const current = requestId === this.validationRequest && tabId === this.activeTabId()
+      if (!current) return
+      this.validationState.set('error')
+      this.notice.set(`Validation failed: ${reason instanceof Error ? reason.message : String(reason)}`)
+    } finally {
+      if (requestId === this.validationRequest) this.validationBusy.set(false)
+    }
   }
 
   async save(): Promise<void> {

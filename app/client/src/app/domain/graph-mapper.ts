@@ -139,7 +139,6 @@ export function cloneEditorNode(node: EditorNode): EditorNode {
     manifest: node.data.manifest,
     label: node.data.label,
     parameters: structuredClone(node.data.parameters),
-    ...(node.data.shapeSummary ? { shapeSummary: structuredClone(node.data.shapeSummary) } : {}),
   }
   return { ...node, position: { ...node.position }, data }
 }

@@ -1,10 +1,9 @@
-import type { NodeManifest, Position, ShapeSummary } from './types'
+import type { NodeManifest, Position } from './types'
 
 export interface EditorNodeData extends Record<string, unknown> {
   manifest: NodeManifest
   parameters: Record<string, unknown>
   label: string
-  shapeSummary?: ShapeSummary
 }
 
 export interface EditorNode {

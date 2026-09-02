@@ -2,6 +2,8 @@ import { Component, EventEmitter, HostListener, computed, effect, inject, Input,
 import { LucideLock, LucideMaximize2, LucideSave, LucideUnlock } from '@lucide/angular'
 import { FCanvasComponent, FFlowModule, FZoomDirective, type FCreateConnectionEvent, type FDeleteSelectedEvent, type FEventTrigger, type FMoveNodesEvent, type FSelectionChangeEvent } from '@foblex/flow'
 import type { EditorNode } from '../../../domain/editor.types'
+import { ApiService } from '../../../core/api/api.service'
+import type { ExecutionBackend, ValidationDiagnostic, ValidationResult } from '../../../domain/types'
 import { GraphEditorStore } from '../state/graph-editor.store'
 import { connectionCandidates } from '../graph/graph-validation'
 import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, normalizeConnection, portOffset } from '../graph/foblex-graph.adapter'
@@ -19,10 +21,10 @@ const NO_CONNECTION_TARGET_ID = '__neuro_weave_no_compatible_target__'
         @if (minimapVisible()) { <f-minimap [fMinSize]="50" [fNodeRenderLimit]="1000"></f-minimap> }
         <f-canvas fZoom [fZoom]="!viewportLocked()" [fZoomMinimum]="0.2" [fZoomMaximum]="2.5" [fZoomStep]="0.1">
           <f-connection-for-create fType="bezier" fOffset="20"></f-connection-for-create>
-          <ng-container ngProjectAs="[fConnections]">@for (edge of store.edges(); track edge.id) { <f-connection fType="bezier" fOffset="20" [fSelectionDisabled]="readOnly" [fConnectionId]="edge.id" [fSourceId]="connectorId(edge.source, 'output', edge.sourceHandle || 'output')" [fTargetId]="connectorId(edge.target, 'input', edge.targetHandle || 'input')" [class.is-selected]="store.selectedEdgeId() === edge.id"></f-connection> }</ng-container>
+          <ng-container ngProjectAs="[fConnections]">@for (edge of store.edges(); track edge.id) { <f-connection fType="bezier" fOffset="20" [fSelectionDisabled]="readOnly" [fConnectionId]="edge.id" [fSourceId]="connectorId(edge.source, 'output', edge.sourceHandle || 'output')" [fTargetId]="connectorId(edge.target, 'input', edge.targetHandle || 'input')" [class.is-selected]="store.selectedEdgeId() === edge.id" [class.is-invalid]="hasEdgeError(edge.id)"></f-connection> }</ng-container>
           <ng-container ngProjectAs="[fNodes]">@for (node of store.nodes(); track node.id) {
-            <div fNode [fNodeId]="node.id" [fNodePosition]="node.position" [fNodeDraggingDisabled]="readOnly || node.locked" [fNodeSelectionDisabled]="readOnly" [fNodeSize]="nodeSize(node)" [class.is-selected]="store.selectedNodeId() === node.id" [attr.aria-label]="node.data.label" (click)="selectNode(node.id)">
-              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" aria-hidden="true">@if (node.locked) { <svg lucideLock [size]="13"></svg> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { @if (portEnabled(node, 'input', port.id)) { <span class="nw-flow-port input" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> } }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { @if (portEnabled(node, 'output', port.id)) { <span class="nw-flow-port output" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="true" [fCanBeConnectedTo]="connectionTargets(node.id, port.id)"></i></span> } }</div></div>
+            <div fNode [fNodeId]="node.id" [fNodePosition]="node.position" [fNodeDraggingDisabled]="readOnly || node.locked" [fNodeSelectionDisabled]="readOnly" [fNodeSize]="nodeSize(node)" [class.is-selected]="store.selectedNodeId() === node.id" [class.has-validation-error]="hasNodeError(node.id)" [attr.aria-label]="node.data.label" (click)="selectNode(node.id)">
+              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" aria-hidden="true">@if (node.locked) { <svg lucideLock [size]="13"></svg> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { @if (portEnabled(node, 'input', port.id)) { <span class="nw-flow-port input" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'input'" [attr.aria-label]="'Input ' + port.display_name" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> } }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { @if (portEnabled(node, 'output', port.id)) { <span class="nw-flow-port output" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'output'" [attr.aria-label]="'Output ' + port.display_name" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="true" [fCanBeConnectedTo]="connectionTargets(node.id, port.id)"></i></span> } }</div></div>
             </div>
           } </ng-container>
         </f-canvas>
@@ -43,12 +45,16 @@ export class GraphCanvasComponent {
   @Input() modelName = ''
   @Input() dirty = false
   @Input() busy = false
+  @Input() executionBackend: ExecutionBackend = 'pytorch'
+  @Input() kerasEnabled = true
+  @Input() validation: ValidationResult | null = null
   @Input() fullCanvas = false
   @Output() readonly enterFocus = new EventEmitter<void>()
   @Output() readonly exitFocus = new EventEmitter<void>()
   @Output() readonly save = new EventEmitter<void>()
   @Output() readonly resetRequested = new EventEmitter<void>()
   readonly store = inject(GraphEditorStore)
+  private readonly api = inject(ApiService)
   readonly minimapVisible = signal(true)
   readonly viewportLocked = signal(false)
   readonly canvasMoveTrigger: FEventTrigger = () => !this.viewportLocked()
@@ -106,7 +112,7 @@ export class GraphCanvasComponent {
   copyNode(nodeId: string): void { this.store.selectNode(nodeId); this.store.copySelected() }
   resetParameters(nodeId: string): void { this.store.resetParameters(nodeId) }
   disconnectNode(nodeId: string): void { this.store.disconnectNode(nodeId) }
-  toggleOutput(nodeId: string): void { this.store.toggleNodeOutput(nodeId) }
+  toggleOutput(nodeId: string, portId?: string): void { this.store.toggleNodeOutput(nodeId, portId) }
   toggleLock(nodeId: string): void { this.store.toggleNodeLocked(nodeId) }
   deleteNode(nodeId: string): void { this.store.selectNode(nodeId); this.store.deleteSelected() }
   isLocked(nodeId: string): boolean { return this.store.nodes().find((node) => node.id === nodeId)?.locked ?? false }
@@ -135,7 +141,7 @@ export class GraphCanvasComponent {
   selectNode(nodeId: string): void { if (!this.readOnly) this.store.selectNode(nodeId) }
   select(event: FSelectionChangeEvent): void { if (this.readOnly) return; if (event.connectionIds.length) this.store.selectEdge(event.connectionIds[0]); else if (event.nodeIds.length) this.store.selectNode(event.nodeIds[0]); else this.store.clearSelection() }
   deleteSelected(_event: FDeleteSelectedEvent): void { if (!this.readOnly) this.store.deleteSelected() }
-  createConnection(event: FCreateConnectionEvent): void {
+  async createConnection(event: FCreateConnectionEvent): Promise<void> {
     if (this.readOnly) return
     if (!event.targetId) {
       this.connectionFeedback.set('Connection not created. Drop on a compatible input port.')
@@ -146,8 +152,41 @@ export class GraphCanvasComponent {
       this.connectionFeedback.set('Connection not created. The selected ports are not compatible.')
       return
     }
-    const result = this.store.connect(connection)
-    this.connectionFeedback.set(result.valid ? null : result.message)
+    const expectedRevision = this.store.graphRevision()
+    const expectedBackend = this.executionBackend
+    const expectedKeras = this.kerasEnabled
+    this.connectionFeedback.set('Checking connection…')
+    try {
+      const result = await this.api.validateConnection(
+        this.store.toGraph(),
+        {
+          id: `candidate-${Date.now()}`,
+          source_node_id: connection.source,
+          source_port_id: connection.sourceHandle,
+          target_node_id: connection.target,
+          target_port_id: connection.targetHandle,
+        },
+        expectedBackend,
+        expectedKeras,
+      )
+      if (expectedRevision !== this.store.graphRevision()
+        || expectedBackend !== this.executionBackend
+        || expectedKeras !== this.kerasEnabled) {
+        this.connectionFeedback.set('Connection not created. The graph changed while it was being checked.')
+        return
+      }
+      if (!result.valid) {
+        this.connectionFeedback.set(this.connectionDiagnosticMessage(result.diagnostics))
+        return
+      }
+      if (!this.store.commitConnection(connection, expectedRevision)) {
+        this.connectionFeedback.set('Connection not created. The graph changed while it was being checked.')
+        return
+      }
+      this.connectionFeedback.set(null)
+    } catch (reason) {
+      this.connectionFeedback.set(`Connection not created. ${reason instanceof Error ? reason.message : String(reason)}`)
+    }
   }
   connectionTargets(nodeId: string, portId: string): string[] {
     return this.connectionTargetMap().get(`${nodeId}|${portId}`) ?? this.noConnectionTargets
@@ -155,11 +194,31 @@ export class GraphCanvasComponent {
   connectorId = connectorId
   portOffset = portOffset
   shapeLabel(node: EditorNode): string {
-    const output = node.data.shapeSummary ? Object.values(node.data.shapeSummary.outputs)[0] : undefined
+    const output = Object.values(this.store.shapeSummary(node.id)?.outputs ?? {})[0]
     const shape = output?.shape.map((value) => value === null ? '?' : typeof value === 'object' ? value.name : value).join(' × ')
     return shape || 'Shape pending'
   }
   nodeSize(_node: EditorNode): { width: number; height: number } { return GRAPH_NODE_SIZE }
+
+  hasNodeError(nodeId: string): boolean {
+    return this.validation?.diagnostics.some((diagnostic) => (
+      diagnostic.node_id === nodeId
+      && (diagnostic.severity === 'error' || diagnostic.severity === 'compatibility')
+    )) ?? false
+  }
+
+  hasEdgeError(edgeId: string): boolean {
+    return this.validation?.diagnostics.some((diagnostic) => (
+      diagnostic.edge_id === edgeId
+      && (diagnostic.severity === 'error' || diagnostic.severity === 'compatibility')
+    )) ?? false
+  }
+
+  private connectionDiagnosticMessage(diagnostics: ValidationDiagnostic[]): string {
+    const diagnostic = diagnostics.find((item) => item.severity === 'error' || item.severity === 'compatibility')
+      ?? diagnostics[0]
+    return diagnostic?.message ?? 'The server rejected this connection.'
+  }
 
   portEnabled(node: EditorNode, direction: 'input' | 'output', portId: string): boolean {
     const ports = direction === 'input' ? node.data.manifest.inputs : node.data.manifest.outputs

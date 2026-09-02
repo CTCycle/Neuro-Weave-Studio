@@ -5,6 +5,7 @@ import { ApiError, apiErrorMessage } from './api-error'
 import type { FilesystemBrowseResponse } from '../../domain/filesystem.types'
 import type {
   CompilationResult,
+  ConnectionValidationResult,
   ExecutionBackend,
   ExportCapabilitiesResponse,
   ExportFormat,
@@ -129,6 +130,10 @@ export class ApiService {
 
   validate(graph: GraphPayload, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ValidationResult> {
     return this.request('/validation', 'POST', { graph: canonicalizeGraph(graph), execution_backend, keras_enabled })
+  }
+
+  validateConnection(graph: GraphPayload, connection: GraphPayload['edges'][number], execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ConnectionValidationResult> {
+    return this.request('/validation/connection', 'POST', { graph: canonicalizeGraph(graph), connection, execution_backend, keras_enabled })
   }
 
   compile(graph: GraphPayload, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<CompilationResult> {
