@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core'
-import type { OnChanges } from '@angular/core'
+import type { OnChanges, SimpleChanges } from '@angular/core'
 import { FormControl, ReactiveFormsModule } from '@angular/forms'
 import { LucideChevronLeft, LucideFile, LucideFolder, LucideHardDrive, LucideRefreshCw, LucideX } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
@@ -30,7 +30,7 @@ import type { FilesystemEntry } from '../../domain/filesystem.types'
               <div class="browser-empty">No matching {{ selectionMode === 'directory' ? 'folders' : 'files or folders' }} in this location.</div>
             } @else {
               @for (item of items(); track item.path) {
-                <button class="browser-item" type="button" [class.selected]="selectedFile()?.path === item.path" (click)="activate(item)">
+                <button class="browser-item" type="button" [disabled]="busy()" [class.selected]="selectedFile()?.path === item.path" (click)="activate(item)">
                   <span class="browser-item-icon">@if (item.is_dir) { <svg lucideFolder [size]="17"></svg> } @else { <svg lucideFile [size]="17"></svg> }</span>
                   <span class="browser-item-copy"><strong>{{ item.name }}</strong><small>{{ item.is_dir ? 'Folder' : fileMeta(item) }}</small></span>
                   @if (item.is_dir) { <span class="browser-item-open">Open</span> }
@@ -79,11 +79,13 @@ export class FilesystemBrowserComponent implements OnChanges {
   readonly error = signal<string | null>(null)
   readonly selectedFile = signal<FilesystemEntry | null>(null)
 
-  ngOnChanges(): void {
-    if (this.open) void this.browse(this.currentPath())
+  ngOnChanges(changes: SimpleChanges): void {
+    const openChange = changes['open']
+    if (openChange?.currentValue === true && openChange.previousValue !== true) void this.browse(this.currentPath())
   }
 
   async browse(path: string): Promise<void> {
+    if (this.busy()) return
     this.busy.set(true)
     this.error.set(null)
     this.selectedFile.set(null)
@@ -102,6 +104,7 @@ export class FilesystemBrowserComponent implements OnChanges {
   }
 
   activate(item: FilesystemEntry): void {
+    if (this.busy()) return
     if (item.is_dir) {
       void this.browse(item.path)
       return

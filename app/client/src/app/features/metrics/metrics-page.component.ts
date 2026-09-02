@@ -59,10 +59,10 @@ export class MetricsPageComponent {
   ]
   readonly form = this.fb.nonNullable.group({
     kind: this.fb.nonNullable.control<'metric' | 'loss'>('metric'),
-    label: ['', Validators.required],
-    description: ['', Validators.required],
+    label: ['', [Validators.required, Validators.pattern(/\S/)]],
+    description: ['', [Validators.required, Validators.pattern(/\S/)]],
     mode: this.fb.nonNullable.control<'latex' | 'builder'>('latex'),
-    formula: ['', Validators.required],
+    formula: ['', [Validators.required, Validators.pattern(/\S/)]],
   })
   readonly customMetrics = computed<CompilationOption[]>(() => this.drafts.customDefinitions().filter((item) => item.kind === 'metric').map((item) => ({ id: item.id, label: item.label, description: item.description, parameters: [], formula: item.formula })))
   readonly customLosses = computed<CompilationOption[]>(() => this.drafts.customDefinitions().filter((item) => item.kind === 'loss').map((item) => ({ id: item.id, label: item.label, description: item.description, parameters: [], formula: item.formula })))
@@ -83,6 +83,7 @@ export class MetricsPageComponent {
   saveDefinition(): void {
     if (this.form.invalid) return
     const value = this.form.getRawValue()
+    if (!value.label.trim() || !value.description.trim() || !value.formula.trim()) return
     this.drafts.addCustomDefinition({
       id: `custom-${value.kind}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       kind: value.kind,

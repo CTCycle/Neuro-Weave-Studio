@@ -20,7 +20,7 @@ test('serves Angular deep links and preserves the shell on refresh', async ({ pa
 test('exposes dataset and training as primary navigation tabs', async ({ page }) => {
   await page.goto('/datasets')
   await expect(page.getByRole('link', { name: 'Datasets', exact: true })).toHaveClass(/active/)
-  await expect(page.getByRole('heading', { name: 'Datasets' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Datasets', exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Training', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Training' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Training', exact: true })).toBeVisible()
 })
