@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http
 import { Injectable, inject } from '@angular/core'
 import { firstValueFrom } from 'rxjs'
 import { ApiError, apiErrorMessage } from './api-error'
+import type { FilesystemBrowseResponse } from '../../domain/filesystem.types'
 import type {
   CompilationResult,
   ExecutionBackend,
@@ -176,5 +177,14 @@ export class ApiService {
 
   exportCapabilities(id: string): Promise<ExportCapabilitiesResponse> {
     return this.request(`/exports/${id}/capabilities`)
+  }
+
+  browseFilesystem(path = '', includeFiles = true, extensions: string[] = []): Promise<FilesystemBrowseResponse> {
+    const query = new URLSearchParams({
+      path,
+      include_files: includeFiles ? 'true' : 'false',
+      extensions: extensions.join(','),
+    })
+    return this.request(`/filesystem/browse?${query.toString()}`)
   }
 }
