@@ -386,6 +386,98 @@ def test_merge_contracts_reject_incompatible_tensor_inputs() -> None:
 
 
 ###############################################################################
+def test_residual_and_concatenate_branches_propagate_shapes() -> None:
+    residual = ModelGraph(
+        nodes=[
+            make_node("input", "input.tabular", {"shape": [4], "dtype": "float32"}),
+            make_node("left", "layer.dense", {"units": 8}),
+            make_node("right", "layer.dense", {"units": 8}),
+            make_node("merge", "merge.residual"),
+            make_node("output", "output.regression"),
+        ],
+        edges=[
+            EdgeInstance(id="input-left", source_node_id="input", source_port_id="output", target_node_id="left", target_port_id="input"),
+            EdgeInstance(id="input-right", source_node_id="input", source_port_id="output", target_node_id="right", target_port_id="input"),
+            EdgeInstance(id="left-merge", source_node_id="left", source_port_id="output", target_node_id="merge", target_port_id="inputs"),
+            EdgeInstance(id="right-merge", source_node_id="right", source_port_id="output", target_node_id="merge", target_port_id="inputs"),
+            EdgeInstance(id="merge-output", source_node_id="merge", source_port_id="output", target_node_id="output", target_port_id="input"),
+        ],
+    )
+    concatenate = ModelGraph(
+        nodes=[
+            make_node("left-input", "input.tabular", {"shape": [8, 16], "dtype": "float32"}),
+            make_node("right-input", "input.tabular", {"shape": [8, 9], "dtype": "float32"}),
+            make_node("merge", "merge.concatenate", {"axis": -1}),
+            make_node("output", "output.regression"),
+        ],
+        edges=[
+            EdgeInstance(id="left", source_node_id="left-input", source_port_id="output", target_node_id="merge", target_port_id="inputs"),
+            EdgeInstance(id="right", source_node_id="right-input", source_port_id="output", target_node_id="merge", target_port_id="inputs"),
+            EdgeInstance(id="output", source_node_id="merge", source_port_id="output", target_node_id="output", target_port_id="input"),
+        ],
+    )
+
+    service = ValidationService(get_node_catalog())
+    residual_result = service.validate(residual, ExecutionBackend.PYTORCH, True)
+    concatenate_result = service.validate(concatenate, ExecutionBackend.PYTORCH, True)
+
+    assert residual_result.valid
+    assert next(item for item in residual_result.shape_summaries if item.node_id == "merge").outputs["output"].shape == [None, 8]
+    assert concatenate_result.valid
+    assert next(item for item in concatenate_result.shape_summaries if item.node_id == "merge").outputs["output"].shape == [None, 8, 25]
+
+
+###############################################################################
+def test_reshape_rejects_impossible_target_and_identifies_cause() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.tabular", {"shape": [4], "dtype": "float32"}),
+            make_node("reshape", "layer.reshape", {"target_shape": [3]}),
+            make_node("output", "output.regression"),
+        ],
+        edges=[
+            EdgeInstance(id="e1", source_node_id="input", source_port_id="output", target_node_id="reshape", target_port_id="input"),
+            EdgeInstance(id="e2", source_node_id="reshape", source_port_id="output", target_node_id="output", target_port_id="input"),
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    diagnostic = next(item for item in result.diagnostics if item.code == "shape_inference_failed")
+    assert not result.valid
+    assert diagnostic.node_id == "reshape"
+    assert diagnostic.parameter_id == "target_shape"
+    assert diagnostic.details["reason"] == "target_shape is incompatible with the input element count"
+    assert "reshape" in diagnostic.message.lower()
+
+
+###############################################################################
+def test_shape_summaries_recompute_after_an_upstream_parameter_change() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.tabular", {"shape": [4], "dtype": "float32"}),
+            make_node("dense", "layer.dense", {"units": 3}),
+            make_node("output", "output.regression"),
+        ],
+        edges=[
+            EdgeInstance(id="e1", source_node_id="input", source_port_id="output", target_node_id="dense", target_port_id="input"),
+            EdgeInstance(id="e2", source_node_id="dense", source_port_id="output", target_node_id="output", target_port_id="input"),
+        ],
+    )
+    service = ValidationService(get_node_catalog())
+    initial = service.validate(graph, ExecutionBackend.PYTORCH, True)
+    graph.nodes[1].parameters["units"] = 7
+    updated = service.validate(graph, ExecutionBackend.PYTORCH, True)
+
+    assert next(item for item in initial.shape_summaries if item.node_id == "dense").outputs["output"].shape == [None, 3]
+    assert next(item for item in updated.shape_summaries if item.node_id == "dense").outputs["output"].shape == [None, 7]
+
+
+###############################################################################
 def test_convolution_rejects_stride_and_dilation_combination() -> None:
     graph = ModelGraph(
         nodes=[

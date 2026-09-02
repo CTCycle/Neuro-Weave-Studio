@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 from collections import Counter
+from contextlib import suppress
 from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog
@@ -22,6 +24,7 @@ from domain.manifests import (
     ParameterDefinition,
     ParameterValueSchema,
 )
+from domain.tensor import TensorSpec
 from validation.compile_configuration import validate_model_configuration
 from validation.graph_utils import (
     nodes_reaching,
@@ -29,7 +32,6 @@ from validation.graph_utils import (
     topological_order,
     would_create_cycle,
 )
-from domain.tensor import TensorSpec
 from validation.output_resolution import (
     infer_model_type,
     is_effective_output,
@@ -173,6 +175,60 @@ def _infer_port_spec(
         return None
     summary = next((item for item in summaries if item.node_id == node_id), None)
     return summary.outputs.get(port_id) if summary is not None else None
+
+
+def _shape_error_parameter_id(
+    manifest: NodeManifest | None,
+    message: str,
+) -> str | None:
+    """Recover the manifest parameter behind a shape-rule failure when known."""
+
+    quoted = re.search(r"parameter\s+['\"]([^'\"]+)['\"]", message, re.IGNORECASE)
+    if quoted is not None:
+        return quoted.group(1)
+
+    message_lower = message.lower()
+    if manifest is not None:
+        for parameter in manifest.parameters:
+            if parameter.id.lower() in message_lower:
+                return parameter.id
+
+    aliases = (
+        ("kernel and stride", "kernel_size"),
+        ("cropping", "cropping"),
+        ("padding", "padding"),
+        ("axis", "axis"),
+    )
+    for phrase, parameter_id in aliases:
+        if phrase in message_lower:
+            return parameter_id
+    return None
+
+
+def _shape_error_context(
+    graph: ModelGraph,
+    catalog: NodeCatalog,
+    error: ShapeInferenceError | ValueError,
+) -> tuple[str | None, str | None]:
+    """Locate the first node that fails so diagnostics can identify its cause."""
+
+    fallback_parameter_id = _shape_error_parameter_id(None, str(error))
+    try:
+        order = topological_order(graph)
+    except ValueError:
+        return None, fallback_parameter_id
+
+    nodes = {node.id: node for node in graph.nodes}
+    for index, node_id in enumerate(order):
+        prefix_ids = set(order[: index + 1])
+        try:
+            infer_shapes(_graph_subset(graph, prefix_ids), catalog)
+        except (ShapeInferenceError, ValueError) as prefix_error:
+            manifest = None
+            with suppress(KeyError, AttributeError):
+                manifest = catalog.get(nodes[node_id].definition_id, nodes[node_id].definition_version)
+            return node_id, _shape_error_parameter_id(manifest, str(prefix_error))
+    return None, fallback_parameter_id
 
 
 ###############################################################################
@@ -443,6 +499,7 @@ class ValidationService:
             target_summaries = infer_shapes(target_graph, self._catalog)
         except (ShapeInferenceError, ValueError) as exc:
             if not _shape_error_is_pending(target_graph, target, target_manifest):
+                parameter_id = _shape_error_parameter_id(target_manifest, str(exc))
                 diagnostics.append(
                     ValidationDiagnostic(
                         code="incompatible_connection_shape",
@@ -452,12 +509,14 @@ class ValidationService:
                         ),
                         node_id=target.id,
                         edge_id=connection.id,
+                        parameter_id=parameter_id,
                         details={
                             "source_node_id": source.id,
                             "source_port_id": source_port.id,
                             "target_port_id": target_port.id,
                             "received_shape": source_spec.shape if source_spec is not None else None,
                             "upstream_node_id": source.id,
+                            "reason": str(exc),
                         },
                     )
                 )
@@ -1215,11 +1274,30 @@ class ValidationService:
                     else None
                 )
             except (ShapeInferenceError, ValueError) as exc:
+                shape_error_node_id, shape_error_parameter_id = _shape_error_context(
+                    graph,
+                    self._catalog,
+                    exc,
+                )
+                shape_error_node = nodes.get(shape_error_node_id) if shape_error_node_id else None
+                shape_error_message = str(exc)
+                if shape_error_node is not None:
+                    shape_error_message = (
+                        f"Shape inference failed for '{shape_error_node.label or shape_error_node.id}': "
+                        f"{shape_error_message}"
+                    )
                 diagnostics.append(
                     ValidationDiagnostic(
                         code="shape_inference_failed",
                         severity=DiagnosticSeverity.ERROR,
-                        message=str(exc),
+                        message=shape_error_message,
+                        node_id=shape_error_node_id,
+                        parameter_id=shape_error_parameter_id,
+                        details={
+                            "reason": str(exc),
+                            "node_id": shape_error_node_id,
+                            "parameter_id": shape_error_parameter_id,
+                        },
                     )
                 )
 
