@@ -67,18 +67,18 @@ type CompatibilityFilter = 'all' | 'current' | 'keras' | ExecutionBackend
   `,
   styles: [`
     .filter-toolbar { display:flex; align-items:center; gap:8px; padding:8px 0 2px; }
-    .filter-trigger, .clear-filters { border:0; background:transparent; color:var(--text-muted); min-height:28px; padding:3px 0; font:600 11px/1 var(--font-mono); cursor:pointer; }
-    .filter-trigger { display:inline-flex; align-items:center; gap:7px; color:var(--text-secondary); }
+    .filter-trigger, .clear-filters { border:0; background:transparent; color:var(--muted); min-height:28px; padding:3px 0; font:600 11px/1 'IBM Plex Mono', Consolas, monospace; cursor:pointer; }
+    .filter-trigger { display:inline-flex; align-items:center; gap:7px; color:var(--muted); }
     .filter-trigger span { min-width:18px; height:18px; display:inline-grid; place-items:center; border:1px solid color-mix(in srgb, var(--cyan) 45%, var(--border)); border-radius:9px; color:var(--cyan); }
-    .filter-trigger.active { color:var(--text-primary); }
-    .clear-filters { margin-left:auto; color:var(--copper); }
+    .filter-trigger.active { color:var(--text); }
+    .clear-filters { margin-left:auto; color:var(--accent-bright); }
     .active-filters { display:flex; flex-wrap:wrap; gap:5px; padding:4px 0 7px; }
-    .active-filters button { border:1px solid color-mix(in srgb, var(--cyan) 26%, var(--border)); background:color-mix(in srgb, var(--surface-2) 84%, transparent); color:var(--text-secondary); border-radius:4px; padding:4px 6px; font:500 10px/1.2 var(--font-mono); cursor:pointer; }
-    .active-filters button:hover, .active-filters button:focus-visible { border-color:var(--cyan); color:var(--text-primary); }
+    .active-filters button { border:1px solid color-mix(in srgb, var(--cyan) 26%, var(--border)); background:color-mix(in srgb, var(--surface-2) 84%, transparent); color:var(--muted); border-radius:4px; padding:4px 6px; font:500 10px/1.2 'IBM Plex Mono', Consolas, monospace; cursor:pointer; }
+    .active-filters button:hover, .active-filters button:focus-visible { border-color:var(--cyan); color:var(--text); }
     .advanced-filters { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:9px 0 10px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
     .advanced-filters label { display:grid; gap:4px; min-width:0; }
     .advanced-filters label:last-child:nth-child(odd) { grid-column:1 / -1; }
-    .advanced-filters span { color:var(--text-muted); font:600 9px/1 var(--font-mono); text-transform:uppercase; letter-spacing:.08em; }
+    .advanced-filters span { color:var(--muted); font:600 9px/1 'IBM Plex Mono', Consolas, monospace; text-transform:uppercase; letter-spacing:.08em; }
     .advanced-filters select { width:100%; min-width:0; min-height:31px; padding:4px 24px 4px 7px; font-size:11px; }
     .catalog-list { gap:0; }
     .catalog-category { border-bottom:1px solid color-mix(in srgb, var(--border) 72%, transparent); }
@@ -87,10 +87,10 @@ type CompatibilityFilter = 'all' | 'current' | 'keras' | ExecutionBackend
     .catalog-item:hover, .catalog-item:focus-visible { background:color-mix(in srgb, var(--surface-2) 82%, transparent); transform:none; outline:none; }
     .catalog-item:focus-visible { box-shadow:inset 0 0 0 1px var(--cyan); }
     .node-accent { align-self:stretch; width:2px; border-radius:2px; background:var(--cyan); opacity:.55; }
-    .catalog-item.export-limited .node-accent { background:var(--copper); opacity:.7; }
+    .catalog-item.export-limited .node-accent { background:var(--accent-bright); opacity:.7; }
     .catalog-item-copy { min-width:0; display:grid; gap:3px; }
     .catalog-item-copy strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
-    .catalog-item-copy small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-muted); font:500 9px/1.3 var(--font-mono); }
+    .catalog-item-copy small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font:500 9px/1.3 'IBM Plex Mono', Consolas, monospace; }
     .compatibility-badge { font-size:8px; padding:2px 4px; }
   `],
 })
