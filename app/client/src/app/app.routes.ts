@@ -33,6 +33,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/builder/model-builder-page.component').then((module) => module.ModelBuilderPageComponent),
       },
       {
+        path: 'datasets',
+        loadComponent: () => import('./features/datasets/datasets-page.component').then((module) => module.DatasetsPageComponent),
+      },
+      {
+        path: 'training',
+        loadComponent: () => import('./features/training/training-page.component').then((module) => module.TrainingPageComponent),
+      },
+      {
         path: 'environment',
         loadComponent: () => import('./features/environment/environment-page.component').then((module) => module.EnvironmentPageComponent),
       },
