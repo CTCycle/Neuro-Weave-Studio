@@ -25,6 +25,7 @@ from validation.compile_configuration import validate_model_configuration
 from validation.graph_utils import nodes_reaching, reachable_nodes, topological_order
 from validation.output_resolution import (
     infer_model_type,
+    is_effective_output,
     resolved_outputs,
 )
 from validation.output_resolution import input_nodes as catalog_input_nodes
@@ -156,13 +157,6 @@ class ValidationService:
         diagnostics: list[ValidationDiagnostic] = []
         nodes = {node.id: node for node in graph.nodes}
         manifests: dict[str, NodeManifest] = {}
-        configuration_diagnostics = validate_model_configuration(
-            graph,
-            execution_backend,
-            keras_enabled,
-            self._compilation_catalog_provider.get(),
-        )
-        diagnostics.extend(configuration_diagnostics)
         implementation_key = "keras" if keras_enabled else execution_backend.value
         implementation_label = "Keras" if keras_enabled else f"native {execution_backend.value}"
 
@@ -636,6 +630,15 @@ class ValidationService:
 
         resolved = resolved_outputs(graph, self._catalog)
         explicit_outputs = bool(graph.output_bindings)
+        configuration_outputs = [output for output in resolved if is_effective_output(output)]
+        configuration_diagnostics = validate_model_configuration(
+            graph,
+            execution_backend,
+            keras_enabled,
+            self._compilation_catalog_provider.get(),
+            outputs=configuration_outputs,
+        )
+        diagnostics.extend(configuration_diagnostics)
         effective_outputs: list[OutputReference] = []
         binding_keys: set[tuple[str, str]] = set()
         output_names: Counter[str] = Counter()

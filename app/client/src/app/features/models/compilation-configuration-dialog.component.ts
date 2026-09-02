@@ -3,6 +3,7 @@ import type {
   CompilationCatalog,
   CompilationOption,
   CompilationParameter,
+  ExecutionBackend,
   ModelConfiguration,
   NativeCompilationCapability,
 } from '../../domain/types'
@@ -12,6 +13,7 @@ import { MathFormulaComponent } from '../../shared/components/math-formula.compo
 export interface CompilationOutputDescriptor {
   id: string
   label: string
+  selectors?: string[]
   task_hint?: string | null
 }
 
@@ -113,12 +115,12 @@ export class CompilationConfigurationDialogComponent {
   readonly draft = signal<ModelConfiguration>(emptyModelConfiguration())
   readonly activeTab = signal<CompilationTab>('outputs')
 
-  readonly nativeCatalog = computed(() => this.nativeCapability()?.catalog ?? null)
+  readonly nativeCatalog = computed(() => this.nativeCapability()?.backend === 'pytorch' ? this.nativeCapability()?.catalog ?? null : null)
   readonly activeCatalog = computed(() => this.kerasEnabled() ? this.kerasCatalog() : this.nativeCatalog())
   readonly optimizer = computed(() => this.findOption(this.activeCatalog(), this.optimizerId(), 'optimizers'))
-  readonly optimizerId = computed(() => this.kerasEnabled() ? this.draft().keras.optimizer : this.draft().native.pytorch.optimizer)
+  readonly optimizerId = computed(() => this.kerasEnabled() ? this.draft().keras.optimizer : this.nativeCapability()?.backend === 'pytorch' ? this.draft().native.pytorch.optimizer : '')
   readonly optimizerParameters = computed(() => this.optimizer()?.parameters ?? [])
-  readonly optimizerParameterValues = computed(() => this.kerasEnabled() ? this.draft().keras.optimizer_parameters : this.draft().native.pytorch.optimizer_parameters)
+  readonly optimizerParameterValues = computed(() => this.kerasEnabled() ? this.draft().keras.optimizer_parameters : this.nativeCapability()?.backend === 'pytorch' ? this.draft().native.pytorch.optimizer_parameters : {})
   readonly optimizerLabel = computed(() => this.optimizer()?.label ?? this.optimizerId())
 
   constructor() {
@@ -126,7 +128,7 @@ export class CompilationConfigurationDialogComponent {
       const configured = structuredClone(this.configuration())
       const catalog = this.activeCatalog()
       const modelOutputs = this.outputs()
-      this.draft.set(catalog ? withOutputSuggestions(configured, catalog, modelOutputs, this.kerasEnabled()) : configured)
+      this.draft.set(catalog ? withOutputSuggestions(configured, catalog, modelOutputs, this.kerasEnabled(), this.nativeCapability()?.backend ?? 'pytorch') : configured)
       this.activeTab.set(modelOutputs.length && catalog ? 'outputs' : catalog?.optimizers.length ? 'optimizer' : this.nativeCapability() ? 'native' : 'advanced')
     })
   }
@@ -135,8 +137,8 @@ export class CompilationConfigurationDialogComponent {
   lossOption(catalog: CompilationCatalog, id: string): CompilationOption | null { return catalog.losses.find((item) => item.id === id) ?? null }
   compatibleOptions(options: CompilationOption[], modelOutput: CompilationOutputDescriptor): CompilationOption[] { const task = normalizedTask(modelOutput.task_hint); return task ? options.filter((item) => !item.supported_tasks?.length || item.supported_tasks.includes(task)) : options }
   taskLabel(value?: string | null): string | null { return normalizedTask(value)?.replaceAll('_', ' ') ?? null }
-  selectedLoss(outputId: string): string { const mapping = this.lossMapping(); return mapping[this.outputKey(outputId)] ?? mapping['__default__'] ?? '' }
-  selectedMetrics(outputId: string): string[] { const mapping = this.metricMapping(); return mapping[this.outputKey(outputId)] ?? mapping['__default__'] ?? [] }
+  selectedLoss(outputId: string): string { const mapping = this.lossMapping(); return this.mappingValue(mapping, outputId) ?? '' }
+  selectedMetrics(outputId: string): string[] { const mapping = this.metricMapping(); return this.mappingValue(mapping, outputId) ?? [] }
 
   chooseOptimizer(event: Event, catalog: CompilationCatalog): void {
     const id = (event.target as HTMLSelectElement).value
@@ -144,27 +146,29 @@ export class CompilationConfigurationDialogComponent {
     const parameters = Object.fromEntries((option?.parameters ?? []).map((parameter) => [parameter.id, parameter.default]))
     this.draft.update((current) => this.kerasEnabled()
       ? { ...current, keras: { ...current.keras, optimizer: id, optimizer_parameters: parameters } }
-      : { ...current, native: { ...current.native, pytorch: { ...current.native.pytorch, optimizer: id, optimizer_parameters: parameters } } })
+      : updateNativeConfiguration(current, this.nativeBackend(), { optimizer: id, optimizer_parameters: parameters }))
   }
 
   setOptimizerParameter(parameter: CompilationParameter, event: Event): void {
     const element = event.target as HTMLInputElement
     const value: unknown = parameter.type === 'boolean' ? element.checked : parameter.type === 'integer' ? Number.parseInt(element.value, 10) : Number(element.value)
+    if (!this.kerasEnabled() && this.nativeBackend() !== 'pytorch') return
     this.draft.update((current) => this.kerasEnabled()
       ? { ...current, keras: { ...current.keras, optimizer_parameters: { ...current.keras.optimizer_parameters, [parameter.id]: value } } }
-      : { ...current, native: { ...current.native, pytorch: { ...current.native.pytorch, optimizer_parameters: { ...current.native.pytorch.optimizer_parameters, [parameter.id]: value } } } })
+      : updateNativeConfiguration(current, this.nativeBackend(), { optimizer_parameters: { ...current.native.pytorch.optimizer_parameters, [parameter.id]: value } }))
   }
 
   setOutputLoss(outputId: string, event: Event): void {
     const value = (event.target as HTMLSelectElement).value
     const key = this.outputKey(outputId)
     this.draft.update((current) => {
+      if (!this.kerasEnabled() && this.nativeBackend() !== 'pytorch') return current
       const mapping = { ...(this.kerasEnabled() ? current.keras.losses : current.native.pytorch.losses) }
       if (value) mapping[key] = value
       else delete mapping[key]
       return this.kerasEnabled()
         ? { ...current, keras: { ...current.keras, losses: mapping } }
-        : { ...current, native: { ...current.native, pytorch: { ...current.native.pytorch, losses: mapping } } }
+        : updateNativeConfiguration(current, this.nativeBackend(), { losses: mapping })
     })
   }
 
@@ -172,6 +176,7 @@ export class CompilationConfigurationDialogComponent {
     const checked = (event.target as HTMLInputElement).checked
     const key = this.outputKey(outputId)
     this.draft.update((current) => {
+      if (!this.kerasEnabled() && this.nativeBackend() !== 'pytorch') return current
       const mapping = { ...(this.kerasEnabled() ? current.keras.metrics : current.native.pytorch.metrics) }
       const selected = new Set(mapping[key] ?? mapping['__default__'] ?? [])
       if (checked) selected.add(metricId)
@@ -179,7 +184,7 @@ export class CompilationConfigurationDialogComponent {
       mapping[key] = [...selected]
       return this.kerasEnabled()
         ? { ...current, keras: { ...current.keras, metrics: mapping } }
-        : { ...current, native: { ...current.native, pytorch: { ...current.native.pytorch, metrics: mapping } } }
+        : updateNativeConfiguration(current, this.nativeBackend(), { metrics: mapping })
     })
   }
 
@@ -209,35 +214,85 @@ export class CompilationConfigurationDialogComponent {
   }
 
   private outputKey(outputId: string): string { return this.outputs().length === 1 ? '__default__' : outputId }
-  private lossMapping(): Record<string, string> { return this.kerasEnabled() ? this.draft().keras.losses : this.draft().native.pytorch.losses }
-  private metricMapping(): Record<string, string[]> { return this.kerasEnabled() ? this.draft().keras.metrics : this.draft().native.pytorch.metrics }
+  private mappingValue<T>(mapping: Record<string, T>, outputId: string): T | undefined {
+    for (const selector of [this.outputKey(outputId), ...(this.outputs().find((item) => item.id === outputId)?.selectors ?? [])]) {
+      if (mapping[selector] !== undefined) return mapping[selector]
+    }
+    return mapping['__default__']
+  }
+  private lossMapping(): Record<string, string> { return this.kerasEnabled() || this.nativeBackend() === 'pytorch' ? this.kerasEnabled() ? this.draft().keras.losses : this.draft().native.pytorch.losses : {} }
+  private metricMapping(): Record<string, string[]> { return this.kerasEnabled() || this.nativeBackend() === 'pytorch' ? this.kerasEnabled() ? this.draft().keras.metrics : this.draft().native.pytorch.metrics : {} }
+  private nativeBackend(): ExecutionBackend { return this.nativeCapability()?.backend ?? 'pytorch' }
   private findOption(catalog: CompilationCatalog | null, id: string | undefined, field: 'optimizers' | 'losses' | 'metrics'): CompilationOption | null { return catalog?.[field].find((item) => item.id === id) ?? null }
 }
 
-function withOutputSuggestions(configuration: ModelConfiguration, catalog: CompilationCatalog, outputs: CompilationOutputDescriptor[], keras: boolean): ModelConfiguration {
+function updateNativeConfiguration(
+  configuration: ModelConfiguration,
+  backend: ExecutionBackend,
+  patch: Record<string, unknown>,
+): ModelConfiguration {
+  if (backend === 'tensorflow') {
+    return {
+      ...configuration,
+      native: {
+        ...configuration.native,
+        tensorflow: { ...configuration.native.tensorflow, ...patch } as ModelConfiguration['native']['tensorflow'],
+      },
+    }
+  }
+  if (backend === 'jax') {
+    return {
+      ...configuration,
+      native: {
+        ...configuration.native,
+        jax: { ...configuration.native.jax, ...patch } as ModelConfiguration['native']['jax'],
+      },
+    }
+  }
+  return {
+    ...configuration,
+    native: {
+      ...configuration.native,
+      pytorch: { ...configuration.native.pytorch, ...patch } as ModelConfiguration['native']['pytorch'],
+    },
+  }
+}
+
+function withOutputSuggestions(
+  configuration: ModelConfiguration,
+  catalog: CompilationCatalog,
+  outputs: CompilationOutputDescriptor[],
+  keras: boolean,
+  backend: ExecutionBackend,
+): ModelConfiguration {
   if (!outputs.length) return configuration
+  if (!keras && backend !== 'pytorch') return configuration
   const losses = { ...(keras ? configuration.keras.losses : configuration.native.pytorch.losses) }
   const metrics = { ...(keras ? configuration.keras.metrics : configuration.native.pytorch.metrics) }
   for (const modelOutput of outputs) {
     const key = outputs.length === 1 ? '__default__' : modelOutput.id
     const task = normalizedTask(modelOutput.task_hint)
     if (!task) continue
-    const currentLoss = losses[key] ?? losses['__default__']
+    const currentLoss = mappingValue(losses, key, modelOutput.selectors)
     const currentLossOption = catalog.losses.find((item) => item.id === currentLoss)
     if (!currentLossOption || (currentLossOption.supported_tasks?.length && !currentLossOption.supported_tasks.includes(task))) {
       const suggested = catalog.losses.find((item) => !item.supported_tasks?.length || item.supported_tasks.includes(task))
       if (suggested) losses[key] = suggested.id
     }
-    const currentMetrics = metrics[key] ?? metrics['__default__'] ?? []
-    const compatibleCurrent = currentMetrics.filter((id) => {
-      const option = catalog.metrics.find((item) => item.id === id)
-      return Boolean(option && (!option.supported_tasks?.length || option.supported_tasks.includes(task)))
-    })
+    const currentMetrics = mappingValue(metrics, key, modelOutput.selectors) ?? []
+    const compatibleCurrent = currentMetrics.filter((id) => { const option = catalog.metrics.find((item) => item.id === id); return option && (!option.supported_tasks?.length || option.supported_tasks.includes(task)) })
     if (!compatibleCurrent.length) metrics[key] = catalog.metrics.filter((item) => !item.supported_tasks?.length || item.supported_tasks.includes(task)).slice(0, 2).map((item) => item.id)
   }
   return keras
     ? { ...configuration, keras: { ...configuration.keras, losses, metrics } }
     : { ...configuration, native: { ...configuration.native, pytorch: { ...configuration.native.pytorch, losses, metrics } } }
+}
+
+function mappingValue<T>(mapping: Record<string, T>, key: string, selectors?: string[]): T | undefined {
+  for (const selector of [key, ...(selectors ?? [])]) {
+    if (mapping[selector] !== undefined) return mapping[selector]
+  }
+  return mapping['__default__']
 }
 
 function normalizedTask(value?: string | null): 'regression' | 'binary_classification' | 'multiclass_classification' | null {

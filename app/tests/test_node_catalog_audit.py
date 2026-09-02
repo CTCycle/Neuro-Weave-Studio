@@ -160,7 +160,7 @@ def test_every_supported_keras_node_has_a_source_adapter() -> None:
                 id=f"input_{index + 1}",
                 definition_id="input.tensor",
                 position=Position(x=0, y=index * 160),
-                parameters={"shape": [None, 8, 8, 3], "dtype": "float32"},
+                parameters={"shape": [8, 8, 3], "dtype": "float32"},
             )
             for index in range(input_count)
         ]

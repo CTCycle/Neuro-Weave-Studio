@@ -115,7 +115,7 @@ def parse_keras_architecture(
         raise KerasArchitectureImportError(
             "invalid_config", "The Keras configuration is not valid JSON"
         ) from exc
-    graph, model_name = _graph_from_config(document)
+    graph, model_name, import_warnings = _graph_from_config(document)
     return ParsedKerasArchitecture(
         payload=ProjectCreate(
             name=name_override or model_name or "Imported Keras architecture",
@@ -127,12 +127,13 @@ def parse_keras_architecture(
         warnings=[
             "The editable graph contains architecture only; trained weights from the .keras archive were not imported.",
             f"The imported Keras architecture is associated with the selected {execution_backend.value} computational backend.",
+            *import_warnings,
         ],
     )
 
 
 ###############################################################################
-def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
+def _graph_from_config(document: Any) -> tuple[ModelGraph, str, list[str]]:
     if not isinstance(document, dict):
         raise KerasArchitectureImportError(
             "invalid_config", "Keras config.json must contain an object"
@@ -174,8 +175,12 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
     node_ids = _unique_ids(layer_by_name)
     nodes: list[NodeInstance] = []
     edges: list[dict[str, str]] = []
+    import_warnings: list[str] = []
     for index, (layer_name, layer) in enumerate(layer_by_name.items()):
-        definition_id, parameters = _map_layer(layer["class_name"], layer["config"])
+        definition_id, parameters, layer_warnings = _map_layer(
+            layer["class_name"], layer["config"]
+        )
+        import_warnings.extend(f"{layer_name}: {warning}" for warning in layer_warnings)
         node_id = node_ids[layer_name]
         nodes.append(
             NodeInstance(
@@ -247,32 +252,57 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
                 "target_port_id": "input",
             }
         )
-    return ModelGraph(nodes=nodes, edges=[EdgeInstance(**edge) for edge in edges]), str(
-        config.get("name") or "Imported Keras architecture"
+    return (
+        ModelGraph(nodes=nodes, edges=[EdgeInstance(**edge) for edge in edges]),
+        str(config.get("name") or "Imported Keras architecture"),
+        import_warnings,
     )
 
 
 ###############################################################################
-def _map_layer(class_name: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+def _map_layer(
+    class_name: str, config: dict[str, Any]
+) -> tuple[str, dict[str, Any], list[str]]:
     if class_name == "InputLayer":
-        batch_shape_value = config.get("batch_shape") or config.get("batch_input_shape")
-        if batch_shape_value is not None:
-            batch_shape = _shape(batch_shape_value)
-            shape = batch_shape[1:] if batch_shape else None
-        else:
-            shape = _shape(config.get("input_shape"))
+        shape_key = next(
+            (
+                key
+                for key in ("batch_shape", "batch_input_shape", "input_shape")
+                if config.get(key) is not None
+            ),
+            None,
+        )
+        raw_shape = config.get(shape_key) if shape_key is not None else None
+        shape = _shape(raw_shape)
         if not shape:
             raise KerasArchitectureImportError(
                 "missing_input_shape", "An InputLayer must declare a deterministic feature shape"
             )
+        warnings: list[str] = []
+        if shape_key in {"batch_shape", "batch_input_shape"}:
+            batch_dimension = shape[0]
+            shape = shape[1:]
+            if batch_dimension is not None:
+                warnings.append(
+                    f"Fixed batch dimension {batch_dimension} was discarded because batch is runtime-only."
+                )
+        if not shape:
+            raise KerasArchitectureImportError(
+                "missing_input_shape",
+                "An InputLayer must declare at least one feature dimension in its shape",
+            )
         definition_id = (
             "input.image"
-            if len(shape) == 3
+            if len(shape) >= 3
             else "input.sequence"
             if len(shape) == 2
             else "input.tensor"
         )
-        return definition_id, {"shape": shape, "dtype": str(config.get("dtype") or "float32")}
+        return (
+            definition_id,
+            {"shape": shape, "dtype": str(config.get("dtype") or "float32")},
+            warnings,
+        )
     mappings: dict[str, tuple[str, tuple[str, ...]]] = {
         "Dense": ("layer.dense", ("units", "activation", "use_bias")),
         "Activation": ("layer.activation", ("activation",)),
@@ -308,7 +338,7 @@ def _map_layer(class_name: str, config: dict[str, Any]) -> tuple[str, dict[str, 
                 "unsupported_parameter",
                 f"Keras layer parameter '{class_name}.{key}' is not a safe scalar value",
             )
-    return definition_id, parameters
+    return definition_id, parameters, []
 
 
 ###############################################################################

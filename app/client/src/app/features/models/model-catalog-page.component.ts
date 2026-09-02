@@ -9,7 +9,6 @@ import { executionBackendShortLabels } from '../../domain/types'
 import { CompilationStatusBadgeComponent, ValidationStatusBadgeComponent } from '../../shared/components/model-status-badge.component'
 
 type CatalogFilter = 'all' | 'compiled' | 'uncompiled' | 'valid' | 'attention'
-type ProjectSummaryWithIo = ProjectSummary & { input_count?: number; output_count?: number }
 
 @Component({
   selector: 'nw-model-catalog-page',
@@ -128,8 +127,8 @@ export class ModelCatalogPageComponent {
     }
   }
 
-  inputCount(project: ProjectSummary): number { return (project as ProjectSummaryWithIo).input_count ?? 0 }
-  outputCount(project: ProjectSummary): number { return (project as ProjectSummaryWithIo).output_count ?? 0 }
+  inputCount(project: ProjectSummary): number { return project.input_count }
+  outputCount(project: ProjectSummary): number { return project.output_count }
   filterLabel(value: CatalogFilter): string { return value === 'all' ? 'All models' : value === 'attention' ? 'Needs attention' : value[0].toUpperCase() + value.slice(1) }
   backendLabel(value: ExecutionBackend): string { return executionBackendShortLabels[value] }
   formatUpdated(value: string): string { const date = new Date(value); return Number.isNaN(date.valueOf()) ? 'recently' : new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(date) }

@@ -4,7 +4,7 @@ type CreatedProject = { id: string; current_revision: number; name: string }
 
 function graph() {
   return {
-    schema_version: 4,
+    schema_version: 5,
     nodes: [
       {
         id: 'input-tabular-e2e',
@@ -12,7 +12,7 @@ function graph() {
         definition_version: 1,
         label: 'Features',
         position: { x: 48, y: 144 },
-        parameters: { shape: [null, 8], dtype: 'float32' },
+        parameters: { shape: [8], dtype: 'float32' },
       },
       {
         id: 'layer-dense-e2e-1',
@@ -245,7 +245,7 @@ test('keeps saved builder profile, validation, and API payload synchronized', as
     expect(saved.description).toBe('Persisted from the Angular builder.')
     expect(saved.execution_backend).toBe('pytorch')
     expect(saved.keras_enabled).toBe(true)
-    expect(saved.graph).toMatchObject({ schema_version: 4 })
+    expect(saved.graph).toMatchObject({ schema_version: 5 })
     expect(saved.graph.nodes).toHaveLength(4)
     expect(saved.graph.edges).toHaveLength(3)
     await expect(page.getByText(`Saved revision ${saved.current_revision}`)).toBeVisible()
@@ -268,8 +268,7 @@ test('keeps Inspector controls contract-driven and Backend picker dark and keybo
     await expect(initializer.locator('select')).toHaveCount(1)
     await expect(initializer.locator('textarea')).toHaveCount(0)
     const useBias = inspector.locator('label.inspector-field').filter({ hasText: 'Use bias' })
-    await expect(useBias.locator('select')).toHaveCount(1)
-    await expect(useBias.locator('select option')).toHaveCount(2)
+    await expect(useBias.locator('input[type="checkbox"]')).toHaveCount(1)
 
     const backend = page.getByRole('combobox', { name: 'Execution backend' })
     await backend.click()
@@ -391,7 +390,8 @@ test('covers builder editing, history, focus mode, and dirty navigation', async 
     await page.getByRole('textbox', { name: 'Search nodes' }).fill('Dense')
     await page.getByRole('button', { name: /Dense \/ Linear/ }).click()
     await expect(page.locator('.nw-flow-node')).toHaveCount(1)
-    await expect(page.getByRole('heading', { name: 'Properties' })).toBeVisible()
+    await page.locator('.nw-flow-node').first().click()
+    await expect(page.getByRole('heading', { name: 'Dense / Linear' })).toBeVisible()
 
     const label = page.getByLabel('Label')
     await label.fill('Regression layer')
@@ -437,9 +437,11 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     await page.getByRole('button', { name: 'Catalog', exact: true }).click()
     await page.getByRole('textbox', { name: 'Search nodes' }).fill('Dense')
     await page.getByRole('button', { name: /Dense \/ Linear/ }).click()
+    await page.getByRole('button', { name: 'Close node catalog', exact: true }).click()
+    await page.locator('.nw-flow-node').first().click()
     await page.getByRole('button', { name: 'Inspector', exact: true }).click()
     await expect(page.locator('.builder-inspector.is-open')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Properties' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Dense / Linear' })).toBeVisible()
     await page.getByRole('button', { name: 'Close properties inspector', exact: true }).click()
     await expect(page.locator('#builder-inspector-drawer')).toBeHidden()
     await expect(page.getByRole('button', { name: 'Inspector', exact: true })).toBeFocused()
@@ -455,16 +457,16 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
 
     await expect(page.getByRole('heading', { name: fixture.name })).toBeVisible()
     await page.getByRole('link', { name: 'Compilation', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Configure and generate source' })).toBeVisible()
-    await page.getByRole('button', { name: 'Configure compilation' }).click()
+    await expect(page.getByRole('heading', { name: /Compile revision/ })).toBeVisible()
+    await page.getByRole('button', { name: 'Configure', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: 'Apply configuration' }).click()
-    await expect(page.getByRole('button', { name: /Saved compilation settings/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Saved validated compilation settings/ })).toBeVisible()
     const sourceResponse = page.waitForResponse((response) => response.url().includes(`/api/exports/${fixture.id}/source`) && response.request().method() === 'GET')
     await page.getByRole('button', { name: 'Compile source', exact: true }).click()
     expect((await sourceResponse).ok()).toBeTruthy()
-    await expect(page.getByRole('heading', { name: 'Generated Python' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Python · revision/ })).toBeVisible()
     await expect(page.locator('.generated-code code')).toContainText('keras')
 
     await page.getByRole('link', { name: 'Export', exact: true }).click()
@@ -474,7 +476,7 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     await page.getByRole('button', { name: /Export artifact/ }).click()
     await expect((await download).suggestedFilename()).toMatch(/\.json$/)
 
-    await page.getByRole('link', { name: 'Inference', exact: true }).click()
+    await page.goto(`/models/${fixture.id}/inference`)
     await expect(page.getByRole('heading', { name: 'Run a safe model check' })).toBeVisible()
 
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
@@ -570,8 +572,7 @@ test('keeps read-only previews, compact Builder controls, and modal bounds usabl
     expect(await readCanvasTransform()).toBe(lockedTransform)
     await page.keyboard.press('Control+l')
     expect(await readCanvasTransform()).toBe(lockedTransform)
-    await page.locator('.nw-flow-node').first().click()
-    await expect(page.getByRole('heading', { name: 'Properties' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'No node selected' })).toBeVisible()
 
     await unlockButton.click()
     await expect(page.getByRole('button', { name: 'Lock canvas' })).toHaveAttribute('aria-pressed', 'false')
@@ -580,6 +581,8 @@ test('keeps read-only previews, compact Builder controls, and modal bounds usabl
     await page.mouse.move(dragStart.x + 150, dragStart.y - 80, { steps: 5 })
     await page.mouse.up()
     expect(await readCanvasTransform()).not.toBe(lockedTransform)
+    await page.locator('.nw-flow-node').first().click()
+    await expect(page.getByRole('heading', { name: 'Features' })).toBeVisible()
 
     await page.setViewportSize({ width: 560, height: 800 })
     await page.goto(`/builder/${fixture.id}`)
@@ -593,7 +596,7 @@ test('keeps read-only previews, compact Builder controls, and modal bounds usabl
     expect(toolbarBounds.visibleActions).toBeTruthy()
 
     await page.goto(`/models/${fixture.id}/compilation`)
-    await page.getByRole('button', { name: 'Configure compilation' }).click()
+    await page.getByRole('button', { name: 'Configure', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     const dialogBounds = await dialog.evaluate((element) => {

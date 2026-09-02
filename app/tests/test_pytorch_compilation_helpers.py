@@ -5,6 +5,7 @@ from itertools import pairwise
 from typing import Any
 
 import pytest
+
 from common.catalogs.loader import get_node_catalog
 from domain.compilation_catalog import get_compilation_catalog
 from domain.enums import ExecutionBackend
@@ -66,7 +67,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
     return {
         "dense_regression": graph(
             [
-                _node("input", "input.tabular", {"shape": [None, 8], "dtype": "float32"}),
+                _node("input", "input.tabular", {"shape": [8], "dtype": "float32"}),
                 _node("hidden", "layer.dense", {"units": 16, "activation": "relu"}),
                 _node("head", "layer.dense", {"units": 1, "activation": "linear"}),
                 _node("output", "output.regression"),
@@ -77,7 +78,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
         ),
         "binary_classification": graph(
             [
-                _node("input", "input.tabular", {"shape": [None, 8], "dtype": "float32"}),
+                _node("input", "input.tabular", {"shape": [8], "dtype": "float32"}),
                 _node("head", "layer.dense", {"units": 1, "activation": "sigmoid"}),
                 _node("output", "output.classification"),
             ],
@@ -87,7 +88,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
         ),
         "multiclass_classification": graph(
             [
-                _node("input", "input.tabular", {"shape": [None, 8], "dtype": "float32"}),
+                _node("input", "input.tabular", {"shape": [8], "dtype": "float32"}),
                 _node("head", "layer.dense", {"units": 3, "activation": "softmax"}),
                 _node("output", "output.classification"),
             ],
@@ -97,7 +98,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
         ),
         "recurrent": graph(
             [
-                _node("input", "input.sequence", {"shape": [None, 6, 4], "dtype": "float32"}),
+                _node("input", "input.sequence", {"shape": [6, 4], "dtype": "float32"}),
                 _node("recurrent", "recurrent.gru", {"units": 4}),
                 _node("head", "layer.dense", {"units": 1, "activation": "sigmoid"}),
                 _node("output", "output.classification"),
@@ -108,7 +109,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
         ),
         "lstm": graph(
             [
-                _node("input", "input.sequence", {"shape": [None, 6, 4], "dtype": "float32"}),
+                _node("input", "input.sequence", {"shape": [6, 4], "dtype": "float32"}),
                 _node("lstm", "recurrent.lstm", {"units": 4, "return_sequences": True}),
                 _node("flatten", "layer.flatten"),
                 _node("head", "layer.dense", {"units": 3, "activation": "softmax"}),
@@ -120,7 +121,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
         ),
         "cnn": graph(
             [
-                _node("input", "input.image", {"shape": [None, 16, 16, 1], "dtype": "float32"}),
+                _node("input", "input.image", {"shape": [16, 16, 1], "dtype": "float32"}),
                 _node(
                     "conv",
                     "conv.conv2d",
@@ -188,6 +189,26 @@ def _configured_graph(graph: ModelGraph, api: str, task: str) -> ModelGraph:
 
 
 ###############################################################################
+def _multi_output_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            _node("left_input", "input.tabular", {"shape": [8], "dtype": "float32"}),
+            _node("right_input", "input.tabular", {"shape": [8], "dtype": "float32"}),
+            _node("left_head", "layer.dense", {"units": 1, "activation": "sigmoid"}).model_copy(
+                update={"label": "prediction"}
+            ),
+            _node("right_head", "layer.dense", {"units": 2, "activation": "softmax"}).model_copy(
+                update={"label": "score"}
+            ),
+        ],
+        edges=[
+            _edge("left", "left_input", "left_head"),
+            _edge("right", "right_input", "right_head"),
+        ],
+    )
+
+
+###############################################################################
 @pytest.mark.parametrize("workflow", list(_workflow_graphs()))
 def test_native_pytorch_workflows_verify_forward_and_compilation_helpers(workflow: str) -> None:
     graph, expected_shape, task = _workflow_graphs()[workflow]
@@ -212,6 +233,7 @@ def test_native_pytorch_workflows_verify_forward_and_compilation_helpers(workflo
 def test_keras_pytorch_backend_workflows_compile_and_forward(workflow: str) -> None:
     pytest.importorskip("keras")
     import keras
+
     from models.keras_runtime import compile_model
     from models.keras_worker import build_model
 
@@ -284,6 +306,93 @@ def test_native_configuration_rejects_incompatible_loss_metric_and_activation() 
         item.code == "invalid_output_activation"
         for item in validate_model_configuration(graph, ExecutionBackend.PYTORCH, False)
     )
+
+
+###############################################################################
+def test_multi_output_configuration_resolves_all_selector_forms() -> None:
+    graph = _multi_output_graph()
+    graph = graph.model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    pytorch=PyTorchNativeConfiguration(
+                        losses={"left_head:output": "binary_crossentropy"},
+                        metrics={"prediction": ["binary_accuracy"]},
+                    )
+                )
+            ),
+        }
+    )
+
+    diagnostics = validate_model_configuration(graph, ExecutionBackend.PYTORCH, False)
+
+    assert diagnostics == []
+
+
+###############################################################################
+def test_unknown_output_selector_reports_available_output_specific_selectors() -> None:
+    graph = _multi_output_graph()
+    graph = graph.model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    pytorch=PyTorchNativeConfiguration(
+                        losses={"missing-output": "binary_crossentropy"},
+                    )
+                )
+            )
+        }
+    )
+
+    diagnostic = next(
+        item
+        for item in validate_model_configuration(graph, ExecutionBackend.PYTORCH, False)
+        if item.code == "unknown_compile_output"
+    )
+
+    assert diagnostic.parameter_id == "losses"
+    assert diagnostic.details["output_selector"] == "missing-output"
+    assert "left_head:output" in diagnostic.details["available_selectors"]
+
+
+###############################################################################
+def test_unknown_classification_width_does_not_assume_multiclass_semantics() -> None:
+    graph = ModelGraph(
+        nodes=[
+            _node("input", "input.tabular", {"shape": [8], "dtype": "float32"}),
+            _node("output", "output.classification"),
+        ],
+        edges=[_edge("input-output", "input", "output")],
+    )
+
+    diagnostics = validate_model_configuration(graph, ExecutionBackend.PYTORCH, True)
+
+    assert not {
+        "invalid_output_activation",
+        "invalid_binary_output_shape",
+        "invalid_multiclass_output_shape",
+    } & {item.code for item in diagnostics}
+
+
+###############################################################################
+def test_native_non_pytorch_validation_ignores_pytorch_loss_and_metric_settings() -> None:
+    graph, _, _ = _workflow_graphs()["binary_classification"]
+    graph = graph.model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    tensorflow={"jit_compile": False},
+                    pytorch=PyTorchNativeConfiguration(
+                        optimizer="not-an-optimizer",
+                        losses={"missing-output": "not-a-loss"},
+                        metrics={"missing-output": ["not-a-metric"]},
+                    ),
+                )
+            )
+        }
+    )
+
+    assert validate_model_configuration(graph, ExecutionBackend.TENSORFLOW, False) == []
 
 
 ###############################################################################

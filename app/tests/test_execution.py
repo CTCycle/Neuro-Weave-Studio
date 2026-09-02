@@ -9,9 +9,9 @@ import pytest
 
 ###############################################################################
 def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
-    shape = input_shape or [None, 4]
+    shape = input_shape or [4]
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "nodes": [
             {
                 "id": "input",
@@ -168,7 +168,7 @@ def test_smoke_job_returns_tensor_metadata_without_training(
 def test_smoke_job_rejects_invalid_shape_before_worker_start(
     client: httpx.Client,
 ) -> None:
-    invalid_graph = smoke_graph(input_shape=[None, 0])
+    invalid_graph = smoke_graph(input_shape=[0])
     project_id = create_project(client, invalid_graph)
 
     response = client.post(

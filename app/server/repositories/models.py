@@ -35,7 +35,7 @@ class ProjectRecord(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    graph_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
+    graph_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     execution_backend: Mapped[str] = mapped_column(
         String(32), nullable=False, default=ExecutionBackend.PYTORCH.value
     )

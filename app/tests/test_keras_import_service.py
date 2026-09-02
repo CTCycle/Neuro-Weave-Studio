@@ -7,7 +7,10 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import pytest
 
 from domain.enums import ExecutionBackend
-from services.keras_import_service import KerasArchitectureImportError, parse_keras_architecture
+from services.keras_import_service import (
+    KerasArchitectureImportError,
+    parse_keras_architecture,
+)
 
 
 ###############################################################################
@@ -20,8 +23,30 @@ def keras_archive(document: dict[str, object]) -> bytes:
 
 
 ###############################################################################
-def functional_archive(input_config: dict[str, object]) -> bytes:
-    return keras_archive(
+def input_document(parameter_name: str, shape: list[object]) -> dict[str, object]:
+    return {
+        "class_name": "Functional",
+        "config": {
+            "name": "shape-test",
+            "layers": [
+                {
+                    "class_name": "InputLayer",
+                    "config": {
+                        "name": "input",
+                        parameter_name: shape,
+                        "dtype": "float32",
+                    },
+                    "inbound_nodes": [],
+                }
+            ],
+            "output_layers": [["input", 0, 0]],
+        },
+    }
+
+
+###############################################################################
+def test_import_reconstructs_allowlisted_functional_architecture_without_weights() -> None:
+    payload = keras_archive(
         {
             "class_name": "Functional",
             "config": {
@@ -29,7 +54,11 @@ def functional_archive(input_config: dict[str, object]) -> bytes:
                 "layers": [
                     {
                         "class_name": "InputLayer",
-                        "config": {"name": "input", "dtype": "float32", **input_config},
+                        "config": {
+                            "name": "input",
+                            "batch_shape": [None, 4],
+                            "dtype": "float32",
+                        },
                         "inbound_nodes": [],
                     },
                     {
@@ -48,13 +77,7 @@ def functional_archive(input_config: dict[str, object]) -> bytes:
         }
     )
 
-
-###############################################################################
-def test_import_reconstructs_allowlisted_functional_architecture_without_weights() -> None:
-    parsed = parse_keras_architecture(
-        functional_archive({"batch_shape": [None, 4]}),
-        execution_backend=ExecutionBackend.PYTORCH,
-    )
+    parsed = parse_keras_architecture(payload, execution_backend=ExecutionBackend.PYTORCH)
 
     assert parsed.payload.name == "classifier"
     assert parsed.payload.execution_backend is ExecutionBackend.PYTORCH
@@ -65,33 +88,59 @@ def test_import_reconstructs_allowlisted_functional_architecture_without_weights
         "output.classification",
     ]
     assert len(parsed.payload.graph.edges) == 2
-    assert dict(parsed.payload.graph.nodes[0].parameters)["shape"] == [4]
-    assert parsed.payload.graph.nodes[0].parameters.get("shape") == [None, 4]
+    assert parsed.payload.graph.nodes[0].parameters["shape"] == [None, 4]
+    assert parsed.payload.graph.nodes[0].model_dump(mode="json")["parameters"]["shape"] == [4]
     assert any("weights" in warning for warning in parsed.warnings)
 
 
-###############################################################################
 @pytest.mark.parametrize(
-    ("input_config", "expected_shape", "expected_definition"),
+    ("parameter_name", "shape", "definition_id", "persisted_shape"),
     [
-        ({"batch_shape": [32, 4]}, [4], "input.tensor"),
-        ({"input_shape": [12, 3]}, [12, 3], "input.sequence"),
-        ({"batch_input_shape": [None, 28, 28, 1]}, [28, 28, 1], "input.image"),
+        ("input_shape", [8], "input.tensor", [8]),
+        ("batch_shape", [None, 8], "input.tensor", [8]),
+        ("batch_shape", [None, 8, 16], "input.sequence", [8, 16]),
+        ("batch_input_shape", [4, 224, 224, 3], "input.image", [224, 224, 3]),
     ],
 )
-def test_import_removes_only_the_runtime_batch_dimension(
-    input_config: dict[str, object],
-    expected_shape: list[int],
-    expected_definition: str,
+def test_import_normalizes_input_shapes_to_feature_only_persistence(
+    parameter_name: str,
+    shape: list[object],
+    definition_id: str,
+    persisted_shape: list[object],
 ) -> None:
     parsed = parse_keras_architecture(
-        functional_archive(input_config), execution_backend=ExecutionBackend.PYTORCH
+        keras_archive(input_document(parameter_name, shape)),
+        execution_backend=ExecutionBackend.PYTORCH,
+    )
+    input_node = parsed.payload.graph.nodes[0]
+
+    assert input_node.definition_id == definition_id
+    assert input_node.parameters["shape"] == [None, *persisted_shape]
+    assert input_node.model_dump(mode="json")["parameters"]["shape"] == persisted_shape
+
+
+def test_import_warns_when_discarding_a_fixed_runtime_batch_dimension() -> None:
+    parsed = parse_keras_architecture(
+        keras_archive(input_document("batch_shape", [16, 8])),
+        execution_backend=ExecutionBackend.PYTORCH,
     )
 
-    input_node = parsed.payload.graph.nodes[0]
-    assert input_node.definition_id == expected_definition
-    assert dict(input_node.parameters)["shape"] == expected_shape
-    assert input_node.parameters.get("shape") == [None, *expected_shape]
+    assert any("Fixed batch dimension 16" in warning for warning in parsed.warnings)
+
+
+@pytest.mark.parametrize(
+    ("parameter_name", "shape"),
+    [("batch_shape", [None]), ("batch_input_shape", []), ("input_shape", [0])],
+)
+def test_import_rejects_empty_or_malformed_feature_shapes(
+    parameter_name: str,
+    shape: list[object],
+) -> None:
+    with pytest.raises(KerasArchitectureImportError, match="shape"):
+        parse_keras_architecture(
+            keras_archive(input_document(parameter_name, shape)),
+            execution_backend=ExecutionBackend.PYTORCH,
+        )
 
 
 ###############################################################################

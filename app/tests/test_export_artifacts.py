@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
 from domain.exports import ExportFormat
@@ -168,7 +169,7 @@ def dense_graph() -> ModelGraph:
                 definition_id="input.tabular",
                 definition_version=1,
                 position=Position(x=0, y=0),
-                parameters={"shape": [None, 4], "dtype": "float32"},
+                parameters={"shape": [4], "dtype": "float32"},
             ),
             NodeInstance(
                 id="dense",

@@ -15,7 +15,7 @@ def test_compiler_generates_unique_keyword_safe_variable_names() -> None:
                 definition_id="input.tabular",
                 label="class",
                 position=Position(x=0, y=0),
-                parameters={"shape": [None, 4], "dtype": "float32"},
+                parameters={"shape": [4], "dtype": "float32"},
             ),
             NodeInstance(
                 id="dense-a",

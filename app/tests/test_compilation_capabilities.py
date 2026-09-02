@@ -29,7 +29,7 @@ def _native_graph() -> ModelGraph:
                 id="input",
                 definition_id="input.tabular",
                 position=Position(x=0, y=0),
-                parameters={"shape": [None, 4], "dtype": "float32"},
+                parameters={"shape": [4], "dtype": "float32"},
             ),
             NodeInstance(
                 id="dense",

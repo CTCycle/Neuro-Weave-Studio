@@ -28,7 +28,7 @@ from services.errors import (
     RevisionConflictError,
 )
 from services.validation_service import ValidationService
-from validation.output_resolution import input_nodes, resolved_outputs
+from validation.output_resolution import input_nodes, is_effective_output, resolved_outputs
 
 
 ###############################################################################
@@ -69,7 +69,10 @@ class ProjectService:
                         current_revision=item.current_revision,
                         validation_status=item.validation_status,
                         input_count=len(input_nodes(graph, catalog)),
-                        output_count=len(resolved_outputs(graph, catalog)),
+                        output_count=sum(
+                            is_effective_output(output)
+                            for output in resolved_outputs(graph, catalog)
+                        ),
                         node_count=graph_summaries[item.id].node_count,
                         edge_count=graph_summaries[item.id].edge_count,
                         has_generated_source=generated_sources.get(item.id, False),

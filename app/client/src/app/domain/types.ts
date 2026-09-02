@@ -257,6 +257,9 @@ export interface ModelGraph {
   future_training_configuration: Record<string, unknown>
 }
 
+export type LegacyModelGraph = Omit<ModelGraph, 'schema_version'> & { schema_version: 4 }
+export type GraphPayload = ModelGraph | LegacyModelGraph
+
 export interface ProjectDocument {
   id: string
   name: string

@@ -20,7 +20,9 @@ export function summarizeGraphIo(graph: ModelGraph, manifests: NodeManifest[]): 
   const manifestFor = (node: GraphNodeInstance): NodeManifest | undefined => catalog.get(`${node.definition_id}@${node.definition_version}`)
   const inputs = graph.nodes.filter((node) => manifestFor(node)?.semantic_role === 'input')
   const bindings = graph.output_bindings.length ? graph.output_bindings : inferredBindings(graph, manifestFor)
-  const outputs = bindings.map((binding) => resolveOutput(binding, graph, manifestFor, graph.output_bindings.length > 0))
+  const outputs = uniqueOutputNames(bindings
+    .filter((binding) => isEffectiveOutput(binding, graph, manifestFor))
+    .map((binding) => resolveOutput(binding, graph, manifestFor, graph.output_bindings.length > 0)))
   return { inputCount: inputs.length, outputCount: outputs.length, inputs, outputs }
 }
 
@@ -65,9 +67,90 @@ function resolveOutput(
     node_id: binding.node_id,
     port_id: binding.port_id,
     name: enabledPorts.length > 1 ? `${base}_${port?.id ?? binding.port_id}` : base,
-    task_hint: manifest?.task_hint ?? null,
+    task_hint: taskHintForOutput(graph, node, manifestFor),
     explicit,
   }
+}
+
+function taskHintForOutput(
+  graph: ModelGraph,
+  outputNode: GraphNodeInstance | undefined,
+  manifestFor: (node: GraphNodeInstance) => NodeManifest | undefined,
+): string | null {
+  const manifest = outputNode ? manifestFor(outputNode) : undefined
+  const taskHint = manifest?.task_hint ?? null
+  if (taskHint !== 'classification' || !outputNode) return taskHint
+
+  const head = terminalHead(graph, outputNode, manifestFor)
+  const width = outputWidth(head)
+  if (width === 1) return 'binary_classification'
+  if (width !== null && width >= 2) return 'multiclass_classification'
+  return null
+}
+
+function terminalHead(
+  graph: ModelGraph,
+  outputNode: GraphNodeInstance,
+  manifestFor: (node: GraphNodeInstance) => NodeManifest | undefined,
+): GraphNodeInstance | undefined {
+  const nodes = new Map(graph.nodes.map((node) => [node.id, node]))
+  const incoming = new Map(
+    graph.edges
+      .filter((edge) => edge.target_port_id === 'input')
+      .map((edge) => [edge.target_node_id, edge.source_node_id]),
+  )
+  let current: GraphNodeInstance | undefined = outputNode
+  const visited = new Set<string>()
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id)
+    const manifest = manifestFor(current)
+    if (current.id !== outputNode.id || manifest?.semantic_role !== 'output_adapter') return current
+    const sourceId = incoming.get(current.id)
+    current = sourceId ? nodes.get(sourceId) : undefined
+  }
+  return current
+}
+
+function outputWidth(node: GraphNodeInstance | undefined): number | null {
+  if (!node) return null
+  if (node.definition_id === 'layer.activation') return null
+  if (!['layer.dense', 'conv.conv1d', 'conv.conv2d', 'layer.embedding'].includes(node.definition_id)) return null
+  const value = node.parameters['units'] ?? node.parameters['filters']
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null
+}
+
+function uniqueOutputNames(outputs: GraphOutputSummary[]): GraphOutputSummary[] {
+  const counts = new Map<string, number>()
+  for (const output of outputs) counts.set(output.name, (counts.get(output.name) ?? 0) + 1)
+  const used = new Set<string>()
+  return outputs.map((output) => {
+    const base = (counts.get(output.name) ?? 0) > 1
+      ? `${output.name}_${output.node_id}`
+      : output.name
+    let name = base
+    let suffix = 2
+    while (used.has(name)) name = `${base}_${suffix++}`
+    used.add(name)
+    return { ...output, name }
+  })
+}
+
+function isEffectiveOutput(
+  binding: OutputBinding,
+  graph: ModelGraph,
+  manifestFor: (node: GraphNodeInstance) => NodeManifest | undefined,
+): boolean {
+  const node = graph.nodes.find((item) => item.id === binding.node_id)
+  const manifest = node ? manifestFor(node) : undefined
+  const port = manifest?.outputs.find((item) => item.id === binding.port_id)
+  return Boolean(
+    node
+    && manifest
+    && manifest.semantic_role !== 'input'
+    && port
+    && ['tensor', 'tensor_list', 'mask', 'scalar'].includes(port.kind)
+    && conditionMatches(port.enabled_when, node.parameters),
+  )
 }
 
 function tensorOutputPorts(manifest: NodeManifest, parameters: Record<string, unknown>): PortDefinition[] {
