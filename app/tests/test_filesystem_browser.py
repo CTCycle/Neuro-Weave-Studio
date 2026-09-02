@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
 from services.filesystem_service import MAX_DIRECTORY_ENTRIES, FilesystemService
 
@@ -46,3 +47,33 @@ def test_browse_caps_large_directory_results(tmp_path: Path) -> None:
 
     assert len(response.items) == MAX_DIRECTORY_ENTRIES
     assert response.truncated is True
+
+
+def test_filesystem_browse_api_returns_real_paths_and_filters_files(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "keep.csv").write_text("value\n1\n", encoding="utf-8")
+    (tmp_path / "skip.txt").write_text("skip", encoding="utf-8")
+
+    response = client.get(
+        "/api/filesystem/browse",
+        params={"path": str(tmp_path), "include_files": "true", "extensions": "csv"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["current_path"] == str(tmp_path.resolve())
+    assert [item["name"] for item in payload["items"]] == ["nested", "keep.csv"]
+    assert payload["items"][0]["path"] == str((tmp_path / "nested").resolve())
+
+
+def test_filesystem_browse_api_rejects_missing_path(client: TestClient, tmp_path: Path) -> None:
+    response = client.get(
+        "/api/filesystem/browse",
+        params={"path": str(tmp_path / "missing")},
+    )
+
+    assert response.status_code == 404
+    assert "Path does not exist" in response.json()["detail"]
