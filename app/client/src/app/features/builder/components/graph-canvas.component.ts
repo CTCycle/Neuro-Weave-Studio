@@ -15,7 +15,7 @@ const NO_CONNECTION_TARGET_ID = '__neuro_weave_no_compatible_target__'
   standalone: true,
   imports: [FFlowModule, LucideLock, LucideMaximize2, LucideSave, LucideUnlock],
   template: `
-    <div class="canvas-shell" [class.is-read-only]="readOnly" [class.is-viewport-locked]="viewportLocked()" [class.has-connection-feedback]="!!connectionFeedback()" (contextmenu)="openCanvasMenu($event)" (dragover)="allowDrop($event)" (drop)="dropNode($event)">
+    <div class="canvas-shell" [class.is-read-only]="readOnly" [class.is-viewport-locked]="viewportLocked()" [class.has-connection-feedback]="!!activeConnectionFeedback()" (contextmenu)="openCanvasMenu($event)" (dragover)="allowDrop($event)" (drop)="dropNode($event)">
       <f-flow fDraggable [fDraggableDisabled]="readOnly" [fCanvasMoveTrigger]="canvasMoveTrigger" [vCellSize]="16" [hCellSize]="16" [fCellSizeWhileDragging]="16" (fDragStarted)="startDrag()" (fDragEnded)="store.endDrag()" (fMoveNodes)="moveNodes($event)" (fSelectionChange)="select($event)" (fDeleteSelected)="deleteSelected($event)" (fCreateConnection)="createConnection($event)" (fNodesRendered)="fitOnNodesRendered()">
         <f-background><f-circle-pattern color="rgba(118, 150, 164, .16)" [radius]="24"></f-circle-pattern></f-background>
         @if (minimapVisible()) { <f-minimap [fMinSize]="50" [fNodeRenderLimit]="1000"></f-minimap> }
@@ -31,7 +31,7 @@ const NO_CONNECTION_TARGET_ID = '__neuro_weave_no_compatible_target__'
         <div class="flow-controls canvas-flow-controls" role="group" aria-label="Canvas zoom controls"><button type="button" class="canvas-tool" (click)="zoomIn()" [disabled]="viewportLocked()" aria-label="Zoom in" [title]="viewportLocked() ? 'Unlock canvas to zoom in' : 'Zoom in'">+</button><button type="button" class="canvas-tool" (click)="zoomOut()" [disabled]="viewportLocked()" aria-label="Zoom out" [title]="viewportLocked() ? 'Unlock canvas to zoom out' : 'Zoom out'">−</button><button type="button" class="canvas-tool" (click)="resetView()" [disabled]="viewportLocked()" aria-label="Reset view" [title]="viewportLocked() ? 'Unlock canvas to reset the view' : 'Reset view'"><svg lucideMaximize2 [size]="13"></svg></button></div>
         @if (!readOnly) { <div class="canvas-editor-tools" [class.is-focus-mode]="fullCanvas" role="toolbar" aria-label="Graph editor controls"><div class="canvas-tool-group"><button type="button" class="canvas-tool" (click)="minimapVisible.set(!minimapVisible())" [attr.aria-label]="minimapVisible() ? 'Hide minimap' : 'Show minimap'" [title]="minimapVisible() ? 'Hide minimap' : 'Show minimap'">{{ minimapVisible() ? 'Hide map' : 'Show map' }}</button><button type="button" class="canvas-tool canvas-lock-tool" [class.is-active]="viewportLocked()" [attr.aria-pressed]="viewportLocked()" [attr.aria-label]="viewportLocked() ? 'Unlock canvas' : 'Lock canvas'" [title]="viewportLocked() ? 'Unlock canvas' : 'Lock canvas'" (click)="toggleViewportLock()">@if (viewportLocked()) { <svg lucideUnlock [size]="13"></svg><span>Unlock canvas</span> } @else { <svg lucideLock [size]="13"></svg><span>Lock canvas</span> }</button></div>@if (fullCanvas) { <div class="canvas-focus-bar"><span class="canvas-focus-model">{{ modelName }}</span><span class="canvas-focus-draft" [class.is-dirty]="dirty">{{ busy ? 'Saving…' : dirty ? 'Draft' : 'Saved' }}</span><button type="button" class="canvas-tool canvas-focus-save" (click)="save.emit()" [disabled]="busy" aria-label="Save model"><svg lucideSave [size]="14"></svg><span>Save</span></button><button type="button" class="canvas-tool canvas-focus-exit" (click)="exitFocus.emit()" [disabled]="busy" aria-label="Exit full canvas">Exit full canvas</button></div> } @else { <button type="button" class="canvas-tool" (click)="enterFocus.emit()" aria-label="Enter full canvas">Focus</button> }</div> }
       </f-flow>
-      @if (!readOnly && connectionFeedback(); as feedback) { <div class="connection-feedback" role="status" aria-live="assertive">{{ feedback }}</div> }
+      @if (!readOnly && activeConnectionFeedback(); as feedback) { <div class="connection-feedback" role="status" aria-live="assertive">{{ feedback }}</div> }
       @if (!readOnly && !store.nodes().length) { <div class="canvas-empty-state"><span class="eyebrow">EMPTY GRAPH</span><strong>Drop an operation here</strong><span>Choose a node from the catalog to start a model.</span></div> }
       @if (readOnly && !store.nodes().length) { <div class="preview-empty">No renderable nodes in this revision.</div> }
       @if (!readOnly) { <div class="canvas-hint">Drop a node to build the model • Ctrl+L auto-layout</div> }
@@ -47,7 +47,13 @@ export class GraphCanvasComponent {
   @Input() busy = false
   @Input() executionBackend: ExecutionBackend = 'pytorch'
   @Input() kerasEnabled = true
-  @Input() validation: ValidationResult | null = null
+  private currentValidation: ValidationResult | null = null
+  @Input()
+  set validation(value: ValidationResult | null) {
+    if (this.currentValidation !== value) this.setConnectionFeedback(null)
+    this.currentValidation = value
+  }
+  get validation(): ValidationResult | null { return this.currentValidation }
   @Input() fullCanvas = false
   @Output() readonly enterFocus = new EventEmitter<void>()
   @Output() readonly exitFocus = new EventEmitter<void>()
@@ -64,6 +70,13 @@ export class GraphCanvasComponent {
   readonly canvasMenu = signal<{ x: number; y: number } | null>(null)
   readonly nodeMenu = signal<{ x: number; y: number; nodeId: string } | null>(null)
   readonly connectionFeedback = signal<string | null>(null)
+  private readonly connectionFeedbackRevision = signal<number | null>(null)
+  readonly activeConnectionFeedback = computed(() => {
+    const feedback = this.connectionFeedback()
+    return feedback !== null && this.connectionFeedbackRevision() === this.store.graphRevision()
+      ? feedback
+      : null
+  })
   private readonly noConnectionTargets = [NO_CONNECTION_TARGET_ID]
   readonly connectionTargetMap = computed(() => {
     const nodes = this.store.nodes()
@@ -81,13 +94,20 @@ export class GraphCanvasComponent {
 
   constructor() {
     effect(() => {
+      this.store.graphRevision()
+      this.setConnectionFeedback(null)
       if (!this.store.nodes().length) this.graphFitted = false
     })
   }
 
+  private setConnectionFeedback(message: string | null): void {
+    this.connectionFeedbackRevision.set(message === null ? null : this.store.graphRevision())
+    this.connectionFeedback.set(message)
+  }
+
   allowDrop(event: DragEvent): void { if (!this.readOnly) event.preventDefault() }
   startDrag(): void {
-    this.connectionFeedback.set(null)
+    this.setConnectionFeedback(null)
     this.store.beginDrag()
   }
   openCanvasMenu(event: MouseEvent): void {
@@ -144,18 +164,18 @@ export class GraphCanvasComponent {
   async createConnection(event: FCreateConnectionEvent): Promise<void> {
     if (this.readOnly) return
     if (!event.targetId) {
-      this.connectionFeedback.set('Connection not created. Drop on a compatible input port.')
+      this.setConnectionFeedback('Connection not created. Drop on a compatible input port.')
       return
     }
     const connection = normalizeConnection(event.sourceId, event.targetId)
     if (!connection) {
-      this.connectionFeedback.set('Connection not created. The selected ports are not compatible.')
+      this.setConnectionFeedback('Connection not created. The selected ports are not compatible.')
       return
     }
     const expectedRevision = this.store.graphRevision()
     const expectedBackend = this.executionBackend
     const expectedKeras = this.kerasEnabled
-    this.connectionFeedback.set('Checking connection…')
+    this.setConnectionFeedback('Checking connection…')
     try {
       const result = await this.api.validateConnection(
         this.store.toGraph(),
@@ -172,20 +192,20 @@ export class GraphCanvasComponent {
       if (expectedRevision !== this.store.graphRevision()
         || expectedBackend !== this.executionBackend
         || expectedKeras !== this.kerasEnabled) {
-        this.connectionFeedback.set('Connection not created. The graph changed while it was being checked.')
+        this.setConnectionFeedback('Connection not created. The graph changed while it was being checked.')
         return
       }
       if (!result.valid) {
-        this.connectionFeedback.set(this.connectionDiagnosticMessage(result.diagnostics))
+        this.setConnectionFeedback(this.connectionDiagnosticMessage(result.diagnostics))
         return
       }
       if (!this.store.commitConnection(connection, expectedRevision)) {
-        this.connectionFeedback.set('Connection not created. The graph changed while it was being checked.')
+        this.setConnectionFeedback('Connection not created. The graph changed while it was being checked.')
         return
       }
-      this.connectionFeedback.set(null)
+      this.setConnectionFeedback(null)
     } catch (reason) {
-      this.connectionFeedback.set(`Connection not created. ${reason instanceof Error ? reason.message : String(reason)}`)
+      this.setConnectionFeedback(`Connection not created. ${reason instanceof Error ? reason.message : String(reason)}`)
     }
   }
   connectionTargets(nodeId: string, portId: string): string[] {
