@@ -4,19 +4,33 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from common.timestamps import utc_now
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.tensor import TensorSpec
 
-GRAPH_SCHEMA_VERSION = 4
+GRAPH_SCHEMA_VERSION = 5
+PROJECT_BUNDLE_FORMAT_VERSION = 6
 
 
 ###############################################################################
 class Position(BaseModel):
     x: float = Field(allow_inf_nan=False)
     y: float = Field(allow_inf_nan=False)
+
+
+###############################################################################
+class RuntimeInputParameters(dict[str, Any]):
+    """Persist feature-only input shapes while exposing a runtime batch axis."""
+
+    # -------------------------------------------------------------------------
+    def __getitem__(self, key: str) -> Any:
+        return _runtime_input_value(key, super().__getitem__(key))
+
+    # -------------------------------------------------------------------------
+    def get(self, key: str, default: Any = None) -> Any:
+        return _runtime_input_value(key, super().get(key, default))
 
 
 ###############################################################################
@@ -28,6 +42,24 @@ class NodeInstance(BaseModel):
     position: Position
     parameters: dict[str, Any] = Field(default_factory=dict)
     locked: bool = False
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="after")
+    def normalize_runtime_parameters(self) -> NodeInstance:
+        parameters = dict(self.parameters)
+        if _empty_quantization_config(parameters.get("quantization_config")):
+            parameters.pop("quantization_config", None)
+        self.parameters = (
+            RuntimeInputParameters(parameters)
+            if self.definition_id.startswith("input.")
+            else parameters
+        )
+        return self
+
+    # -------------------------------------------------------------------------
+    @field_serializer("parameters")
+    def serialize_parameters(self, value: dict[str, Any]) -> dict[str, Any]:
+        return dict(value)
 
 
 ###############################################################################
@@ -116,13 +148,39 @@ class ExportSettings(BaseModel):
 
 ###############################################################################
 class ModelGraph(BaseModel):
-    schema_version: Literal[4] = GRAPH_SCHEMA_VERSION
+    schema_version: Literal[5] = GRAPH_SCHEMA_VERSION
     nodes: list[NodeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     edges: list[EdgeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     output_bindings: list[OutputBinding] = Field(default_factory=list)
     model_configuration: ModelConfiguration = Field(default_factory=ModelConfiguration)
     export_settings: ExportSettings = Field(default_factory=ExportSettings)
     future_training_configuration: dict[str, Any] = Field(default_factory=dict)
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_graph(cls, value: Any) -> Any:
+        if not isinstance(value, dict) or value.get("schema_version") != 4:
+            return value
+        migrated = dict(value)
+        migrated["schema_version"] = GRAPH_SCHEMA_VERSION
+        nodes: list[Any] = []
+        for raw_node in value.get("nodes", []):
+            if not isinstance(raw_node, dict):
+                nodes.append(raw_node)
+                continue
+            node = dict(raw_node)
+            parameters = dict(node.get("parameters", {}))
+            if str(node.get("definition_id", "")).startswith("input."):
+                shape = parameters.get("shape")
+                if isinstance(shape, list) and shape and shape[0] is None:
+                    parameters["shape"] = shape[1:]
+            if _empty_quantization_config(parameters.get("quantization_config")):
+                parameters.pop("quantization_config", None)
+            node["parameters"] = parameters
+            nodes.append(node)
+        migrated["nodes"] = nodes
+        return migrated
 
     # -------------------------------------------------------------------------
     @model_validator(mode="after")
@@ -183,6 +241,8 @@ class ProjectSummary(BaseModel):
     keras_enabled: bool
     current_revision: int
     validation_status: ValidationStatus
+    input_count: int = Field(ge=0)
+    output_count: int = Field(ge=0)
     node_count: int = Field(ge=0)
     edge_count: int = Field(ge=0)
     has_generated_source: bool = False
@@ -201,9 +261,19 @@ class ProjectDuplicateRequest(BaseModel):
 ###############################################################################
 class ProjectExportBundle(BaseModel):
     format: Literal["neuro-weave-project"] = "neuro-weave-project"
-    format_version: Literal[5] = 5
+    format_version: Literal[6] = PROJECT_BUNDLE_FORMAT_VERSION
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_bundle(cls, value: Any) -> Any:
+        if not isinstance(value, dict) or value.get("format_version") != 5:
+            return value
+        migrated = dict(value)
+        migrated["format_version"] = PROJECT_BUNDLE_FORMAT_VERSION
+        return migrated
 
 
 ###############################################################################
@@ -211,3 +281,23 @@ class ShapeSummary(BaseModel):
     node_id: str
     outputs: dict[str, TensorSpec]
     parameter_count: int | None = None
+
+
+def _runtime_input_value(key: str, value: Any) -> Any:
+    if key == "shape" and isinstance(value, list):
+        return [None, *value]
+    return value
+
+
+def _empty_quantization_config(value: Any) -> bool:
+    if value is None:
+        return True
+    if not isinstance(value, dict):
+        return False
+    if not value:
+        return True
+    class_name = value.get("class_name")
+    config = value.get("config")
+    return (class_name is None or str(class_name).strip() == "") and (
+        config is None or config == {} or config == []
+    )
