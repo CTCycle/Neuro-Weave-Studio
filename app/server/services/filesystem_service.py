@@ -22,9 +22,9 @@ class FilesystemService:
     ) -> FilesystemBrowseResponse:
         roots = self._roots()
         normalized_extensions = tuple(
-            extension.casefold() if extension.startswith(".") else f".{extension.casefold()}"
+            normalized if normalized.startswith(".") else f".{normalized}"
             for extension in extensions
-            if extension.strip()
+            if (normalized := extension.strip().casefold())
         )
         if not path.strip():
             return FilesystemBrowseResponse(

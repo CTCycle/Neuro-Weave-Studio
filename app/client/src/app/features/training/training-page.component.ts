@@ -54,11 +54,11 @@ export class TrainingPageComponent {
   private readonly fb = inject(FormBuilder)
   readonly wizardOpen = signal(false)
   readonly form = this.fb.nonNullable.group({
-    name: ['', Validators.required],
+    name: ['', [Validators.required, Validators.pattern(/\S/)]],
     modelId: ['', Validators.required],
     datasetId: ['', Validators.required],
-    epochs: [10, [Validators.required, Validators.min(1)]],
-    batchSize: [32, [Validators.required, Validators.min(1)]],
+    epochs: [10, [Validators.required, Validators.min(1), Validators.max(100000)]],
+    batchSize: [32, [Validators.required, Validators.min(1), Validators.max(1000000)]],
   })
 
   constructor() { void this.resources.loadProjects() }
@@ -74,6 +74,7 @@ export class TrainingPageComponent {
   createTraining(): void {
     if (this.form.invalid) return
     const value = this.form.getRawValue()
+    if (!value.name.trim()) return
     const model = this.resources.projects().find((item) => item.id === value.modelId)
     const dataset = this.drafts.datasets().find((item) => item.id === value.datasetId)
     if (!model || !dataset) return

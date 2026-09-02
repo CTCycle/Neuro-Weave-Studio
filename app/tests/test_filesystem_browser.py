@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-
 from services.filesystem_service import MAX_DIRECTORY_ENTRIES, FilesystemService
 
 
@@ -16,7 +15,7 @@ def test_browse_lists_directories_before_files_and_filters_extensions(tmp_path: 
     response = FilesystemService().browse(
         str(tmp_path),
         include_files=True,
-        extensions=("csv",),
+        extensions=(" CSV ",),
     )
 
     assert response.current_path == str(tmp_path.resolve())
@@ -53,20 +52,22 @@ def test_filesystem_browse_api_returns_real_paths_and_filters_files(
     client: TestClient,
     tmp_path: Path,
 ) -> None:
-    (tmp_path / "nested").mkdir()
-    (tmp_path / "keep.csv").write_text("value\n1\n", encoding="utf-8")
-    (tmp_path / "skip.txt").write_text("skip", encoding="utf-8")
+    source_path = tmp_path / "source"
+    source_path.mkdir()
+    (source_path / "nested").mkdir()
+    (source_path / "keep.csv").write_text("value\n1\n", encoding="utf-8")
+    (source_path / "skip.txt").write_text("skip", encoding="utf-8")
 
     response = client.get(
         "/api/filesystem/browse",
-        params={"path": str(tmp_path), "include_files": "true", "extensions": "csv"},
+        params={"path": str(source_path), "include_files": "true", "extensions": "csv"},
     )
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["current_path"] == str(tmp_path.resolve())
+    assert payload["current_path"] == str(source_path.resolve())
     assert [item["name"] for item in payload["items"]] == ["nested", "keep.csv"]
-    assert payload["items"][0]["path"] == str((tmp_path / "nested").resolve())
+    assert payload["items"][0]["path"] == str((source_path / "nested").resolve())
 
 
 def test_filesystem_browse_api_rejects_missing_path(client: TestClient, tmp_path: Path) -> None:
