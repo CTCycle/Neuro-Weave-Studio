@@ -48,7 +48,7 @@ class GraphRepository:
             .order_by(ProjectEdgeRecord.ordinal)
         ).all()
         return ModelGraph(
-            schema_version=cast(Literal[4], graph_schema_version),
+            schema_version=cast(Literal[5], graph_schema_version),
             nodes=[
                 NodeInstance(
                     id=node.node_id,
@@ -151,7 +151,7 @@ class GraphRepository:
                     label=node.label,
                     position_x=node.position.x,
                     position_y=node.position.y,
-                    parameters_json=node.parameters,
+                    parameters_json=dict(node.parameters),
                     locked=node.locked,
                 )
                 for ordinal, node in enumerate(graph.nodes)
