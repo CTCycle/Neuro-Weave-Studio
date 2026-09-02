@@ -4,6 +4,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+
 from common.catalogs.loader import get_node_catalog
 from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
@@ -38,7 +39,7 @@ def edge(edge_id: str, source: str, target: str, target_port: str = "input") -> 
 def dense_graph() -> ModelGraph:
     return ModelGraph(
         nodes=[
-            node("input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
+            node("input", "input.tabular", {"shape": [4], "dtype": "float32"}),
             node("dense", "layer.dense", {"units": 3, "activation": "softmax"}),
             node("output", "output.classification"),
         ],
@@ -50,8 +51,8 @@ def dense_graph() -> ModelGraph:
 def multi_io_graph() -> ModelGraph:
     return ModelGraph(
         nodes=[
-            node("left", "input.tabular", {"shape": [None, 2], "dtype": "float32"}),
-            node("right", "input.tabular", {"shape": [None, 3], "dtype": "float32"}),
+            node("left", "input.tabular", {"shape": [2], "dtype": "float32"}),
+            node("right", "input.tabular", {"shape": [3], "dtype": "float32"}),
             node("join", "merge.concatenate", {"axis": -1}),
             node("first", "output.regression"),
             node("second", "output.classification"),

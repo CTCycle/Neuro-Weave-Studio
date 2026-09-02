@@ -72,7 +72,10 @@ def _migrate_parameters(
 ###############################################################################
 def _migrate_project_nodes(connection: Any, *, downgrade: bool) -> None:
     rows = connection.execute(
-        sa.text("SELECT id, definition_id, parameters_json FROM project_nodes")
+        sa.text(
+            "SELECT project_id, node_id, definition_id, parameters_json "
+            "FROM project_nodes"
+        )
     ).mappings()
     for row in rows:
         parameters = _json_object(row["parameters_json"])
@@ -84,8 +87,15 @@ def _migrate_project_nodes(connection: Any, *, downgrade: bool) -> None:
         if migrated == parameters:
             continue
         connection.execute(
-            sa.text("UPDATE project_nodes SET parameters_json = :parameters WHERE id = :node_id"),
-            {"node_id": row["id"], "parameters": json.dumps(migrated)},
+            sa.text(
+                "UPDATE project_nodes SET parameters_json = :parameters "
+                "WHERE project_id = :project_id AND node_id = :node_id"
+            ),
+            {
+                "project_id": row["project_id"],
+                "node_id": row["node_id"],
+                "parameters": json.dumps(migrated),
+            },
         )
 
 

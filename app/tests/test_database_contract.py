@@ -5,6 +5,10 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from sqlalchemy import create_engine, inspect, select, text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
 from configurations.settings import DatabaseSettings
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import ModelGraph, NodeInstance, Position
@@ -18,9 +22,6 @@ from repositories.models import (
     ProjectRevisionRecord,
 )
 from repositories.session import RepositoryContext
-from sqlalchemy import create_engine, inspect, select, text
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
 
 ###############################################################################
@@ -95,7 +96,7 @@ def test_unit_of_work_rolls_back_partial_project(tmp_path: Path) -> None:
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=4,
+                graph_schema_version=5,
                 timestamp=datetime.now(UTC),
                 validation_status=ValidationStatus.VALID,
             )
@@ -122,7 +123,7 @@ def test_project_delete_cascades_revision_graph_and_generated_source(
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=4,
+                graph_schema_version=5,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -170,7 +171,7 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=4,
+                graph_schema_version=5,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -179,7 +180,7 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=4,
+                graph_schema_version=5,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )

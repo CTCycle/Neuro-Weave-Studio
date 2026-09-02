@@ -27,6 +27,19 @@ class ResolvedOutput:
     explicit: bool
 
 
+def is_effective_output(output: ResolvedOutput) -> bool:
+    """Return whether a resolved binding can produce a model output."""
+
+    return bool(
+        output.node is not None
+        and output.manifest is not None
+        and output.manifest.semantic_role != "input"
+        and output.port is not None
+        and _condition_matches(output.port.enabled_when, output.node.parameters)
+        and output.port.kind.value in {"tensor", "tensor_list", "mask", "scalar"}
+    )
+
+
 def output_selectors(output: ResolvedOutput) -> tuple[str, ...]:
     """Return stable configuration keys for one resolved output port."""
 

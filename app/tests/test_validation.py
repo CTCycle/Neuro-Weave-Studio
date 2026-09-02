@@ -66,7 +66,7 @@ def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
             make_node(
                 "input",
                 "input.tabular",
-                {"shape": [None, 20], "dtype": "float32"},
+                {"shape": [20], "dtype": "float32"},
             ),
             make_node(
                 "dense",
@@ -112,7 +112,7 @@ def test_cycle_is_reported_as_error() -> None:
             make_node(
                 "input",
                 "input.tabular",
-                {"shape": [None, 4], "dtype": "float32"},
+                {"shape": [4], "dtype": "float32"},
             ),
             make_node("a", "layer.dense", {"units": 4}),
             make_node("b", "layer.dense", {"units": 4}),
@@ -170,7 +170,7 @@ def test_unsafe_math_expression_is_rejected() -> None:
             make_node(
                 "input",
                 "input.tensor",
-                {"shape": [None, 4], "dtype": "float32"},
+                {"shape": [4], "dtype": "float32"},
             ),
             make_node(
                 "expression",
@@ -211,8 +211,8 @@ def test_unsafe_math_expression_is_rejected() -> None:
 def test_matmul_requires_batch_first_matrix_tensors() -> None:
     graph = ModelGraph(
         nodes=[
-            make_node("left", "input.tensor", {"shape": [None, 4], "dtype": "float32"}),
-            make_node("right", "input.tensor", {"shape": [None, 4], "dtype": "float32"}),
+            make_node("left", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            make_node("right", "input.tensor", {"shape": [4], "dtype": "float32"}),
             make_node("matmul", "math.matmul"),
             make_node("output", "output.custom"),
         ],
@@ -263,7 +263,7 @@ def test_declared_parameter_contract_rejects_null_and_unknown_values() -> None:
                 make_node(
                     "input",
                     "input.tabular",
-                    {"shape": [None, 4], "dtype": "float32"},
+                    {"shape": [4], "dtype": "float32"},
                 ),
                 make_node("dense", "layer.dense", parameters),
                 make_node("output", "output.regression"),
@@ -314,7 +314,7 @@ def test_native_backend_rejects_parameter_values_without_verified_mapping() -> N
             make_node(
                 "input",
                 "input.tabular",
-                {"shape": [None, 4], "dtype": "float32"},
+                    {"shape": [4], "dtype": "float32"},
             ),
             make_node(
                 "dense",
@@ -358,13 +358,13 @@ def test_native_backend_rejects_parameter_values_without_verified_mapping() -> N
 def test_merge_contracts_reject_incompatible_tensor_inputs() -> None:
     dtype_mismatch = two_input_graph(
         "merge.add",
-        {"shape": [None, 4], "dtype": "float32"},
-        {"shape": [None, 4], "dtype": "int32"},
+                {"shape": [4], "dtype": "float32"},
+                {"shape": [4], "dtype": "int32"},
     )
     dimension_mismatch = two_input_graph(
         "merge.concatenate",
-        {"shape": [None, 8, 16], "dtype": "float32"},
-        {"shape": [None, 9, 17], "dtype": "float32"},
+                {"shape": [8, 16], "dtype": "float32"},
+                {"shape": [9, 17], "dtype": "float32"},
         {"axis": -1},
     )
 
@@ -392,7 +392,7 @@ def test_convolution_rejects_stride_and_dilation_combination() -> None:
             make_node(
                 "input",
                 "input.image",
-                {"shape": [None, 16, 16, 3], "dtype": "float32"},
+                {"shape": [16, 16, 3], "dtype": "float32"},
             ),
             make_node(
                 "conv",
@@ -441,12 +441,12 @@ def test_unreachable_model_input_is_rejected() -> None:
             make_node(
                 "used",
                 "input.tabular",
-                {"shape": [None, 4], "dtype": "float32"},
+                {"shape": [4], "dtype": "float32"},
             ),
             make_node(
                 "unused",
                 "input.tabular",
-                {"shape": [None, 4], "dtype": "float32"},
+                {"shape": [4], "dtype": "float32"},
             ),
             make_node("dense", "layer.dense", {"units": 2}),
             make_node("output", "output.regression"),
@@ -489,7 +489,7 @@ def test_transposed_convolution_uses_declared_dimension_parameter() -> None:
             make_node(
                 "input",
                 "input.sequence",
-                {"shape": [None, 8, 3], "dtype": "float32"},
+                {"shape": [8, 3], "dtype": "float32"},
             ),
             make_node(
                 "transposed",
@@ -532,7 +532,7 @@ def test_transposed_convolution_uses_declared_dimension_parameter() -> None:
 def test_terminal_operation_is_inferred_as_output_without_output_adapter() -> None:
     graph = ModelGraph(
         nodes=[
-            make_node("input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
+            make_node("input", "input.tabular", {"shape": [4], "dtype": "float32"}),
             make_node("prediction", "layer.dense", {"units": 1, "activation": "sigmoid"}),
         ],
         edges=[
@@ -564,8 +564,8 @@ def test_terminal_operation_is_inferred_as_output_without_output_adapter() -> No
 def test_explicit_output_bindings_support_multiple_inputs_and_outputs() -> None:
     graph = ModelGraph(
         nodes=[
-            make_node("left_input", "input.tabular", {"shape": [None, 4], "dtype": "float32"}),
-            make_node("right_input", "input.tabular", {"shape": [None, 3], "dtype": "float32"}),
+            make_node("left_input", "input.tabular", {"shape": [4], "dtype": "float32"}),
+            make_node("right_input", "input.tabular", {"shape": [3], "dtype": "float32"}),
             make_node("left_head", "layer.dense", {"units": 1, "activation": "sigmoid"}),
             make_node("right_head", "layer.dense", {"units": 2, "activation": "softmax"}),
         ],
@@ -607,7 +607,7 @@ def test_explicit_output_bindings_support_multiple_inputs_and_outputs() -> None:
 def test_recurrent_return_state_ports_are_conditional_and_shape_propagated() -> None:
     graph = ModelGraph(
         nodes=[
-            make_node("input", "input.sequence", {"shape": [None, 5, 3], "dtype": "float32"}),
+            make_node("input", "input.sequence", {"shape": [5, 3], "dtype": "float32"}),
             make_node("lstm", "recurrent.lstm", {"units": 4, "return_state": True}),
         ],
         edges=[

@@ -40,14 +40,14 @@ def project_payload() -> dict[str, object]:
         "execution_backend": "pytorch",
         "keras_enabled": True,
         "graph": {
-            "schema_version": 4,
+            "schema_version": 5,
             "nodes": [
                 {
                     "id": "input",
                     "definition_id": "input.tabular",
                     "definition_version": 1,
                     "position": {"x": 0, "y": 0},
-                    "parameters": {"shape": [None, 8], "dtype": "float32"},
+                    "parameters": {"shape": [8], "dtype": "float32"},
                 },
                 {
                     "id": "dense",
@@ -178,10 +178,19 @@ def test_project_revision_workflow_invalidates_generated_source_and_rejects_stal
     project = created.json()
     assert project["current_revision"] == 1
     assert project["generated_source"] is None
+    assert project["graph"]["schema_version"] == 5
+    assert project["graph"]["nodes"][0]["parameters"]["shape"] == [8]
+
+    listed = client.get("/api/projects")
+    assert listed.status_code == 200
+    summary = next(item for item in listed.json()["projects"] if item["id"] == project["id"])
+    assert summary["input_count"] == 1
+    assert summary["output_count"] == 1
 
     reopened = client.get(f"/api/projects/{project['id']}")
     assert reopened.status_code == 200
     assert reopened.json()["graph"]["nodes"][1]["definition_id"] == "layer.dense"
+    assert reopened.json()["graph"]["nodes"][0]["parameters"]["shape"] == [8]
 
     validation = client.post(
         "/api/validation",

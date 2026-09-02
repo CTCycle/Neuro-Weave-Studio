@@ -10,11 +10,12 @@ from typing import Any, cast
 import pytest
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import Connection
+
 from configurations.settings import DatabaseSettings
 from repositories import initializer
 from repositories.initializer import HEAD_REVISION, initialize_database
-from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.engine import Connection
 
 
 ###############################################################################
@@ -119,7 +120,19 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
     project_id = "migration-project"
     snapshot = {
         "schema_version": 2,
-        "nodes": [],
+        "nodes": [
+            {
+                "id": "input",
+                "definition_id": "input.tabular",
+                "definition_version": 1,
+                "position": {"x": 0, "y": 0},
+                "parameters": {
+                    "shape": [None, 8],
+                    "dtype": "float32",
+                    "quantization_config": {},
+                },
+            }
+        ],
         "edges": [],
         "model_configuration": {
             "optimizer": "adam",
@@ -165,6 +178,23 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
             )
             connection.execute(
                 text(
+                    "INSERT INTO project_nodes (project_id, node_id, ordinal, definition_id, "
+                    "definition_version, label, position_x, position_y, parameters_json) "
+                    "VALUES (:project_id, 'input', 0, 'input.tabular', 1, 'Input', 0, 0, :parameters)"
+                ),
+                {
+                    "project_id": project_id,
+                    "parameters": json.dumps(
+                        {
+                            "shape": [None, 8],
+                            "dtype": "float32",
+                            "quantization_config": {"class_name": "", "config": {}},
+                        }
+                    ),
+                },
+            )
+            connection.execute(
+                text(
                     "INSERT INTO project_revisions (project_id, revision, graph_schema_version, "
                     "execution_backend, keras_enabled, created_at, graph_snapshot_json) "
                     "VALUES (:project_id, 1, 2, 'pytorch', 1, CURRENT_TIMESTAMP, :snapshot)"
@@ -206,6 +236,23 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
             assert migrated_snapshot["schema_version"] == 5
             assert migrated_snapshot["output_bindings"] == []
             assert migrated_snapshot["model_configuration"]["native"]["jax"]["jit_enabled"] is False
+            migrated_input = migrated_snapshot["nodes"][0]
+            assert migrated_input["parameters"]["shape"] == [8]
+            assert "quantization_config" not in migrated_input["parameters"]
+            migrated_project_node = connection.execute(
+                text(
+                    "SELECT parameters_json FROM project_nodes "
+                    "WHERE project_id = :id AND node_id = 'input'"
+                ),
+                {"id": project_id},
+            ).scalar_one()
+            migrated_project_node = (
+                json.loads(migrated_project_node)
+                if isinstance(migrated_project_node, str)
+                else migrated_project_node
+            )
+            assert migrated_project_node["shape"] == [8]
+            assert "quantization_config" not in migrated_project_node
 
             command.downgrade(config, "20260821_execution_profile")
             downgraded_columns = {
@@ -220,6 +267,19 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
                 ).scalar_one()
                 == 2
             )
+            downgraded_project_node = connection.execute(
+                text(
+                    "SELECT parameters_json FROM project_nodes "
+                    "WHERE project_id = :id AND node_id = 'input'"
+                ),
+                {"id": project_id},
+            ).scalar_one()
+            downgraded_project_node = (
+                json.loads(downgraded_project_node)
+                if isinstance(downgraded_project_node, str)
+                else downgraded_project_node
+            )
+            assert downgraded_project_node["shape"] == [None, 8]
             restored_optimizer = connection.execute(
                 text("SELECT optimizer FROM project_graph_settings WHERE project_id = :id"),
                 {"id": project_id},

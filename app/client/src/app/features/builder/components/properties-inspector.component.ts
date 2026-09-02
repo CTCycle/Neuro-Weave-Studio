@@ -3,6 +3,7 @@ import { ReactiveFormsModule, UntypedFormControl, UntypedFormGroup } from '@angu
 import { LucideTrash2, LucideX } from '@lucide/angular'
 import type { ExecutionBackend, NodeManifest, ParameterCapability, ParameterDefinition, PortDefinition } from '../../../domain/types'
 import { implementationAvailable, implementationKey, implementationLabel } from '../../../domain/types'
+import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
 import { displayParameterValue, helpfulParameterDescription, isFiniteParameter, parameterOptions, parseParameterValue, type ParameterDraftValue } from '../graph/parameter-value'
 import { GraphEditorStore } from '../state/graph-editor.store'
 
@@ -192,7 +193,7 @@ export class PropertiesInspectorComponent {
   isVisible(definition: ParameterDefinition, node: { data: { parameters: Record<string, unknown> } }): boolean { return !definition.visible_when || conditionMatches(definition.visible_when, node.data.parameters) }
   isRuntimeInputShape(manifest: NodeManifest, definition: ParameterDefinition): boolean { return manifest.semantic_role === 'input' && definition.id === 'shape' }
   isQuantizationConfiguration(definition: ParameterDefinition): boolean { return definition.id === 'quantization_config' }
-  hasExplicitConfiguration(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): boolean { return definition.id === 'quantization_config' ? !emptyQuantizationConfiguration(node.data.parameters[definition.id]) : node.data.parameters[definition.id] !== null && node.data.parameters[definition.id] !== undefined }
+  hasExplicitConfiguration(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): boolean { const value = node.data.parameters[definition.id]; return value !== null && value !== undefined && !isEffectivelyEmptyObject(value) }
   runtimeShapePreview(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): string { const value = this.parameterValue(node, definition); return `runtime: [batch${Array.isArray(value) && value.length ? `, ${value.map((item) => item === null ? '?' : String(item)).join(', ')}` : ''}]` }
 
   availabilityMessage(manifest: NodeManifest, definition: ParameterDefinition, capability?: ParameterCapability): string | null {

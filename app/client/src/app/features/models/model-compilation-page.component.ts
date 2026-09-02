@@ -3,7 +3,7 @@ import { LucideCheckCircle2, LucideClipboardCheck, LucideFileCode2, LucideRefres
 import { ApiService } from '../../core/api/api.service'
 import { AppResourcesService } from '../../core/state/app-resources.service'
 import { outputSelectors, summarizeGraphIo } from '../../domain/graph-io'
-import type { ModelConfiguration, NativeCompilationCapability } from '../../domain/types'
+import type { ExecutionBackend, ModelConfiguration, NativeCompilationCapability } from '../../domain/types'
 import { implementationLabel } from '../../domain/types'
 import { CompilationStatusBadgeComponent } from '../../shared/components/model-status-badge.component'
 import { CompilationConfigurationDialogComponent, type CompilationOutputDescriptor } from './compilation-configuration-dialog.component'
@@ -97,7 +97,17 @@ export class ModelCompilationPageComponent {
   readonly kerasCatalog = computed(() => this.resources.compilationCapabilities()?.keras ?? null)
   readonly nativeCapability = computed<NativeCompilationCapability | null>(() => { const project = this.state.project(); return project ? this.resources.compilationCapabilities()?.native[project.execution_backend] ?? null : null })
   readonly ioSummary = computed(() => { const project = this.state.project(); return project ? summarizeGraphIo(project.graph, this.resources.manifests()) : { inputCount: 0, outputCount: 0, inputs: [], outputs: [] } })
-  readonly compilationOutputs = computed<CompilationOutputDescriptor[]>(() => this.ioSummary().outputs.map((item) => ({ id: `${item.node_id}:${item.port_id}`, label: item.name, task_hint: item.task_hint })))
+  readonly compilationOutputs = computed<CompilationOutputDescriptor[]>(() => {
+    const project = this.state.project()
+    return project
+      ? this.ioSummary().outputs.map((item) => ({
+        id: `${item.node_id}:${item.port_id}`,
+        label: item.name,
+        selectors: outputSelectors(item, project.graph),
+        task_hint: item.task_hint,
+      }))
+      : []
+  })
 
   constructor() {
     void this.resources.loadRuntimeMetadata()
@@ -137,9 +147,9 @@ export class ModelCompilationPageComponent {
   validationLabel(status: string): string { const value = this.effectiveValid(); return value === true ? 'Valid' : value === false ? 'Blocking findings' : status || 'Not checked' }
   nextAction(project: { generated_source?: string | null }): string { return this.effectiveValid() === false ? 'Resolve blocking findings' : project.generated_source ? 'Review or recompile source' : this.effectiveValid() === true ? 'Generate source' : 'Validate the profile' }
 
-  optimizerLabel(project: { keras_enabled: boolean; graph: { model_configuration: ModelConfiguration } }): string { const id = project.keras_enabled ? project.graph.model_configuration.keras.optimizer : project.graph.model_configuration.native.pytorch.optimizer; const catalog = project.keras_enabled ? this.kerasCatalog() : this.nativeCapability()?.catalog; return catalog?.optimizers.find((item) => item.id === id)?.label ?? id }
-  lossForOutput(configuration: ModelConfiguration, modelOutput: ReturnType<ModelCompilationPageComponent['ioSummary']>['outputs'][number]): string { const project = this.state.project(); if (!project) return 'Not configured'; const mapping = project.keras_enabled ? configuration.keras.losses : configuration.native.pytorch.losses; const id = this.resolveMapping(mapping, modelOutput) ?? 'Not configured'; const catalog = project.keras_enabled ? this.kerasCatalog() : this.nativeCapability()?.catalog; return catalog?.losses.find((item) => item.id === id)?.label ?? id }
-  metricsForOutput(configuration: ModelConfiguration, modelOutput: ReturnType<ModelCompilationPageComponent['ioSummary']>['outputs'][number]): string { const project = this.state.project(); if (!project) return 'None'; const mapping = project.keras_enabled ? configuration.keras.metrics : configuration.native.pytorch.metrics; const ids = this.resolveMapping(mapping, modelOutput) ?? []; const catalog = project.keras_enabled ? this.kerasCatalog() : this.nativeCapability()?.catalog; return ids.length ? ids.map((id) => catalog?.metrics.find((item) => item.id === id)?.label ?? id).join(', ') : 'None' }
+  optimizerLabel(project: { execution_backend: ExecutionBackend; keras_enabled: boolean; graph: { model_configuration: ModelConfiguration } }): string { if (!project.keras_enabled && project.execution_backend !== 'pytorch') return 'Compiler settings only'; const id = project.keras_enabled ? project.graph.model_configuration.keras.optimizer : project.graph.model_configuration.native.pytorch.optimizer; const catalog = project.keras_enabled ? this.kerasCatalog() : this.nativeCapability()?.catalog; return catalog?.optimizers.find((item) => item.id === id)?.label ?? id }
+  lossForOutput(configuration: ModelConfiguration, modelOutput: ReturnType<ModelCompilationPageComponent['ioSummary']>['outputs'][number]): string { const project = this.state.project(); if (!project) return 'Not configured'; if (!project.keras_enabled && project.execution_backend !== 'pytorch') return 'Not applicable'; const mapping = project.keras_enabled ? configuration.keras.losses : configuration.native.pytorch.losses; const id = this.resolveMapping(mapping, modelOutput) ?? 'Not configured'; const catalog = project.keras_enabled ? this.kerasCatalog() : this.nativeCapability()?.catalog; return catalog?.losses.find((item) => item.id === id)?.label ?? id }
+  metricsForOutput(configuration: ModelConfiguration, modelOutput: ReturnType<ModelCompilationPageComponent['ioSummary']>['outputs'][number]): string { const project = this.state.project(); if (!project) return 'None'; if (!project.keras_enabled && project.execution_backend !== 'pytorch') return 'Not applicable'; const mapping = project.keras_enabled ? configuration.keras.metrics : configuration.native.pytorch.metrics; const ids = this.resolveMapping(mapping, modelOutput) ?? []; const catalog = project.keras_enabled ? this.kerasCatalog() : this.nativeCapability()?.catalog; return ids.length ? ids.map((id) => catalog?.metrics.find((item) => item.id === id)?.label ?? id).join(', ') : 'None' }
   configurationSummary(project: { execution_backend: 'tensorflow' | 'pytorch' | 'jax'; keras_enabled: boolean }): string { return project.keras_enabled ? 'Keras compile profile' : project.execution_backend === 'pytorch' ? 'Native PyTorch profile' : `Native ${project.execution_backend.toUpperCase()} profile` }
 
   private resolveMapping<T>(mapping: Record<string, T>, modelOutput: ReturnType<ModelCompilationPageComponent['ioSummary']>['outputs'][number]): T | undefined { const project = this.state.project(); if (!project) return mapping['__default__']; for (const selector of outputSelectors(modelOutput, project.graph)) { if (mapping[selector] !== undefined) return mapping[selector] } return mapping['__default__'] }

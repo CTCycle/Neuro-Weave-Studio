@@ -1,6 +1,15 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, input, viewChild, type ElementRef } from '@angular/core'
 import katex from 'katex'
 
+const MAX_FORMULA_FONT_SIZE = 12
+const MIN_FORMULA_FONT_SIZE = 7.5
+
+export function fittedFormulaFontSize(availableWidth: number, requiredWidth: number): number {
+  if (!availableWidth || requiredWidth <= availableWidth) return MAX_FORMULA_FONT_SIZE
+  const safeWidth = Math.max(0, availableWidth - 2)
+  return Math.max(MIN_FORMULA_FONT_SIZE, Math.min(MAX_FORMULA_FONT_SIZE, MAX_FORMULA_FONT_SIZE * safeWidth / requiredWidth))
+}
+
 @Component({
   selector: 'nw-math-formula',
   standalone: true,
@@ -40,11 +49,11 @@ export class MathFormulaComponent {
   }
 
   private fitFormula(element: HTMLElement): void {
-    element.style.fontSize = '12px'
+    element.style.fontSize = `${MAX_FORMULA_FONT_SIZE}px`
     const available = element.clientWidth
     const required = element.scrollWidth
     if (!available || required <= available) return
-    const fitted = Math.max(7.5, Math.min(12, 12 * available / required))
+    const fitted = fittedFormulaFontSize(available, required)
     element.style.fontSize = `${fitted}px`
   }
 }

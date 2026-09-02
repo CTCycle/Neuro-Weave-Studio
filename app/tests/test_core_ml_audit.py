@@ -9,6 +9,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 import pytest
+
 from common.catalogs.loader import get_node_catalog
 from compilation.compiler import compile_to_ir
 from configurations.settings import get_settings
@@ -202,12 +203,12 @@ def test_attention_shape_and_parameter_contract_matches_runtime() -> None:
             node(
                 "query",
                 "input.sequence",
-                {"shape": [None, 5, 10], "dtype": "float32"},
+                {"shape": [5, 10], "dtype": "float32"},
             ),
             node(
                 "context",
                 "input.sequence",
-                {"shape": [None, 7, 12], "dtype": "float32"},
+                {"shape": [7, 12], "dtype": "float32"},
             ),
             node(
                 "attention",
@@ -253,7 +254,7 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
             node(
                 "input",
                 "input.tabular",
-                {"shape": [None, 4], "dtype": "float32"},
+                {"shape": [4], "dtype": "float32"},
             ),
             node(
                 "dense",
@@ -324,7 +325,7 @@ def test_generated_keras_source_preserves_recurrent_state_ports(tmp_path: Path) 
             node(
                 "input",
                 "input.sequence",
-                {"shape": [None, 5, 3], "dtype": "float32"},
+                {"shape": [5, 3], "dtype": "float32"},
             ),
             node(
                 "lstm",
@@ -383,7 +384,7 @@ def test_multi_output_compile_selectors_generate_executable_transformer_source(
             node(
                 "input",
                 "input.sequence",
-                {"shape": [None, 5, 128], "dtype": "float32"},
+                {"shape": [5, 128], "dtype": "float32"},
             ),
             node(
                 "encoder",
@@ -463,7 +464,7 @@ def test_keras_export_reloads_custom_layer_in_clean_process(
             node(
                 "input",
                 "input.sequence",
-                {"shape": [None, 5, 8], "dtype": "float32"},
+                {"shape": [5, 8], "dtype": "float32"},
             ),
             node(
                 "position",

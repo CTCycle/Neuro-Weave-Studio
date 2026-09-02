@@ -4,6 +4,7 @@ import {
   cloneEditorSession,
   defaultExportSettings,
   editorNodeFromGraph,
+  sessionToGraph,
   type EditorHistorySnapshot,
   type GraphEditorSession,
 } from '../../../domain/graph-mapper'
@@ -374,29 +375,19 @@ export class GraphEditorStore {
   }
 
   toGraph(): ModelGraph {
-    return {
-      schema_version: 5,
-      nodes: this.nodes().map((node) => ({
-        id: node.id,
-        definition_id: node.data.manifest.id,
-        definition_version: node.data.manifest.version,
-        label: node.data.label,
-        position: { ...node.position },
-        parameters: structuredClone(node.data.parameters),
-        locked: node.locked,
-      })),
-      edges: this.edges().map((edge) => ({
-        id: edge.id,
-        source_node_id: edge.source,
-        source_port_id: edge.sourceHandle ?? 'output',
-        target_node_id: edge.target,
-        target_port_id: edge.targetHandle ?? 'input',
-      })),
-      output_bindings: structuredClone(this.outputBindings()),
-      model_configuration: structuredClone(this.modelConfiguration()),
-      export_settings: structuredClone(this.exportSettings()),
-      future_training_configuration: structuredClone(this.futureTrainingConfiguration()),
-    }
+    return sessionToGraph({
+      nodes: this.nodes(),
+      edges: this.edges(),
+      outputBindings: this.outputBindings(),
+      modelConfiguration: this.modelConfiguration(),
+      exportSettings: this.exportSettings(),
+      futureTrainingConfiguration: this.futureTrainingConfiguration(),
+      selectedNodeId: this.selectedNodeId(),
+      selectedEdgeId: this.selectedEdgeId(),
+      copiedNodeIds: this.copiedNodeIds(),
+      past: this.past(),
+      future: this.future(),
+    })
   }
 
   applyShapeSummaries(summaries: ShapeSummary[]): void {

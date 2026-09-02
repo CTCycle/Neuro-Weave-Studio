@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ParameterDefinition } from '../../../domain/types'
+import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
 import { displayParameterValue, isFiniteParameter, parameterOptions, parseParameterValue } from './parameter-value'
 
 const definition = (type: ParameterDefinition['type'], overrides: Partial<ParameterDefinition> = {}): ParameterDefinition => ({
@@ -47,5 +48,16 @@ describe('parameter value parser', () => {
     expect(isFiniteParameter(definition('object'))).toBe(false)
     expect(isFiniteParameter(definition('string'))).toBe(false)
     expect(isFiniteParameter(definition('string', { options: ['a', 'b'] }))).toBe(true)
+  })
+
+  it('normalizes only recursively empty nullable objects', () => {
+    const optional = definition('object', { required: false, nullable: true })
+    expect(parseParameterValue(optional, '{}')).toEqual({ valid: true, value: null })
+    expect(isEffectivelyEmptyObject({ metadata: { notes: [], value: null } })).toBe(true)
+    expect(isEffectivelyEmptyObject({ enabled: false, count: 0, nested: { value: 1 } })).toBe(false)
+    expect(parseParameterValue(optional, '{"enabled":false,"count":0}')).toEqual({
+      valid: true,
+      value: { enabled: false, count: 0 },
+    })
   })
 })

@@ -72,7 +72,7 @@ def test_generated_pytorch_conv_pool_preserves_channels_last_contract() -> None:
             node(
                 "image",
                 "input.image",
-                {"shape": [None, 7, 9, 3], "dtype": "float32"},
+                {"shape": [7, 9, 3], "dtype": "float32"},
             ),
             node(
                 "conv",
@@ -117,7 +117,7 @@ def test_generated_pytorch_lstm_derives_feature_width_from_inferred_shape() -> N
             node(
                 "input",
                 "input.sequence",
-                {"shape": [None, 5, 6], "dtype": "float32"},
+                {"shape": [5, 6], "dtype": "float32"},
             ),
             node(
                 "recurrent",

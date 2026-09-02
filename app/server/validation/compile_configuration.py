@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from typing import Any, cast
 
 from common.catalogs.loader import get_node_catalog
@@ -12,7 +13,7 @@ from domain.compilation_catalog import (
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
-from validation.output_resolution import output_selectors, resolved_outputs
+from validation.output_resolution import ResolvedOutput, output_selectors, resolved_outputs
 
 
 ###############################################################################
@@ -35,26 +36,44 @@ def _error(
 
 
 ###############################################################################
-def _output_selectors(graph: ModelGraph) -> set[str]:
+def _output_selectors(outputs: Sequence[ResolvedOutput]) -> set[str]:
     return {
         selector
-        for output in resolved_outputs(graph, get_node_catalog())
+        for output in outputs
         for selector in output_selectors(output)
     }
 
 
 ###############################################################################
-def _selected_value(configuration: dict[str, Any], output: Any, default: Any) -> Any:
+def _selected_value(
+    configuration: dict[str, Any], output: ResolvedOutput, default: Any
+) -> Any:
     value = configuration.get("__default__", default)
-    selectors = output_selectors(output) if hasattr(output, "binding") else (
-        output.id,
-        output.label,
-    )
-    for selector in selectors:
+    for selector in output_selectors(output):
         if selector and selector in configuration:
             value = configuration[selector]
             break
     return value
+
+
+def _output_details(output: ResolvedOutput, task: str | None = None) -> dict[str, object]:
+    details: dict[str, object] = {
+        "output_id": f"{output.binding.node_id}:{output.binding.port_id}",
+        "output_name": output.name,
+        "port_id": output.binding.port_id,
+        "selectors": list(output_selectors(output)),
+    }
+    if task is not None:
+        details["task"] = task
+    return details
+
+
+def _matching_outputs(
+    output_selector: str, outputs: Sequence[ResolvedOutput]
+) -> list[ResolvedOutput]:
+    if output_selector == "__default__":
+        return list(outputs)
+    return [output for output in outputs if output_selector in output_selectors(output)]
 
 
 ###############################################################################
@@ -134,51 +153,105 @@ def _validate_optimizer(
 
 ###############################################################################
 def _validate_mappings(
-    graph: ModelGraph,
     configuration: Any,
     catalog: CompilationCatalog,
     runtime_label: str,
+    outputs: Sequence[ResolvedOutput],
 ) -> list[ValidationDiagnostic]:
     diagnostics = _validate_optimizer(configuration, catalog, runtime_label)
     supported_losses = {item.id for item in catalog.losses}
     supported_metrics = {item.id for item in catalog.metrics}
-    selectors = _output_selectors(graph)
+    selectors = _output_selectors(outputs)
     for output_selector, loss in configuration.losses.items():
-        if output_selector != "__default__" and output_selector not in selectors:
+        targets = _matching_outputs(output_selector, outputs)
+        if output_selector != "__default__" and not targets:
             diagnostics.append(
                 _error(
                     "unknown_compile_output",
                     f"Loss configuration references unknown output '{output_selector}'",
+                    parameter_id="losses",
+                    details={
+                        "output_selector": output_selector,
+                        "available_selectors": sorted(selectors),
+                    },
+                )
+            )
+        elif output_selector != "__default__" and len(targets) > 1:
+            diagnostics.append(
+                _error(
+                    "ambiguous_compile_output",
+                    f"Loss configuration selector '{output_selector}' matches multiple outputs",
+                    parameter_id="losses",
+                    details={
+                        "output_selector": output_selector,
+                        "outputs": [item.name for item in targets],
+                    },
                 )
             )
         if loss not in supported_losses:
-            diagnostics.append(
-                _error(
-                    "invalid_compile_loss",
-                    f"Loss '{loss}' is not supported by {runtime_label}",
+            for target in targets or [None]:
+                diagnostics.append(
+                    _error(
+                        "invalid_compile_loss",
+                        f"Loss '{loss}' is not supported by {runtime_label}"
+                        + (f" for output '{target.name}'" if target is not None else ""),
+                        node_id=target.binding.node_id if target is not None else None,
+                        parameter_id="losses",
+                        details=(
+                            _output_details(target)
+                            if target is not None
+                            else {"output_selector": output_selector}
+                        ),
+                    )
                 )
-            )
     for output_selector, metric_values in configuration.metrics.items():
-        if output_selector != "__default__" and output_selector not in selectors:
+        targets = _matching_outputs(output_selector, outputs)
+        if output_selector != "__default__" and not targets:
             diagnostics.append(
                 _error(
                     "unknown_compile_output",
                     f"Metric configuration references unknown output '{output_selector}'",
+                    parameter_id="metrics",
+                    details={
+                        "output_selector": output_selector,
+                        "available_selectors": sorted(selectors),
+                    },
+                )
+            )
+        elif output_selector != "__default__" and len(targets) > 1:
+            diagnostics.append(
+                _error(
+                    "ambiguous_compile_output",
+                    f"Metric configuration selector '{output_selector}' matches multiple outputs",
+                    parameter_id="metrics",
+                    details={
+                        "output_selector": output_selector,
+                        "outputs": [item.name for item in targets],
+                    },
                 )
             )
         for metric in metric_values:
             if metric not in supported_metrics:
-                diagnostics.append(
-                    _error(
-                        "invalid_compile_metric",
-                        f"Metric '{metric}' is not supported by {runtime_label}",
+                for target in targets or [None]:
+                    diagnostics.append(
+                        _error(
+                            "invalid_compile_metric",
+                            f"Metric '{metric}' is not supported by {runtime_label}"
+                            + (f" for output '{target.name}'" if target is not None else ""),
+                            node_id=target.binding.node_id if target is not None else None,
+                            parameter_id="metrics",
+                            details=(
+                                _output_details(target)
+                                if target is not None
+                                else {"output_selector": output_selector}
+                            ),
+                        )
                     )
-                )
     return diagnostics
 
 
 ###############################################################################
-def _terminal_head(graph: ModelGraph, output_id: str) -> tuple[str | None, int | None]:
+def _terminal_head(graph: ModelGraph, output: ResolvedOutput) -> tuple[str | None, int | None]:
     """Find the final activation and class width for one selected output."""
 
     nodes = {node.id: node for node in graph.nodes}
@@ -187,12 +260,12 @@ def _terminal_head(graph: ModelGraph, output_id: str) -> tuple[str | None, int |
         for edge in graph.edges
         if edge.target_port_id == "input"
     }
-    current = nodes.get(output_id)
+    current = output.node
     visited: set[str] = set()
     while current is not None and current.id not in visited:
         visited.add(current.id)
         node = current
-        if node.definition_id.startswith("output."):
+        if node is output.node and output.manifest is not None and output.manifest.semantic_role == "output_adapter":
             source_id = incoming.get(node.id)
             current = nodes.get(source_id) if source_id is not None else None
             continue
@@ -217,10 +290,11 @@ def _terminal_head(graph: ModelGraph, output_id: str) -> tuple[str | None, int |
 
 
 ###############################################################################
-def _output_task(output: Any, width: int | None) -> str | None:
-    if output.definition_id == "output.regression":
+def _output_task(output: ResolvedOutput, width: int | None) -> str | None:
+    definition_id = output.manifest.id if output.manifest is not None else None
+    if definition_id == "output.regression":
         return "regression"
-    if output.definition_id == "output.classification":
+    if definition_id == "output.classification" and width is not None:
         return "binary_classification" if width == 1 else "multiclass_classification"
     return None
 
@@ -230,28 +304,28 @@ def _validate_semantics(
     graph: ModelGraph,
     configuration: Any,
     catalog: CompilationCatalog,
+    outputs: Sequence[ResolvedOutput],
 ) -> list[ValidationDiagnostic]:
     diagnostics: list[ValidationDiagnostic] = []
     losses = {item.id: item for item in catalog.losses}
     metrics = {item.id: item for item in catalog.metrics}
-    output_ids = {
-        selector
-        for selector in _output_selectors(graph)
-        if any(node.id == selector for node in graph.nodes)
-    }
-    output_nodes = [node for node in graph.nodes if node.id in output_ids]
-    for output in output_nodes:
-        activation, width = _terminal_head(graph, output.id)
+    for output in outputs:
+        if output.node is None or output.manifest is None or output.port is None:
+            continue
+        activation, width = _terminal_head(graph, output)
         task = _output_task(output, width)
         if task is None:
             continue
+        output_details = _output_details(output, task)
+        node_id = output.binding.node_id
         if task == "binary_classification":
             if width is not None and width != 1:
                 diagnostics.append(
                     _error(
                         "invalid_binary_output_shape",
                         "Binary classification outputs must have exactly one prediction value",
-                        node_id=output.id,
+                        node_id=node_id,
+                        details=output_details,
                     )
                 )
             expected_activation = "sigmoid"
@@ -261,7 +335,8 @@ def _validate_semantics(
                     _error(
                         "invalid_multiclass_output_shape",
                         "Multiclass classification outputs must expose at least two classes",
-                        node_id=output.id,
+                        node_id=node_id,
+                        details=output_details,
                     )
                 )
             expected_activation = "softmax"
@@ -273,9 +348,9 @@ def _validate_semantics(
             diagnostics.append(
                 _error(
                     "invalid_output_activation",
-                    f"{output.definition_id} requires a final {expected_activation} activation; received {activation or 'none'}",
-                    node_id=output.id,
-                    details={"expected": expected_activation, "received": activation},
+                    f"{output.manifest.id} requires a final {expected_activation} activation; received {activation or 'none'}",
+                    node_id=node_id,
+                    details={**output_details, "expected": expected_activation, "received": activation},
                 )
             )
 
@@ -286,10 +361,11 @@ def _validate_semantics(
                 diagnostics.append(
                     _error(
                         "incompatible_compile_loss",
-                        f"Loss '{loss.id}' is incompatible with {output.definition_id}",
-                        node_id=output.id,
+                        f"Loss '{loss.id}' is incompatible with output '{output.name}'",
+                        node_id=node_id,
+                        parameter_id="losses",
                         details={
-                            "task": task,
+                            **output_details,
                             "supported_tasks": loss.supported_tasks,
                             "target_contract": loss.target_contract,
                         },
@@ -300,8 +376,10 @@ def _validate_semantics(
                     _error(
                         "invalid_loss_activation",
                         f"Loss '{loss.id}' requires one of: {', '.join(loss.activation_contract)}",
-                        node_id=output.id,
+                        node_id=node_id,
+                        parameter_id="losses",
                         details={
+                            **output_details,
                             "loss": loss.id,
                             "expected": loss.activation_contract,
                             "received": activation,
@@ -317,7 +395,9 @@ def _validate_semantics(
                         _error(
                             "invalid_compile_metric",
                             "Metrics must be selected by string identifier",
-                            node_id=output.id,
+                            node_id=node_id,
+                            parameter_id="metrics",
+                            details=output_details,
                         )
                     )
                     continue
@@ -326,10 +406,11 @@ def _validate_semantics(
                     diagnostics.append(
                         _error(
                             "incompatible_compile_metric",
-                            f"Metric '{metric.id}' is incompatible with {output.definition_id}",
-                            node_id=output.id,
+                            f"Metric '{metric.id}' is incompatible with output '{output.name}'",
+                            node_id=node_id,
+                            parameter_id="metrics",
                             details={
-                                "task": task,
+                                **output_details,
                                 "supported_tasks": metric.supported_tasks,
                                 "target_contract": metric.target_contract,
                             },
@@ -344,10 +425,14 @@ def validate_model_configuration(
     execution_backend: ExecutionBackend,
     keras_enabled: bool,
     catalog: CompilationCatalog | None = None,
+    outputs: Sequence[ResolvedOutput] | None = None,
 ) -> list[ValidationDiagnostic]:
     """Validate the selected backend's canonical compilation configuration."""
 
     catalog = catalog or get_compilation_catalog()
+    resolved = (
+        resolved_outputs(graph, get_node_catalog()) if outputs is None else list(outputs)
+    )
     if not keras_enabled:
         configuration = graph.model_configuration.native
         if execution_backend is ExecutionBackend.TENSORFLOW:
@@ -360,7 +445,7 @@ def validate_model_configuration(
             native = configuration.pytorch
             native_catalog = get_compilation_catalog_for_implementation(catalog, "pytorch")
             diagnostics = _validate_mappings(
-                graph, native, native_catalog, "the native PyTorch runtime"
+                native, native_catalog, "the native PyTorch runtime", resolved
             )
             if native.mode not in {"default", "reduce-overhead", "max-autotune"}:
                 diagnostics.append(
@@ -377,14 +462,14 @@ def validate_model_configuration(
                             "invalid_native_compilation", f"PyTorch {parameter_id} must be boolean"
                         )
                     )
-            diagnostics.extend(_validate_semantics(graph, native, native_catalog))
+            diagnostics.extend(_validate_semantics(graph, native, native_catalog, resolved))
             return diagnostics
         if not isinstance(configuration.jax.jit_enabled, bool):
             return [_error("invalid_native_compilation", "JAX jit_enabled must be boolean")]
         return []
 
     configuration = graph.model_configuration.keras
-    diagnostics = _validate_mappings(graph, configuration, catalog, "the Keras runtime")
+    diagnostics = _validate_mappings(configuration, catalog, "the Keras runtime", resolved)
     supported_initializers = frozenset(catalog.initializers)
     supported_regularizers = frozenset(catalog.regularizers)
     supported_constraints = frozenset(catalog.constraints)
@@ -409,5 +494,5 @@ def validate_model_configuration(
                 f"Constraint '{configuration.default_constraint}' is not supported",
             )
         )
-    diagnostics.extend(_validate_semantics(graph, configuration, catalog))
+    diagnostics.extend(_validate_semantics(graph, configuration, catalog, resolved))
     return diagnostics

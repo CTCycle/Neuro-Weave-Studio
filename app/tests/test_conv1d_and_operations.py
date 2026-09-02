@@ -9,7 +9,10 @@ import pytest
 from common.catalogs.loader import get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
 from compilation.compiler import compile_to_ir
-from domain.compilation_catalog import get_compilation_catalog, get_compilation_catalog_provider
+from domain.compilation_catalog import (
+    get_compilation_catalog,
+    get_compilation_catalog_provider,
+)
 from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from domain.manifests import (
@@ -57,7 +60,7 @@ def _edge(edge_id: str, source: str, target: str, target_port: str = "input") ->
 def _conv1d_graph() -> ModelGraph:
     return ModelGraph(
         nodes=[
-            _node("input", "input.sequence", {"shape": [None, 8, 3], "dtype": "float32"}),
+            _node("input", "input.sequence", {"shape": [8, 3], "dtype": "float32"}),
             _node(
                 "conv",
                 "conv.conv1d",
@@ -192,7 +195,7 @@ def test_keras_slice_executes_without_dynamic_code() -> None:
 
     model: Any = cast(
         Any,
-        build_model(_operation_graph("math.slice", [[None, 4, 3]], {"expression": "x[:, 1:3]"})),
+        build_model(_operation_graph("math.slice", [[4, 3]], {"expression": "x[:, 1:3]"})),
     )
     value: Any = model({"input_0": np.zeros((1, 4, 3), dtype=np.float32)}, training=False)
     detached: Any = (
@@ -230,13 +233,13 @@ def test_native_conv1d_executes_with_exact_output_shape(backend: ExecutionBacken
 @pytest.mark.parametrize(
     ("definition_id", "input_shapes", "parameters", "expected_shape"),
     [
-        ("math.sin", [[None, 4]], {}, (1, 4)),
-        ("math.add", [[None, 4], [None, 4]], {}, (1, 4)),
-        ("math.sum", [[None, 4]], {"axis": -1}, (1,)),
-        ("math.reshape", [[None, 2, 2]], {"target_shape": [4]}, (1, 4)),
-        ("math.concatenate", [[None, 2], [None, 2]], {"axis": -1}, (1, 4)),
-        ("math.matmul", [[None, 3, 4], [None, 4, 2]], {}, (1, 3, 2)),
-        ("math.slice", [[None, 4, 3]], {"expression": "x[:, 1:3]"}, (1, 2, 3)),
+        ("math.sin", [[4]], {}, (1, 4)),
+        ("math.add", [[4], [4]], {}, (1, 4)),
+        ("math.sum", [[4]], {"axis": -1}, (1,)),
+        ("math.reshape", [[2, 2]], {"target_shape": [4]}, (1, 4)),
+        ("math.concatenate", [[2], [2]], {"axis": -1}, (1, 4)),
+        ("math.matmul", [[3, 4], [4, 2]], {}, (1, 3, 2)),
+        ("math.slice", [[4, 3]], {"expression": "x[:, 1:3]"}, (1, 2, 3)),
     ],
 )
 @pytest.mark.parametrize("backend", list(ExecutionBackend))

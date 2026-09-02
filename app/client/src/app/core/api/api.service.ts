@@ -8,10 +8,10 @@ import type {
   ExportCapabilitiesResponse,
   ExportFormat,
   ExportOptions,
+  GraphPayload,
   JobResponse,
   KerasArchitectureImportResponse,
   MetadataResponse,
-  ModelGraph,
   NodeManifest,
   ProjectDocument,
   ProjectExportBundle,
@@ -20,6 +20,7 @@ import type {
   ValidationResult,
   WorkerConfiguration,
 } from '../../domain/types'
+import { canonicalizeGraph } from '../../domain/graph-mapper'
 
 const API_BASE = '/api'
 
@@ -79,9 +80,9 @@ export class ApiService {
     description: string
     execution_backend?: ExecutionBackend | null
     keras_enabled: boolean
-    graph: ModelGraph
+    graph: GraphPayload
   }): Promise<ProjectDocument> {
-    return this.request('/projects', 'POST', payload)
+    return this.request('/projects', 'POST', { ...payload, graph: canonicalizeGraph(payload.graph) })
   }
 
   updateProject(id: string, payload: {
@@ -89,10 +90,10 @@ export class ApiService {
     description: string
     execution_backend: ExecutionBackend
     keras_enabled: boolean
-    graph: ModelGraph
+    graph: GraphPayload
     expected_revision: number
   }): Promise<ProjectDocument> {
-    return this.request(`/projects/${id}`, 'PUT', payload)
+    return this.request(`/projects/${id}`, 'PUT', { ...payload, graph: canonicalizeGraph(payload.graph) })
   }
 
   duplicateProject(id: string, name?: string): Promise<ProjectDocument> {
@@ -125,16 +126,16 @@ export class ApiService {
     }
   }
 
-  validate(graph: ModelGraph, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ValidationResult> {
-    return this.request('/validation', 'POST', { graph, execution_backend, keras_enabled })
+  validate(graph: GraphPayload, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ValidationResult> {
+    return this.request('/validation', 'POST', { graph: canonicalizeGraph(graph), execution_backend, keras_enabled })
   }
 
-  compile(graph: ModelGraph, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<CompilationResult> {
-    return this.request('/compilation', 'POST', { graph, execution_backend, keras_enabled })
+  compile(graph: GraphPayload, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<CompilationResult> {
+    return this.request('/compilation', 'POST', { graph: canonicalizeGraph(graph), execution_backend, keras_enabled })
   }
 
-  submitSmokeInference(project_id: string, graph: ModelGraph, worker: WorkerConfiguration): Promise<JobResponse> {
-    return this.request('/execution/jobs', 'POST', { operation: { type: 'smoke_inference', project_id, graph }, worker })
+  submitSmokeInference(project_id: string, graph: GraphPayload, worker: WorkerConfiguration): Promise<JobResponse> {
+    return this.request('/execution/jobs', 'POST', { operation: { type: 'smoke_inference', project_id, graph: canonicalizeGraph(graph) }, worker })
   }
 
   submitModelExport(project_id: string, format: ExportFormat, filename_stem: string, options: ExportOptions, worker: WorkerConfiguration): Promise<JobResponse> {
