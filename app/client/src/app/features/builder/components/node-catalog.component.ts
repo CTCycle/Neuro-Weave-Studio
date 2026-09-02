@@ -160,7 +160,7 @@ export class NodeCatalogComponent {
   formatCategory(value: string): string { return value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase()) }
   isSupported(manifest: NodeManifest): boolean { return implementationAvailable(manifest, this.executionBackend(), this.kerasEnabled()) }
   compactMetadata(manifest: NodeManifest): string { return `${manifest.id} · ${manifest.operation?.family ?? manifest.semantic_role ?? manifest.category}` }
-  addNode(manifest: NodeManifest): void { this.store.addNode(manifest, { x: 48 + (this.store.nodes().length % 4) * 176, y: 48 + Math.floor(this.store.nodes().length / 4) * 128 }) }
+  addNode(manifest: NodeManifest): void { this.store.addNode(manifest, { x: 48 + (this.store.nodes().length % 3) * 300, y: 48 + Math.floor(this.store.nodes().length / 3) * 160 }) }
   startDrag(event: DragEvent, manifest: NodeManifest): void { event.dataTransfer?.setData('application/neuro-weave-node', JSON.stringify({ id: manifest.id, version: manifest.version })); if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy' }
 
   clearFilters(): void {

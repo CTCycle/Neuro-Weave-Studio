@@ -32,8 +32,8 @@ import { AppResourcesService } from '../../core/state/app-resources.service'
           <a routerLink="/builder" routerLinkActive="active"><svg lucideHammer [size]="16"></svg>Model Builder</a>
           <a routerLink="/datasets" routerLinkActive="active"><svg lucideFolderOpen [size]="16"></svg>Datasets</a>
           <a routerLink="/training" routerLinkActive="active"><svg lucideBrainCircuit [size]="16"></svg>Training</a>
-          <a routerLink="/environment" routerLinkActive="active"><svg lucideCpu [size]="16"></svg>Environment</a>
           <a routerLink="/metrics" routerLinkActive="active"><svg lucideActivity [size]="16"></svg>Metrics</a>
+          <a routerLink="/environment" routerLinkActive="active"><svg lucideCpu [size]="16"></svg>Environment</a>
         </nav>
       </header>
       <main class="app-content" [class.builder-content]="isBuilder()"><router-outlet /></main>

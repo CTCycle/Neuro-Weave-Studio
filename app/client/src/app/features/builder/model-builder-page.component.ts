@@ -209,6 +209,7 @@ export class ModelBuilderPageComponent {
     this.restoringTab = true
     this.clearValidationTimer()
     this.validationRequest += 1
+    this.validationBusy.set(false)
     try {
       this.store.restoreEditorSession(tab.graph)
       this.store.setExecutionProfile(tab.executionBackend, tab.kerasEnabled)
@@ -341,6 +342,7 @@ export class ModelBuilderPageComponent {
 
   private invalidateValidation(message?: string): void {
     this.validationRequest += 1
+    this.validationBusy.set(false)
     this.validation.set(null)
     this.store.applyShapeSummaries([])
     this.validationState.set(this.initialized() ? 'stale' : 'not-run')
