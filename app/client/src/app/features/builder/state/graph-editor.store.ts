@@ -375,7 +375,7 @@ export class GraphEditorStore {
 
   toGraph(): ModelGraph {
     return {
-      schema_version: 4,
+      schema_version: 5,
       nodes: this.nodes().map((node) => ({
         id: node.id,
         definition_id: node.data.manifest.id,
