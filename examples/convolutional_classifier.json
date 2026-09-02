@@ -4,7 +4,7 @@
   "execution_backend": "pytorch",
   "keras_enabled": true,
   "graph": {
-    "schema_version": 4,
+    "schema_version": 5,
     "nodes": [
       {
         "id": "image",
@@ -17,7 +17,6 @@
         },
         "parameters": {
           "shape": [
-            null,
             32,
             32,
             3
