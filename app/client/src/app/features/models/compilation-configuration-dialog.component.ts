@@ -92,10 +92,10 @@ type CompilationTab = 'optimizer' | 'outputs' | 'advanced' | 'native'
     .output-config:first-child { border-top:0; padding-top:0; }
     .output-config > header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
     .output-config h4 { margin:3px 0 0; font-size:15px; }
-    .output-task { border:1px solid var(--border); border-radius:4px; padding:4px 6px; color:var(--cyan); font:600 9px/1 var(--font-mono); text-transform:uppercase; }
+    .output-task { border:1px solid var(--border); border-radius:4px; padding:4px 6px; color:var(--cyan); font:600 9px/1 'IBM Plex Mono', Consolas, monospace; text-transform:uppercase; }
     .output-config-grid { display:grid; grid-template-columns:minmax(220px,.8fr) minmax(300px,1.2fr); gap:18px; align-items:start; }
     .single-output .output-config-grid { grid-template-columns:minmax(250px,.9fr) minmax(320px,1.1fr); }
-    .field-caption { display:block; margin-bottom:7px; color:var(--text-secondary); font-size:11px; font-weight:600; }
+    .field-caption { display:block; margin-bottom:7px; color:var(--muted); font-size:11px; font-weight:600; }
     .compilation-option-grid.compact { grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
     .compilation-option { min-width:0; }
     .compilation-option span { min-width:0; }
@@ -174,7 +174,8 @@ export class CompilationConfigurationDialogComponent {
     this.draft.update((current) => {
       const mapping = { ...(this.kerasEnabled() ? current.keras.metrics : current.native.pytorch.metrics) }
       const selected = new Set(mapping[key] ?? mapping['__default__'] ?? [])
-      if (checked) selected.add(metricId); else selected.delete(metricId)
+      if (checked) selected.add(metricId)
+      else selected.delete(metricId)
       mapping[key] = [...selected]
       return this.kerasEnabled()
         ? { ...current, keras: { ...current.keras, metrics: mapping } }
@@ -228,7 +229,10 @@ function withOutputSuggestions(configuration: ModelConfiguration, catalog: Compi
       if (suggested) losses[key] = suggested.id
     }
     const currentMetrics = metrics[key] ?? metrics['__default__'] ?? []
-    const compatibleCurrent = currentMetrics.filter((id) => { const option = catalog.metrics.find((item) => item.id === id); return option && (!option.supported_tasks?.length || option.supported_tasks.includes(task)) })
+    const compatibleCurrent = currentMetrics.filter((id) => {
+      const option = catalog.metrics.find((item) => item.id === id)
+      return Boolean(option && (!option.supported_tasks?.length || option.supported_tasks.includes(task)))
+    })
     if (!compatibleCurrent.length) metrics[key] = catalog.metrics.filter((item) => !item.supported_tasks?.length || item.supported_tasks.includes(task)).slice(0, 2).map((item) => item.id)
   }
   return keras
