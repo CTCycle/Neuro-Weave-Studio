@@ -1,0 +1,65 @@
+import { describe, expect, it } from 'vitest'
+import { emptyModelConfiguration, type ModelGraph, type NodeManifest } from './types'
+import { outputSelectors, summarizeGraphIo } from './graph-io'
+
+const port = (id = 'output') => ({ id, display_name: id, kind: 'tensor' as const, required: true, accepts_multiple: false, description: '' })
+
+const manifest = (id: string, semantic_role: NodeManifest['semantic_role'], outputs = [port()], task_hint?: string): NodeManifest => ({
+  id,
+  version: 1,
+  display_name: id,
+  category: semantic_role === 'input' ? 'inputs' : 'core',
+  description: '',
+  semantic_role,
+  task_hint: task_hint ?? null,
+  inputs: semantic_role === 'input' ? [] : [{ id: 'input', display_name: 'Input', kind: 'tensor', required: true, accepts_multiple: false, description: '' }],
+  outputs,
+  parameters: [],
+  shape_rule: { kind: 'preserve', config: {} },
+  implementations: { keras: { supported: true } },
+  ui: { icon: 'Box', accent: 'cyan', width: 250, height: 120 },
+  deprecated: false,
+  documentation_ref: '',
+})
+
+const manifests = [
+  manifest('input.tensor', 'input'),
+  manifest('layer.head', 'operation', [port()], 'binary_classification'),
+  manifest('layer.side', 'operation'),
+]
+
+const graph = (output_bindings: ModelGraph['output_bindings'] = []): ModelGraph => ({
+  schema_version: 5,
+  nodes: [
+    { id: 'features', definition_id: 'input.tensor', definition_version: 1, label: 'Features', position: { x: 0, y: 0 }, parameters: { shape: [8] }, locked: false },
+    { id: 'head', definition_id: 'layer.head', definition_version: 1, label: 'Primary', position: { x: 200, y: 0 }, parameters: {}, locked: false },
+    { id: 'side', definition_id: 'layer.side', definition_version: 1, label: 'Auxiliary', position: { x: 200, y: 120 }, parameters: {}, locked: false },
+  ],
+  edges: [
+    { id: 'e1', source_node_id: 'features', source_port_id: 'output', target_node_id: 'head', target_port_id: 'input' },
+  ],
+  output_bindings,
+  model_configuration: emptyModelConfiguration(),
+  export_settings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
+  future_training_configuration: {},
+})
+
+describe('graph I/O summary', () => {
+  it('counts semantic input nodes and infers every unconsumed value output', () => {
+    const summary = summarizeGraphIo(graph(), manifests)
+
+    expect(summary.inputCount).toBe(1)
+    expect(summary.outputs.map((item) => item.node_id)).toEqual(['head', 'side'])
+    expect(summary.outputs.every((item) => item.explicit === false)).toBe(true)
+    expect(summary.outputs[0].task_hint).toBe('binary_classification')
+  })
+
+  it('uses explicit output bindings as the complete output boundary', () => {
+    const model = graph([{ node_id: 'side', port_id: 'output' }])
+    const summary = summarizeGraphIo(model, manifests)
+
+    expect(summary.outputCount).toBe(1)
+    expect(summary.outputs[0]).toMatchObject({ node_id: 'side', port_id: 'output', name: 'Auxiliary', explicit: true })
+    expect(outputSelectors(summary.outputs[0], model)).toEqual(['Auxiliary', 'side', 'side:output'])
+  })
+})
