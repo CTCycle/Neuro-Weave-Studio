@@ -30,7 +30,9 @@ class RuntimeInputParameters(dict[str, Any]):
 
     # -------------------------------------------------------------------------
     def get(self, key: str, default: Any = None) -> Any:
-        return _runtime_input_value(key, super().get(key, default))
+        if key not in self:
+            return default
+        return _runtime_input_value(key, super().get(key))
 
 
 ###############################################################################
@@ -166,10 +168,13 @@ class ModelGraph(BaseModel):
         migrated["schema_version"] = GRAPH_SCHEMA_VERSION
         nodes: list[Any] = []
         for raw_node in value.get("nodes", []):
-            if not isinstance(raw_node, dict):
+            if isinstance(raw_node, NodeInstance):
+                node = raw_node.model_dump(mode="python")
+            elif isinstance(raw_node, dict):
+                node = dict(raw_node)
+            else:
                 nodes.append(raw_node)
                 continue
-            node = dict(raw_node)
             parameters = dict(node.get("parameters", {}))
             if str(node.get("definition_id", "")).startswith("input."):
                 shape = parameters.get("shape")
