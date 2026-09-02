@@ -68,6 +68,9 @@ export function parseParameterValue(
   if (definition.type === 'object') {
     const value = parseJsonObject(text)
     if (value === undefined) return { valid: false }
+    if (definition.nullable && isEffectivelyEmptyObject(value)) {
+      return { valid: capabilityAllowsValue(capability, null), value: null }
+    }
     return { valid: capabilityAllowsValue(capability, value), value }
   }
   if (isFiniteParameter(definition)) {
@@ -144,10 +147,22 @@ function parseSequence(text: string, allowStrings: boolean): unknown[] | undefin
 function parseJsonObject(text: string): unknown | undefined {
   try {
     const parsed: unknown = JSON.parse(text)
-    return parsed !== null && typeof parsed === 'object' ? parsed : undefined
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : undefined
   } catch {
     return undefined
   }
+}
+
+function isEffectivelyEmptyObject(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (!entries.length) return true
+  return entries.every(([, item]) => {
+    if (item === null || item === undefined || item === '') return true
+    if (Array.isArray(item)) return item.length === 0
+    if (typeof item === 'object') return isEffectivelyEmptyObject(item)
+    return false
+  })
 }
 
 function sequenceItemsValid(value: unknown, definition: ParameterDefinition, capability?: ParameterCapability): boolean {
