@@ -11,6 +11,7 @@ from repositories.session import RepositoryContext
 from services.catalog_service import CatalogService
 from services.compilation_service import CompilationService
 from services.export_service import ExportService
+from services.filesystem_service import FilesystemService
 from services.job_service import JobService
 from services.keras_import_service import KerasImportService
 from services.project_service import ProjectService
@@ -56,6 +57,11 @@ def get_validation_service(
 ###############################################################################
 def get_catalog_service(catalog: NodeCatalog = Depends(get_catalog)) -> CatalogService:
     return CatalogService(catalog)
+
+
+###############################################################################
+def get_filesystem_service() -> FilesystemService:
+    return FilesystemService()
 
 
 ###############################################################################
