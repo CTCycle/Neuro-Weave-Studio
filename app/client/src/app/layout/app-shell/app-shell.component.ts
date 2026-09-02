@@ -44,6 +44,12 @@ import { AppResourcesService } from '../../core/state/app-resources.service'
       }
     </div>
   `,
+  styles: [`
+    .app-header { min-width: 0; }
+    .primary-nav { min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+    .primary-nav::-webkit-scrollbar { display: none; }
+    .primary-nav a { flex: 0 0 auto; }
+  `],
 })
 export class AppShellComponent {
   readonly resources = inject(AppResourcesService)
