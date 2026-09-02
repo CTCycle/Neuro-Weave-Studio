@@ -244,7 +244,7 @@ export interface CompilationCapabilities {
 }
 
 export interface ModelGraph {
-  schema_version: 4
+  schema_version: 5
   nodes: GraphNodeInstance[]
   edges: GraphEdgeInstance[]
   output_bindings: OutputBinding[]
@@ -281,6 +281,8 @@ export interface ProjectSummary {
   keras_enabled: boolean
   current_revision: number
   validation_status: string
+  input_count: number
+  output_count: number
   node_count: number
   edge_count: number
   has_generated_source: boolean
@@ -632,7 +634,7 @@ export function implementationAvailable(
 
 export interface ProjectExportBundle {
   format: 'neuro-weave-project'
-  format_version: 5
+  format_version: 6
   exported_at: string
   project: {
     name: string
