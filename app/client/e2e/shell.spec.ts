@@ -9,10 +9,18 @@ test('starts the Angular shell at the model catalog', async ({ page }) => {
 
 test('serves Angular deep links and preserves the shell on refresh', async ({ page }) => {
   test.setTimeout(60_000)
-  for (const route of ['/environment', '/metrics', '/builder', '/models/missing/compilation']) {
+  for (const route of ['/datasets', '/training', '/environment', '/metrics', '/builder', '/models/missing/compilation']) {
     await page.goto(route)
     await expect(page.locator('nw-app-shell')).toBeVisible()
     await page.reload()
     await expect(page.locator('nw-app-shell')).toBeVisible()
   }
+})
+
+test('exposes dataset and training as primary navigation tabs', async ({ page }) => {
+  await page.goto('/datasets')
+  await expect(page.getByRole('link', { name: 'Datasets', exact: true })).toHaveClass(/active/)
+  await expect(page.getByRole('heading', { name: 'Datasets' })).toBeVisible()
+  await page.getByRole('link', { name: 'Training', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Training' })).toBeVisible()
 })
