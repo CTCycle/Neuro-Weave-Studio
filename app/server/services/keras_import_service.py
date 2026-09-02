@@ -255,23 +255,21 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str]:
 ###############################################################################
 def _map_layer(class_name: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     if class_name == "InputLayer":
-        raw_shape = (
-            config.get("batch_shape")
-            or config.get("batch_input_shape")
-            or config.get("input_shape")
-        )
-        shape = _shape(raw_shape)
-        if shape and shape[0] is not None:
-            shape = [None, *shape]
+        batch_shape_value = config.get("batch_shape") or config.get("batch_input_shape")
+        if batch_shape_value is not None:
+            batch_shape = _shape(batch_shape_value)
+            shape = batch_shape[1:] if batch_shape else None
+        else:
+            shape = _shape(config.get("input_shape"))
         if not shape:
             raise KerasArchitectureImportError(
-                "missing_input_shape", "An InputLayer must declare a deterministic shape"
+                "missing_input_shape", "An InputLayer must declare a deterministic feature shape"
             )
         definition_id = (
             "input.image"
-            if len(shape) >= 4
-            else "input.sequence"
             if len(shape) == 3
+            else "input.sequence"
+            if len(shape) == 2
             else "input.tensor"
         )
         return definition_id, {"shape": shape, "dtype": str(config.get("dtype") or "float32")}
