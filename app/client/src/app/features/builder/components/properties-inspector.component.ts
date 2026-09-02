@@ -24,7 +24,7 @@ import { GraphEditorStore } from '../state/graph-editor.store'
           <label class="field-label" for="node-label">Label<input id="node-label" formControlName="label" (input)="updateLabel(node.id, $any($event.target).value)" /></label>
           <p class="inspector-description">{{ node.data.manifest.description }}</p>
           @for (group of groupedParameters(); track group[0]) {
-            <details class="parameter-group" open><summary>{{ group[0] }}<span>{{ group[1].length }}</span></summary>
+            <details class="parameter-group" [open]="isInitiallyOpen(group[0])"><summary>{{ group[0] }}<span>{{ group[1].length }}</span></summary>
               @for (definition of group[1]; track definition.id) {
                 @if (isVisible(definition, node)) {
                   @let capability = capabilityFor(node.data.manifest, definition);
@@ -53,16 +53,16 @@ import { GraphEditorStore } from '../state/graph-editor.store'
             </details>
           }
           <section class="inspector-section port-spec-section" aria-labelledby="port-specifications-title">
-            <div class="inspector-section-heading"><span class="eyebrow" id="port-specifications-title">PORTS</span><span class="port-count">{{ node.data.manifest.inputs.length + node.data.manifest.outputs.length }}</span></div>
+            <div class="inspector-section-heading"><div><span class="eyebrow" id="port-specifications-title">CONNECTIONS</span><small class="inspector-section-hint">Data entering and leaving this node</small></div><span class="port-count">{{ node.data.manifest.inputs.length + node.data.manifest.outputs.length }}</span></div>
             <div class="port-spec-list">
               @for (port of node.data.manifest.inputs; track port.id) {
                 <div class="port-spec-row input" [class.is-missing]="portStatus(node, 'input', port) === 'Missing required input'" [class.is-connected]="portConnectionCount(node.id, 'input', port.id) > 0" [class.is-disabled]="portStatus(node, 'input', port) === 'Disabled'" [title]="port.description">
-                  <span class="port-direction input">IN</span><div class="port-spec-main"><strong>{{ port.display_name }}</strong><small>{{ portKindLabel(port) }} · {{ portShapeLabel(node, port, 'input') }}</small></div><div class="port-spec-meta"><span class="port-badge">{{ port.required ? 'REQ' : 'OPT' }}</span><span class="port-badge">{{ multiplicityLabel(port, 'input') }}</span><span class="port-status">{{ portStatus(node, 'input', port) }}</span></div>
+                  <span class="port-direction input">INPUT</span><div class="port-spec-main"><strong>{{ port.display_name }}</strong><small>{{ portKindLabel(port) }} · {{ portShapeLabel(node, port, 'input') }}</small><div class="port-spec-meta"><span class="port-status">{{ portStatus(node, 'input', port) }}</span><span class="port-rule">{{ port.required ? 'Required' : 'Optional' }}</span><span class="port-rule">{{ multiplicityLabel(port, 'input') }}</span></div></div>
                 </div>
               }
               @for (port of node.data.manifest.outputs; track port.id) {
                   <div class="port-spec-row output" [class.is-connected]="portConnectionCount(node.id, 'output', port.id) > 0" [class.is-disabled]="portStatus(node, 'output', port) === 'Disabled'" [title]="port.description">
-                  <span class="port-direction output">OUT</span><div class="port-spec-main"><strong>{{ port.display_name }}</strong><small>{{ portKindLabel(port) }} · {{ portShapeLabel(node, port, 'output') }}</small></div><div class="port-spec-meta"><span class="port-badge">{{ port.required ? 'REQ' : 'OPT' }}</span><span class="port-badge">{{ multiplicityLabel(port, 'output') }}</span><span class="port-status">{{ portStatus(node, 'output', port) }}</span><button type="button" class="port-output-toggle" [class.is-active]="store.isOutput(node.id, port.id)" [attr.aria-pressed]="store.isOutput(node.id, port.id)" [attr.aria-label]="store.isOutput(node.id, port.id) ? 'Remove ' + port.display_name + ' from model outputs' : 'Use ' + port.display_name + ' as a model output'" (click)="toggleOutput(node.id, port.id); $event.stopPropagation()">{{ store.isOutput(node.id, port.id) ? 'OUTPUT' : 'Use output' }}</button></div>
+                  <span class="port-direction output">OUTPUT</span><div class="port-spec-main"><strong>{{ port.display_name }}</strong><small>{{ portKindLabel(port) }} · {{ portShapeLabel(node, port, 'output') }}</small><div class="port-spec-meta"><span class="port-status">{{ portStatus(node, 'output', port) }}</span><span class="port-rule">{{ port.required ? 'Required' : 'Optional' }}</span><span class="port-rule">{{ multiplicityLabel(port, 'output') }}</span><button type="button" class="port-output-toggle" [class.is-active]="store.isOutput(node.id, port.id)" [attr.aria-pressed]="store.isOutput(node.id, port.id)" [attr.aria-label]="store.isOutput(node.id, port.id) ? 'Remove ' + port.display_name + ' from model outputs' : 'Use ' + port.display_name + ' as a model output'" (click)="toggleOutput(node.id, port.id); $event.stopPropagation()">{{ store.isOutput(node.id, port.id) ? 'Model output' : 'Use as output' }}</button></div></div>
                 </div>
               }
             </div>
@@ -85,7 +85,7 @@ import { GraphEditorStore } from '../state/graph-editor.store'
     .runtime-batch-control small, .optional-config-state small { display:block; margin-top:4px; color:var(--muted); font-size:10px; line-height:1.4; }
     .optional-config-state strong { color:var(--muted); font:600 10px/1.2 'IBM Plex Mono', Consolas, monospace; text-transform:uppercase; letter-spacing:.05em; }
     .optional-config-state.configured strong { color:var(--accent-bright); }
-    .port-output-toggle { min-height:24px; padding:3px 6px; border:1px solid color-mix(in srgb, var(--accent-bright) 45%, var(--border)); border-radius:4px; background:transparent; color:var(--muted); font:600 9px/1.1 'IBM Plex Mono', Consolas, monospace; letter-spacing:.04em; cursor:pointer; }
+    .port-output-toggle { min-height:24px; padding:3px 6px; border:1px solid color-mix(in srgb, var(--accent-bright) 45%, var(--border)); border-radius:4px; background:transparent; color:var(--muted); font:600 9px/1.1 'IBM Plex Mono', Consolas, monospace; letter-spacing:.02em; cursor:pointer; }
     .port-output-toggle:hover, .port-output-toggle:focus-visible { border-color:var(--accent-bright); color:var(--text); }
     .port-output-toggle.is-active { background:color-mix(in srgb, var(--accent-bright) 16%, transparent); border-color:var(--accent-bright); color:var(--accent-bright); }
   `],
@@ -236,11 +236,14 @@ export class PropertiesInspectorComponent {
     const summary = direction === 'output'
       ? this.store.shapeSummary(node.id)?.outputs[port.id]
       : this.inputShape(node.id, port.id)
-    if (summary) return `${summary.shape.map((value) => value === null ? '?' : typeof value === 'object' ? value.name : value).join(' × ')} · ${summary.dtype}`
+    if (summary) return `shape [${summary.shape.map((value) => value === null ? '?' : typeof value === 'object' ? value.name : value).join(', ')}] · ${summary.dtype}`
     if (port.rank !== undefined && port.rank !== null) return `rank ${port.rank}`
-    return port.kind === 'scalar' || port.kind === 'mask' ? 'value' : 'shape unknown'
+    return port.kind === 'scalar' || port.kind === 'mask'
+      ? 'value'
+      : port.rank !== undefined && port.rank !== null ? `shape pending · expected rank ${port.rank}` : 'shape pending'
   }
-  multiplicityLabel(port: PortDefinition, direction: 'input' | 'output'): string { return direction === 'output' ? 'fan-out' : port.accepts_multiple ? 'many' : '1' }
+  multiplicityLabel(port: PortDefinition, direction: 'input' | 'output'): string { return direction === 'output' ? 'Fan-out allowed' : port.accepts_multiple ? 'Multiple connections' : 'One connection' }
+  isInitiallyOpen(group: string): boolean { return group === 'Shape' || group === 'General' || group === 'Behavior' }
   isPortEnabled(node: { data: { parameters: Record<string, unknown> } }, port: PortDefinition): boolean { return conditionMatches(port.enabled_when, node.data.parameters) }
 
   toggleOutput(nodeId: string, portId: string): void { this.store.toggleNodeOutput(nodeId, portId) }
