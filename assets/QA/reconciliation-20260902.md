@@ -3,7 +3,7 @@
 ## Delivery
 
 - PR #1, `Improve model builder boundaries and compilation workflow`, was reviewed against `new-features` tip `6511395ae19ee5c81378eb7d123e0c7352716077`.
-- `origin/develop` was `102ba3463ac90ab6b276e926614bfef34df55354`, an ancestor of the PR tip. The local `develop` history was fast-forwarded to the PR tip; the completion changes in this worktree are being delivered as a follow-up commit on `develop`.
+- `origin/develop` was `102ba3463ac90ab6b276e926614bfef34df55354`, an ancestor of the PR tip. The local `develop` history was fast-forwarded to the PR tip; the completion changes were delivered in follow-up commit `39bdfd0e2a6acb409b5f02644b76be44e1362673` on `develop`.
 - No force-push or worktree was used. The remote `new-features` branch remains unchanged.
 
 ## Implementation review
