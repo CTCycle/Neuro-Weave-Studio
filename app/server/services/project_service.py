@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from uuid import UUID
 
+from common.catalogs.loader import get_node_catalog
 from common.timestamps import utc_now
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import (
@@ -27,6 +28,7 @@ from services.errors import (
     RevisionConflictError,
 )
 from services.validation_service import ValidationService
+from validation.output_resolution import input_nodes, resolved_outputs
 
 
 ###############################################################################
@@ -44,28 +46,35 @@ class ProjectService:
 
     # -------------------------------------------------------------------------
     def list(self) -> ProjectListResponse:
+        catalog = get_node_catalog()
         with self._uow_factory() as uow:
             metadata = uow.projects.list_metadata()
             graph_summaries = uow.graphs.summaries([item.id for item in metadata])
             generated_sources = uow.code_snapshots.has_for_revisions(
                 {item.id: item.current_revision for item in metadata}
             )
-            summaries = [
-                ProjectSummary(
-                    id=item.id,
-                    name=item.name,
-                    description=item.description,
-                    updated_at=item.updated_at,
-                    execution_backend=item.execution_backend,
-                    keras_enabled=item.keras_enabled,
-                    current_revision=item.current_revision,
-                    validation_status=item.validation_status,
-                    node_count=graph_summaries[item.id].node_count,
-                    edge_count=graph_summaries[item.id].edge_count,
-                    has_generated_source=generated_sources.get(item.id, False),
+            summaries: list[ProjectSummary] = []
+            for item in metadata:
+                graph = uow.graphs.load(item.id, item.graph_schema_version)
+                if graph is None:
+                    raise RuntimeError(f"Project {item.id} is missing graph settings")
+                summaries.append(
+                    ProjectSummary(
+                        id=item.id,
+                        name=item.name,
+                        description=item.description,
+                        updated_at=item.updated_at,
+                        execution_backend=item.execution_backend,
+                        keras_enabled=item.keras_enabled,
+                        current_revision=item.current_revision,
+                        validation_status=item.validation_status,
+                        input_count=len(input_nodes(graph, catalog)),
+                        output_count=len(resolved_outputs(graph, catalog)),
+                        node_count=graph_summaries[item.id].node_count,
+                        edge_count=graph_summaries[item.id].edge_count,
+                        has_generated_source=generated_sources.get(item.id, False),
+                    )
                 )
-                for item in metadata
-            ]
         return ProjectListResponse(projects=summaries)
 
     # -------------------------------------------------------------------------
