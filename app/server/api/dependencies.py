@@ -6,6 +6,10 @@ from fastapi import Depends, Request
 
 from common.catalogs.loader import NodeCatalog
 from configurations.settings import Settings
+from domain.compilation_catalog import (
+    CompilationCatalogProvider,
+    PersistentCompilationCatalogProvider,
+)
 from repositories.contracts import UnitOfWorkFactory
 from repositories.session import RepositoryContext
 from services.catalog_service import CatalogService
@@ -14,6 +18,7 @@ from services.export_service import ExportService
 from services.filesystem_service import FilesystemService
 from services.job_service import JobService
 from services.keras_import_service import KerasImportService
+from services.metric_service import MetricService
 from services.project_service import ProjectService
 from services.runtime_controller import RuntimeController
 from services.runtime_service import RuntimeService
@@ -48,10 +53,25 @@ def get_runtime_controller(request: Request) -> RuntimeController:
 
 
 ###############################################################################
+def get_compilation_catalog_provider(
+    uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
+) -> CompilationCatalogProvider:
+    return PersistentCompilationCatalogProvider(uow_factory)
+
+
+###############################################################################
 def get_validation_service(
     catalog: NodeCatalog = Depends(get_catalog),
+    compilation_catalog_provider: CompilationCatalogProvider = Depends(get_compilation_catalog_provider),
 ) -> ValidationService:
-    return ValidationService(catalog)
+    return ValidationService(catalog, compilation_catalog_provider)
+
+
+def get_metric_service(
+    uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
+    compilation_catalog_provider: CompilationCatalogProvider = Depends(get_compilation_catalog_provider),
+) -> MetricService:
+    return MetricService(uow_factory, compilation_catalog_provider)
 
 
 ###############################################################################
@@ -68,8 +88,9 @@ def get_filesystem_service() -> FilesystemService:
 def get_runtime_service(
     settings: Settings = Depends(get_settings),
     controller: RuntimeController = Depends(get_runtime_controller),
+    compilation_catalog_provider: CompilationCatalogProvider = Depends(get_compilation_catalog_provider),
 ) -> RuntimeService:
-    return RuntimeService(settings, controller.backend_statuses)
+    return RuntimeService(settings, controller.backend_statuses, compilation_catalog_provider)
 
 
 ###############################################################################
@@ -92,8 +113,9 @@ def get_keras_import_service(
 def get_compilation_service(
     catalog: NodeCatalog = Depends(get_catalog),
     validator: ValidationService = Depends(get_validation_service),
+    compilation_catalog_provider: CompilationCatalogProvider = Depends(get_compilation_catalog_provider),
 ) -> CompilationService:
-    return CompilationService(catalog, validator)
+    return CompilationService(catalog, validator, compilation_catalog_provider)
 
 
 ###############################################################################
@@ -120,8 +142,9 @@ def get_job_service(
     settings: Settings = Depends(get_settings),
     validator: ValidationService = Depends(get_validation_service),
     exports: ExportService = Depends(get_export_service),
+    compilation_catalog_provider: CompilationCatalogProvider = Depends(get_compilation_catalog_provider),
 ) -> JobService:
-    return JobService(project_service, controller, settings, validator, exports)
+    return JobService(project_service, controller, settings, validator, exports, compilation_catalog_provider)
 
 
 ###############################################################################

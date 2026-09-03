@@ -22,7 +22,7 @@ from repositories.migration_lock import database_migration_lock
 LOGGER = logging.getLogger(__name__)
 
 ALEMBIC_CONFIG_PATH = Path(__file__).resolve().parents[1] / "alembic.ini"
-HEAD_REVISION = "20260902_runtime_batch_shapes"
+HEAD_REVISION = "20260903_custom_metric_definitions"
 ALEMBIC_VERSION_TABLE = "alembic_version"
 
 

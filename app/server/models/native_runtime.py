@@ -8,6 +8,7 @@ from typing import Any, cast
 from common.catalogs.loader import get_node_catalog
 from compilation.compiler import compile_to_ir
 from domain.compilation import CanonicalModelIR
+from domain.compilation_catalog import CompilationCatalog
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from exporters.native_jax_exporter import NativeJaxSourceExporter
@@ -46,6 +47,7 @@ def build_native_model(
     backend: ExecutionBackend,
     *,
     checkpoint: Callable[[], None] | None = None,
+    compilation_catalog: CompilationCatalog | None = None,
 ) -> NativeModelHandle:
     _checkpoint(checkpoint)
     catalog = get_node_catalog()
@@ -55,7 +57,7 @@ def build_native_model(
         ExecutionBackend.PYTORCH: PyTorchSourceExporter(),
         ExecutionBackend.JAX: NativeJaxSourceExporter(),
     }[backend]
-    source = exporter.generate(graph, ir, catalog)
+    source = exporter.generate(graph, ir, catalog, compilation_catalog=compilation_catalog)
     module = types.ModuleType(f"neuro_weave_native_{backend.value}")
     exec(compile(source, f"<neuro-weave-{backend.value}-source>", "exec"), module.__dict__)
     factory = (

@@ -21,6 +21,7 @@ from api.routes import (
     health,
     imports,
     metadata,
+    metrics,
     projects,
     validation,
 )
@@ -127,6 +128,7 @@ def create_app() -> FastAPI:
     )
     application.include_router(health.router)
     application.include_router(metadata.router)
+    application.include_router(metrics.router)
     application.include_router(catalog.router)
     application.include_router(projects.router)
     application.include_router(validation.router)

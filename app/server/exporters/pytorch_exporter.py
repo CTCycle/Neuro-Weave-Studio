@@ -5,8 +5,13 @@ from typing import Any, cast
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
-from domain.compilation_catalog import CompilationOption, get_compilation_catalog
+from domain.compilation_catalog import (
+    CompilationCatalog,
+    CompilationOption,
+    get_compilation_catalog,
+)
 from domain.graph import ModelGraph
+from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 from validation.output_resolution import output_selectors, resolved_outputs
@@ -100,9 +105,11 @@ class PyTorchSourceExporter(SourceExporter):
         graph: ModelGraph,
         ir: CanonicalModelIR,
         catalog: NodeCatalog | None = None,
+        *,
+        compilation_catalog: CompilationCatalog | None = None,
     ) -> str:
         catalog = catalog or get_node_catalog()
-        compilation_catalog = get_compilation_catalog()
+        compilation_catalog = compilation_catalog or get_compilation_catalog()
         nodes = {node.id: node for node in graph.nodes}
         summaries = self._summary_map(ir)
         native = graph.model_configuration.native.pytorch
@@ -565,6 +572,46 @@ class PyTorchSourceExporter(SourceExporter):
                 ]
             )
 
+        custom_loss_lines: list[str] = []
+        custom_metric_lines: list[str] = []
+        custom_loss_entries: list[str] = []
+        custom_metric_entries: list[str] = []
+        referenced_options = {
+            option.id: option
+            for option in (*compilation_catalog.losses, *compilation_catalog.metrics)
+            if option.origin == "custom"
+        }
+        for identifier, _adapter in [*resolved_losses.values(), *[
+            item for values in resolved_metrics.values() for item in values
+        ]]:
+            option = referenced_options.get(identifier)
+            if option is None:
+                continue
+            function_name = "_custom_" + "".join(
+                char if char.isalnum() else "_" for char in identifier
+            )
+            try:
+                expression = emit_metric_formula(
+                    parse_metric_formula(option.formula or ""),
+                    "pytorch",
+                    target="target",
+                    prediction="prediction",
+                )
+            except MetricFormulaError as exc:
+                raise ValueError(f"Invalid custom formula for {identifier}: {exc}") from exc
+            function_lines = [
+                "",
+                "",
+                f"def {function_name}(prediction: Tensor, target: Tensor) -> Tensor:",
+                f"    return {expression}",
+            ]
+            if identifier in {item[0] for item in resolved_losses.values()}:
+                custom_loss_lines.extend(function_lines)
+                custom_loss_entries.append(f"    {identifier!r}: {function_name},")
+            else:
+                custom_metric_lines.extend(function_lines)
+                custom_metric_entries.append(f"    {identifier!r}: {function_name},")
+
         lines.extend(
             [
                 "",
@@ -668,6 +715,8 @@ class PyTorchSourceExporter(SourceExporter):
                 "",
                 "def _metric_root_mean_squared_error(prediction: Tensor, target: Tensor) -> Tensor:",
                 "    return F.mse_loss(prediction, target.to(prediction.dtype)).sqrt()",
+                *custom_loss_lines,
+                *custom_metric_lines,
                 "",
                 "",
                 "_LOSS_ADAPTERS = {",
@@ -678,6 +727,7 @@ class PyTorchSourceExporter(SourceExporter):
                 "    'sparse_categorical_crossentropy': _loss_sparse_categorical_crossentropy,",
                 "    'huber': _loss_huber,",
                 "    'kullback_leibler_divergence': _loss_kullback_leibler_divergence,",
+                *custom_loss_entries,
                 "}",
                 "",
                 "",
@@ -692,6 +742,7 @@ class PyTorchSourceExporter(SourceExporter):
                 "    'mean_absolute_error': _metric_mean_absolute_error,",
                 "    'mean_squared_error': _metric_mean_squared_error,",
                 "    'root_mean_squared_error': _metric_root_mean_squared_error,",
+                *custom_metric_entries,
                 "}",
                 "",
                 "",

@@ -5,9 +5,14 @@ from typing import Any, cast
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
-from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
+from domain.compilation_catalog import (
+    CompilationCatalog,
+    CompilationOption,
+    get_compilation_catalog,
+)
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
+from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
 from exporters.base import SourceExporter
 from validation.output_resolution import output_selectors, resolved_outputs
 
@@ -182,8 +187,8 @@ class KerasSourceExporter(SourceExporter):
                     values.append("None")
                 else:
                     option = cls._catalog_option(compilation_catalog, category, value)
-                    symbol = option.implementations["keras"].symbol
-                    values.append(f"keras.losses.{symbol}()")
+                    symbol = cls._keras_value_source(option)
+                    values.append(symbol)
             else:
                 metric_expressions: list[str] = []
                 metric_values = cast(list[Any], value) if isinstance(value, list) else []
@@ -193,8 +198,7 @@ class KerasSourceExporter(SourceExporter):
                             f"Keras metric identifiers must be strings, got {metric!r}"
                         )
                     option = cls._catalog_option(compilation_catalog, category, metric)
-                    symbol = option.implementations["keras"].symbol
-                    metric_expressions.append(f"keras.metrics.{symbol}()")
+                    metric_expressions.append(cls._keras_value_source(option, metric=True))
                 values.append("[" + ", ".join(metric_expressions) + "]")
         if len(values) == 1:
             return values[0]
@@ -208,9 +212,54 @@ class KerasSourceExporter(SourceExporter):
         if option is None:
             raise ValueError(f"No Keras catalog option registered for {category}.{identifier}")
         implementation = option.implementations.get("keras")
-        if implementation is None or not implementation.supported or not implementation.symbol:
+        if implementation is None or not implementation.supported:
             raise ValueError(f"No Keras implementation registered for {category}.{identifier}")
         return option
+
+    @staticmethod
+    def _custom_function_name(option: CompilationOption) -> str:
+        return "nw_custom_" + "".join(char if char.isalnum() else "_" for char in option.id)
+
+    @classmethod
+    def _keras_value_source(cls, option: CompilationOption, *, metric: bool = False) -> str:
+        implementation = option.implementations.get("keras")
+        if option.origin == "custom":
+            return cls._custom_function_name(option)
+        if implementation is None or not implementation.symbol:
+            raise ValueError(f"No Keras symbol registered for {option.id}")
+        namespace = "metrics" if metric else "losses"
+        return f"keras.{namespace}.{implementation.symbol}()"
+
+    @classmethod
+    def _custom_formula_functions(
+        cls, graph: ModelGraph, compilation_catalog: CompilationCatalog
+    ) -> list[str]:
+        identifiers: set[str] = set()
+        for values in (graph.model_configuration.keras.losses, graph.model_configuration.keras.metrics):
+            for value in values.values():
+                if isinstance(value, str):
+                    identifiers.add(value)
+                elif isinstance(value, list):
+                    identifiers.update(item for item in value if isinstance(item, str))
+        options = [
+            option
+            for option in (*compilation_catalog.losses, *compilation_catalog.metrics)
+            if option.id in identifiers and option.origin == "custom"
+        ]
+        lines: list[str] = []
+        for option in options:
+            try:
+                expression = emit_metric_formula(parse_metric_formula(option.formula or ""), "keras")
+            except MetricFormulaError as exc:
+                raise ValueError(f"Invalid custom formula for {option.id}: {exc}") from exc
+            lines.extend([
+                "",
+                "",
+                f"@keras.saving.register_keras_serializable(package='NeuroWeave', name='{cls._custom_function_name(option)}')",
+                f"def {cls._custom_function_name(option)}(y_true, y_pred):",
+                f"    return {expression}",
+            ])
+        return lines
 
     # -------------------------------------------------------------------------
     @classmethod
@@ -246,9 +295,11 @@ class KerasSourceExporter(SourceExporter):
         graph: ModelGraph,
         ir: CanonicalModelIR,
         catalog: NodeCatalog | None = None,
+        *,
+        compilation_catalog: CompilationCatalog | None = None,
     ) -> str:
         catalog = catalog or get_node_catalog()
-        compilation_catalog = get_compilation_catalog()
+        compilation_catalog = compilation_catalog or get_compilation_catalog()
         nodes = {node.id: node for node in graph.nodes}
         backend = (
             "torch"
@@ -287,6 +338,7 @@ class KerasSourceExporter(SourceExporter):
                     "        return super().get_config()",
                 ]
             )
+        lines.extend(self._custom_formula_functions(graph, compilation_catalog))
         lines.extend(["", "", "def build_model() -> keras.Model:"])
         if graph.model_configuration.keras.random_seed is not None:
             lines.append(

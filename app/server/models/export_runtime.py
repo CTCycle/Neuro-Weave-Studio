@@ -11,6 +11,7 @@ from typing import Any
 from uuid import UUID
 
 from common.catalogs.loader import get_node_catalog
+from domain.compilation_catalog import CompilationCatalog
 from domain.enums import ExecutionBackend
 from domain.exports import (
     ExportArtifactFile,
@@ -49,6 +50,7 @@ def run_model_export(
     checkpoint: Callable[[], None],
     project_id: str | None = None,
     project_revision: int | None = None,
+    compilation_catalog: CompilationCatalog | None = None,
 ) -> dict[str, object]:
     """Build, serialize, reload, and verify one staged export.
 
@@ -65,7 +67,7 @@ def run_model_export(
         checkpoint()
         with scope:
             if api is RuntimeApi.KERAS:
-                model = _build_keras_model(graph, checkpoint)
+                model = _build_keras_model(graph, checkpoint, compilation_catalog)
                 input_values = _keras_dummy_inputs(model)
                 model_input = input_values[0] if len(input_values) == 1 else input_values
                 outputs = _as_list(model(model_input, training=False))
@@ -90,7 +92,7 @@ def run_model_export(
             else:
                 from models.native_runtime import build_native_model, forward_native
 
-                handle = build_native_model(graph, backend, checkpoint=checkpoint)
+                handle = build_native_model(graph, backend, checkpoint=checkpoint, compilation_catalog=compilation_catalog)
                 input_values = handle.inputs
                 outputs = forward_native(handle)
                 synchronize(outputs)
@@ -118,13 +120,17 @@ def run_model_export(
 
 
 ###############################################################################
-def _build_keras_model(graph: ModelGraph, checkpoint: Callable[[], None]) -> Any:
+def _build_keras_model(
+    graph: ModelGraph,
+    checkpoint: Callable[[], None],
+    compilation_catalog: CompilationCatalog | None = None,
+) -> Any:
     from models import keras_worker
     from models.keras_runtime import compile_model
 
     model = keras_worker.build_model(graph, checkpoint=checkpoint)
     checkpoint()
-    compile_model(model, graph)
+    compile_model(model, graph, compilation_catalog=compilation_catalog)
     return model
 
 

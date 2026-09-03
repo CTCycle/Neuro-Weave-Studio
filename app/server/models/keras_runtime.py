@@ -5,8 +5,13 @@ from typing import Any
 import keras
 
 from common.catalogs.loader import get_node_catalog
-from domain.compilation_catalog import CompilationOption, get_compilation_catalog
+from domain.compilation_catalog import (
+    CompilationCatalog,
+    CompilationOption,
+    get_compilation_catalog,
+)
 from domain.graph import ModelGraph
+from domain.metric_formula import MetricFormulaError, evaluate_metric_formula, parse_metric_formula
 from validation.output_resolution import output_selectors, resolved_outputs
 
 
@@ -90,21 +95,20 @@ def _compile_value(values: dict[str, Any], output_count: int) -> Any:
 
 
 ###############################################################################
-def _catalog_option(category: str, identifier: str) -> CompilationOption:
-    catalog = get_compilation_catalog()
+def _catalog_option(category: str, identifier: str, catalog: CompilationCatalog) -> CompilationOption:
     options = getattr(catalog, category)
     option = next((item for item in options if item.id == identifier), None)
     if option is None:
         raise ValueError(f"No Keras catalog option registered for {category}.{identifier}")
     implementation = option.implementations.get("keras")
-    if implementation is None or not implementation.supported or not implementation.symbol:
+    if implementation is None or not implementation.supported:
         raise ValueError(f"No Keras implementation registered for {category}.{identifier}")
     return option
 
 
 ###############################################################################
-def _optimizer(name: str, parameters: dict[str, Any]) -> keras.optimizers.Optimizer:
-    option = _catalog_option("optimizers", name)
+def _optimizer(name: str, parameters: dict[str, Any], catalog: CompilationCatalog) -> keras.optimizers.Optimizer:
+    option = _catalog_option("optimizers", name, catalog)
     implementation = option.implementations["keras"]
     optimizer_type = getattr(keras.optimizers, implementation.symbol or "")
     accepted_parameters = {parameter.id for parameter in option.parameters}
@@ -113,8 +117,32 @@ def _optimizer(name: str, parameters: dict[str, Any]) -> keras.optimizers.Optimi
 
 
 ###############################################################################
-def _compile_option(category: str, identifier: str) -> Any:
-    option = _catalog_option(category, identifier)
+def _custom_formula(option: CompilationOption) -> Any:
+    try:
+        tree = parse_metric_formula(option.formula or "")
+    except MetricFormulaError as exc:
+        raise ValueError(f"Invalid custom formula for {option.id}: {exc}") from exc
+    operations = {
+        "abs": keras.ops.abs,
+        "square": keras.ops.square,
+        "sqrt": keras.ops.sqrt,
+        "log": keras.ops.log,
+        "exp": keras.ops.exp,
+        "mean": keras.ops.mean,
+        "sum": keras.ops.sum,
+    }
+
+    def custom(y_true: Any, y_pred: Any) -> Any:
+        return evaluate_metric_formula(tree, y_true, y_pred, operations)
+
+    custom.__name__ = option.id
+    return custom
+
+
+def _compile_option(category: str, identifier: str, catalog: CompilationCatalog) -> Any:
+    option = _catalog_option(category, identifier, catalog)
+    if option.origin == "custom":
+        return _custom_formula(option)
     implementation = option.implementations["keras"]
     namespace = keras.losses if category == "losses" else keras.metrics
     factory = getattr(namespace, implementation.symbol or "")
@@ -122,12 +150,12 @@ def _compile_option(category: str, identifier: str) -> Any:
 
 
 ###############################################################################
-def _resolve_compilation_values(values: dict[str, Any], category: str) -> dict[str, Any]:
+def _resolve_compilation_values(values: dict[str, Any], category: str, catalog: CompilationCatalog) -> dict[str, Any]:
     return {
         output_id: (
-            _compile_option(category, value)
+            _compile_option(category, value, catalog)
             if category == "losses" and isinstance(value, str)
-            else [_compile_option(category, item) for item in value]
+            else [_compile_option(category, item, catalog) for item in value]
             if category == "metrics" and isinstance(value, list)
             else value
         )
@@ -136,14 +164,15 @@ def _resolve_compilation_values(values: dict[str, Any], category: str) -> dict[s
 
 
 ###############################################################################
-def compile_model(model: keras.Model, graph: ModelGraph) -> keras.Model:
+def compile_model(model: keras.Model, graph: ModelGraph, *, compilation_catalog: CompilationCatalog | None = None) -> keras.Model:
+    compilation_catalog = compilation_catalog or get_compilation_catalog()
     configuration = graph.model_configuration.keras
     losses = _configured_values(graph, configuration.losses, default=None)
     metrics = _configured_values(graph, configuration.metrics, default=[])
-    losses = _resolve_compilation_values(losses, "losses")
-    metrics = _resolve_compilation_values(metrics, "metrics")
+    losses = _resolve_compilation_values(losses, "losses", compilation_catalog)
+    metrics = _resolve_compilation_values(metrics, "metrics", compilation_catalog)
     model.compile(
-        optimizer=_optimizer(configuration.optimizer, configuration.optimizer_parameters),
+        optimizer=_optimizer(configuration.optimizer, configuration.optimizer_parameters, compilation_catalog),
         loss=_compile_value(losses, len(_output_names(graph))),
         metrics=_compile_value(metrics, len(_output_names(graph))),
     )

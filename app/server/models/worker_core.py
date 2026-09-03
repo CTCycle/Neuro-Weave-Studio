@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from common.process_control import process_rss_bytes
+from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
 from domain.exports import ExportFormat, ExportOptions, export_suffix
 from domain.graph import ModelGraph
 from domain.runtime import WorkerConfiguration
@@ -109,6 +110,9 @@ def run_job(
     operation = cast(dict[str, object], payload["operation"])
     operation_type = str(operation.get("type"))
     graph = ModelGraph.model_validate(operation.get("graph"))
+    compilation_catalog = CompilationCatalog.model_validate(
+        operation.get("compilation_catalog") or get_compilation_catalog().model_dump(mode="json")
+    )
     model_checkpoint = partial(
         context.checkpoint,
         "model_loading",
@@ -117,7 +121,7 @@ def run_job(
     )
 
     if operation_type == "smoke_inference":
-        result = worker.run_smoke(graph, model_checkpoint)
+        result = worker.run_smoke(graph, model_checkpoint, compilation_catalog=compilation_catalog)
         context.checkpoint("validating", "Forward pass completed", 90)
     elif operation_type == "model_export":
         export_format = ExportFormat(str(operation.get("format")))
@@ -139,6 +143,7 @@ def run_job(
                 if isinstance(operation.get("project_revision"), int)
                 else None
             ),
+            compilation_catalog=compilation_catalog,
         )
         context.checkpoint("validating", "Artifact verification completed", 95)
     else:
