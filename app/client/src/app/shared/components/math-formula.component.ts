@@ -3,7 +3,7 @@ import katex from 'katex'
 
 const MAX_FORMULA_FONT_SIZE = 12
 const MIN_FORMULA_FONT_SIZE = 7.5
-const MAX_PROMINENT_FORMULA_FONT_SIZE = 16
+const MAX_PROMINENT_FORMULA_FONT_SIZE = 18
 const MIN_PROMINENT_FORMULA_FONT_SIZE = 9
 
 export function fittedFormulaFontSize(
