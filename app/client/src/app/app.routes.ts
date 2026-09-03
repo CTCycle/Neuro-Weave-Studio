@@ -33,6 +33,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/builder/model-builder-page.component').then((module) => module.ModelBuilderPageComponent),
       },
       {
+        path: 'nodes',
+        loadComponent: () => import('./features/nodes/nodes-page.component').then((module) => module.NodesPageComponent),
+      },
+      {
         path: 'datasets',
         loadComponent: () => import('./features/datasets/datasets-page.component').then((module) => module.DatasetsPageComponent),
       },
@@ -47,6 +51,10 @@ export const routes: Routes = [
       {
         path: 'metrics',
         loadComponent: () => import('./features/metrics/metrics-page.component').then((module) => module.MetricsPageComponent),
+      },
+      {
+        path: 'settings',
+        loadComponent: () => import('./features/settings/settings-page.component').then((module) => module.SettingsPageComponent),
       },
       { path: '**', redirectTo: 'models' },
     ],
