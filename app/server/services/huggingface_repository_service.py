@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -39,7 +40,8 @@ class HuggingFaceRepositoryService:
         )
         try:
             with urlopen(request, timeout=self._timeout_seconds) as response:
-                payload = json.loads(response.read().decode("utf-8"))
+                decoded = response.read().decode("utf-8")
+                raw_payload = cast(object, json.loads(decoded))
         except HTTPError as exc:
             if exc.code == 404:
                 raise HuggingFaceReferenceError(
@@ -57,10 +59,11 @@ class HuggingFaceRepositoryService:
                 "Hugging Face returned an unreadable repository response"
             ) from exc
 
-        if not isinstance(payload, dict):
+        if not isinstance(raw_payload, dict):
             raise HuggingFaceUnavailableError(
                 "Hugging Face returned an unexpected repository response"
             )
+        payload = cast(dict[str, object], raw_payload)
         commit = payload.get("sha")
         if not isinstance(commit, str) or len(commit) != 40:
             raise HuggingFaceUnavailableError(
