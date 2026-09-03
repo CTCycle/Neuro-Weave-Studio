@@ -55,7 +55,7 @@ class ValidationResult(BaseModel):
     diagnostics: list[ValidationDiagnostic]
     shape_summaries: list[ShapeSummary] = Field(default_factory=lambda: list[ShapeSummary]())
     total_parameters: int | None = None
-    effective_outputs: list[OutputReference] = Field(default_factory=list)
+    effective_outputs: list[OutputReference] = Field(default_factory=lambda: list[OutputReference]())
     output_mode: Literal["explicit", "inferred"] = "inferred"
     model_type: ModelTypeInference = Field(
         default_factory=lambda: ModelTypeInference(
@@ -75,7 +75,7 @@ class ConnectionValidationRequest(BaseModel):
 ###############################################################################
 class ConnectionValidationResult(BaseModel):
     valid: bool
-    diagnostics: list[ValidationDiagnostic] = Field(default_factory=list)
+    diagnostics: list[ValidationDiagnostic] = Field(default_factory=lambda: list[ValidationDiagnostic]())
 
 
 ###############################################################################
