@@ -13,17 +13,23 @@ export class CustomNodeMaterializerService {
   private readonly store = inject(GraphEditorStore)
 
   materialize(definition: CustomNodeDefinition, position: { x: number; y: number }): void {
-    if (definition.spec.type === 'mathematical') {
-      this.materializeMathematical(definition, position)
-      return
+    const before = this.store.captureEditorSession()
+    try {
+      if (definition.spec.type === 'mathematical') {
+        this.materializeMathematical(definition, position)
+        return
+      }
+      if (definition.spec.type === 'composite') {
+        this.materializeComposite(definition, position)
+        return
+      }
+      throw new Error(
+        'Repository references are verified metadata only until a trusted execution adapter is available.',
+      )
+    } catch (error) {
+      this.store.restoreEditorSession(before)
+      throw error
     }
-    if (definition.spec.type === 'composite') {
-      this.materializeComposite(definition, position)
-      return
-    }
-    throw new Error(
-      'Repository references are verified metadata only until a trusted execution adapter is available.',
-    )
   }
 
   private materializeMathematical(
