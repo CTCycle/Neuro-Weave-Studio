@@ -7,6 +7,7 @@ from common.catalogs.loader import NodeCatalog
 from common.timestamps import utc_now
 from domain.custom_math import CustomMathFormulaError, parse_custom_math_formula
 from domain.custom_nodes import (
+    CompositeNodeComponent,
     CompositeNodeSpec,
     CustomNodeCatalogResponse,
     CustomNodeDefinitionCreate,
@@ -16,10 +17,15 @@ from domain.custom_nodes import (
     MathematicalNodeSpec,
     RepositoryNodeSpec,
 )
+from domain.manifests import NodeManifest
 from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
 from repositories.custom_nodes import CustomNodeDefinitionRecord
 from services.huggingface_repository_service import HuggingFaceRepositoryService
-from validation.parameter_values import ParameterValueError, normalize_manifest_parameters
+from validation.parameter_values import (
+    ParameterValueError,
+    condition_matches,
+    normalize_manifest_parameters,
+)
 
 
 class CustomNodeDefinitionConflictError(ValueError):
@@ -121,8 +127,8 @@ class CustomNodeService:
         if not isinstance(spec, CompositeNodeSpec):
             return spec
 
-        normalized_components = []
-        manifests = []
+        normalized_components: list[CompositeNodeComponent] = []
+        manifests: list[NodeManifest] = []
         for component in spec.components:
             try:
                 manifest = self._catalog.get(component.definition_id, component.definition_version)
@@ -141,19 +147,33 @@ class CustomNodeService:
             manifests.append(manifest)
             normalized_components.append(component.model_copy(update={"parameters": parameters}))
 
-        for source, target in zip(manifests, manifests[1:], strict=False):
+        for index in range(len(manifests) - 1):
+            source_manifest = manifests[index]
+            target_manifest = manifests[index + 1]
+            source_parameters = normalized_components[index].parameters
+            target_parameters = normalized_components[index + 1].parameters
+            source_ports = [
+                port
+                for port in source_manifest.outputs
+                if condition_matches(port.enabled_when, source_parameters)
+            ]
+            target_ports = [
+                port
+                for port in target_manifest.inputs
+                if condition_matches(port.enabled_when, target_parameters)
+            ]
             compatible = any(
                 source_port.kind == target_port.kind
                 or (
                     target_port.kind.value == "tensor_list"
                     and target_port.element_kind == source_port.kind
                 )
-                for source_port in source.outputs
-                for target_port in target.inputs
+                for source_port in source_ports
+                for target_port in target_ports
             )
             if not compatible:
                 raise ValueError(
-                    f"Sequential components {source.id} and {target.id} do not expose compatible ports"
+                    f"Sequential components {source_manifest.id} and {target_manifest.id} do not expose compatible active ports"
                 )
         return spec.model_copy(update={"components": normalized_components})
 
