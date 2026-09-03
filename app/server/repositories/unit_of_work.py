@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from repositories.code_snapshots import CodeSnapshotRepository
 from repositories.contracts import RepositoryIntegrityError
+from repositories.custom_nodes import CustomNodeRepository
 from repositories.graphs import GraphRepository
 from repositories.metrics import MetricRepository
 from repositories.projects import ProjectRepository
@@ -72,6 +73,11 @@ class UnitOfWork:
     @property
     def metrics(self) -> MetricRepository:
         return MetricRepository(self._require_session())
+
+    # -------------------------------------------------------------------------
+    @property
+    def custom_nodes(self) -> CustomNodeRepository:
+        return CustomNodeRepository(self._require_session())
 
     # -------------------------------------------------------------------------
     def commit(self) -> None:
