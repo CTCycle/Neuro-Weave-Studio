@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from common.catalogs.loader import NodeCatalog
 from common.timestamps import utc_now
+from domain.custom_math import CustomMathFormulaError, parse_custom_math_formula
 from domain.custom_nodes import (
     CompositeNodeSpec,
     CustomNodeCatalogResponse,
@@ -12,9 +13,13 @@ from domain.custom_nodes import (
     CustomNodeDefinitionResponse,
     CustomNodeDefinitionUpdate,
     CustomNodeSpec,
+    MathematicalNodeSpec,
+    RepositoryNodeSpec,
 )
 from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
 from repositories.custom_nodes import CustomNodeDefinitionRecord
+from services.huggingface_repository_service import HuggingFaceRepositoryService
+from validation.parameter_values import ParameterValueError, normalize_manifest_parameters
 
 
 class CustomNodeDefinitionConflictError(ValueError):
@@ -23,9 +28,15 @@ class CustomNodeDefinitionConflictError(ValueError):
 
 ###############################################################################
 class CustomNodeService:
-    def __init__(self, uow_factory: UnitOfWorkFactory, catalog: NodeCatalog) -> None:
+    def __init__(
+        self,
+        uow_factory: UnitOfWorkFactory,
+        catalog: NodeCatalog,
+        repository_service: HuggingFaceRepositoryService | None = None,
+    ) -> None:
         self._uow_factory = uow_factory
         self._catalog = catalog
+        self._repository_service = repository_service or HuggingFaceRepositoryService()
 
     def list(self) -> CustomNodeCatalogResponse:
         with self._uow_factory() as uow:
@@ -41,6 +52,7 @@ class CustomNodeService:
             now = utc_now()
             record = CustomNodeDefinitionRecord(
                 id=f"custom.node.{uuid4().hex}",
+                version=1,
                 kind=spec.type,
                 display_name=payload.display_name,
                 normalized_name=normalized_name,
@@ -69,6 +81,7 @@ class CustomNodeService:
                     raise PermissionError("Built-in node definitions are locked")
                 raise KeyError(definition_id)
             self._assert_name_available(uow, normalized_name, exclude_id=definition_id)
+            record.version += 1
             record.kind = spec.type
             record.display_name = payload.display_name
             record.normalized_name = normalized_name
@@ -90,9 +103,26 @@ class CustomNodeService:
             uow.commit()
 
     def _normalize_spec(self, spec: CustomNodeSpec) -> CustomNodeSpec:
+        if isinstance(spec, MathematicalNodeSpec):
+            try:
+                expression = parse_custom_math_formula(spec.formula)
+            except CustomMathFormulaError as exc:
+                raise ValueError(str(exc)) from exc
+            return spec.model_copy(update={"expression": expression, "input_symbols": ["x"]})
+        if isinstance(spec, RepositoryNodeSpec):
+            metadata = self._repository_service.resolve(spec.repository_id, spec.revision)
+            return spec.model_copy(
+                update={
+                    "resolved_commit": metadata.commit,
+                    "library_name": metadata.library_name,
+                    "pipeline_tag": metadata.pipeline_tag,
+                }
+            )
         if not isinstance(spec, CompositeNodeSpec):
             return spec
+
         normalized_components = []
+        manifests = []
         for component in spec.components:
             try:
                 manifest = self._catalog.get(component.definition_id, component.definition_version)
@@ -100,20 +130,31 @@ class CustomNodeService:
                 raise ValueError(
                     f"Unknown built-in node definition: {component.definition_id}@{component.definition_version}"
                 ) from exc
-            known_parameters = {parameter.id: parameter for parameter in manifest.parameters}
-            unknown_parameters = sorted(set(component.parameters) - set(known_parameters))
-            if unknown_parameters:
+            if manifest.semantic_role != "operation" or manifest.deprecated:
                 raise ValueError(
-                    f"Unknown parameters for {manifest.id}: {', '.join(unknown_parameters)}"
+                    f"Composite templates may only use active operation nodes; {manifest.id} is not eligible"
                 )
-            values: dict[str, object] = {}
-            for parameter in manifest.parameters:
-                default = parameter.editor_default
-                if default is None:
-                    default = parameter.default
-                values[parameter.id] = default
-            values.update(component.parameters)
-            normalized_components.append(component.model_copy(update={"parameters": values}))
+            try:
+                parameters = normalize_manifest_parameters(manifest, component.parameters)
+            except ParameterValueError as exc:
+                raise ValueError(f"Invalid parameters for {manifest.id}: {exc}") from exc
+            manifests.append(manifest)
+            normalized_components.append(component.model_copy(update={"parameters": parameters}))
+
+        for source, target in zip(manifests, manifests[1:], strict=False):
+            compatible = any(
+                source_port.kind == target_port.kind
+                or (
+                    target_port.kind.value == "tensor_list"
+                    and target_port.element_kind == source_port.kind
+                )
+                for source_port in source.outputs
+                for target_port in target.inputs
+            )
+            if not compatible:
+                raise ValueError(
+                    f"Sequential components {source.id} and {target.id} do not expose compatible ports"
+                )
         return spec.model_copy(update={"components": normalized_components})
 
     def _assert_not_builtin_name(self, display_name: str) -> None:
@@ -144,11 +185,13 @@ class CustomNodeService:
         return CustomNodeDefinitionResponse.model_validate(
             {
                 "id": record.id,
+                "version": record.version,
                 "display_name": record.display_name,
                 "category": record.category,
                 "description": record.description,
                 "kind": record.kind,
                 "spec": record.spec_json,
+                "executable_template": record.kind in {"mathematical", "composite"},
                 "created_at": record.created_at,
                 "updated_at": record.updated_at,
             }
