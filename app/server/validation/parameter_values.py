@@ -10,7 +10,7 @@ class ParameterValueError(ValueError):
     pass
 
 
-def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
+def condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
     for parameter_id, expected in condition.items():
         actual = parameters.get(parameter_id)
         if isinstance(expected, dict):
@@ -162,12 +162,12 @@ def normalize_manifest_parameters(
     values = {parameter.id: _default(parameter) for parameter in manifest.parameters}
     values.update(supplied)
     for parameter in manifest.parameters:
-        if not _condition_matches(parameter.visible_when, values):
+        if not condition_matches(parameter.visible_when, values):
             continue
         supplied_value = parameter.id in supplied
         value = values.get(parameter.id)
         required = parameter.required or (
-            bool(parameter.required_when) and _condition_matches(parameter.required_when, values)
+            bool(parameter.required_when) and condition_matches(parameter.required_when, values)
         )
         if required and not supplied_value and value is None:
             raise ParameterValueError(f"Parameter '{parameter.display_name}' is required")
@@ -185,7 +185,7 @@ def normalize_manifest_parameters(
             raise ParameterValueError(
                 f"Parameter '{parameter.display_name}' has an unsupported value"
             )
-        if supplied_value and not _condition_matches(parameter.enabled_when, values):
+        if supplied_value and not condition_matches(parameter.enabled_when, values):
             if value != _default(parameter):
                 raise ParameterValueError(
                     f"Parameter '{parameter.display_name}' is disabled by the current configuration"
