@@ -7,27 +7,28 @@ import { AppResourcesService } from '../../core/state/app-resources.service'
 import type { ExecutionBackend, ProjectExportBundle, ProjectSummary } from '../../domain/types'
 import { executionBackendShortLabels } from '../../domain/types'
 import { CompilationStatusBadgeComponent, ValidationStatusBadgeComponent } from '../../shared/components/model-status-badge.component'
+import { ModalGuardDirective } from '../../shared/components/modal-guard.directive'
 
 type CatalogFilter = 'all' | 'compiled' | 'uncompiled' | 'valid' | 'attention'
 
 @Component({
   selector: 'nw-model-catalog-page',
   standalone: true,
-  imports: [RouterLink, LucideBox, LucideFilePlus2, LucideFilter, LucideFolderOpen, LucideImport, LucideSearch, LucideTrash2, ValidationStatusBadgeComponent, CompilationStatusBadgeComponent],
+  imports: [RouterLink, LucideBox, LucideFilePlus2, LucideFilter, LucideFolderOpen, LucideImport, LucideSearch, LucideTrash2, ValidationStatusBadgeComponent, CompilationStatusBadgeComponent, ModalGuardDirective],
   template: `
     @if (!resources.projectsReady()) {
       <section class="page-state panel"><span class="eyebrow">MODEL CATALOG</span><h1>Loading saved models…</h1></section>
     } @else {
       <div class="catalog-page">
         <header class="catalog-page-header">
-          <div><span class="eyebrow">MODEL LIBRARY</span><h1>Saved models</h1><p>Browse architectures, review readiness, and open a dedicated model workflow.</p></div>
+          <div><span class="eyebrow page-eyebrow">MODEL LIBRARY</span><h1>Saved models</h1><p>Browse architectures, review readiness, and open a dedicated model workflow.</p></div>
           <div class="catalog-header-actions">
             <a class="primary inline-action" routerLink="/builder"><svg lucideFilePlus2 [size]="16"></svg>New model</a>
             <button class="secondary" type="button" (click)="openImport()"><svg lucideImport [size]="16"></svg>Import model</button>
             <input #importInput type="file" accept="application/json,.json,.keras,application/vnd.keras.zip" hidden (change)="importModel(importInput.files?.[0] ?? null)" />
           </div>
         </header>
-        <section class="catalog-controls panel">
+        <section class="catalog-controls">
           <label class="search-field"><svg lucideSearch [size]="16"></svg><input aria-label="Search models" placeholder="Search saved models" [value]="query()" (input)="query.set($any($event.target).value)" /></label>
           <div class="catalog-filter-label"><svg lucideFilter [size]="14"></svg><span>Filter</span></div>
           <div class="catalog-filter-tabs" role="tablist" aria-label="Model filters">
@@ -42,7 +43,7 @@ type CatalogFilter = 'all' | 'compiled' | 'uncompiled' | 'valid' | 'attention'
           <div class="model-card-grid">@for (project of filteredProjects(); track project.id) { <article class="model-card panel"><a class="model-card-link" [routerLink]="['/models', project.id]"><div class="model-card-top"><span class="eyebrow">MODEL</span><span class="revision-label">r{{ project.current_revision }}</span></div><div class="model-card-title"><h2>{{ project.name }}</h2><span class="model-card-arrow">→</span></div><p>{{ project.description || 'No description added.' }}</p><div class="model-card-meta"><nw-validation-status-badge [status]="project.validation_status"></nw-validation-status-badge><nw-compilation-status-badge [compiled]="project.has_generated_source"></nw-compilation-status-badge><div class="model-profile-meta"><span>Backend</span><strong>{{ backendLabel(project.execution_backend) }}</strong></div><div class="model-profile-meta"><span>API</span><strong>{{ project.keras_enabled ? 'Keras layer' : 'Native' }}</strong></div></div><div class="model-card-stats"><span><strong>{{ inputCount(project) }}</strong> inputs</span><span><strong>{{ outputCount(project) }}</strong> outputs</span><span><strong>{{ project.node_count }}</strong> nodes</span><span><strong>{{ project.edge_count }}</strong> connections</span></div><footer><span>Updated {{ formatUpdated(project.updated_at) }}</span><svg lucideBox [size]="13"></svg></footer></a><button class="icon-button danger-button model-card-delete" type="button" [disabled]="deleteBusy()" [attr.aria-label]="'Delete model ' + project.name" title="Delete model" (click)="openDelete(project)"><svg lucideTrash2 [size]="16"></svg></button></article> }</div>
         }
         @if (notice()) { <button class="notice catalog-notice" type="button" aria-label="Dismiss catalog notice" aria-live="polite" (click)="notice.set(null)">{{ notice() }}</button> }
-        @if (deleteTarget(); as project) { <div class="dialog-backdrop"><section class="confirm-dialog panel" role="alertdialog" aria-modal="true" aria-labelledby="catalog-delete-model-title" [attr.aria-busy]="deleteBusy()"><span class="eyebrow">DELETE MODEL</span><h2 id="catalog-delete-model-title">Delete “{{ project.name }}”?</h2><p>This permanently removes the saved architecture, revisions, and generated snapshots. This action cannot be undone.</p>@if (deleteError()) { <p class="delete-dialog-error" role="alert">{{ deleteError() }}</p> }<div class="dialog-actions"><button class="secondary" type="button" (click)="cancelDelete()" [disabled]="deleteBusy()">Cancel</button><button class="primary danger-action" type="button" (click)="confirmDelete()" [disabled]="deleteBusy()">{{ deleteBusy() ? 'Deleting…' : 'Delete permanently' }}</button></div></section></div> }
+        @if (deleteTarget(); as project) { <div class="dialog-backdrop" nwModalGuard><section class="confirm-dialog panel" role="alertdialog" aria-modal="true" aria-labelledby="catalog-delete-model-title" [attr.aria-busy]="deleteBusy()"><span class="eyebrow">DELETE MODEL</span><h2 id="catalog-delete-model-title">Delete “{{ project.name }}”?</h2><p>This permanently removes the saved architecture, revisions, and generated snapshots. This action cannot be undone.</p>@if (deleteError()) { <p class="delete-dialog-error" role="alert">{{ deleteError() }}</p> }<div class="dialog-actions"><button class="secondary" type="button" (click)="cancelDelete()" [disabled]="deleteBusy()">Cancel</button><button class="primary danger-action" type="button" (click)="confirmDelete()" [disabled]="deleteBusy()">{{ deleteBusy() ? 'Deleting…' : 'Delete permanently' }}</button></div></section></div> }
       </div>
     }
   `,

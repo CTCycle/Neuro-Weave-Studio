@@ -16,4 +16,9 @@ describe('fittedFormulaFontSize', () => {
   it('does not shrink below the readable minimum', () => {
     expect(fittedFormulaFontSize(40, 1000)).toBe(7.5)
   })
+
+  it('supports a larger readable presentation variant', () => {
+    expect(fittedFormulaFontSize(240, 180, 16, 9)).toBe(16)
+    expect(fittedFormulaFontSize(40, 1000, 16, 9)).toBe(9)
+  })
 })

@@ -14,6 +14,8 @@ import type {
   JobResponse,
   KerasArchitectureImportResponse,
   MetadataResponse,
+  MetricCatalogResponse,
+  MetricDefinition,
   NodeManifest,
   ProjectDocument,
   ProjectExportBundle,
@@ -191,5 +193,21 @@ export class ApiService {
       extensions: extensions.join(','),
     })
     return this.request(`/filesystem/browse?${query.toString()}`)
+  }
+
+  metrics(): Promise<MetricCatalogResponse> {
+    return this.request('/metrics')
+  }
+
+  createMetric(payload: Pick<MetricDefinition, 'kind' | 'label' | 'description'> & { formula: string }): Promise<MetricDefinition> {
+    return this.request('/metrics', 'POST', payload)
+  }
+
+  updateMetric(id: string, payload: Pick<MetricDefinition, 'label' | 'description'> & { formula: string }): Promise<MetricDefinition> {
+    return this.request(`/metrics/${encodeURIComponent(id)}`, 'PUT', payload)
+  }
+
+  deleteMetric(id: string): Promise<void> {
+    return this.request(`/metrics/${encodeURIComponent(id)}`, 'DELETE')
   }
 }

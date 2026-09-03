@@ -9,6 +9,7 @@ import type {
 } from '../../domain/types'
 import { emptyModelConfiguration } from '../../domain/types'
 import { MathFormulaComponent } from '../../shared/components/math-formula.component'
+import { ModalGuardDirective } from '../../shared/components/modal-guard.directive'
 
 export interface CompilationOutputDescriptor {
   id: string
@@ -22,9 +23,9 @@ type CompilationTab = 'optimizer' | 'outputs' | 'advanced' | 'native'
 @Component({
   selector: 'nw-compilation-configuration-dialog',
   standalone: true,
-  imports: [MathFormulaComponent],
+  imports: [MathFormulaComponent, ModalGuardDirective],
   template: `
-    <div class="dialog-backdrop compilation-modal-backdrop" role="presentation" (mousedown)="closeFromBackdrop($event)">
+    <div class="dialog-backdrop compilation-modal-backdrop" nwModalGuard role="presentation" (mousedown)="closeFromBackdrop($event)">
       <section class="compilation-modal panel" role="dialog" aria-modal="true" aria-labelledby="compilation-modal-title" (mousedown)="$event.stopPropagation()">
         <header class="compilation-modal-header">
           <div><span class="eyebrow">COMPILATION CONFIGURATION</span><h2 id="compilation-modal-title">{{ kerasEnabled() ? 'Configure Keras compilation' : 'Configure native ' + (nativeCapability()?.backend ?? 'backend') }}</h2><p>Optimizer, output objectives, metrics, and compiler settings are stored against the saved graph revision.</p></div>
