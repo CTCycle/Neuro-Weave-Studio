@@ -141,15 +141,17 @@ class CustomNodeService:
 
     @staticmethod
     def _from_record(record: CustomNodeDefinitionRecord) -> CustomNodeDefinitionResponse:
-        return CustomNodeDefinitionResponse(
-            id=record.id,
-            display_name=record.display_name,
-            category=record.category,
-            description=record.description,
-            kind=cast(str, record.kind),  # type: ignore[arg-type]
-            spec=cast(CustomNodeSpec, record.spec_json),
-            created_at=record.created_at,
-            updated_at=record.updated_at,
+        return CustomNodeDefinitionResponse.model_validate(
+            {
+                "id": record.id,
+                "display_name": record.display_name,
+                "category": record.category,
+                "description": record.description,
+                "kind": record.kind,
+                "spec": record.spec_json,
+                "created_at": record.created_at,
+                "updated_at": record.updated_at,
+            }
         )
 
 
