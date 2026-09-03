@@ -101,7 +101,7 @@ def test_composite_nodes_validate_builtin_components_and_normalize_parameters(
     assert created.status_code == 201, created.text
     components = created.json()["spec"]["components"]
     assert components[0]["parameters"]["units"] == 64
-    assert "trainable" in components[0]["parameters"]
+    assert "activation" in components[0]["parameters"]
 
     invalid = client.post(
         "/api/nodes/custom",
