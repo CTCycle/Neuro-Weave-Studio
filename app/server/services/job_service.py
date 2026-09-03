@@ -4,6 +4,7 @@ import re
 from uuid import UUID
 
 from configurations.settings import Settings
+from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity
 from domain.exports import ExportFormat, ExportOptions, export_suffix
@@ -29,12 +30,14 @@ class JobService:
         settings: Settings,
         validator: ValidationService,
         exports: ExportService,
+        compilation_catalog_provider: CompilationCatalogProvider | None = None,
     ) -> None:
         self._validator = validator
         self._projects = projects
         self._controller = controller
         self._settings = settings
         self._exports = exports
+        self._compilation_catalog_provider = compilation_catalog_provider or get_compilation_catalog_provider()
 
     # -------------------------------------------------------------------------
     def submit(self, request: JobSubmitRequest) -> JobResponse:
@@ -52,6 +55,7 @@ class JobService:
             return self._controller.submit(
                 request,
                 graph=graph,
+                compilation_catalog=self._compilation_catalog_provider.get(),
             )
 
         operation = request.operation
@@ -118,6 +122,7 @@ class JobService:
             revision_checker=lambda: self._project_revision_is_current(
                 project_id, project.current_revision
             ),
+            compilation_catalog=self._compilation_catalog_provider.get(),
         )
 
     # -------------------------------------------------------------------------

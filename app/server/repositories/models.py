@@ -270,3 +270,32 @@ class GeneratedCodeSnapshotRecord(Base):
         ),
         Index("ix_generated_code_snapshots_project", "project_id", "revision"),
     )
+
+
+###############################################################################
+class CustomMetricDefinitionRecord(Base):
+    """Installation-wide user metric/loss definitions."""
+
+    __tablename__ = "custom_metric_definitions"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    normalized_label: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    formula_latex: Mapped[str] = mapped_column(Text, nullable=False)
+    expression_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('metric', 'loss')", name="ck_custom_metric_definitions_kind"),
+        CheckConstraint("length(trim(label)) > 0", name="ck_custom_metric_definitions_label"),
+        CheckConstraint("length(trim(formula_latex)) > 0", name="ck_custom_metric_definitions_formula"),
+        UniqueConstraint(
+            "kind",
+            "normalized_label",
+            name="uq_custom_metric_definitions_kind_label",
+        ),
+        Index("ix_custom_metric_definitions_kind", "kind"),
+    )

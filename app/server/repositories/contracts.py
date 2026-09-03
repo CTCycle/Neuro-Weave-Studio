@@ -135,6 +135,32 @@ class CodeSnapshotRepositoryProtocol(Protocol):
         timestamp: datetime,
     ) -> None: ...
 
+    # -------------------------------------------------------------------------
+    def delete_for_projects(self, project_ids: Sequence[UUID]) -> int: ...
+
+
+@dataclass(frozen=True, slots=True)
+class MetricUsage:
+    project_id: UUID
+    project_name: str
+
+
+class MetricRepositoryProtocol(Protocol):
+    # -------------------------------------------------------------------------
+    def list_all(self) -> list[Any]: ...
+
+    # -------------------------------------------------------------------------
+    def get(self, metric_id: str) -> Any | None: ...
+
+    # -------------------------------------------------------------------------
+    def add(self, record: Any) -> None: ...
+
+    # -------------------------------------------------------------------------
+    def delete(self, record: Any) -> None: ...
+
+    # -------------------------------------------------------------------------
+    def referencing_projects(self, metric_id: str) -> list[MetricUsage]: ...
+
 
 ###############################################################################
 class UnitOfWorkProtocol(Protocol):
@@ -153,6 +179,10 @@ class UnitOfWorkProtocol(Protocol):
     # -------------------------------------------------------------------------
     @property
     def code_snapshots(self) -> CodeSnapshotRepositoryProtocol: ...
+
+    # -------------------------------------------------------------------------
+    @property
+    def metrics(self) -> MetricRepositoryProtocol: ...
 
     # -------------------------------------------------------------------------
     def __enter__(self) -> UnitOfWorkProtocol: ...

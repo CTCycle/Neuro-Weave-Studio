@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 from common.catalogs.loader import get_node_catalog
+from domain.compilation_catalog import CompilationCatalog
 from domain.enums import ExecutionBackend, keras_backend_value
 from domain.exports import ExportFormat, ExportOptions
 from domain.graph import ModelGraph
@@ -50,6 +51,8 @@ class BackendWorker(Protocol):
         self,
         graph: ModelGraph,
         checkpoint: Callable[[], None],
+        *,
+        compilation_catalog: CompilationCatalog | None = None,
     ) -> dict[str, object]: ...
 
     # -------------------------------------------------------------------------
@@ -62,6 +65,7 @@ class BackendWorker(Protocol):
         checkpoint: Callable[[], None],
         project_id: str | None = None,
         project_revision: int | None = None,
+        compilation_catalog: CompilationCatalog | None = None,
     ) -> dict[str, object]: ...
 
     # -------------------------------------------------------------------------
@@ -128,6 +132,7 @@ def run_keras_smoke(
     scope: AbstractContextManager[Any],
     synchronize: Callable[[list[Any]], None],
     checkpoint: Callable[[], None],
+    compilation_catalog: CompilationCatalog | None = None,
 ) -> dict[str, object]:
     started = time.perf_counter()
     checkpoint()
@@ -135,7 +140,7 @@ def run_keras_smoke(
         checkpoint()
         model = build_model(graph, checkpoint=checkpoint)
         checkpoint()
-        compile_model(model, graph)
+        compile_model(model, graph, compilation_catalog=compilation_catalog)
         input_values = _dummy_inputs(keras_module, model)
         model_input: Any = input_values[0] if len(input_values) == 1 else input_values
         output_values = model(model_input, training=False)
@@ -180,6 +185,7 @@ def run_native_smoke(
     scope: AbstractContextManager[Any],
     synchronize: Callable[[list[Any]], None],
     checkpoint: Callable[[], None],
+    compilation_catalog: CompilationCatalog | None = None,
 ) -> dict[str, object]:
     """Run a smoke pass through the raw framework implementation only."""
 
@@ -188,7 +194,7 @@ def run_native_smoke(
     started = time.perf_counter()
     checkpoint()
     with scope:
-        handle = build_native_model(graph, backend, checkpoint=checkpoint)
+        handle = build_native_model(graph, backend, checkpoint=checkpoint, compilation_catalog=compilation_catalog)
         checkpoint()
         actual_outputs = forward_native(handle)
         compilation = _verify_native_compilation(graph, handle, checkpoint)
@@ -376,6 +382,7 @@ def run_model_export(
     checkpoint: Callable[[], None],
     project_id: str | None = None,
     project_revision: int | None = None,
+    compilation_catalog: CompilationCatalog | None = None,
 ) -> dict[str, object]:
     from models.export_runtime import run_model_export as execute_export
 
@@ -392,6 +399,7 @@ def run_model_export(
         checkpoint=checkpoint,
         project_id=project_id,
         project_revision=project_revision,
+        compilation_catalog=compilation_catalog,
     )
 
 

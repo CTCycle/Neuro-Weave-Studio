@@ -33,6 +33,7 @@ from common.process_control import (
 from common.timestamps import utc_now
 from configurations.settings import Settings
 from domain.compilation_capabilities import get_native_compilation_capabilities
+from domain.compilation_catalog import CompilationCatalog
 from domain.enums import ExecutionBackend, keras_backend_value
 from domain.exports import ExportArtifactManifest, ExportFormat, export_suffix
 from domain.graph import ModelGraph
@@ -799,6 +800,7 @@ class RuntimeController:
         artifact_filename: str | None = None,
         project_revision: int | None = None,
         revision_checker: Callable[[], bool] | None = None,
+        compilation_catalog: CompilationCatalog | None = None,
     ) -> JobResponse:
         with self._lock:
             if self._shutting_down:
@@ -855,6 +857,8 @@ class RuntimeController:
                 "type": operation.value,
                 "graph": graph.model_dump(mode="json"),
             }
+            if compilation_catalog is not None:
+                operation_payload["compilation_catalog"] = compilation_catalog.model_dump(mode="json")
             operation_payload["project_id"] = str(request.operation.project_id)
             if isinstance(request.operation, ModelExportOperation):
                 operation_payload["format"] = request.operation.format.value

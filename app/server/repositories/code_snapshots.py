@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.orm import Session
 
 from domain.enums import ExecutionBackend
@@ -78,3 +78,14 @@ class CodeSnapshotRepository:
             row.source_code = source_code
             row.updated_at = timestamp
         self._session.flush()
+
+    # -------------------------------------------------------------------------
+    def delete_for_projects(self, project_ids: Sequence[UUID]) -> int:
+        if not project_ids:
+            return 0
+        result = self._session.execute(
+            delete(GeneratedCodeSnapshotRecord).where(
+                GeneratedCodeSnapshotRecord.project_id.in_([str(item) for item in project_ids])
+            )
+        )
+        return int(result.rowcount or 0)

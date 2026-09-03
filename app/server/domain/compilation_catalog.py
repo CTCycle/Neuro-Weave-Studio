@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal, Protocol
+from collections.abc import Callable
+from datetime import datetime
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -46,6 +48,12 @@ class CompilationOption(BaseModel):
     supported_tasks: list[CompilationTask] = Field(default_factory=list)
     target_contract: TargetContract | None = None
     activation_contract: list[str] = Field(default_factory=list)
+    origin: Literal["builtin", "custom"] = "builtin"
+    locked: bool = True
+    can_edit: bool = False
+    can_delete: bool = False
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 ###############################################################################
@@ -152,6 +160,10 @@ def _mapped_option(
         supported_tasks=supported_tasks,
         target_contract=target_contract,
         activation_contract=activation_contract or [],
+        origin="builtin",
+        locked=True,
+        can_edit=False,
+        can_delete=False,
     )
 
 
@@ -503,6 +515,62 @@ _COMPILATION_CATALOG_PROVIDER = StaticCompilationCatalogProvider()
 ###############################################################################
 def get_compilation_catalog_provider() -> CompilationCatalogProvider:
     return _COMPILATION_CATALOG_PROVIDER
+
+
+class PersistentCompilationCatalogProvider:
+    """Merge server-owned built-ins with installation-wide user definitions."""
+
+    def __init__(self, uow_factory: Callable[[], Any]) -> None:
+        self._uow_factory = uow_factory
+
+    def get(self) -> CompilationCatalog:
+        # Keep the import local so the static catalog remains usable by pure
+        # compiler tests without importing the persistence layer.
+        with self._uow_factory() as uow:
+            records = [
+                (
+                    record.id,
+                    record.kind,
+                    record.label,
+                    record.description,
+                    record.formula_latex,
+                    record.created_at,
+                    record.updated_at,
+                )
+                for record in uow.metrics.list_all()
+            ]
+        catalog = get_compilation_catalog().model_copy(deep=True)
+        custom_by_kind: dict[str, list[CompilationOption]] = {"metric": [], "loss": []}
+        for metric_id, kind, label, description, formula, created_at, updated_at in records:
+            option = CompilationOption(
+                id=metric_id,
+                label=label,
+                description=description,
+                formula=formula,
+                implementations={
+                    "keras": CompilationImplementation(supported=True, adapter="custom"),
+                    "pytorch": CompilationImplementation(supported=True, adapter="custom"),
+                },
+                supported_tasks=[
+                    "regression",
+                    "binary_classification",
+                    "multiclass_classification",
+                ],
+                target_contract=None,
+                origin="custom",
+                locked=False,
+                can_edit=True,
+                can_delete=True,
+                created_at=created_at,
+                updated_at=updated_at,
+            )
+            custom_by_kind.setdefault(kind, []).append(option)
+        return catalog.model_copy(
+            update={
+                "metrics": [*catalog.metrics, *custom_by_kind["metric"]],
+                "losses": [*catalog.losses, *custom_by_kind["loss"]],
+            }
+        )
 
 
 ###############################################################################

@@ -3,6 +3,7 @@ from __future__ import annotations
 from common.catalogs.loader import NodeCatalog
 from compilation.compiler import compile_to_ir
 from domain.compilation import CompilationResult
+from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from exporters.keras_exporter import KerasSourceExporter
@@ -15,9 +16,17 @@ from services.validation_service import ValidationService
 ###############################################################################
 class CompilationService:
     # -------------------------------------------------------------------------
-    def __init__(self, catalog: NodeCatalog, validator: ValidationService) -> None:
+    def __init__(
+        self,
+        catalog: NodeCatalog,
+        validator: ValidationService,
+        compilation_catalog_provider: CompilationCatalogProvider | None = None,
+    ) -> None:
         self._catalog = catalog
         self._validator = validator
+        self._compilation_catalog_provider = (
+            compilation_catalog_provider or get_compilation_catalog_provider()
+        )
         self._exporters = {
             (True, ExecutionBackend.TENSORFLOW): KerasSourceExporter(),
             (True, ExecutionBackend.PYTORCH): KerasSourceExporter(),
@@ -34,6 +43,7 @@ class CompilationService:
         execution_backend: ExecutionBackend,
         keras_enabled: bool,
     ) -> CompilationResult:
+        compilation_catalog = self._compilation_catalog_provider.get()
         validation = self._validator.validate(graph, execution_backend, keras_enabled)
         if not validation.valid:
             return CompilationResult(
@@ -50,7 +60,10 @@ class CompilationService:
             shape_summaries=validation.shape_summaries,
         )
         code = self._exporters[(keras_enabled, execution_backend)].generate(
-            graph, ir, self._catalog
+            graph,
+            ir,
+            self._catalog,
+            compilation_catalog=compilation_catalog,
         )
         return CompilationResult(
             valid=True,

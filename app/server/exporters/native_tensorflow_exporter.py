@@ -5,6 +5,7 @@ from typing import Any, cast
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
+from domain.compilation_catalog import CompilationCatalog
 from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
@@ -74,7 +75,10 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         graph: ModelGraph,
         ir: CanonicalModelIR,
         catalog: NodeCatalog | None = None,
+        *,
+        compilation_catalog: CompilationCatalog | None = None,
     ) -> str:
+        del compilation_catalog
         catalog = catalog or get_node_catalog()
         nodes = {node.id: node for node in graph.nodes}
         summaries = self._summary_map(ir)

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from repositories.code_snapshots import CodeSnapshotRepository
 from repositories.contracts import RepositoryIntegrityError
 from repositories.graphs import GraphRepository
+from repositories.metrics import MetricRepository
 from repositories.projects import ProjectRepository
 from repositories.revisions import RevisionRepository
 
@@ -66,6 +67,11 @@ class UnitOfWork:
     @property
     def code_snapshots(self) -> CodeSnapshotRepository:
         return CodeSnapshotRepository(self._require_session())
+
+    # -------------------------------------------------------------------------
+    @property
+    def metrics(self) -> MetricRepository:
+        return MetricRepository(self._require_session())
 
     # -------------------------------------------------------------------------
     def commit(self) -> None:

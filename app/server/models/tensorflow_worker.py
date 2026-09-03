@@ -10,6 +10,7 @@ from typing import Any
 
 import tensorflow
 
+from domain.compilation_catalog import CompilationCatalog
 from domain.enums import ExecutionBackend
 from domain.exports import ExportFormat, ExportOptions
 from domain.graph import ModelGraph
@@ -139,6 +140,8 @@ class TensorFlowWorker:
         self,
         graph: ModelGraph,
         checkpoint: Callable[[], None],
+        *,
+        compilation_catalog: CompilationCatalog | None = None,
     ) -> dict[str, object]:
         if self._config is not None and self._config.api is RuntimeApi.NATIVE:
             return run_native_smoke(
@@ -148,6 +151,7 @@ class TensorFlowWorker:
                 scope=self.device_scope(),
                 synchronize=self.synchronize,
                 checkpoint=checkpoint,
+                compilation_catalog=compilation_catalog,
             )
         import keras
 
@@ -163,6 +167,7 @@ class TensorFlowWorker:
             scope=self.device_scope(),
             synchronize=self.synchronize,
             checkpoint=checkpoint,
+            compilation_catalog=compilation_catalog,
         )
 
     # -------------------------------------------------------------------------
@@ -175,6 +180,7 @@ class TensorFlowWorker:
         checkpoint: Callable[[], None],
         project_id: str | None = None,
         project_revision: int | None = None,
+        compilation_catalog: CompilationCatalog | None = None,
     ) -> dict[str, object]:
         return run_model_export(
             graph,
@@ -189,6 +195,7 @@ class TensorFlowWorker:
             checkpoint=checkpoint,
             project_id=project_id,
             project_revision=project_revision,
+            compilation_catalog=compilation_catalog,
         )
 
     # -------------------------------------------------------------------------
