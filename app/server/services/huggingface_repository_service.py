@@ -43,7 +43,7 @@ class HuggingFaceRepositoryService:
                 decoded = response.read().decode("utf-8")
                 raw_payload = cast(object, json.loads(decoded))
         except HTTPError as exc:
-            if exc.code == 404:
+            if exc.code in {401, 403, 404}:
                 raise HuggingFaceReferenceError(
                     "Hugging Face repository or revision was not found or is not publicly accessible"
                 ) from exc
