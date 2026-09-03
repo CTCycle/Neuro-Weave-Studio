@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core'
 import type { CompositeNodeComponent, CustomNodeDefinition } from '../../../domain/custom-node.types'
-import type { NodeManifest } from '../../../domain/types'
+import type { NodeManifest, PortDefinition } from '../../../domain/types'
 import { GraphEditorStore } from '../state/graph-editor.store'
 
 interface ResolvedComponent {
@@ -56,7 +56,7 @@ export class CustomNodeMaterializerService {
       manifest: this.manifest(component.definition_id, component.definition_version),
     }))
     const portPairs = resolved.slice(0, -1).map((component, index) =>
-      this.compatiblePorts(component.manifest, resolved[index + 1].manifest),
+      this.compatiblePorts(component, resolved[index + 1]),
     )
     const nodeIds = resolved.map((component, index) => {
       const nodeId = this.store.addNode(component.manifest, {
@@ -85,11 +85,17 @@ export class CustomNodeMaterializerService {
   }
 
   private compatiblePorts(
-    source: NodeManifest,
-    target: NodeManifest,
+    source: ResolvedComponent,
+    target: ResolvedComponent,
   ): { sourceHandle: string; targetHandle: string } {
-    for (const output of source.outputs) {
-      for (const input of target.inputs) {
+    const outputs = source.manifest.outputs.filter((port) =>
+      this.portEnabled(port, source.definition.parameters),
+    )
+    const inputs = target.manifest.inputs.filter((port) =>
+      this.portEnabled(port, target.definition.parameters),
+    )
+    for (const output of outputs) {
+      for (const input of inputs) {
         const expected = input.kind === 'tensor_list'
           ? input.element_kind ?? 'tensor'
           : input.kind
@@ -99,8 +105,40 @@ export class CustomNodeMaterializerService {
       }
     }
     throw new Error(
-      `Sequential template cannot connect ${source.display_name} to ${target.display_name}.`,
+      `Sequential template cannot connect ${source.manifest.display_name} to ${target.manifest.display_name}.`,
     )
+  }
+
+  private portEnabled(port: PortDefinition, parameters: Record<string, unknown>): boolean {
+    const condition = port.enabled_when
+    if (!condition) return true
+    return Object.entries(condition).every(([parameterId, expected]) => {
+      const actual = parameters[parameterId]
+      if (typeof expected === 'object' && expected !== null && !Array.isArray(expected)) {
+        const rule = expected as Record<string, unknown>
+        if ('equals' in rule && !this.sameValue(actual, rule['equals'])) return false
+        if ('not_equals' in rule && this.sameValue(actual, rule['not_equals'])) return false
+        if (
+          'in' in rule
+          && Array.isArray(rule['in'])
+          && !rule['in'].some((item) => this.sameValue(actual, item))
+        ) return false
+        if (
+          'not_in' in rule
+          && Array.isArray(rule['not_in'])
+          && rule['not_in'].some((item) => this.sameValue(actual, item))
+        ) return false
+        return true
+      }
+      if (Array.isArray(expected)) {
+        return expected.some((item) => this.sameValue(actual, item))
+      }
+      return this.sameValue(actual, expected)
+    })
+  }
+
+  private sameValue(left: unknown, right: unknown): boolean {
+    return JSON.stringify(left) === JSON.stringify(right)
   }
 
   private manifest(id: string, version: number): NodeManifest {
