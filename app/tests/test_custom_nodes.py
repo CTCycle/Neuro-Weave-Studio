@@ -1,10 +1,41 @@
 from __future__ import annotations
 
+import json
+from urllib.error import URLError
+
 import httpx
+import pytest
+
+
+class _FakeResponse:
+    def __init__(self, payload: dict[str, object]) -> None:
+        self._payload = payload
+
+    def __enter__(self) -> _FakeResponse:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return json.dumps(self._payload).encode("utf-8")
+
+
+def _stub_huggingface(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_urlopen(*_args: object, **_kwargs: object) -> _FakeResponse:
+        return _FakeResponse(
+            {
+                "sha": "a" * 40,
+                "library_name": "transformers",
+                "pipeline_tag": "feature-extraction",
+            }
+        )
+
+    monkeypatch.setattr("services.huggingface_repository_service.urlopen", fake_urlopen)
 
 
 ###############################################################################
-def test_custom_node_lifecycle_and_builtin_locking(client: httpx.Client) -> None:
+def test_custom_node_lifecycle_versions_and_builtin_locking(client: httpx.Client) -> None:
     builtins = client.get("/api/nodes/catalog")
     assert builtins.status_code == 200
     builtin = builtins.json()["nodes"][0]
@@ -12,13 +43,13 @@ def test_custom_node_lifecycle_and_builtin_locking(client: httpx.Client) -> None
     created = client.post(
         "/api/nodes/custom",
         json={
-            "display_name": "Affine blend",
+            "display_name": "Residual scale",
             "category": "custom math",
-            "description": "Blend two tensor inputs with a scalar coefficient.",
+            "description": "Safe reusable tensor expression.",
             "spec": {
                 "type": "mathematical",
-                "formula": r"\\alpha x + (1-\\alpha)y",
-                "input_symbols": ["x", "y"],
+                "formula": r"x + \frac{x}{2}",
+                "input_symbols": ["x"],
             },
         },
     )
@@ -26,10 +57,10 @@ def test_custom_node_lifecycle_and_builtin_locking(client: httpx.Client) -> None
     definition = created.json()
     definition_id = definition["id"]
     assert definition_id.startswith("custom.node.")
+    assert definition["version"] == 1
     assert definition["origin"] == "custom"
-    assert definition["locked"] is False
-    assert definition["can_edit"] is True
-    assert definition["can_delete"] is True
+    assert definition["executable_template"] is True
+    assert definition["spec"]["expression"] == "x + ((x)/(2))"
 
     catalog = client.get("/api/nodes/custom")
     assert catalog.status_code == 200
@@ -38,18 +69,31 @@ def test_custom_node_lifecycle_and_builtin_locking(client: httpx.Client) -> None
     updated = client.put(
         f"/api/nodes/custom/{definition_id}",
         json={
-            "display_name": "Affine blend v2",
+            "display_name": "Residual scale v2",
             "category": "custom math",
-            "description": "Edited mathematical node definition.",
+            "description": "Edited mathematical template.",
             "spec": {
                 "type": "mathematical",
-                "formula": r"x + \\beta y",
-                "input_symbols": ["x", "y"],
+                "formula": r"x^2",
+                "input_symbols": ["x"],
             },
         },
     )
     assert updated.status_code == 200, updated.text
-    assert updated.json()["display_name"] == "Affine blend v2"
+    assert updated.json()["display_name"] == "Residual scale v2"
+    assert updated.json()["version"] == 2
+    assert updated.json()["spec"]["expression"] == "x**2"
+
+    unsafe = client.post(
+        "/api/nodes/custom",
+        json={
+            "display_name": "Unknown symbol",
+            "category": "custom math",
+            "description": "Uses a symbol outside the safe expression contract.",
+            "spec": {"type": "mathematical", "formula": "x + y", "input_symbols": ["x"]},
+        },
+    )
+    assert unsafe.status_code == 422
 
     locked_update = client.put(
         f"/api/nodes/custom/{builtin['id']}",
@@ -61,17 +105,12 @@ def test_custom_node_lifecycle_and_builtin_locking(client: httpx.Client) -> None
         },
     )
     assert locked_update.status_code == 403
-    locked_delete = client.delete(f"/api/nodes/custom/{builtin['id']}")
-    assert locked_delete.status_code == 403
-
-    deleted = client.delete(f"/api/nodes/custom/{definition_id}")
-    assert deleted.status_code == 204
+    assert client.delete(f"/api/nodes/custom/{builtin['id']}").status_code == 403
+    assert client.delete(f"/api/nodes/custom/{definition_id}").status_code == 204
 
 
 ###############################################################################
-def test_composite_nodes_validate_builtin_components_and_normalize_parameters(
-    client: httpx.Client,
-) -> None:
+def test_composite_nodes_validate_full_manifest_parameter_contract(client: httpx.Client) -> None:
     created = client.post(
         "/api/nodes/custom",
         json={
@@ -102,8 +141,9 @@ def test_composite_nodes_validate_builtin_components_and_normalize_parameters(
     components = created.json()["spec"]["components"]
     assert components[0]["parameters"]["units"] == 64
     assert "activation" in components[0]["parameters"]
+    assert created.json()["executable_template"] is True
 
-    invalid = client.post(
+    invalid_node = client.post(
         "/api/nodes/custom",
         json={
             "display_name": "Invalid block",
@@ -115,11 +155,45 @@ def test_composite_nodes_validate_builtin_components_and_normalize_parameters(
             },
         },
     )
-    assert invalid.status_code == 422
+    assert invalid_node.status_code == 422
+
+    invalid_type = client.post(
+        "/api/nodes/custom",
+        json={
+            "display_name": "Invalid units block",
+            "category": "blocks",
+            "description": "Uses a wrong parameter type.",
+            "spec": {
+                "type": "composite",
+                "components": [{"definition_id": "layer.dense", "parameters": {"units": "many"}}],
+            },
+        },
+    )
+    assert invalid_type.status_code == 422
+
+    invalid_option = client.post(
+        "/api/nodes/custom",
+        json={
+            "display_name": "Invalid activation block",
+            "category": "blocks",
+            "description": "Uses an unsupported activation option.",
+            "spec": {
+                "type": "composite",
+                "components": [
+                    {"definition_id": "layer.activation", "parameters": {"activation": "not-real"}}
+                ],
+            },
+        },
+    )
+    assert invalid_option.status_code == 422
 
 
 ###############################################################################
-def test_repository_nodes_accept_safe_hugging_face_references(client: httpx.Client) -> None:
+def test_repository_nodes_resolve_and_pin_public_hugging_face_reference(
+    client: httpx.Client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_huggingface(monkeypatch)
     created = client.post(
         "/api/nodes/custom",
         json={
@@ -136,12 +210,16 @@ def test_repository_nodes_accept_safe_hugging_face_references(client: httpx.Clie
         },
     )
     assert created.status_code == 201, created.text
-    assert created.json()["spec"]["repository_id"] == "google-bert/bert-base-uncased"
+    spec = created.json()["spec"]
+    assert spec["repository_id"] == "google-bert/bert-base-uncased"
+    assert spec["resolved_commit"] == "a" * 40
+    assert spec["library_name"] == "transformers"
+    assert created.json()["executable_template"] is False
 
     invalid = client.post(
         "/api/nodes/custom",
         json={
-            "display_name": "Unsafe repository reference",
+            "display_name": "Invalid repository reference",
             "category": "repository",
             "description": "Invalid repository identifier.",
             "spec": {
@@ -154,3 +232,28 @@ def test_repository_nodes_accept_safe_hugging_face_references(client: httpx.Clie
         },
     )
     assert invalid.status_code == 422
+
+
+def test_repository_resolution_outage_is_service_unavailable(
+    client: httpx.Client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unavailable(*_args: object, **_kwargs: object) -> object:
+        raise URLError("offline")
+
+    monkeypatch.setattr("services.huggingface_repository_service.urlopen", unavailable)
+    response = client.post(
+        "/api/nodes/custom",
+        json={
+            "display_name": "Unavailable public model",
+            "category": "repository",
+            "description": "Resolution must fail clearly when the Hub is unavailable.",
+            "spec": {
+                "type": "repository",
+                "repository_id": "openai-community/gpt2",
+                "revision": "main",
+                "artifact_type": "model",
+            },
+        },
+    )
+    assert response.status_code == 503
