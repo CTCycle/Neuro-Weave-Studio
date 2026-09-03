@@ -59,7 +59,7 @@ def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
     return True
 
 
-def _type_matches(parameter: ParameterDefinition, value: Any) -> bool:
+def parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     if parameter.value_schema is not None:
         return _value_matches_schema(parameter.value_schema, value)
     if value is None:
@@ -177,7 +177,7 @@ def normalize_manifest_parameters(
                     f"Parameter '{parameter.display_name}' cannot be null"
                 )
             continue
-        if not _type_matches(parameter, value):
+        if not parameter_type_matches(parameter, value):
             raise ParameterValueError(
                 f"Parameter '{parameter.display_name}' must be of type {parameter.type}"
             )
