@@ -38,7 +38,7 @@ class HuggingFaceRepositoryService:
             },
         )
         try:
-            with urlopen(request, timeout=self._timeout_seconds) as response:  # noqa: S310 - fixed HTTPS host
+            with urlopen(request, timeout=self._timeout_seconds) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except HTTPError as exc:
             if exc.code == 404:
@@ -58,7 +58,9 @@ class HuggingFaceRepositoryService:
             ) from exc
 
         if not isinstance(payload, dict):
-            raise HuggingFaceUnavailableError("Hugging Face returned an unexpected repository response")
+            raise HuggingFaceUnavailableError(
+                "Hugging Face returned an unexpected repository response"
+            )
         commit = payload.get("sha")
         if not isinstance(commit, str) or len(commit) != 40:
             raise HuggingFaceUnavailableError(
