@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core'
+import { Injectable, computed, signal } from '@angular/core'
 import type { ExecutionBackend, ValidationResult } from '../../../domain/types'
 import type { GraphEditorSession } from '../../../domain/graph-mapper'
 
@@ -23,17 +23,21 @@ export type NewBuilderTab = Omit<BuilderTab, 'id' | 'dirty'> & {
   dirty?: boolean
 }
 
+export const MAX_OPEN_BUILDER_TABS = 8
+
 @Injectable({ providedIn: 'root' })
 export class BuilderTabsStore {
   readonly tabs = signal<BuilderTab[]>([])
   readonly activeTabId = signal<string | null>(null)
+  readonly canOpenTab = computed(() => this.tabs().length < MAX_OPEN_BUILDER_TABS)
 
-  openTab(input: NewBuilderTab): string {
+  openTab(input: NewBuilderTab): string | null {
     const existing = input.projectId ? this.tabs().find((tab) => tab.projectId === input.projectId) : undefined
     if (existing) {
       this.activeTabId.set(existing.id)
       return existing.id
     }
+    if (!this.canOpenTab()) return null
     const tab: BuilderTab = {
       ...input,
       id: input.id ?? `builder-tab-${crypto.randomUUID()}`,

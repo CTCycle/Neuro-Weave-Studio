@@ -12,7 +12,7 @@ describe('builder tabs store', () => {
 
   it('focuses an already-open project instead of duplicating its workspace', () => {
     store = new BuilderTabsStore()
-    const firstId = store.openTab(tab('project-1', 'first'))
+    const firstId = store.openTab(tab('project-1', 'first'))!
     store.openTab(tab(null, 'draft'))
     const duplicateId = store.openTab(tab('project-1', 'duplicate'))
     expect(duplicateId).toBe(firstId)
@@ -22,8 +22,8 @@ describe('builder tabs store', () => {
 
   it('isolates graph and validation state between tabs and selects an adjacent tab on close', () => {
     store = new BuilderTabsStore()
-    const firstId = store.openTab(tab('project-1', 'first'))
-    const secondId = store.openTab(tab('project-2', 'second'))
+    const firstId = store.openTab(tab('project-1', 'first'))!
+    const secondId = store.openTab(tab('project-2', 'second'))!
     store.updateTab(firstId, { dirty: true, graph: { ...session('first-edited'), selectedNodeId: 'node-first' }, validation: { valid: false, diagnostics: [{ code: 'FIRST', severity: 'error', message: 'FIRST finding', details: {} }], shape_summaries: [], total_parameters: 0 }, validationExpanded: true, validationHeight: 240 })
     store.updateTab(secondId, { graph: { ...session('second-edited'), selectedNodeId: 'node-second' }, validation: { valid: false, diagnostics: [{ code: 'SECOND', severity: 'error', message: 'SECOND finding', details: {} }], shape_summaries: [], total_parameters: 0 } })
     const first = store.tabs().find((item) => item.id === firstId)
@@ -39,5 +39,15 @@ describe('builder tabs store', () => {
     store.closeTab(firstId)
     expect(store.activeTabId()).toBe(secondId)
     expect(store.tabs()).toHaveLength(1)
+  })
+
+  it('caps the workspace at eight open model tabs', () => {
+    store = new BuilderTabsStore()
+    for (let index = 0; index < 8; index += 1) store.openTab(tab(`project-${index}`, `tab-${index}`))
+
+    expect(store.tabs()).toHaveLength(8)
+    expect(store.canOpenTab()).toBe(false)
+    expect(store.openTab(tab('project-8', 'ninth'))).toBeNull()
+    expect(store.tabs()).toHaveLength(8)
   })
 })

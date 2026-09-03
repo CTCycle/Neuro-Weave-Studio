@@ -4,6 +4,8 @@ import type {
   CompilationCapabilities,
   ExecutionBackend,
   ExecutionBackendStatus,
+  MetricCatalogResponse,
+  MetricDefinition,
   NodeManifest,
   ProjectSummary,
   RuntimeApiStatus,
@@ -21,17 +23,20 @@ export class AppResourcesService {
   readonly backendStatuses = signal<ExecutionBackendStatus[]>([])
   readonly runtimeApis = signal<RuntimeApiStatus[]>([])
   readonly compilationCapabilities = signal<CompilationCapabilities | null>(null)
+  readonly metricDefinitions = signal<MetricDefinition[]>([])
   readonly runtimePreferences = signal<Partial<Record<ExecutionBackend, WorkerConfiguration>>>({})
   readonly runtimePreferenceBackend = signal<ExecutionBackend | null>(null)
   readonly catalogReady = signal(false)
   readonly projectsReady = signal(false)
   readonly runtimeReady = signal(false)
+  readonly metricsReady = signal(false)
   readonly errors = signal<Record<string, string>>({})
   readonly error = computed(() => Object.values(this.errors()).join(' ') || null)
 
   private projectsRequest?: Promise<ProjectSummary[]>
   private catalogRequest?: Promise<NodeManifest[]>
   private runtimeRequest?: Promise<void>
+  private metricsRequest?: Promise<MetricDefinition[]>
   private readonly discoveryRequests = new Map<string, Promise<RuntimeDiscoveryResponse>>()
   private readonly validatedDiscoveries = new Set<string>()
   readonly discoveryPending = signal<Record<string, boolean>>({})
@@ -96,6 +101,22 @@ export class AppResourcesService {
     return this.runtimeRequest
   }
 
+  loadMetrics(): Promise<MetricDefinition[]> {
+    if (this.metricsRequest) return this.metricsRequest
+    this.metricsRequest = this.api.metrics().then((value: MetricCatalogResponse) => {
+      this.metricDefinitions.set(value.definitions)
+      this.clearResourceError('metrics')
+      return value.definitions
+    }).catch((reason) => {
+      this.recordError('metrics', this.message(reason, 'Metric catalog unavailable.'))
+      return []
+    }).finally(() => {
+      this.metricsReady.set(true)
+      markResource('metrics')
+    })
+    return this.metricsRequest
+  }
+
   discoverRuntime(backend: ExecutionBackend, api: WorkerConfiguration['api'], forceRefresh = false, signal?: AbortSignal): Promise<RuntimeDiscoveryResponse> {
     const key = discoveryKey(backend, api)
     const existing = this.discoveryRequests.get(key)
@@ -149,7 +170,7 @@ export class AppResourcesService {
   }
 
   async load(): Promise<void> {
-    await Promise.all([this.loadProjects(), this.loadCatalog(), this.loadRuntimeMetadata()])
+    await Promise.all([this.loadProjects(), this.loadCatalog(), this.loadRuntimeMetadata(), this.loadMetrics()])
   }
 
   async refreshProjects(): Promise<ProjectSummary[]> {
@@ -172,6 +193,12 @@ export class AppResourcesService {
     this.runtimeRequest = undefined
     this.runtimeReady.set(false)
     return this.loadRuntimeMetadata()
+  }
+
+  async refreshMetrics(): Promise<MetricDefinition[]> {
+    this.metricsRequest = undefined
+    this.metricsReady.set(false)
+    return this.loadMetrics()
   }
 
   hasError(resource: string): boolean {

@@ -209,6 +209,12 @@ export interface CompilationOption {
   supported_tasks?: Array<'regression' | 'binary_classification' | 'multiclass_classification'>
   target_contract?: 'continuous_same_shape' | 'binary_same_shape' | 'one_hot_same_shape' | 'class_index' | 'probability_distribution_same_shape' | null
   activation_contract?: string[]
+  origin?: 'builtin' | 'custom'
+  locked?: boolean
+  can_edit?: boolean
+  can_delete?: boolean
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 export interface CompilationImplementation {
@@ -324,6 +330,26 @@ export interface ValidationResult {
   effective_outputs?: OutputReference[]
   output_mode?: 'explicit' | 'inferred'
   model_type?: ModelTypeInference
+}
+
+export interface MetricDefinition {
+  id: string
+  kind: 'metric' | 'loss'
+  label: string
+  description: string
+  formula?: string | null
+  origin: 'builtin' | 'custom'
+  locked: boolean
+  can_edit: boolean
+  can_delete: boolean
+  supported_tasks: Array<'regression' | 'binary_classification' | 'multiclass_classification'>
+  target_contract?: CompilationOption['target_contract']
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface MetricCatalogResponse {
+  definitions: MetricDefinition[]
 }
 
 export interface ConnectionValidationResult {

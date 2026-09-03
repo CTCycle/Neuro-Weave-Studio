@@ -4,14 +4,15 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms'
 import { LucideChevronLeft, LucideFile, LucideFolder, LucideHardDrive, LucideRefreshCw, LucideX } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
 import type { FilesystemEntry } from '../../domain/filesystem.types'
+import { ModalGuardDirective } from './modal-guard.directive'
 
 @Component({
   selector: 'nw-filesystem-browser',
   standalone: true,
-  imports: [ReactiveFormsModule, LucideChevronLeft, LucideFile, LucideFolder, LucideHardDrive, LucideRefreshCw, LucideX],
+  imports: [ReactiveFormsModule, LucideChevronLeft, LucideFile, LucideFolder, LucideHardDrive, LucideRefreshCw, LucideX, ModalGuardDirective],
   template: `
     @if (open) {
-      <div class="browser-backdrop" (click)="close()">
+      <div class="browser-backdrop" nwModalGuard (click)="close()">
         <section class="browser-dialog panel" role="dialog" aria-modal="true" aria-labelledby="filesystem-browser-title" (click)="$event.stopPropagation()">
           <header>
             <div><span class="eyebrow">LOCAL FILESYSTEM</span><h2 id="filesystem-browser-title">{{ title }}</h2></div>
