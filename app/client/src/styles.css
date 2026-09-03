@@ -357,7 +357,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .metrics-formula { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
 .metrics-formula span { color: var(--muted); font: 500 8px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; letter-spacing: .08em; }
 .metrics-formula { min-width: 0; margin-top: 0; padding: 8px 0 0; }
-.metrics-formula .math-formula { min-width: 0; color: var(--text); font-size: 16px; }
+.metrics-formula .math-formula { min-width: 0; color: var(--cyan); font-size: 18px; }
 .inline-action { text-decoration: none; }
 button, a { transition: border-color .15s ease, background .15s ease, color .15s ease, transform .15s ease; }
 .catalog-page, .model-workspace-page, .builder-page, .environment-page, .metrics-page, .workflow-page { width: 100%; max-width: none; margin: 0; }

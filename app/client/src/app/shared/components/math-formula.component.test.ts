@@ -18,7 +18,7 @@ describe('fittedFormulaFontSize', () => {
   })
 
   it('supports a larger readable presentation variant', () => {
-    expect(fittedFormulaFontSize(240, 180, 16, 9)).toBe(16)
-    expect(fittedFormulaFontSize(40, 1000, 16, 9)).toBe(9)
+    expect(fittedFormulaFontSize(240, 180, 18, 9)).toBe(18)
+    expect(fittedFormulaFontSize(40, 1000, 18, 9)).toBe(9)
   })
 })
