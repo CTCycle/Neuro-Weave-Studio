@@ -15,6 +15,7 @@ def upgrade() -> None:
     op.create_table(
         "custom_node_definitions",
         sa.Column("id", sa.String(length=80), nullable=False),
+        sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("kind", sa.String(length=32), nullable=False),
         sa.Column("display_name", sa.String(length=160), nullable=False),
         sa.Column("normalized_name", sa.String(length=160), nullable=False),
@@ -26,6 +27,10 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "kind IN ('mathematical', 'composite', 'repository')",
             name="ck_custom_node_definitions_kind",
+        ),
+        sa.CheckConstraint(
+            "version >= 1",
+            name="ck_custom_node_definitions_version",
         ),
         sa.CheckConstraint(
             "length(trim(display_name)) > 0",
