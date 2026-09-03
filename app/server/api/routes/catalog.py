@@ -12,6 +12,7 @@ from domain.custom_nodes import (
 from domain.manifests import NodeCatalogResponse
 from services.catalog_service import CatalogService
 from services.custom_node_service import CustomNodeDefinitionConflictError, CustomNodeService
+from services.huggingface_repository_service import HuggingFaceUnavailableError
 
 router = APIRouter(prefix="/api/nodes", tags=["node catalog"])
 
@@ -30,6 +31,10 @@ def custom_nodes(
     return service.list()
 
 
+def _service_unavailable(exc: HuggingFaceUnavailableError) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+
+
 ###############################################################################
 @router.post(
     "/custom",
@@ -42,6 +47,8 @@ def create_custom_node(
 ) -> CustomNodeDefinitionResponse:
     try:
         return service.create(payload)
+    except HuggingFaceUnavailableError as exc:
+        raise _service_unavailable(exc) from exc
     except CustomNodeDefinitionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
@@ -57,6 +64,8 @@ def update_custom_node(
 ) -> CustomNodeDefinitionResponse:
     try:
         return service.update(definition_id, payload)
+    except HuggingFaceUnavailableError as exc:
+        raise _service_unavailable(exc) from exc
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except KeyError as exc:
