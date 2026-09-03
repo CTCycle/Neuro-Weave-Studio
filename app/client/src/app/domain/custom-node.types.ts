@@ -3,7 +3,8 @@ export type CustomNodeKind = 'mathematical' | 'composite' | 'repository'
 export interface MathematicalNodeSpec {
   type: 'mathematical'
   formula: string
-  input_symbols: string[]
+  expression?: string | null
+  input_symbols: ['x']
 }
 
 export interface CompositeNodeComponent {
@@ -26,6 +27,9 @@ export interface RepositoryNodeSpec {
   revision: string
   artifact_type: 'model' | 'layer'
   entrypoint?: string | null
+  resolved_commit?: string | null
+  library_name?: string | null
+  pipeline_tag?: string | null
 }
 
 export type CustomNodeSpec = MathematicalNodeSpec | CompositeNodeSpec | RepositoryNodeSpec
@@ -42,6 +46,7 @@ export interface CustomNodeDefinition {
   locked: false
   can_edit: true
   can_delete: true
+  executable_template: boolean
   created_at: string
   updated_at: string
 }
