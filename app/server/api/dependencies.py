@@ -14,6 +14,7 @@ from repositories.contracts import UnitOfWorkFactory
 from repositories.session import RepositoryContext
 from services.catalog_service import CatalogService
 from services.compilation_service import CompilationService
+from services.custom_node_service import CustomNodeService
 from services.export_service import ExportService
 from services.filesystem_service import FilesystemService
 from services.job_service import JobService
@@ -77,6 +78,14 @@ def get_metric_service(
 ###############################################################################
 def get_catalog_service(catalog: NodeCatalog = Depends(get_catalog)) -> CatalogService:
     return CatalogService(catalog)
+
+
+###############################################################################
+def get_custom_node_service(
+    uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
+    catalog: NodeCatalog = Depends(get_catalog),
+) -> CustomNodeService:
+    return CustomNodeService(uow_factory, catalog)
 
 
 ###############################################################################
