@@ -21,11 +21,11 @@ class _FakeResponse:
         return json.dumps(self._payload).encode("utf-8")
 
 
-def _stub_huggingface(monkeypatch: pytest.MonkeyPatch) -> None:
+def _stub_huggingface(monkeypatch: pytest.MonkeyPatch, sha: str = "a" * 40) -> None:
     def fake_urlopen(*_args: object, **_kwargs: object) -> _FakeResponse:
         return _FakeResponse(
             {
-                "sha": "a" * 40,
+                "sha": sha,
                 "library_name": "transformers",
                 "pipeline_tag": "feature-extraction",
             }
@@ -151,7 +151,9 @@ def test_composite_nodes_validate_full_manifest_parameter_contract(client: httpx
             "description": "References a node that does not exist.",
             "spec": {
                 "type": "composite",
-                "components": [{"definition_id": "layer.does_not_exist", "parameters": {}}],
+                "components": [
+                    {"definition_id": "layer.does_not_exist", "parameters": dict[str, object]()}
+                ],
             },
         },
     )
@@ -248,6 +250,28 @@ def test_repository_resolution_outage_is_service_unavailable(
             "display_name": "Unavailable public model",
             "category": "repository",
             "description": "Resolution must fail clearly when the Hub is unavailable.",
+            "spec": {
+                "type": "repository",
+                "repository_id": "openai-community/gpt2",
+                "revision": "main",
+                "artifact_type": "model",
+            },
+        },
+    )
+    assert response.status_code == 503
+
+
+def test_repository_resolution_rejects_invalid_commit_response(
+    client: httpx.Client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_huggingface(monkeypatch, sha="z" * 40)
+    response = client.post(
+        "/api/nodes/custom",
+        json={
+            "display_name": "Invalid resolved commit",
+            "category": "repository",
+            "description": "Reject malformed provider metadata before persistence.",
             "spec": {
                 "type": "repository",
                 "repository_id": "openai-community/gpt2",

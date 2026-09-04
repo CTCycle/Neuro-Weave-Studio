@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import cast
 from urllib.error import HTTPError, URLError
@@ -65,7 +66,7 @@ class HuggingFaceRepositoryService:
             )
         payload = cast(dict[str, object], raw_payload)
         commit = payload.get("sha")
-        if not isinstance(commit, str) or len(commit) != 40:
+        if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", commit):
             raise HuggingFaceUnavailableError(
                 "Hugging Face did not return a full resolved commit for this revision"
             )

@@ -8,7 +8,6 @@ from common.timestamps import utc_now
 from domain.custom_math import CustomMathFormulaError, parse_custom_math_formula
 from domain.custom_nodes import (
     CompositeNodeComponent,
-    CompositeNodeSpec,
     CustomNodeCatalogResponse,
     CustomNodeDefinitionCreate,
     CustomNodeDefinitionResponse,
@@ -124,9 +123,6 @@ class CustomNodeService:
                     "pipeline_tag": metadata.pipeline_tag,
                 }
             )
-        if not isinstance(spec, CompositeNodeSpec):
-            return spec
-
         normalized_components: list[CompositeNodeComponent] = []
         manifests: list[NodeManifest] = []
         for component in spec.components:

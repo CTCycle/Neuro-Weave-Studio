@@ -9,6 +9,8 @@ from sqlalchemy.engine import Connection
 from configurations.settings import get_database_settings
 from repositories import (
     custom_nodes as _custom_nodes,  # pyright: ignore[reportUnusedImport]  # noqa: F401 - register ORM tables
+)
+from repositories import (
     models as _models,  # pyright: ignore[reportUnusedImport]  # noqa: F401 - register ORM tables
 )
 from repositories.backend import SQLiteBackend, build_sqlite_url

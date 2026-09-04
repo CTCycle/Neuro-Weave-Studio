@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core'
+import { Inject, Injectable } from '@angular/core'
 import type { CompositeNodeComponent, CustomNodeDefinition } from '../../../domain/custom-node.types'
 import type { NodeManifest, PortDefinition } from '../../../domain/types'
 import { GraphEditorStore } from '../state/graph-editor.store'
@@ -10,7 +10,7 @@ interface ResolvedComponent {
 
 @Injectable({ providedIn: 'root' })
 export class CustomNodeMaterializerService {
-  constructor(private readonly store: GraphEditorStore) {}
+  constructor(@Inject(GraphEditorStore) private readonly store: GraphEditorStore) {}
 
   materialize(definition: CustomNodeDefinition, position: { x: number; y: number }): void {
     const before = this.store.captureEditorSession()

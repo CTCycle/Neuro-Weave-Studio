@@ -185,14 +185,18 @@ def normalize_manifest_parameters(
             raise ParameterValueError(
                 f"Parameter '{parameter.display_name}' has an unsupported value"
             )
-        if supplied_value and not condition_matches(parameter.enabled_when, values):
-            if value != _default(parameter):
-                raise ParameterValueError(
-                    f"Parameter '{parameter.display_name}' is disabled by the current configuration"
-                )
-        if parameter.type == "shape" and isinstance(value, list):
-            if any(item == 0 for item in cast(list[Any], value) if isinstance(item, int)):
-                raise ParameterValueError("Shape dimensions cannot be zero")
+        if (
+            supplied_value
+            and not condition_matches(parameter.enabled_when, values)
+            and value != _default(parameter)
+        ):
+            raise ParameterValueError(
+                f"Parameter '{parameter.display_name}' is disabled by the current configuration"
+            )
+        if parameter.type == "shape" and isinstance(value, list) and any(
+            item == 0 for item in cast(list[Any], value) if isinstance(item, int)
+        ):
+            raise ParameterValueError("Shape dimensions cannot be zero")
         if parameter.type == "expression" and isinstance(value, str):
             try:
                 validate_safe_expression(value)
