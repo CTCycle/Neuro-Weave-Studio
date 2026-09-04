@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Self
 from urllib.error import URLError
 
 import httpx
@@ -11,7 +12,7 @@ class _FakeResponse:
     def __init__(self, payload: dict[str, object]) -> None:
         self._payload = payload
 
-    def __enter__(self) -> _FakeResponse:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_args: object) -> None:
