@@ -20,7 +20,7 @@ jobs:
   backend:
     name: Python quality and tests
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -33,8 +33,14 @@ jobs:
           version: "0.12.0"
           enable-cache: true
           cache-dependency-glob: app/server/uv.lock
-      - name: Install locked test dependencies
-        run: uv sync --locked --project app/server --extra test
+      - name: Install locked QA dependencies
+        run: >-
+          uv sync --locked --project app/server
+          --extra test
+          --extra tensorflow
+          --extra torch-cpu
+          --extra jax
+          --extra export
       - name: Compile backend
         run: uv run --project app/server python -m compileall app/server
       - name: Ruff
