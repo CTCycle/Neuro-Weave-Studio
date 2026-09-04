@@ -38,7 +38,10 @@ jobs:
       - name: Compile backend
         run: uv run --project app/server python -m compileall app/server
       - name: Ruff
-        run: uv run --project app/server ruff check app/server app/tests
+        run: |
+          mkdir -p .ci-logs
+          set -o pipefail
+          uv run --project app/server ruff check app/server app/tests 2>&1 | tee .ci-logs/ruff.log
       - name: Pyright
         working-directory: app/server
         run: uv run pyright
@@ -81,7 +84,10 @@ jobs:
         run: npm test
       - name: Production build
         working-directory: app/client
-        run: npm run build
+        run: |
+          mkdir -p ../../.ci-logs
+          set -o pipefail
+          npm run build 2>&1 | tee ../../.ci-logs/frontend-build.log
       - name: Set up Python for browser tests
         uses: actions/setup-python@v5
         with:
@@ -132,4 +138,5 @@ jobs:
             app/client/coverage/
             app/tests/cache/frontend-dist/
             app/tests/cache/eslint/
+            .ci-logs/
             ${{ runner.temp }}/neuro-weave-e2e-logs/
