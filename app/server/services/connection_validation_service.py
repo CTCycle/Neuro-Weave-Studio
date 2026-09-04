@@ -89,36 +89,45 @@ class ConnectionValidationService:
     ) -> ValidationDiagnostic | None:
         manifest = self._manifest(node)
         implementation_key = "keras" if keras_enabled else execution_backend.value
+        implementation_label = "Keras" if keras_enabled else f"native {execution_backend.value}"
         mapping = manifest.implementations.get(implementation_key)
-        reason: str | None = None
+        backend_excluded = (
+            keras_enabled
+            and mapping is not None
+            and bool(mapping.execution_backends)
+            and mapping.execution_backends.get(execution_backend, True) is False
+        )
 
-        if mapping is None or not mapping.supported or mapping.status == "unsupported":
-            reason = f"{manifest.display_name} is not supported by the selected execution profile."
-        elif mapping.status == "unverified":
-            reason = f"{manifest.display_name} has not been verified for the selected execution profile."
-        elif keras_enabled and not mapping.execution_backends.get(execution_backend, True):
-            reason = (
-                f"{manifest.display_name} is not supported by the Keras API on "
-                f"the {execution_backend.value} backend."
+        if mapping is None or not mapping.supported or backend_excluded:
+            message = (
+                f"{manifest.display_name} does not support Keras on the "
+                f"{execution_backend.value} backend"
+                if backend_excluded
+                else f"{manifest.display_name} has no explicit {implementation_label} adapter"
+            )
+            return ValidationDiagnostic(
+                code="unsupported_implementation",
+                severity=DiagnosticSeverity.COMPATIBILITY,
+                message=message,
+                node_id=node.id,
+                edge_id=edge_id,
+                execution_backend=execution_backend,
+                keras_enabled=keras_enabled,
             )
 
-        if reason is None:
-            return None
+        if mapping.status == "unverified":
+            return ValidationDiagnostic(
+                code="unverified_implementation",
+                severity=DiagnosticSeverity.COMPATIBILITY,
+                message=f"{manifest.display_name} has not been verified for {implementation_label}",
+                node_id=node.id,
+                edge_id=edge_id,
+                execution_backend=execution_backend,
+                keras_enabled=keras_enabled,
+                details={"notes": mapping.notes},
+            )
 
-        return ValidationDiagnostic(
-            code="connection_profile_incompatible",
-            severity=DiagnosticSeverity.COMPATIBILITY,
-            message=reason,
-            node_id=node.id,
-            edge_id=edge_id,
-            execution_backend=execution_backend,
-            keras_enabled=keras_enabled,
-            details={
-                "definition_id": node.definition_id,
-                "definition_version": node.definition_version,
-                "implementation": implementation_key,
-            },
-        )
+        return None
 
     # -------------------------------------------------------------------------
     def _manifest(self, node: NodeInstance) -> NodeManifest:
