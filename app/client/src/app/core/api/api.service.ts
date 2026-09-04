@@ -138,6 +138,10 @@ export class ApiService {
     return this.request('/validation/connection', 'POST', { graph: canonicalizeGraph(graph), connection, execution_backend, keras_enabled })
   }
 
+  validateConnectionCandidates(graph: GraphPayload, connections: GraphPayload['edges'], execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<{ valid_connection_ids: string[] }> {
+    return this.request('/validation/connection-candidates', 'POST', { graph: canonicalizeGraph(graph), connections, execution_backend, keras_enabled })
+  }
+
   compile(graph: GraphPayload, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<CompilationResult> {
     return this.request('/compilation', 'POST', { graph: canonicalizeGraph(graph), execution_backend, keras_enabled })
   }
