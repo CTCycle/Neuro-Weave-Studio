@@ -1,4 +1,4 @@
-import { Component, EventEmitter, HostListener, computed, effect, inject, Input, Output, signal, viewChild } from '@angular/core'
+import { Component, EventEmitter, HostListener, OnChanges, SimpleChanges, computed, effect, inject, Input, Output, signal, viewChild } from '@angular/core'
 import { LucideLock, LucideMaximize2, LucideSave, LucideUnlock } from '@lucide/angular'
 import { FCanvasComponent, FFlowModule, FZoomDirective, type FCreateConnectionEvent, type FDeleteSelectedEvent, type FEventTrigger, type FMoveNodesEvent, type FSelectionChangeEvent } from '@foblex/flow'
 import type { EditorNode } from '../../../domain/editor.types'
@@ -40,7 +40,7 @@ const NO_CONNECTION_TARGET_ID = '__neuro_weave_no_compatible_target__'
     </div>
   `,
 })
-export class GraphCanvasComponent {
+export class GraphCanvasComponent implements OnChanges {
   @Input() readOnly = false
   @Input() modelName = ''
   @Input() dirty = false
@@ -78,26 +78,96 @@ export class GraphCanvasComponent {
       : null
   })
   private readonly noConnectionTargets = [NO_CONNECTION_TARGET_ID]
-  readonly connectionTargetMap = computed(() => {
-    const nodes = this.store.nodes()
-    const edges = this.store.edges()
-    const targets = new Map<string, string[]>()
-    for (const node of nodes) {
-      for (const port of node.data.manifest.outputs) {
-        const candidates = connectionCandidates(nodes, edges, node.id, port.id)
-          .map((connection) => connectorId(connection.target, 'input', connection.targetHandle))
-        targets.set(`${node.id}|${port.id}`, candidates.length ? candidates : this.noConnectionTargets)
-      }
-    }
-    return targets
-  })
+  private readonly connectionTargetMap = signal(new Map<string, string[]>())
 
   constructor() {
     effect(() => {
       this.store.graphRevision()
       this.setConnectionFeedback(null)
       if (!this.store.nodes().length) this.graphFitted = false
+      void this.refreshConnectionTargets()
     })
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['executionBackend'] || changes['kerasEnabled'] || changes['readOnly']) {
+      void this.refreshConnectionTargets()
+    }
+  }
+
+  private async refreshConnectionTargets(): Promise<void> {
+    const nodes = this.store.nodes()
+    const edges = this.store.edges()
+    const emptyTargets = new Map<string, string[]>()
+    const candidateTargets = new Map<string, { sourceKey: string; targetId: string }>()
+    const candidates: Array<{
+      id: string
+      source_node_id: string
+      source_port_id: string
+      target_node_id: string
+      target_port_id: string
+    }> = []
+    let candidateIndex = 0
+
+    for (const node of nodes) {
+      for (const port of node.data.manifest.outputs) {
+        const sourceKey = `${node.id}|${port.id}`
+        emptyTargets.set(sourceKey, this.noConnectionTargets)
+        for (const connection of connectionCandidates(
+          nodes,
+          edges,
+          node.id,
+          port.id,
+          this.executionBackend,
+          this.kerasEnabled,
+        )) {
+          const id = `snap-${candidateIndex++}`
+          candidates.push({
+            id,
+            source_node_id: connection.source,
+            source_port_id: connection.sourceHandle,
+            target_node_id: connection.target,
+            target_port_id: connection.targetHandle,
+          })
+          candidateTargets.set(id, {
+            sourceKey,
+            targetId: connectorId(connection.target, 'input', connection.targetHandle),
+          })
+        }
+      }
+    }
+
+    this.connectionTargetMap.set(emptyTargets)
+    if (this.readOnly || !candidates.length) return
+
+    const expectedRevision = this.store.graphRevision()
+    const expectedBackend = this.executionBackend
+    const expectedKeras = this.kerasEnabled
+    try {
+      const result = await this.api.validateConnectionCandidates(
+        this.store.toGraph(),
+        candidates,
+        expectedBackend,
+        expectedKeras,
+      )
+      if (expectedRevision !== this.store.graphRevision()
+        || expectedBackend !== this.executionBackend
+        || expectedKeras !== this.kerasEnabled) return
+
+      const validatedTargets = new Map<string, string[]>()
+      for (const sourceKey of emptyTargets.keys()) validatedTargets.set(sourceKey, [])
+      for (const id of result.valid_connection_ids) {
+        const candidate = candidateTargets.get(id)
+        if (!candidate) continue
+        validatedTargets.get(candidate.sourceKey)?.push(candidate.targetId)
+      }
+      for (const [sourceKey, targetIds] of validatedTargets) {
+        if (!targetIds.length) validatedTargets.set(sourceKey, this.noConnectionTargets)
+      }
+      this.connectionTargetMap.set(validatedTargets)
+    } catch {
+      // Keep all connectors non-snappable if authoritative validation is unavailable.
+    }
   }
 
   private setConnectionFeedback(message: string | null): void {
