@@ -15,8 +15,6 @@ concurrency:
 
 env:
   PYTHONPATH: app
-  NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-ml
-  PYTEST_ADDOPTS: "--basetemp=${{ runner.temp }}/neuro-weave-pytest"
 
 jobs:
   backend:
@@ -45,6 +43,9 @@ jobs:
         working-directory: app/server
         run: uv run pyright
       - name: Backend tests
+        env:
+          NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-ml
+          PYTEST_ADDOPTS: "--basetemp=${{ runner.temp }}/neuro-weave-pytest"
         run: uv run --project app/server python -m pytest app/tests -q
       - name: Upload backend diagnostics
         if: ${{ failure() }}
