@@ -1,0 +1,38 @@
+name: Refresh audit backend lock
+
+on:
+  push:
+    branches: [audit/application-stabilization-20260904]
+    paths:
+      - app/server/pyproject.toml
+      - .github/workflows/refresh-audit-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/application-stabilization-20260904
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.0"
+      - name: Regenerate backend lockfile
+        run: uv lock --project app/server
+      - name: Commit lockfile when changed
+        run: |
+          if git diff --quiet -- app/server/uv.lock; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/server/uv.lock
+          git commit -m "chore: refresh backend lockfile"
+          git push origin HEAD:audit/application-stabilization-20260904
