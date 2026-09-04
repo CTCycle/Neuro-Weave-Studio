@@ -50,6 +50,7 @@ jobs:
           set -o pipefail
           uv run pyright 2>&1 | tee ../../.ci-logs/pyright.log
       - name: Backend tests
+        if: ${{ always() && !cancelled() }}
         env:
           NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-ml
           PYTEST_ADDOPTS: "--basetemp=${{ runner.temp }}/neuro-weave-pytest"
