@@ -14,6 +14,7 @@ from repositories.contracts import UnitOfWorkFactory
 from repositories.session import RepositoryContext
 from services.catalog_service import CatalogService
 from services.compilation_service import CompilationService
+from services.connection_validation_service import ConnectionValidationService
 from services.custom_node_service import CustomNodeService
 from services.export_service import ExportService
 from services.filesystem_service import FilesystemService
@@ -66,6 +67,14 @@ def get_validation_service(
     compilation_catalog_provider: CompilationCatalogProvider = Depends(get_compilation_catalog_provider),
 ) -> ValidationService:
     return ValidationService(catalog, compilation_catalog_provider)
+
+
+###############################################################################
+def get_connection_validation_service(
+    catalog: NodeCatalog = Depends(get_catalog),
+    validator: ValidationService = Depends(get_validation_service),
+) -> ConnectionValidationService:
+    return ConnectionValidationService(catalog, validator)
 
 
 def get_metric_service(
