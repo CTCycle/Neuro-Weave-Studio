@@ -57,6 +57,7 @@ jobs:
           name: neuro-backend-diagnostics-${{ github.run_id }}
           retention-days: 3
           if-no-files-found: ignore
+          include-hidden-files: true
           path: |
             app/tests/cache/
             .ci-logs/
@@ -134,6 +135,7 @@ jobs:
           name: neuro-frontend-diagnostics-${{ github.run_id }}
           retention-days: 3
           if-no-files-found: ignore
+          include-hidden-files: true
           path: |
             app/client/coverage/
             app/tests/cache/frontend-dist/
