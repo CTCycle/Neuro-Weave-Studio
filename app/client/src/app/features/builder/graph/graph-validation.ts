@@ -1,4 +1,5 @@
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'
+import type { ExecutionBackend } from '../../../domain/types'
 
 export interface GraphConnection {
   source: string
@@ -13,6 +14,7 @@ export type GraphConnectionRejection =
   | 'missing_port'
   | 'disabled_port'
   | 'incompatible_kind'
+  | 'unsupported_profile'
   | 'duplicate'
   | 'input_at_capacity'
   | 'cycle'
@@ -27,6 +29,7 @@ const rejectionMessages: Record<GraphConnectionRejection, string> = {
   missing_port: 'The selected port is no longer available.',
   disabled_port: 'This port is disabled by the current node configuration.',
   incompatible_kind: 'These ports carry incompatible tensor or value types.',
+  unsupported_profile: 'One of these nodes is unavailable for the current execution profile.',
   duplicate: 'This connection already exists.',
   input_at_capacity: 'This input already has its maximum number of connections.',
   cycle: 'Connection blocked: this edge would create a cycle.',
@@ -40,18 +43,23 @@ export function validateGraphConnection(
   nodes: readonly EditorNode[],
   edges: readonly EditorEdge[],
   connection: GraphConnection,
+  executionBackend?: ExecutionBackend,
+  kerasEnabled?: boolean,
 ): GraphConnectionValidation {
   if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) return rejected('missing_endpoint')
   const sourceNode = nodes.find((node) => node.id === connection.source)
   const targetNode = nodes.find((node) => node.id === connection.target)
   if (!sourceNode || !targetNode) return rejected('missing_node')
-  const sourcePort = sourceNode?.data.manifest.outputs.find((port) => port.id === connection.sourceHandle)
-  const targetPort = targetNode?.data.manifest.inputs.find((port) => port.id === connection.targetHandle)
+  const sourcePort = sourceNode.data.manifest.outputs.find((port) => port.id === connection.sourceHandle)
+  const targetPort = targetNode.data.manifest.inputs.find((port) => port.id === connection.targetHandle)
   if (!sourcePort || !targetPort) return rejected('missing_port')
   if (!conditionMatches(sourcePort.enabled_when, sourceNode.data.parameters)
     || !conditionMatches(targetPort.enabled_when, targetNode.data.parameters)) return rejected('disabled_port')
   const expectedKind = targetPort.kind === 'tensor_list' ? targetPort.element_kind ?? 'tensor' : targetPort.kind
   if (sourcePort.kind !== expectedKind) return rejected('incompatible_kind')
+  if (executionBackend !== undefined && kerasEnabled !== undefined
+    && (!supportsExecutionProfile(sourceNode, executionBackend, kerasEnabled)
+      || !supportsExecutionProfile(targetNode, executionBackend, kerasEnabled))) return rejected('unsupported_profile')
   if (edges.some((edge) => edge.source === connection.source
     && (edge.sourceHandle ?? 'output') === (connection.sourceHandle ?? 'output')
     && edge.target === connection.target
@@ -66,26 +74,37 @@ export function isGraphConnectionValid(
   nodes: readonly EditorNode[],
   edges: readonly EditorEdge[],
   connection: GraphConnection,
+  executionBackend?: ExecutionBackend,
+  kerasEnabled?: boolean,
 ): boolean {
-  return validateGraphConnection(nodes, edges, connection).valid
+  return validateGraphConnection(nodes, edges, connection, executionBackend, kerasEnabled).valid
 }
 
 /**
- * Returns semantic target candidates for Foblex connection snapping.
- * Cycle candidates remain available so the completed gesture reaches the
- * store and can report the specific cycle rejection to the user.
+ * Returns cheap semantic candidates for Foblex connection snapping. The server
+ * remains authoritative for inferred shape and execution-profile validation.
+ * Cycle candidates stay in the prefilter so the authoritative batch check can
+ * remove them together with other invalid candidates.
  */
 export function connectionCandidates(
   nodes: readonly EditorNode[],
   edges: readonly EditorEdge[],
   source: string,
   sourceHandle: string,
+  executionBackend?: ExecutionBackend,
+  kerasEnabled?: boolean,
 ): GraphConnection[] {
   const candidates: GraphConnection[] = []
   for (const node of nodes) {
     for (const port of node.data.manifest.inputs) {
       const connection = { source, sourceHandle, target: node.id, targetHandle: port.id }
-      const result = validateGraphConnection(nodes, edges, connection)
+      const result = validateGraphConnection(
+        nodes,
+        edges,
+        connection,
+        executionBackend,
+        kerasEnabled,
+      )
       if (result.valid || result.reason === 'cycle') candidates.push(connection)
     }
   }
@@ -112,6 +131,18 @@ export function wouldCreateCycle(
     stack.push(...(adjacency.get(current) ?? []))
   }
   return false
+}
+
+function supportsExecutionProfile(
+  node: EditorNode,
+  executionBackend: ExecutionBackend,
+  kerasEnabled: boolean,
+): boolean {
+  const implementationKey = kerasEnabled ? 'keras' : executionBackend
+  const mapping = node.data.manifest.implementations[implementationKey]
+  if (!mapping || !mapping.supported || mapping.status === 'unsupported' || mapping.status === 'unverified') return false
+  if (kerasEnabled && mapping.execution_backends?.[executionBackend] === false) return false
+  return true
 }
 
 function conditionMatches(
