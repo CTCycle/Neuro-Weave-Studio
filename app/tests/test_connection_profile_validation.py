@@ -55,7 +55,7 @@ def test_proposed_edge_respects_execution_profile() -> None:
     assert keras_result.valid
     assert not native_tensorflow_result.valid
     assert any(
-        diagnostic.code == "connection_profile_incompatible"
+        diagnostic.code == "unsupported_implementation"
         for diagnostic in native_tensorflow_result.diagnostics
     )
 
