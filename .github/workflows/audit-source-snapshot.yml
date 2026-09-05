@@ -1,0 +1,28 @@
+name: Audit source snapshot
+
+on:
+  push:
+    branches: [audit/application-stabilization-20260904]
+    paths:
+      - .github/workflows/audit-source-snapshot.yml
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neuro-source-${{ github.sha }}
+          retention-days: 1
+          include-hidden-files: true
+          path: |
+            .github/
+            app/server/
+            app/tests/
+            assets/docs/
+            assets/QA/
+          if-no-files-found: error
