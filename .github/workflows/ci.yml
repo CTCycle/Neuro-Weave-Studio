@@ -37,9 +37,7 @@ jobs:
         run: >-
           uv sync --locked --project app/server
           --extra test
-          --extra tensorflow
           --extra torch-cpu
-          --extra jax
           --extra export
       - name: Compile backend
         run: uv run --project app/server python -m compileall app/server
@@ -111,8 +109,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
           version: "0.12.0"
-          enable-cache: true
-          cache-dependency-glob: app/server/uv.lock
+          enable-cache: false
       - name: Install backend runtime for browser tests
         run: uv sync --locked --project app/server
       - name: Start backend for browser tests
@@ -145,6 +142,26 @@ jobs:
           mkdir -p ../../.ci-logs
           set -o pipefail
           npm run e2e 2>&1 | tee ../../.ci-logs/playwright.log
+      - name: Stop backend for browser tests
+        if: ${{ always() }}
+        run: |
+          pid_file="${{ runner.temp }}/neuro-weave-e2e-logs/backend.pid"
+          if [ ! -f "$pid_file" ]; then
+            exit 0
+          fi
+          pid="$(cat "$pid_file")"
+          if kill -0 "$pid" 2>/dev/null; then
+            pkill -TERM -P "$pid" 2>/dev/null || true
+            kill "$pid" 2>/dev/null || true
+            for attempt in {1..10}; do
+              if ! kill -0 "$pid" 2>/dev/null; then
+                exit 0
+              fi
+              sleep 1
+            done
+            pkill -KILL -P "$pid" 2>/dev/null || true
+            kill -KILL "$pid" 2>/dev/null || true
+          fi
       - name: Upload frontend diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
