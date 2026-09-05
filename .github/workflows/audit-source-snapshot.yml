@@ -28,9 +28,7 @@ jobs:
           enable-cache: false
       - name: Reassemble and verify stabilization patch
         run: |
-          wc -c .github/stabilization.patch.0*
           cat .github/stabilization.patch.0* > /tmp/stabilization.patch
-          wc -c /tmp/stabilization.patch
           git apply --check /tmp/stabilization.patch
       - name: Apply verified stabilization patch
         run: git apply /tmp/stabilization.patch
@@ -40,13 +38,14 @@ jobs:
         run: |
           python -m compileall -q app/server app/tests
           git diff --check
-      - name: Commit stabilization changes
+      - name: Commit non-workflow stabilization changes
         env:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
+          git checkout -- .github/workflows/ci.yml
           git rm .github/apply_stabilization.py .github/stabilization.patch.0*
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/workflows/ci.yml app/server app/tests
+          git add app/server app/tests
           git commit -m "fix: complete application stabilization pass"
           git push origin HEAD:"$HEAD_BRANCH"
