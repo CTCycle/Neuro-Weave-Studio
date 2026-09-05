@@ -1,8 +1,8 @@
 name: Audit source snapshot
 
 on:
-  push:
-    branches: [audit/application-stabilization-20260904]
+  pull_request:
+    branches: [develop]
     paths:
       - .github/workflows/audit-source-snapshot.yml
 
