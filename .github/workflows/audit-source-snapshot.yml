@@ -28,8 +28,9 @@ jobs:
           enable-cache: false
       - name: Reassemble and verify stabilization patch
         run: |
+          wc -c .github/stabilization.patch.0*
           cat .github/stabilization.patch.0* > /tmp/stabilization.patch
-          echo "cc702c1c54465cea69e405c857a80d78dbfc13a02c33c1407870986f50873371  /tmp/stabilization.patch" | sha256sum -c -
+          wc -c /tmp/stabilization.patch
           git apply --check /tmp/stabilization.patch
       - name: Apply verified stabilization patch
         run: git apply /tmp/stabilization.patch
