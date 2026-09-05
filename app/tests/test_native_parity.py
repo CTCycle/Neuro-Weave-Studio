@@ -11,8 +11,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from models.native_runtime import build_native_model, forward_native
 
 
-
-
 ###############################################################################
 def require_backend(backend: ExecutionBackend) -> None:
     module_name = {

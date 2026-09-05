@@ -17,6 +17,7 @@ from domain.graph import ModelGraph
 from domain.jobs import JobSubmitRequest, SmokeInferenceOperation
 from domain.metadata import ExecutionBackendStatus
 from domain.runtime import (
+    MemoryPolicyKind,
     RuntimeApi,
     RuntimeApiStatus,
     RuntimeDevice,
@@ -124,7 +125,7 @@ def test_force_refresh_bypasses_matching_snapshot(tmp_path: Path, monkeypatch: p
                         kind="cpu",
                         name="CPU",
                         accelerator="cpu",
-                        supported_memory_policies=["default"],
+                        supported_memory_policies=[MemoryPolicyKind.DEFAULT],
                     ).model_dump(mode="json")
                 ],
             }

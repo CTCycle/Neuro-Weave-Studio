@@ -130,6 +130,8 @@ def run_job(
         if not artifact_filename:
             stem = str(operation.get("filename_stem") or "model")
             artifact_filename = f"{stem}{export_suffix(export_format, options)}"
+        raw_project_revision = operation.get("project_revision")
+        project_revision = raw_project_revision if isinstance(raw_project_revision, int) else None
         context.checkpoint("serializing", f"Serializing {export_format.value} artifact", 60)
         result = worker.run_export(
             graph,
@@ -138,11 +140,7 @@ def run_job(
             options,
             model_checkpoint,
             project_id=str(operation.get("project_id")) if operation.get("project_id") else None,
-            project_revision=(
-                operation["project_revision"]
-                if isinstance(operation.get("project_revision"), int)
-                else None
-            ),
+            project_revision=project_revision,
             compilation_catalog=compilation_catalog,
         )
         context.checkpoint("validating", "Artifact verification completed", 95)

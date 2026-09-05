@@ -8,10 +8,10 @@ from domain.compilation_catalog import CompilationCatalogProvider, CompilationOp
 from domain.metric_formula import MetricFormulaError, parse_metric_formula
 from domain.metrics import (
     MetricCatalogResponse,
-    MetricKind,
     MetricDefinitionCreate,
     MetricDefinitionResponse,
     MetricDefinitionUpdate,
+    MetricKind,
     MetricUsageResponse,
 )
 from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
