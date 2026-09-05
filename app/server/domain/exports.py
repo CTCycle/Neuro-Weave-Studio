@@ -97,8 +97,8 @@ class ExportArtifactManifest(BaseModel):
         pattern=r"^[0-9a-f]{64}$",
     )
     files: list[ExportArtifactFile] = Field(min_length=1)
-    inputs: list[dict[str, Any]] = Field(default_factory=list)
-    outputs: list[dict[str, Any]] = Field(default_factory=list)
+    inputs: list[dict[str, Any]] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    outputs: list[dict[str, Any]] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     compilation: dict[str, Any] = Field(default_factory=dict)
     tool_versions: dict[str, str] = Field(default_factory=dict)
     verification: ExportVerification = Field(default_factory=ExportVerification)
@@ -137,7 +137,7 @@ class ExportCapability(BaseModel):
     compatibility: str
     limitations: list[str] = Field(default_factory=list)
     dependencies: list[str] = Field(default_factory=list)
-    options: list[ExportOptionDefinition] = Field(default_factory=list)
+    options: list[ExportOptionDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
 
 ###############################################################################
@@ -149,7 +149,7 @@ class ExportCapabilitiesResponse(BaseModel):
     execution_backend: ExecutionBackend
     keras_enabled: bool
     valid: bool
-    diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+    diagnostics: list[dict[str, Any]] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     formats: list[ExportCapability]
 
 

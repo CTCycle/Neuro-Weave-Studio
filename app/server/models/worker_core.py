@@ -139,7 +139,7 @@ def run_job(
             model_checkpoint,
             project_id=str(operation.get("project_id")) if operation.get("project_id") else None,
             project_revision=(
-                int(operation["project_revision"])
+                operation["project_revision"]
                 if isinstance(operation.get("project_revision"), int)
                 else None
             ),

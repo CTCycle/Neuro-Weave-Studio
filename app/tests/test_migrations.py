@@ -118,7 +118,7 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
     path = tmp_path / "configuration-migration.db"
     engine = create_engine(f"sqlite:///{path}")
     project_id = "migration-project"
-    snapshot = {
+    snapshot: dict[str, Any] = {
         "schema_version": 2,
         "nodes": [
             {

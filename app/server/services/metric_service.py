@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import cast
 from uuid import uuid4
 
 from common.timestamps import utc_now
@@ -7,6 +8,7 @@ from domain.compilation_catalog import CompilationCatalogProvider, CompilationOp
 from domain.metric_formula import MetricFormulaError, parse_metric_formula
 from domain.metrics import (
     MetricCatalogResponse,
+    MetricKind,
     MetricDefinitionCreate,
     MetricDefinitionResponse,
     MetricDefinitionUpdate,
@@ -116,7 +118,7 @@ class MetricService:
     def _from_record(record: CustomMetricDefinitionRecord) -> MetricDefinitionResponse:
         return MetricDefinitionResponse(
             id=record.id,
-            kind=record.kind,
+            kind=cast(MetricKind, record.kind),
             label=record.label,
             description=record.description,
             formula=record.formula_latex,

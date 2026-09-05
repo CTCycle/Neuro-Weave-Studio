@@ -35,7 +35,7 @@ class CanonicalModelIR(BaseModel):
     ordered_nodes: list[CompiledNode]
     input_node_ids: list[str]
     output_node_ids: list[str]
-    output_bindings: list[OutputBinding] = Field(default_factory=list)
+    output_bindings: list[OutputBinding] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     shape_summaries: list[ShapeSummary] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 
 class MetricFormulaError(ValueError):
@@ -26,17 +26,21 @@ class FormulaNode:
 
     @classmethod
     def from_json(cls, value: object) -> FormulaNode:
-        if not isinstance(value, dict) or not isinstance(value.get("op"), str):
+        if not isinstance(value, dict):
             raise MetricFormulaError("Stored metric formula AST is invalid")
-        raw_args = value.get("args", [])
+        mapping = cast(dict[str, object], value)
+        op = mapping.get("op")
+        if not isinstance(op, str):
+            raise MetricFormulaError("Stored metric formula AST is invalid")
+        raw_args = mapping.get("args", [])
         if not isinstance(raw_args, list):
             raise MetricFormulaError("Stored metric formula arguments are invalid")
-        raw_value = value.get("value")
+        raw_value = mapping.get("value")
         number = float(raw_value) if isinstance(raw_value, int | float) else None
         return cls(
-            op=value["op"],
+            op=op,
             value=number,
-            args=tuple(cls.from_json(item) for item in raw_args),
+            args=tuple(cls.from_json(item) for item in cast(list[object], raw_args)),
         )
 
 

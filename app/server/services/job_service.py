@@ -59,7 +59,7 @@ class JobService:
             )
 
         operation = request.operation
-        if not isinstance(operation, ModelExportOperation):
+        if not isinstance(operation, ModelExportOperation):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise RuntimeError("Unsupported job operation")
         project_id = operation.project_id
         project = self._projects.get(project_id)
