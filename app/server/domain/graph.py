@@ -166,7 +166,7 @@ class ModelGraph(BaseModel):
             return value
         raw_value = cast(dict[str, Any], value)
         if raw_value.get("schema_version") != 4:
-            return value
+            return raw_value
         migrated: dict[str, Any] = dict(raw_value)
         migrated["schema_version"] = GRAPH_SCHEMA_VERSION
         nodes: list[Any] = []
@@ -281,7 +281,7 @@ class ProjectExportBundle(BaseModel):
             return value
         raw_value = cast(dict[str, Any], value)
         if raw_value.get("format_version") != 5:
-            return value
+            return raw_value
         migrated: dict[str, Any] = dict(raw_value)
         migrated["format_version"] = PROJECT_BUNDLE_FORMAT_VERSION
         return migrated

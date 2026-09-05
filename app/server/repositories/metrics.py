@@ -61,11 +61,9 @@ def _configuration_references(configuration: object, metric_id: str) -> bool:
         if not isinstance(profile, dict):
             continue
         profile_map = cast(dict[str, Any], profile)
-        profiles: tuple[object, ...] | list[object]
-        if profile is native_profile:
-            profiles = list(profile_map.values())
-        else:
-            profiles = (profile_map,)
+        profiles: tuple[object, ...] | list[object] = (
+            list(profile_map.values()) if profile is native_profile else (profile_map,)
+        )
         for item in profiles:
             if not isinstance(item, dict):
                 continue
