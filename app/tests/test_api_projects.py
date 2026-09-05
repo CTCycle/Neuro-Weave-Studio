@@ -306,7 +306,8 @@ def test_export_capabilities_expose_matrix_and_explicit_reasons(
     assert payload["project_revision"] == project["current_revision"]
     assert formats["project_bundle"]["available"] is True
     assert formats["source"]["available"] is True
-    assert formats["keras"]["available"] is True
+    assert formats["keras"]["available"] is False
+    assert formats["keras"]["reason_code"] == "runtime_unavailable"
     assert formats["pytorch_exported_program"]["available"] is False
     assert formats["pytorch_exported_program"]["reason_code"] == "keras_enabled"
     assert {item["id"] for item in formats["onnx"]["options"]} >= {

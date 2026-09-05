@@ -22,7 +22,7 @@ class MetricDefinitionResponse(BaseModel):
     locked: bool
     can_edit: bool
     can_delete: bool
-    supported_tasks: list[CompilationTask] = Field(default_factory=list)
+    supported_tasks: list[CompilationTask] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     target_contract: TargetContract | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

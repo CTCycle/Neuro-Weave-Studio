@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -54,16 +55,23 @@ class MetricRepository:
 def _configuration_references(configuration: object, metric_id: str) -> bool:
     if not isinstance(configuration, dict):
         return False
-    for profile in (configuration.get("keras"), configuration.get("native")):
+    root = cast(dict[str, Any], configuration)
+    native_profile = root.get("native")
+    for profile in (root.get("keras"), native_profile):
         if not isinstance(profile, dict):
             continue
-        profiles = profile.values() if profile is configuration.get("native") else (profile,)
+        profile_map = cast(dict[str, Any], profile)
+        profiles: tuple[object, ...] | list[object]
+        if profile is native_profile:
+            profiles = list(profile_map.values())
+        else:
+            profiles = (profile_map,)
         for item in profiles:
             if not isinstance(item, dict):
                 continue
+            item_map = cast(dict[str, Any], item)
             for key in ("losses", "metrics"):
-                values = item.get(key)
-                if _contains_metric_id(values, metric_id):
+                if _contains_metric_id(item_map.get(key), metric_id):
                     return True
     return False
 
@@ -72,7 +80,13 @@ def _contains_metric_id(value: object, metric_id: str) -> bool:
     if isinstance(value, str):
         return value == metric_id
     if isinstance(value, list):
-        return any(_contains_metric_id(item, metric_id) for item in value)
+        return any(
+            _contains_metric_id(item, metric_id)
+            for item in cast(list[object], value)
+        )
     if isinstance(value, dict):
-        return any(_contains_metric_id(item, metric_id) for item in value.values())
+        return any(
+            _contains_metric_id(item, metric_id)
+            for item in cast(dict[object, object], value).values()
+        )
     return False

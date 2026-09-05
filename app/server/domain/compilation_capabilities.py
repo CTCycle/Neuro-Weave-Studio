@@ -21,7 +21,7 @@ class NativeCompilationCapability(BaseModel):
     available: bool = False
     reason_code: str | None = None
     reason: str | None = None
-    parameters: list[CompilationParameter] = Field(default_factory=list)
+    parameters: list[CompilationParameter] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     catalog: CompilationCatalog = Field(default_factory=CompilationCatalog)
 
 

@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
 from contextlib import nullcontext
@@ -5,6 +6,8 @@ from itertools import pairwise
 from typing import Any
 
 import pytest
+
+pytest.importorskip("torch", reason="PyTorch backend is not installed")
 
 from common.catalogs.loader import get_node_catalog
 from domain.compilation_catalog import get_compilation_catalog

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 import zipfile
+from collections.abc import Iterator
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,13 +14,13 @@ from domain.enums import ExecutionBackend
 from domain.exports import ExportFormat
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from domain.jobs import JobResponse, JobSubmitRequest, ModelExportOperation
-from domain.runtime import RuntimeApi, WorkerConfiguration
+from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
 from services.runtime_controller import RuntimeController
 
 
 ###############################################################################
 @pytest.fixture(scope="module")
-def export_controller(tmp_path_factory: pytest.TempPathFactory) -> RuntimeController:
+def export_controller(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RuntimeController]:
     runtime_root = tmp_path_factory.mktemp("export-controller")
     controller = RuntimeController(
         Settings(
@@ -128,7 +129,7 @@ def worker_for(
         api=api,
         backend=backend,
         device_id=device.device_id,
-        memory_policy={"kind": "default"},
+        memory_policy=MemoryPolicy(),
         precision="float32",
     )
 

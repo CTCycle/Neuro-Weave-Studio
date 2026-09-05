@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 """Persist Model Builder output bindings and node locking state."""
 
 from __future__ import annotations
