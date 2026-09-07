@@ -90,7 +90,10 @@ def duplicate_project(
     payload: ProjectDuplicateRequest,
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectDocument:
-    project = service.duplicate(project_id, payload)
+    try:
+        project = service.duplicate(project_id, payload)
+    except GraphPersistenceError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
@@ -114,4 +117,7 @@ def import_project(
     payload: ProjectExportBundle,
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectDocument:
-    return service.create(payload.project)
+    try:
+        return service.create(payload.project)
+    except GraphPersistenceError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
