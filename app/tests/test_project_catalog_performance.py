@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
-
 from fastapi.testclient import TestClient
 from sqlalchemy import event
-from sqlalchemy.engine import Engine
 
 
 ###############################################################################
@@ -86,13 +82,12 @@ def count_project_list_queries(client: TestClient) -> int:
         nonlocal statements
         statements += 1
 
-    listener = before_cursor_execute
-    event.listen(engine, "before_cursor_execute", listener)
+    event.listen(engine, "before_cursor_execute", before_cursor_execute)
     try:
         response = client.get("/api/projects")
         assert response.status_code == 200, response.text
     finally:
-        event.remove(engine, "before_cursor_execute", listener)
+        event.remove(engine, "before_cursor_execute", before_cursor_execute)
     return statements
 
 
