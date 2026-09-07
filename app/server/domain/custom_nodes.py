@@ -11,7 +11,6 @@ CustomNodeOrigin = Literal["custom"]
 _REPOSITORY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 _COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
-
 ###############################################################################
 class MathematicalNodeSpec(BaseModel):
     type: Literal["mathematical"] = "mathematical"
@@ -19,6 +18,7 @@ class MathematicalNodeSpec(BaseModel):
     expression: str | None = Field(default=None, max_length=500)
     input_symbols: list[Literal["x"]] = Field(default_factory=lambda: ["x"], min_length=1, max_length=1)
 
+    # -------------------------------------------------------------------------
     @field_validator("formula")
     @classmethod
     def clean_formula(cls, value: str) -> str:
@@ -27,12 +27,12 @@ class MathematicalNodeSpec(BaseModel):
             raise ValueError("Formula cannot be empty")
         return cleaned
 
+    # -------------------------------------------------------------------------
     @model_validator(mode="after")
     def single_tensor_input(self) -> MathematicalNodeSpec:
         if self.input_symbols != ["x"]:
             raise ValueError("Mathematical custom nodes currently use the single tensor input 'x'")
         return self
-
 
 ###############################################################################
 class CompositeNodeComponent(BaseModel):
@@ -41,6 +41,7 @@ class CompositeNodeComponent(BaseModel):
     label: str | None = Field(default=None, max_length=160)
     parameters: dict[str, Any] = Field(default_factory=dict)
 
+    # -------------------------------------------------------------------------
     @field_validator("definition_id")
     @classmethod
     def clean_definition_id(cls, value: str) -> str:
@@ -49,6 +50,7 @@ class CompositeNodeComponent(BaseModel):
             raise ValueError("Component definition id cannot be empty")
         return cleaned
 
+    # -------------------------------------------------------------------------
     @field_validator("label")
     @classmethod
     def clean_label(cls, value: str | None) -> str | None:
@@ -57,13 +59,11 @@ class CompositeNodeComponent(BaseModel):
         cleaned = value.strip()
         return cleaned or None
 
-
 ###############################################################################
 class CompositeNodeSpec(BaseModel):
     type: Literal["composite"] = "composite"
     connection_mode: Literal["sequential"] = "sequential"
     components: list[CompositeNodeComponent] = Field(min_length=1, max_length=64)
-
 
 ###############################################################################
 class RepositoryNodeSpec(BaseModel):
@@ -77,6 +77,7 @@ class RepositoryNodeSpec(BaseModel):
     library_name: str | None = Field(default=None, max_length=120)
     pipeline_tag: str | None = Field(default=None, max_length=160)
 
+    # -------------------------------------------------------------------------
     @field_validator("repository_id")
     @classmethod
     def validate_repository_id(cls, value: str) -> str:
@@ -85,6 +86,7 @@ class RepositoryNodeSpec(BaseModel):
             raise ValueError("Hugging Face repository ids must use the namespace/repository form")
         return cleaned
 
+    # -------------------------------------------------------------------------
     @field_validator("revision")
     @classmethod
     def clean_revision(cls, value: str) -> str:
@@ -93,6 +95,7 @@ class RepositoryNodeSpec(BaseModel):
             raise ValueError("Revision cannot be empty")
         return cleaned
 
+    # -------------------------------------------------------------------------
     @field_validator("entrypoint", "library_name", "pipeline_tag")
     @classmethod
     def clean_optional_text(cls, value: str | None) -> str | None:
@@ -101,6 +104,7 @@ class RepositoryNodeSpec(BaseModel):
         cleaned = value.strip()
         return cleaned or None
 
+    # -------------------------------------------------------------------------
     @field_validator("resolved_commit")
     @classmethod
     def validate_resolved_commit(cls, value: str | None) -> str | None:
@@ -117,7 +121,6 @@ CustomNodeSpec = Annotated[
     Field(discriminator="type"),
 ]
 
-
 ###############################################################################
 class CustomNodeDefinitionCreate(BaseModel):
     display_name: str = Field(min_length=1, max_length=160)
@@ -125,6 +128,7 @@ class CustomNodeDefinitionCreate(BaseModel):
     description: str = Field(min_length=1, max_length=4000)
     spec: CustomNodeSpec
 
+    # -------------------------------------------------------------------------
     @field_validator("display_name", "category", "description")
     @classmethod
     def clean_text(cls, value: str) -> str:
@@ -133,11 +137,9 @@ class CustomNodeDefinitionCreate(BaseModel):
             raise ValueError("Value cannot be empty")
         return cleaned
 
-
 ###############################################################################
 class CustomNodeDefinitionUpdate(CustomNodeDefinitionCreate):
     pass
-
 
 ###############################################################################
 class CustomNodeDefinitionResponse(BaseModel):
@@ -155,7 +157,6 @@ class CustomNodeDefinitionResponse(BaseModel):
     executable_template: bool = False
     created_at: datetime
     updated_at: datetime
-
 
 ###############################################################################
 class CustomNodeCatalogResponse(BaseModel):

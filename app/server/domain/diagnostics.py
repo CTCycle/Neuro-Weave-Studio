@@ -19,7 +19,6 @@ ModelTypeKind = Literal[
 ]
 InferenceConfidence = Literal["high", "medium", "low"]
 
-
 ###############################################################################
 class ValidationDiagnostic(BaseModel):
     code: str
@@ -32,7 +31,6 @@ class ValidationDiagnostic(BaseModel):
     keras_enabled: bool | None = None
     details: dict[str, object] = Field(default_factory=dict)
 
-
 ###############################################################################
 class OutputReference(BaseModel):
     node_id: str
@@ -41,13 +39,11 @@ class OutputReference(BaseModel):
     explicit: bool
     task_hint: str | None = None
 
-
 ###############################################################################
 class ModelTypeInference(BaseModel):
     kind: ModelTypeKind
     confidence: InferenceConfidence
     evidence: list[str] = Field(default_factory=list)
-
 
 ###############################################################################
 class ValidationResult(BaseModel):
@@ -63,7 +59,6 @@ class ValidationResult(BaseModel):
         )
     )
 
-
 ###############################################################################
 class ConnectionValidationRequest(BaseModel):
     graph: ModelGraph
@@ -71,12 +66,10 @@ class ConnectionValidationRequest(BaseModel):
     execution_backend: ExecutionBackend
     keras_enabled: bool = True
 
-
 ###############################################################################
 class ConnectionValidationResult(BaseModel):
     valid: bool
     diagnostics: list[ValidationDiagnostic] = Field(default_factory=lambda: list[ValidationDiagnostic]())
-
 
 ###############################################################################
 class ValidationRequest(BaseModel):

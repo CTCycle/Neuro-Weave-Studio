@@ -5,6 +5,7 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from services.validation_service import ValidationService
 
 
+###############################################################################
 def make_node(
     node_id: str,
     definition_id: str,
@@ -18,6 +19,7 @@ def make_node(
     )
 
 
+###############################################################################
 def proposed_edge(
     source_node_id: str,
     target_node_id: str,
@@ -34,6 +36,7 @@ def proposed_edge(
     )
 
 
+###############################################################################
 def validate_connection(graph: ModelGraph, edge: EdgeInstance) -> ConnectionValidationResult:
     return ValidationService(get_node_catalog()).validate_connection(
         graph,
@@ -43,6 +46,7 @@ def validate_connection(graph: ModelGraph, edge: EdgeInstance) -> ConnectionVali
     )
 
 
+###############################################################################
 def test_connection_validation_allows_incomplete_draft_edges() -> None:
     graph = ModelGraph(
         nodes=[
@@ -57,6 +61,7 @@ def test_connection_validation_allows_incomplete_draft_edges() -> None:
     assert not any(item.severity == DiagnosticSeverity.ERROR for item in result.diagnostics)
 
 
+###############################################################################
 def test_connection_validation_reports_expected_and_received_rank() -> None:
     graph = ModelGraph(
         nodes=[
@@ -76,6 +81,7 @@ def test_connection_validation_reports_expected_and_received_rank() -> None:
     assert diagnostic.details["received_shape"] == [None, 8]
 
 
+###############################################################################
 def test_connection_validation_rejects_duplicate_and_cycle_edges() -> None:
     graph = ModelGraph(
         nodes=[
@@ -110,6 +116,7 @@ def test_connection_validation_rejects_duplicate_and_cycle_edges() -> None:
     assert any(item.code == "cycle_detected" for item in cycle.diagnostics)
 
 
+###############################################################################
 def test_connection_validation_rejects_incompatible_merge_shape() -> None:
     graph = ModelGraph(
         nodes=[

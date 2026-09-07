@@ -11,14 +11,12 @@ from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.output_resolution import input_nodes, output_bindings
 from validation.shape_inference import infer_shapes
 
-
 ###############################################################################
 def _variable_name(node_id: str) -> str:
     value = re.sub(r"[^a-zA-Z0-9_]", "_", node_id)
     if value and (value[0].isdigit() or keyword.iskeyword(value)):
         value = f"node_{value}"
     return value or "node"
-
 
 ###############################################################################
 def compile_to_ir(

@@ -13,7 +13,6 @@ from domain.tensor import TensorSpec
 if TYPE_CHECKING:
     from domain.diagnostics import InferenceConfidence, ModelTypeKind
 
-
 ###############################################################################
 @dataclass(frozen=True)
 class ResolvedOutput:
@@ -27,6 +26,7 @@ class ResolvedOutput:
     explicit: bool
 
 
+###############################################################################
 def is_effective_output(output: ResolvedOutput) -> bool:
     """Return whether a resolved binding can produce a model output."""
 
@@ -40,6 +40,7 @@ def is_effective_output(output: ResolvedOutput) -> bool:
     )
 
 
+###############################################################################
 def output_selectors(output: ResolvedOutput) -> tuple[str, ...]:
     """Return stable configuration keys for one resolved output port."""
 
@@ -52,7 +53,6 @@ def output_selectors(output: ResolvedOutput) -> tuple[str, ...]:
         values.append(output.node.label)
     return tuple(dict.fromkeys(value for value in values if value))
 
-
 ###############################################################################
 def input_nodes(graph: ModelGraph, catalog: NodeCatalog) -> list[NodeInstance]:
     result: list[NodeInstance] = []
@@ -64,7 +64,6 @@ def input_nodes(graph: ModelGraph, catalog: NodeCatalog) -> list[NodeInstance]:
         if manifest.semantic_role == "input":
             result.append(node)
     return result
-
 
 ###############################################################################
 def _condition_matches(condition: dict[str, object], parameters: dict[str, object]) -> bool:
@@ -87,6 +86,7 @@ def _condition_matches(condition: dict[str, object], parameters: dict[str, objec
     return True
 
 
+###############################################################################
 def _tensor_output_ports(
     manifest: NodeManifest, parameters: dict[str, object] | None = None
 ) -> Iterable[PortDefinition]:
@@ -99,13 +99,13 @@ def _tensor_output_ports(
     )
 
 
+###############################################################################
 def _output_name(node: NodeInstance | None, manifest: NodeManifest | None, port: PortDefinition | None, fallback: str) -> str:
     base_name = fallback if node is None else node.label or node.id
     if node is None or manifest is None or port is None:
         return base_name
     enabled_port_ids = [item.id for item in _tensor_output_ports(manifest, node.parameters)]
     return base_name if len(enabled_port_ids) == 1 else f"{base_name}_{port.id}"
-
 
 ###############################################################################
 def inferred_output_bindings(graph: ModelGraph, catalog: NodeCatalog) -> list[OutputBinding]:
@@ -131,7 +131,6 @@ def inferred_output_bindings(graph: ModelGraph, catalog: NodeCatalog) -> list[Ou
                 bindings.append(OutputBinding(node_id=node.id, port_id=port.id))
     return bindings
 
-
 ###############################################################################
 def output_bindings(graph: ModelGraph, catalog: NodeCatalog) -> tuple[list[OutputBinding], bool]:
     """Return explicit bindings when present, otherwise inferred terminals."""
@@ -139,7 +138,6 @@ def output_bindings(graph: ModelGraph, catalog: NodeCatalog) -> tuple[list[Outpu
     if graph.output_bindings:
         return list(graph.output_bindings), True
     return inferred_output_bindings(graph, catalog), False
-
 
 ###############################################################################
 def resolved_outputs(graph: ModelGraph, catalog: NodeCatalog) -> list[ResolvedOutput]:
@@ -183,7 +181,6 @@ def resolved_outputs(graph: ModelGraph, catalog: NodeCatalog) -> list[ResolvedOu
         unique_result.append(replace(item, name=candidate))
     return unique_result
 
-
 ###############################################################################
 def _head_node(graph: ModelGraph, output: ResolvedOutput) -> NodeInstance | None:
     """Find the computational node that most directly determines an output."""
@@ -214,7 +211,6 @@ def _head_node(graph: ModelGraph, output: ResolvedOutput) -> NodeInstance | None
         )
     return current
 
-
 ###############################################################################
 def _head_activation_and_width(
     graph: ModelGraph, output: ResolvedOutput, shape: TensorSpec | None
@@ -238,7 +234,6 @@ def _head_activation_and_width(
         if width is not None:
             evidence.append(f"output_width={width}")
     return activation if isinstance(activation, str) else None, width, head_kind, evidence
-
 
 ###############################################################################
 def infer_model_type(

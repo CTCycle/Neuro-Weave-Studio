@@ -8,7 +8,6 @@ from services.filesystem_service import FilesystemService
 
 router = APIRouter(prefix="/api/filesystem", tags=["filesystem"])
 
-
 ###############################################################################
 @router.get("/browse", response_model=FilesystemBrowseResponse)
 def browse_filesystem(

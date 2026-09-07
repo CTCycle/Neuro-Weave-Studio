@@ -16,12 +16,10 @@ from services.huggingface_repository_service import HuggingFaceUnavailableError
 
 router = APIRouter(prefix="/api/nodes", tags=["node catalog"])
 
-
 ###############################################################################
 @router.get("/catalog", response_model=NodeCatalogResponse)
 def catalog(service: CatalogService = Depends(get_catalog_service)) -> NodeCatalogResponse:
     return service.list()
-
 
 ###############################################################################
 @router.get("/custom", response_model=CustomNodeCatalogResponse)
@@ -31,9 +29,9 @@ def custom_nodes(
     return service.list()
 
 
+###############################################################################
 def _service_unavailable(exc: HuggingFaceUnavailableError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
-
 
 ###############################################################################
 @router.post(
@@ -54,7 +52,6 @@ def create_custom_node(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-
 ###############################################################################
 @router.put("/custom/{definition_id}", response_model=CustomNodeDefinitionResponse)
 def update_custom_node(
@@ -74,7 +71,6 @@ def update_custom_node(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
 
 ###############################################################################
 @router.delete("/custom/{definition_id}", status_code=status.HTTP_204_NO_CONTENT)

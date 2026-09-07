@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from domain.enums import ExecutionBackend
 from domain.runtime import RuntimeApi
 
-
 ###############################################################################
 class ExportFormat(StrEnum):
     PROJECT_BUNDLE = "project_bundle"
@@ -24,7 +23,6 @@ class ExportFormat(StrEnum):
     TENSORFLOW_CHECKPOINT = "tensorflow_checkpoint"
     FLAX_CHECKPOINT = "flax_checkpoint"
 
-
 ###############################################################################
 class ExportCategory(StrEnum):
     PROJECT = "project"
@@ -33,12 +31,10 @@ class ExportCategory(StrEnum):
     INTERCHANGE = "interchange"
     CHECKPOINT = "checkpoint"
 
-
 ###############################################################################
 class ExportLayout(StrEnum):
     FILE = "file"
     ARCHIVE = "archive"
-
 
 ###############################################################################
 class ExportPayload(StrEnum):
@@ -47,14 +43,12 @@ class ExportPayload(StrEnum):
     FULL_MODEL = "full_model"
     WEIGHTS_ONLY = "weights_only"
 
-
 ###############################################################################
 class ExportConversion(StrEnum):
     CANONICAL = "canonical"
     NATIVE = "native"
     KERAS = "keras"
     BRIDGE = "bridge"
-
 
 ###############################################################################
 class ExportVerification(BaseModel):
@@ -66,7 +60,6 @@ class ExportVerification(BaseModel):
     semantic_equivalence: Literal["verified", "not_claimed", "not_applicable"] = "not_claimed"
     notes: list[str] = Field(default_factory=list)
 
-
 ###############################################################################
 class ExportArtifactFile(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -75,7 +68,6 @@ class ExportArtifactFile(BaseModel):
     size_bytes: int = Field(ge=0)
     sha256: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
     media_type: str = "application/octet-stream"
-
 
 ###############################################################################
 class ExportArtifactManifest(BaseModel):
@@ -103,7 +95,6 @@ class ExportArtifactManifest(BaseModel):
     tool_versions: dict[str, str] = Field(default_factory=dict)
     verification: ExportVerification = Field(default_factory=ExportVerification)
 
-
 ###############################################################################
 class ExportOptionDefinition(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -114,7 +105,6 @@ class ExportOptionDefinition(BaseModel):
     default: Any = None
     choices: list[Any] = Field(default_factory=list)
     description: str = ""
-
 
 ###############################################################################
 class ExportCapability(BaseModel):
@@ -139,7 +129,6 @@ class ExportCapability(BaseModel):
     dependencies: list[str] = Field(default_factory=list)
     options: list[ExportOptionDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
-
 ###############################################################################
 class ExportCapabilitiesResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -152,7 +141,6 @@ class ExportCapabilitiesResponse(BaseModel):
     diagnostics: list[dict[str, Any]] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     formats: list[ExportCapability]
 
-
 ###############################################################################
 class ExportOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -161,7 +149,6 @@ class ExportOptions(BaseModel):
     dynamic_batch: bool = True
     external_data: Literal["auto", "always", "never"] = "auto"
     max_shard_size_gb: float | None = Field(default=None, gt=0, le=100)
-
 
 ###############################################################################
 def export_suffix(export_format: ExportFormat, options: ExportOptions | None = None) -> str:
@@ -183,7 +170,6 @@ def export_suffix(export_format: ExportFormat, options: ExportOptions | None = N
         ExportFormat.FLAX_CHECKPOINT: ".flax-checkpoint.zip",
     }
     return suffixes[export_format]
-
 
 ###############################################################################
 class SourceExportResponse(BaseModel):

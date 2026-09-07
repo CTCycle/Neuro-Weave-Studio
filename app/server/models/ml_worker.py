@@ -18,7 +18,6 @@ from models.worker_backend import (
 )
 from models.worker_core import WorkerCancelled, WorkerContext, read_request, run_job
 
-
 ###############################################################################
 def _probe(backend: ExecutionBackend, api: RuntimeApi) -> None:
     config = WorkerConfiguration(backend=backend, api=api, device_id="auto")
@@ -42,7 +41,6 @@ def _probe(backend: ExecutionBackend, api: RuntimeApi) -> None:
     finally:
         worker.cleanup()
 
-
 ###############################################################################
 def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -53,7 +51,6 @@ def _parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("--job-dir", type=Path)
     return parser.parse_args()
-
 
 ###############################################################################
 def _run_job_process(job_dir: Path) -> None:
@@ -100,7 +97,6 @@ def _run_job_process(job_dir: Path) -> None:
     finally:
         if worker is not None:
             worker.cleanup()
-
 
 ###############################################################################
 def main() -> None:

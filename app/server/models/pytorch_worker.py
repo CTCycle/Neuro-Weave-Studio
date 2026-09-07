@@ -23,7 +23,6 @@ from models.worker_backend import (
     run_native_smoke,
 )
 
-
 ###############################################################################
 class PyTorchWorker:
     backend = ExecutionBackend.PYTORCH
@@ -263,7 +262,6 @@ class PyTorchWorker:
         except (AttributeError, RuntimeError, TypeError):
             pass
         gc.collect()
-
 
 ###############################################################################
 def create_worker() -> BackendWorker:

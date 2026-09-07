@@ -35,7 +35,6 @@ from models.export_artifacts import (
 )
 from validation.output_resolution import input_nodes, resolved_outputs
 
-
 ###############################################################################
 def run_model_export(
     graph: ModelGraph,
@@ -119,7 +118,6 @@ def run_model_export(
     finally:
         shutil.rmtree(working_root, ignore_errors=True)
 
-
 ###############################################################################
 def _build_keras_model(
     graph: ModelGraph,
@@ -133,7 +131,6 @@ def _build_keras_model(
     checkpoint()
     compile_model(model, graph, compilation_catalog=compilation_catalog)
     return model
-
 
 ###############################################################################
 def _export_keras(
@@ -283,7 +280,6 @@ def _export_keras(
     raise RuntimeError(
         f"Export format '{export_format.value}' is not available for a Keras profile"
     )
-
 
 ###############################################################################
 def _export_native(
@@ -508,7 +504,6 @@ def _export_native(
         f"Export format '{export_format.value}' is not available for a native {backend.value} profile"
     )
 
-
 ###############################################################################
 def _final_result(
     *,
@@ -554,7 +549,6 @@ def _final_result(
         "device_name": "CPU",
         "artifact_manifest": manifest,
     }
-
 
 ###############################################################################
 def _package_directory_result(
@@ -619,7 +613,6 @@ def _package_directory_result(
         "artifact_manifest": manifest,
     }
 
-
 ###############################################################################
 def _package_files_result(
     *,
@@ -671,7 +664,6 @@ def _package_files_result(
         "artifact_manifest": manifest,
     }
 
-
 ###############################################################################
 def _manifest(
     *,
@@ -718,7 +710,6 @@ def _manifest(
     )
     return manifest.model_dump(mode="json")
 
-
 ###############################################################################
 def _verify_keras_model(
     destination: Path,
@@ -739,7 +730,6 @@ def _verify_keras_model(
     comparison = _compare_outputs(expected_outputs, values, semantic=True)
     return comparison.model_copy(update={"structural": True, "reload": True})
 
-
 ###############################################################################
 def _verify_keras_weights(
     graph: ModelGraph,
@@ -758,7 +748,6 @@ def _verify_keras_weights(
     synchronize(values)
     comparison = _compare_outputs(expected_outputs, values, semantic=True)
     return comparison.model_copy(update={"structural": True, "reload": True})
-
 
 ###############################################################################
 def _verify_tensorflow_saved_model(
@@ -784,7 +773,6 @@ def _verify_tensorflow_saved_model(
     if len(values) != expected_output_count:
         raise RuntimeError("Reloaded SavedModel returned an unexpected output count")
     return ExportVerification(structural=True, reload=True, inference=True)
-
 
 ###############################################################################
 def _export_onnx_result(
@@ -872,7 +860,6 @@ def _export_onnx_result(
         project_revision=project_revision,
     )
 
-
 ###############################################################################
 def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: ExportOptions) -> Any:
     if handle.backend is ExecutionBackend.PYTORCH:
@@ -880,6 +867,7 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
 
         ###############################################################################
         class Wrapper(torch.nn.Module):
+
             # -------------------------------------------------------------------------
             def __init__(self, model: Any, input_ids: list[str]) -> None:
                 super().__init__()
@@ -996,7 +984,6 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
     )
     return model_proto
 
-
 ###############################################################################
 def _normalize_onnx_names(model_proto: Any, graph: ModelGraph) -> None:
     input_names = [node.id for node in input_nodes(graph, get_node_catalog())]
@@ -1018,7 +1005,6 @@ def _normalize_onnx_names(model_proto: Any, graph: ModelGraph) -> None:
     for value, name in zip(graph_outputs, output_names, strict=False):
         value.name = name
 
-
 ###############################################################################
 def _set_onnx_dynamic_batch(model_proto: Any) -> None:
     for value in [*model_proto.graph.input, *model_proto.graph.output]:
@@ -1026,7 +1012,6 @@ def _set_onnx_dynamic_batch(model_proto: Any) -> None:
         if shape.dim:
             shape.dim[0].ClearField("dim_value")
             shape.dim[0].dim_param = "batch"
-
 
 ###############################################################################
 def _verify_onnx(
@@ -1062,7 +1047,6 @@ def _verify_onnx(
         semantic_equivalence="verified",
     )
 
-
 ###############################################################################
 def _save_native_tensorflow_model(handle: Any, input_values: list[Any], directory: Path) -> None:
     import tensorflow as tf
@@ -1085,7 +1069,6 @@ def _save_native_tensorflow_model(handle: Any, input_values: list[Any], director
 
     tf.saved_model.save(handle.model, str(directory), signatures={"serving_default": serving})
 
-
 ###############################################################################
 def _save_keras_safetensors(model: Any, path: Path) -> None:
     from safetensors.numpy import save_file
@@ -1098,7 +1081,6 @@ def _save_keras_safetensors(model: Any, path: Path) -> None:
             key = f"{key}_{index}"
         tensors[key] = _to_numpy(variable)
     save_file(tensors, str(path))
-
 
 ###############################################################################
 def _save_native_safetensors(handle: Any, path: Path) -> None:
@@ -1120,14 +1102,12 @@ def _save_native_safetensors(handle: Any, path: Path) -> None:
             tensors[name] = _to_numpy(value)
     save_file(tensors, str(path))
 
-
 ###############################################################################
 def _verify_safetensors(path: Path) -> bool:
     from safetensors import safe_open
 
     with safe_open(str(path), framework="numpy") as handle:
         return bool(list(handle.keys()))
-
 
 ###############################################################################
 def _compare_outputs(
@@ -1151,7 +1131,6 @@ def _compare_outputs(
         semantic_equivalence="verified" if semantic else "not_claimed",
     )
 
-
 ###############################################################################
 def _tensor_metadata(nodes: list[Any], values: list[Any]) -> list[dict[str, object]]:
     result: list[dict[str, object]] = []
@@ -1173,7 +1152,6 @@ def _tensor_metadata(nodes: list[Any], values: list[Any]) -> list[dict[str, obje
         result.append(metadata)
     return result
 
-
 ###############################################################################
 def _keras_dummy_inputs(model: Any) -> list[Any]:
     import keras
@@ -1182,7 +1160,6 @@ def _keras_dummy_inputs(model: Any) -> list[Any]:
         keras.ops.zeros(_concrete_shape(tensor), dtype=_dtype_name(tensor))
         for tensor in model.inputs
     ]
-
 
 ###############################################################################
 def _tool_versions(
@@ -1214,7 +1191,6 @@ def _tool_versions(
             result[name] = importlib.metadata.version(name)
     return result
 
-
 ###############################################################################
 def _concrete_shape(value: Any) -> list[int]:
     shape = getattr(value, "shape", ())
@@ -1227,17 +1203,14 @@ def _concrete_shape(value: Any) -> list[int]:
         result.append(number if number > 0 else 1)
     return result
 
-
 ###############################################################################
 def _dtype_name(value: Any) -> str:
     dtype = getattr(value, "dtype", "float32")
     return str(getattr(dtype, "name", dtype)).rsplit(".", 1)[-1]
 
-
 ###############################################################################
 def _as_list(value: Any) -> list[Any]:
     return list(value) if isinstance(value, (tuple, list)) else [value]
-
 
 ###############################################################################
 def _synchronize_tensors(values: Iterable[Any]) -> None:
@@ -1245,7 +1218,6 @@ def _synchronize_tensors(values: Iterable[Any]) -> None:
         block_until_ready = getattr(value, "block_until_ready", None)
         if callable(block_until_ready):
             block_until_ready()
-
 
 ###############################################################################
 def _to_numpy(value: Any) -> Any:

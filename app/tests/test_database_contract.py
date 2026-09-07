@@ -23,11 +23,9 @@ from repositories.models import (
 )
 from repositories.session import RepositoryContext
 
-
 ###############################################################################
 def settings(path: Path) -> DatabaseSettings:
     return DatabaseSettings(sqlite_path=path)
-
 
 ###############################################################################
 def context(path: Path) -> RepositoryContext:
@@ -37,7 +35,6 @@ def context(path: Path) -> RepositoryContext:
         engine=backend.engine,
         session_factory=build_session_factory(backend.engine),
     )
-
 
 ###############################################################################
 def test_sqlite_initialization_is_idempotent_and_enforces_foreign_keys(
@@ -61,7 +58,6 @@ def test_sqlite_initialization_is_idempotent_and_enforces_foreign_keys(
         )
     second.engine.dispose()
 
-
 ###############################################################################
 def test_incompatible_unversioned_database_is_rejected_without_mutation(
     tmp_path: Path,
@@ -80,7 +76,6 @@ def test_incompatible_unversioned_database_is_rejected_without_mutation(
         assert inspect(engine).get_table_names() == ["legacy"]
     finally:
         engine.dispose()
-
 
 ###############################################################################
 def test_unit_of_work_rolls_back_partial_project(tmp_path: Path) -> None:
@@ -108,7 +103,6 @@ def test_unit_of_work_rolls_back_partial_project(tmp_path: Path) -> None:
             assert uow.projects.get_metadata(project_id) is None
     finally:
         repository.dispose()
-
 
 ###############################################################################
 def test_project_delete_cascades_revision_graph_and_generated_source(
@@ -158,7 +152,6 @@ def test_project_delete_cascades_revision_graph_and_generated_source(
             assert session.scalar(select(GeneratedCodeSnapshotRecord)) is None
     finally:
         repository.dispose()
-
 
 ###############################################################################
 def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:

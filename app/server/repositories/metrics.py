@@ -14,10 +14,14 @@ from repositories.models import (
 )
 
 
+###############################################################################
 class MetricRepository:
+
+    # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    # -------------------------------------------------------------------------
     def list_all(self) -> list[CustomMetricDefinitionRecord]:
         return list(
             self._session.scalars(
@@ -29,17 +33,21 @@ class MetricRepository:
             ).all()
         )
 
+    # -------------------------------------------------------------------------
     def get(self, metric_id: str) -> CustomMetricDefinitionRecord | None:
         return self._session.get(CustomMetricDefinitionRecord, metric_id)
 
+    # -------------------------------------------------------------------------
     def add(self, record: CustomMetricDefinitionRecord) -> None:
         self._session.add(record)
         self._session.flush()
 
+    # -------------------------------------------------------------------------
     def delete(self, record: CustomMetricDefinitionRecord) -> None:
         self._session.delete(record)
         self._session.flush()
 
+    # -------------------------------------------------------------------------
     def referencing_projects(self, metric_id: str) -> list[MetricUsage]:
         rows = self._session.execute(
             select(ProjectRecord.id, ProjectRecord.name, ProjectGraphSettingsRecord.model_configuration_json)
@@ -52,6 +60,7 @@ class MetricRepository:
         return result
 
 
+###############################################################################
 def _configuration_references(configuration: object, metric_id: str) -> bool:
     if not isinstance(configuration, dict):
         return False
@@ -74,6 +83,7 @@ def _configuration_references(configuration: object, metric_id: str) -> bool:
     return False
 
 
+###############################################################################
 def _contains_metric_id(value: object, metric_id: str) -> bool:
     if isinstance(value, str):
         return value == metric_id
