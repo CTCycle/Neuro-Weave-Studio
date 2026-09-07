@@ -1,4 +1,5 @@
 import type { Routes } from '@angular/router'
+import { builderResourcesResolver } from './core/navigation/builder-resources.resolver'
 import { builderUnsavedGuard } from './core/navigation/builder-unsaved.guard'
 import { AppShellComponent } from './layout/app-shell/app-shell.component'
 
@@ -25,11 +26,13 @@ export const routes: Routes = [
       {
         path: 'builder',
         canDeactivate: [builderUnsavedGuard],
+        resolve: { resources: builderResourcesResolver },
         loadComponent: () => import('./features/builder/model-builder-page.component').then((module) => module.ModelBuilderPageComponent),
       },
       {
         path: 'builder/:modelId',
         canDeactivate: [builderUnsavedGuard],
+        resolve: { resources: builderResourcesResolver },
         loadComponent: () => import('./features/builder/model-builder-page.component').then((module) => module.ModelBuilderPageComponent),
       },
       {
