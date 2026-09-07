@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 from domain.graph import ProjectExportBundle
 from services.errors import GraphPersistenceError
