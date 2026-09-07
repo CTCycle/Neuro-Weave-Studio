@@ -11,7 +11,6 @@ branch_labels = None
 depends_on = None
 
 
-###############################################################################
 def upgrade() -> None:
     op.create_table(
         "custom_metric_definitions",
@@ -37,7 +36,6 @@ def upgrade() -> None:
     )
 
 
-###############################################################################
 def downgrade() -> None:
     op.drop_index("ix_custom_metric_definitions_kind", table_name="custom_metric_definitions")
     op.drop_table("custom_metric_definitions")

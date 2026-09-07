@@ -36,20 +36,22 @@ SUPPORTED_LAYERS = {
     "Concatenate",
 }
 
+
 ###############################################################################
 class KerasArchitectureImportError(ValueError):
-
     # -------------------------------------------------------------------------
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
 
+
 ###############################################################################
 @dataclass(frozen=True)
 class ParsedKerasArchitecture:
     payload: ProjectCreate
     warnings: list[str]
+
 
 ###############################################################################
 class KerasImportService:
@@ -74,6 +76,7 @@ class KerasImportService:
         )
         project = self._projects.create(parsed.payload)
         return KerasArchitectureImportResponse(project=project, warnings=parsed.warnings)
+
 
 ###############################################################################
 def parse_keras_architecture(
@@ -127,6 +130,7 @@ def parse_keras_architecture(
             *import_warnings,
         ],
     )
+
 
 ###############################################################################
 def _graph_from_config(document: Any) -> tuple[ModelGraph, str, list[str]]:
@@ -254,6 +258,7 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str, list[str]]:
         import_warnings,
     )
 
+
 ###############################################################################
 def _map_layer(
     class_name: str, config: dict[str, Any]
@@ -335,6 +340,7 @@ def _map_layer(
             )
     return definition_id, parameters, []
 
+
 ###############################################################################
 def _shape(value: Any) -> list[int | None] | None:
     if not _is_scalar_list(value) or not value:
@@ -351,11 +357,13 @@ def _shape(value: Any) -> list[int | None] | None:
             )
     return shape
 
+
 ###############################################################################
 def _is_scalar_list(value: Any) -> bool:
     return isinstance(value, list) and all(
         item is None or isinstance(item, (str, int, float, bool)) for item in value
     )
+
 
 ###############################################################################
 def _unique_ids(layers: dict[str, dict[str, Any]]) -> dict[str, str]:
@@ -365,6 +373,7 @@ def _unique_ids(layers: dict[str, dict[str, Any]]) -> dict[str, str]:
         result[name] = _unique_id(name, used)
         used.add(result[name])
     return result
+
 
 ###############################################################################
 def _unique_id(value: str, used: set[str]) -> str:
@@ -378,6 +387,7 @@ def _unique_id(value: str, used: set[str]) -> str:
         candidate = f"{base[: max(1, 120 - len(str(suffix)) - 1)]}_{suffix}"
         suffix += 1
     return candidate
+
 
 ###############################################################################
 def _visit_inbound_names(item: Any, names: list[str]) -> None:
@@ -396,11 +406,13 @@ def _visit_inbound_names(item: Any, names: list[str]) -> None:
         for child in item:
             _visit_inbound_names(child, names)
 
+
 ###############################################################################
 def _inbound_names(value: Any) -> list[str]:
     names: list[str] = []
     _visit_inbound_names(value, names)
     return list(dict.fromkeys(names))
+
 
 ###############################################################################
 def _model_output_names(

@@ -8,6 +8,7 @@ from repositories.initializer import initialize_database
 
 LOGGER = logging.getLogger(__name__)
 
+
 ###############################################################################
 def main() -> int:
     parser = argparse.ArgumentParser(

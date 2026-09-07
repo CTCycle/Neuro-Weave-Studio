@@ -6,6 +6,7 @@ from typing import Any, cast
 import httpx
 import pytest
 
+
 ###############################################################################
 def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
     shape = input_shape or [4]
@@ -59,6 +60,7 @@ def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
         "future_training_configuration": {},
     }
 
+
 ###############################################################################
 def worker_payload(
     client: httpx.Client,
@@ -103,6 +105,7 @@ def worker_payload(
         "precision": "float32",
     }
 
+
 ###############################################################################
 def create_project(
     client: httpx.Client,
@@ -123,6 +126,7 @@ def create_project(
     assert response.status_code == 201, response.text
     return str(response.json()["id"])
 
+
 ###############################################################################
 def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
     deadline = time.monotonic() + 300
@@ -132,6 +136,7 @@ def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
             return cast(dict[str, Any], job)
         time.sleep(0.05)
     pytest.fail(f"job {job_id} did not reach a terminal state")
+
 
 ###############################################################################
 def test_smoke_job_returns_tensor_metadata_without_training(
@@ -158,6 +163,7 @@ def test_smoke_job_returns_tensor_metadata_without_training(
     assert result["outputs"] == [{"node_id": "output", "shape": [1, 1], "dtype": "float32"}]
     assert result["parameter_count"] == 5
 
+
 ###############################################################################
 def test_smoke_job_rejects_invalid_shape_before_worker_start(
     client: httpx.Client,
@@ -181,6 +187,7 @@ def test_smoke_job_rejects_invalid_shape_before_worker_start(
     detail = response.json()["detail"]
     assert detail["code"] == "model_validation_failed"
     assert any(item["code"] == "invalid_shape_dimension" for item in detail["diagnostics"])
+
 
 ###############################################################################
 def test_job_submission_rejects_runtime_selection_inconsistent_with_model(
@@ -215,6 +222,7 @@ def test_job_submission_rejects_runtime_selection_inconsistent_with_model(
     )
     assert native.status_code == 422
     assert native.json()["detail"]["diagnostics"][0]["code"] == "runtime_api_mismatch"
+
 
 ###############################################################################
 def test_job_stop_is_idempotent_and_releases_device_lease(

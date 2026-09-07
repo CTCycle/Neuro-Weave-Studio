@@ -5,7 +5,6 @@ import re
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 
 
-###############################################################################
 class CustomMathFormulaError(ValueError):
     pass
 
@@ -26,7 +25,6 @@ _OPERATOR_FUNCTIONS = {
 }
 
 
-###############################################################################
 def _read_group(value: str, start: int) -> tuple[str, int]:
     if start >= len(value) or value[start] not in "{(":
         raise CustomMathFormulaError("Expected a grouped expression")
@@ -44,7 +42,6 @@ def _read_group(value: str, start: int) -> tuple[str, int]:
     raise CustomMathFormulaError("Formula contains an unclosed group")
 
 
-###############################################################################
 def _replace_fractions(value: str) -> str:
     marker = "\\frac"
     index = value.find(marker)
@@ -62,7 +59,6 @@ def _replace_fractions(value: str) -> str:
     return value
 
 
-###############################################################################
 def _replace_grouped_command(value: str, command: str, function: str) -> str:
     marker = f"\\{command}"
     index = value.find(marker)
@@ -77,7 +73,6 @@ def _replace_grouped_command(value: str, command: str, function: str) -> str:
     return value
 
 
-###############################################################################
 def _replace_operatorname(value: str) -> str:
     pattern = re.compile(r"\\operatorname\s*\{([A-Za-z]+)\}")
 
@@ -91,7 +86,6 @@ def _replace_operatorname(value: str) -> str:
     return pattern.sub(replace, value)
 
 
-###############################################################################
 def _strip_equation_label(value: str) -> str:
     depth = 0
     for index, character in enumerate(value):
@@ -104,7 +98,6 @@ def _strip_equation_label(value: str) -> str:
     return value
 
 
-###############################################################################
 def _normalize_latex(formula: str) -> str:
     value = formula.strip().strip("$").strip()
     value = _strip_equation_label(value)
@@ -124,7 +117,6 @@ def _normalize_latex(formula: str) -> str:
     return value
 
 
-###############################################################################
 def parse_custom_math_formula(formula: str) -> str:
     if len(formula) > _MAX_FORMULA_LENGTH:
         raise CustomMathFormulaError(

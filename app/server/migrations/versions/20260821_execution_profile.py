@@ -8,6 +8,7 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
+
 ###############################################################################
 def upgrade() -> None:
     op.create_table(
@@ -166,6 +167,7 @@ def upgrade() -> None:
     )
     op.create_index("ix_project_edges_source", "project_edges", ["project_id", "source_node_id"])
     op.create_index("ix_project_edges_target", "project_edges", ["project_id", "target_node_id"])
+
 
 ###############################################################################
 def downgrade() -> None:

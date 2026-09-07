@@ -23,9 +23,9 @@ from repositories.models import (
     ProjectNodeRecord,
 )
 
+
 ###############################################################################
 class GraphRepository:
-
     # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
