@@ -5,6 +5,7 @@ from pathlib import Path
 
 from configurations.environment import ensure_environment_file
 
+
 ###############################################################################
 def test_concurrent_first_start_creates_one_exact_environment_file(
     tmp_path: Path,
@@ -22,6 +23,7 @@ def test_concurrent_first_start_creates_one_exact_environment_file(
 
     assert results == [environment_file] * 8
     assert environment_file.read_bytes() == expected
+
 
 ###############################################################################
 def test_existing_environment_file_is_never_overwritten(tmp_path: Path) -> None:

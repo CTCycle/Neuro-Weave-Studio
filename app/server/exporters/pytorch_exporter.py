@@ -17,9 +17,9 @@ from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 from validation.output_resolution import output_selectors, resolved_outputs
 
+
 ###############################################################################
 class PyTorchSourceExporter(SourceExporter):
-
     # -------------------------------------------------------------------------
     @staticmethod
     def _summary_map(ir: CanonicalModelIR) -> dict[str, TensorSpec]:

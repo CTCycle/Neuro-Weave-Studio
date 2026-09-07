@@ -12,6 +12,7 @@ from domain.compilation_catalog import (
 )
 from domain.enums import ExecutionBackend
 
+
 ###############################################################################
 class NativeCompilationCapability(BaseModel):
     backend: ExecutionBackend
@@ -23,10 +24,12 @@ class NativeCompilationCapability(BaseModel):
     parameters: list[CompilationParameter] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     catalog: CompilationCatalog = Field(default_factory=CompilationCatalog)
 
+
 ###############################################################################
 class CompilationCapabilities(BaseModel):
     keras: CompilationCatalog
     native: dict[ExecutionBackend, NativeCompilationCapability]
+
 
 ###############################################################################
 def get_native_compilation_capabilities(
@@ -124,6 +127,7 @@ def get_native_compilation_capabilities(
             update={"available": available, "reason_code": reason_code, "reason": reason}
         )
     return result
+
 
 ###############################################################################
 def get_compilation_capabilities(

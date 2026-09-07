@@ -11,7 +11,6 @@ branch_labels = None
 depends_on = None
 
 
-###############################################################################
 def upgrade() -> None:
     op.create_table(
         "custom_node_definitions",
@@ -56,7 +55,6 @@ def upgrade() -> None:
     )
 
 
-###############################################################################
 def downgrade() -> None:
     op.drop_index("ix_custom_node_definitions_category", table_name="custom_node_definitions")
     op.drop_index("ix_custom_node_definitions_kind", table_name="custom_node_definitions")
