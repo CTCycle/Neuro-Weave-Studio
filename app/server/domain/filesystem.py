@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-
 ###############################################################################
 class FilesystemEntry(BaseModel):
     name: str
@@ -10,7 +9,6 @@ class FilesystemEntry(BaseModel):
     is_dir: bool
     size_bytes: int | None = Field(default=None, ge=0)
     suffix: str | None = None
-
 
 ###############################################################################
 class FilesystemBrowseResponse(BaseModel):

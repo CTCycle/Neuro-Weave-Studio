@@ -29,7 +29,6 @@ from services.validation_service import ValidationService
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import infer_shapes
 
-
 ###############################################################################
 def _node(
     node_id: str,
@@ -44,7 +43,6 @@ def _node(
         parameters=parameters or {},
     )
 
-
 ###############################################################################
 def _edge(edge_id: str, source: str, target: str, target_port: str = "input") -> EdgeInstance:
     return EdgeInstance(
@@ -54,7 +52,6 @@ def _edge(edge_id: str, source: str, target: str, target_port: str = "input") ->
         target_node_id=target,
         target_port_id=target_port,
     )
-
 
 ###############################################################################
 def _conv1d_graph() -> ModelGraph:
@@ -81,7 +78,6 @@ def _conv1d_graph() -> ModelGraph:
         edges=[_edge("e1", "input", "conv"), _edge("e2", "conv", "output")],
     )
 
-
 ###############################################################################
 def _operation_graph(
     definition_id: str,
@@ -106,7 +102,6 @@ def _operation_graph(
     ]
     edges.append(_edge("output_edge", "operation", "output"))
     return ModelGraph(nodes=nodes, edges=edges)
-
 
 ###############################################################################
 def test_conv1d_manifest_exposes_capabilities_and_exact_footer_shape() -> None:
@@ -139,7 +134,6 @@ def test_conv1d_manifest_exposes_capabilities_and_exact_footer_shape() -> None:
     assert summary.outputs["output"].shape == [None, 4, 4]
     assert summary.outputs["output"].dtype.value == "float32"
 
-
 ###############################################################################
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
 @pytest.mark.parametrize("keras_enabled", [True, False])
@@ -150,7 +144,6 @@ def test_conv1d_validation_accepts_all_supported_profiles(
     result = ValidationService(get_node_catalog()).validate(_conv1d_graph(), backend, keras_enabled)
 
     assert result.valid, result.diagnostics
-
 
 ###############################################################################
 def test_generated_keras_conv1d_source_is_parseable_and_capability_driven() -> None:
@@ -165,7 +158,6 @@ def test_generated_keras_conv1d_source_is_parseable_and_capability_driven() -> N
     assert "dilation_rate=[1]" in source
     assert "groups=1" in source
     assert "data_format='channels_last'" in source
-
 
 ###############################################################################
 def test_keras_conv1d_executes_for_the_selected_keras_backend() -> None:
@@ -183,7 +175,6 @@ def test_keras_conv1d_executes_for_the_selected_keras_backend() -> None:
         else np.asarray(value)
     )
     assert detached.shape == (1, 4, 4)
-
 
 ###############################################################################
 def test_keras_slice_executes_without_dynamic_code() -> None:
@@ -204,7 +195,6 @@ def test_keras_slice_executes_without_dynamic_code() -> None:
         else np.asarray(value)
     )
     assert detached.shape == (1, 2, 3)
-
 
 ###############################################################################
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
@@ -227,7 +217,6 @@ def test_native_conv1d_executes_with_exact_output_shape(backend: ExecutionBacken
         else np.asarray(outputs[0])
     )
     assert value.shape == (1, 4, 4)
-
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -267,7 +256,6 @@ def test_representative_operations_execute_across_native_backends(
     )
     assert value.shape == expected_shape
 
-
 ###############################################################################
 def test_operation_catalog_covers_typed_families_and_all_backend_symbols() -> None:
     catalog = get_node_catalog()
@@ -292,7 +280,6 @@ def test_operation_catalog_covers_typed_families_and_all_backend_symbols() -> No
             mapping = manifest.implementations[implementation]
             assert mapping.supported
             assert mapping.symbol or mapping.adapter
-
 
 ###############################################################################
 def test_operation_emitter_uses_manifest_metadata_and_rejects_unsafe_expression() -> None:
@@ -327,7 +314,6 @@ def test_operation_emitter_uses_manifest_metadata_and_rejects_unsafe_expression(
             {"expression": "__import__('os')"},
         )
 
-
 ###############################################################################
 def test_operation_manifest_validates_call_parameters_and_backend_symbols() -> None:
     with pytest.raises(ValueError, match="unknown parameters"):
@@ -359,7 +345,6 @@ def test_operation_manifest_validates_call_parameters_and_backend_symbols() -> N
             implementations={"tensorflow": ImplementationMapping(symbol="torch.sin")},
             documentation_ref="test",
         )
-
 
 ###############################################################################
 def test_compilation_catalog_provider_is_the_shared_metrics_boundary() -> None:

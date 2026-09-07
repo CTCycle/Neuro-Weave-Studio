@@ -28,14 +28,12 @@ ALEMBIC_CONFIG_PATH = Path(__file__).resolve().parents[1] / "alembic.ini"
 HEAD_REVISION = "20260903_custom_node_definitions"
 ALEMBIC_VERSION_TABLE = "alembic_version"
 
-
 ###############################################################################
 def _alembic_config(connection: Connection) -> Config:
     config = Config(str(ALEMBIC_CONFIG_PATH))
     config.attributes["connection"] = connection
     config.attributes["skip_logging_config"] = True
     return config
-
 
 ###############################################################################
 def _script_directory(config: Config) -> tuple[ScriptDirectory, str]:
@@ -48,12 +46,10 @@ def _script_directory(config: Config) -> tuple[ScriptDirectory, str]:
         )
     return script, heads[0]
 
-
 ###############################################################################
 def _current_heads(connection: Connection) -> tuple[str, ...]:
     migration_context = MigrationContext.configure(connection)
     return tuple(migration_context.get_current_heads())
-
 
 ###############################################################################
 def _validate_known_revisions(current_heads: tuple[str, ...], script: ScriptDirectory) -> None:
@@ -70,7 +66,6 @@ def _validate_known_revisions(current_heads: tuple[str, ...], script: ScriptDire
                 f"The database references unknown Alembic revision {revision!r}. "
                 "Recreate the database using the current schema."
             ) from exc
-
 
 ###############################################################################
 def _run_migrations(connection: Connection) -> None:
@@ -117,7 +112,6 @@ def _run_migrations(connection: Connection) -> None:
     if foreign_keys_enabled != 1:
         raise RuntimeError("SQLite foreign-key enforcement is disabled after migration.")
     LOGGER.info("Database schema verified at Alembic head %s", expected_head)
-
 
 ###############################################################################
 def initialize_database(settings: DatabaseSettings) -> SQLiteBackend:

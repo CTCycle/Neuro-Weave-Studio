@@ -26,7 +26,6 @@ from models.worker_backend import run_keras_smoke, run_native_smoke
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
 
-
 ###############################################################################
 def _node(
     node_id: str, definition_id: str, parameters: dict[str, Any] | None = None
@@ -38,7 +37,6 @@ def _node(
         parameters=parameters or {},
     )
 
-
 ###############################################################################
 def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
     return EdgeInstance(
@@ -48,7 +46,6 @@ def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
         target_node_id=target,
         target_port_id="input",
     )
-
 
 ###############################################################################
 def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
@@ -151,7 +148,6 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
         ),
     }
 
-
 ###############################################################################
 def _configured_graph(graph: ModelGraph, api: str, task: str) -> ModelGraph:
     if task == "regression":
@@ -190,7 +186,6 @@ def _configured_graph(graph: ModelGraph, api: str, task: str) -> ModelGraph:
         )
     return graph.model_copy(update={"model_configuration": configuration})
 
-
 ###############################################################################
 def _multi_output_graph() -> ModelGraph:
     return ModelGraph(
@@ -209,7 +204,6 @@ def _multi_output_graph() -> ModelGraph:
             _edge("right", "right_input", "right_head"),
         ],
     )
-
 
 ###############################################################################
 @pytest.mark.parametrize("workflow", list(_workflow_graphs()))
@@ -230,7 +224,6 @@ def test_native_pytorch_workflows_verify_forward_and_compilation_helpers(workflo
     assert result["compilation"]["optimizer"] == {"id": "adamw", "instantiated": True}
     outputs = cast(list[dict[str, Any]], result["outputs"])
     assert [tuple(item["shape"]) for item in outputs] == [expected_shape]
-
 
 ###############################################################################
 @pytest.mark.parametrize("workflow", list(_workflow_graphs()))
@@ -259,7 +252,6 @@ def test_keras_pytorch_backend_workflows_compile_and_forward(workflow: str) -> N
     outputs = cast(list[dict[str, Any]], result["outputs"])
     assert [tuple(item["shape"]) for item in outputs] == [expected_shape]
 
-
 ###############################################################################
 def test_catalog_contains_complete_keras_and_native_pytorch_mappings() -> None:
     catalog = get_compilation_catalog()
@@ -275,7 +267,6 @@ def test_catalog_contains_complete_keras_and_native_pytorch_mappings() -> None:
     assert {option.id for option in catalog.losses} == {
         option.id for option in get_compilation_catalog().losses
     }
-
 
 ###############################################################################
 def test_native_configuration_rejects_incompatible_loss_metric_and_activation() -> None:
@@ -312,7 +303,6 @@ def test_native_configuration_rejects_incompatible_loss_metric_and_activation() 
         for item in validate_model_configuration(graph, ExecutionBackend.PYTORCH, False)
     )
 
-
 ###############################################################################
 def test_multi_output_configuration_resolves_all_selector_forms() -> None:
     graph = _multi_output_graph()
@@ -332,7 +322,6 @@ def test_multi_output_configuration_resolves_all_selector_forms() -> None:
     diagnostics = validate_model_configuration(graph, ExecutionBackend.PYTORCH, False)
 
     assert diagnostics == []
-
 
 ###############################################################################
 def test_unknown_output_selector_reports_available_output_specific_selectors() -> None:
@@ -359,7 +348,6 @@ def test_unknown_output_selector_reports_available_output_specific_selectors() -
     assert diagnostic.details["output_selector"] == "missing-output"
     assert "left_head:output" in diagnostic.details["available_selectors"]
 
-
 ###############################################################################
 def test_unknown_classification_width_does_not_assume_multiclass_semantics() -> None:
     graph = ModelGraph(
@@ -377,7 +365,6 @@ def test_unknown_classification_width_does_not_assume_multiclass_semantics() -> 
         "invalid_binary_output_shape",
         "invalid_multiclass_output_shape",
     } & {item.code for item in diagnostics}
-
 
 ###############################################################################
 def test_native_non_pytorch_validation_ignores_pytorch_loss_and_metric_settings() -> None:
@@ -399,7 +386,6 @@ def test_native_non_pytorch_validation_ignores_pytorch_loss_and_metric_settings(
 
     assert validate_model_configuration(graph, ExecutionBackend.TENSORFLOW, False) == []
 
-
 ###############################################################################
 def test_native_configured_graph_passes_full_static_validation() -> None:
     graph, _, task = _workflow_graphs()["multiclass_classification"]
@@ -407,7 +393,6 @@ def test_native_configured_graph_passes_full_static_validation() -> None:
     result = ValidationService(get_node_catalog()).validate(graph, ExecutionBackend.PYTORCH, False)
     assert result.valid
     assert result.shape_summaries
-
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -446,7 +431,6 @@ def test_native_optimizer_helpers_cover_catalog_variants(
     )
     assert result["compilation"]["optimizer"] == {"id": optimizer, "instantiated": True}
     assert result["compilation"]["losses"]["output"]["id"] == "mean_squared_error"
-
 
 ###############################################################################
 @pytest.mark.parametrize(

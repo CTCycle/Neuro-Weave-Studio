@@ -20,7 +20,6 @@ from services.compilation_service import CompilationService
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
 
-
 ###############################################################################
 def _native_graph() -> ModelGraph:
     return ModelGraph(
@@ -73,7 +72,6 @@ def _native_graph() -> ModelGraph:
         ),
     )
 
-
 ###############################################################################
 def test_metadata_exposes_one_capability_tree_with_explicit_runtime_reasons() -> None:
     statuses = {
@@ -109,7 +107,6 @@ def test_metadata_exposes_one_capability_tree_with_explicit_runtime_reasons() ->
         for item in capabilities.native[ExecutionBackend.PYTORCH].catalog.losses
     )
 
-
 ###############################################################################
 def test_native_configuration_round_trips_and_invalid_options_are_diagnostic() -> None:
     graph = _native_graph()
@@ -130,7 +127,6 @@ def test_native_configuration_round_trips_and_invalid_options_are_diagnostic() -
     diagnostics = validate_model_configuration(invalid, ExecutionBackend.PYTORCH, False)
 
     assert [item.code for item in diagnostics] == ["invalid_native_compilation"]
-
 
 ###############################################################################
 def test_native_compilation_source_uses_each_backend_native_compiler() -> None:

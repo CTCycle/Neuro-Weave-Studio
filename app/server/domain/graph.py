@@ -13,12 +13,10 @@ from domain.tensor import TensorSpec
 GRAPH_SCHEMA_VERSION = 5
 PROJECT_BUNDLE_FORMAT_VERSION = 6
 
-
 ###############################################################################
 class Position(BaseModel):
     x: float = Field(allow_inf_nan=False)
     y: float = Field(allow_inf_nan=False)
-
 
 ###############################################################################
 class RuntimeInputParameters(dict[str, Any]):
@@ -33,7 +31,6 @@ class RuntimeInputParameters(dict[str, Any]):
         if key not in self:
             return default
         return _runtime_input_value(key, super().get(key))
-
 
 ###############################################################################
 class NodeInstance(BaseModel):
@@ -63,7 +60,6 @@ class NodeInstance(BaseModel):
     def serialize_parameters(self, value: dict[str, Any]) -> dict[str, Any]:
         return dict(value)
 
-
 ###############################################################################
 class EdgeInstance(BaseModel):
     id: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z][A-Za-z0-9_.-]*$")
@@ -72,14 +68,12 @@ class EdgeInstance(BaseModel):
     target_node_id: str
     target_port_id: str
 
-
 ###############################################################################
 class OutputBinding(BaseModel):
     """A persisted, explicit model-output port selection."""
 
     node_id: str = Field(min_length=1, max_length=120)
     port_id: str = Field(min_length=1, max_length=80)
-
 
 ###############################################################################
 class KerasCompilationConfiguration(BaseModel):
@@ -95,13 +89,11 @@ class KerasCompilationConfiguration(BaseModel):
     mixed_precision: bool = False
     random_seed: int | None = 42
 
-
 ###############################################################################
 class TensorFlowNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     jit_compile: bool = False
-
 
 ###############################################################################
 class PyTorchNativeConfiguration(BaseModel):
@@ -116,13 +108,11 @@ class PyTorchNativeConfiguration(BaseModel):
     fullgraph: bool = False
     dynamic: bool = False
 
-
 ###############################################################################
 class JaxNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     jit_enabled: bool = False
-
 
 ###############################################################################
 class NativeCompilationConfiguration(BaseModel):
@@ -132,7 +122,6 @@ class NativeCompilationConfiguration(BaseModel):
     pytorch: PyTorchNativeConfiguration = Field(default_factory=PyTorchNativeConfiguration)
     jax: JaxNativeConfiguration = Field(default_factory=JaxNativeConfiguration)
 
-
 ###############################################################################
 class ModelConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -140,13 +129,11 @@ class ModelConfiguration(BaseModel):
     keras: KerasCompilationConfiguration = Field(default_factory=KerasCompilationConfiguration)
     native: NativeCompilationConfiguration = Field(default_factory=NativeCompilationConfiguration)
 
-
 ###############################################################################
 class ExportSettings(BaseModel):
     include_comments: bool = True
     include_shape_assertions: bool = True
     preferred_binary_format: str = "keras"
-
 
 ###############################################################################
 class ModelGraph(BaseModel):
@@ -203,7 +190,6 @@ class ModelGraph(BaseModel):
             raise ValueError("Edge IDs must be unique")
         return self
 
-
 ###############################################################################
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
@@ -211,7 +197,6 @@ class ProjectCreate(BaseModel):
     execution_backend: ExecutionBackend | None = None
     keras_enabled: bool = True
     graph: ModelGraph = Field(default_factory=ModelGraph)
-
 
 ###############################################################################
 class ProjectUpdate(BaseModel):
@@ -221,7 +206,6 @@ class ProjectUpdate(BaseModel):
     keras_enabled: bool = True
     graph: ModelGraph
     expected_revision: int = Field(ge=1)
-
 
 ###############################################################################
 class ProjectDocument(BaseModel):
@@ -237,7 +221,6 @@ class ProjectDocument(BaseModel):
     graph: ModelGraph
     validation_status: ValidationStatus
     generated_source: str | None = None
-
 
 ###############################################################################
 class ProjectSummary(BaseModel):
@@ -255,16 +238,13 @@ class ProjectSummary(BaseModel):
     edge_count: int = Field(ge=0)
     has_generated_source: bool = False
 
-
 ###############################################################################
 class ProjectListResponse(BaseModel):
     projects: list[ProjectSummary]
 
-
 ###############################################################################
 class ProjectDuplicateRequest(BaseModel):
     name: str | None = Field(default=None, max_length=160)
-
 
 ###############################################################################
 class ProjectExportBundle(BaseModel):
@@ -286,7 +266,6 @@ class ProjectExportBundle(BaseModel):
         migrated["format_version"] = PROJECT_BUNDLE_FORMAT_VERSION
         return migrated
 
-
 ###############################################################################
 class ShapeSummary(BaseModel):
     node_id: str
@@ -294,12 +273,14 @@ class ShapeSummary(BaseModel):
     parameter_count: int | None = None
 
 
+###############################################################################
 def _runtime_input_value(key: str, value: Any) -> Any:
     if key == "shape" and isinstance(value, list):
         return [None, *value]
     return value
 
 
+###############################################################################
 def _empty_quantization_config(value: Any) -> bool:
     if value is None:
         return True

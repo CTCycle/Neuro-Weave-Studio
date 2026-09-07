@@ -8,7 +8,6 @@ from domain.compilation_catalog import CompilationCatalog
 from domain.graph import ModelGraph
 from exporters.base import SourceExporter
 
-
 ###############################################################################
 class NativeJaxSourceExporter(SourceExporter):
     """Generate a native Flax Linen module for the verified subset."""

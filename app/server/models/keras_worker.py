@@ -16,12 +16,10 @@ from models.keras_runtime import layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.output_resolution import input_nodes, resolved_outputs
 
-
 ###############################################################################
 def _checkpoint(callback: Callable[[], None] | None) -> None:
     if callback is not None:
         callback()
-
 
 ###############################################################################
 def _base_layer_kwargs(parameters: dict[str, Any]) -> dict[str, Any]:
@@ -30,7 +28,6 @@ def _base_layer_kwargs(parameters: dict[str, Any]) -> dict[str, Any]:
         for key in ("dtype", "trainable", "autocast")
         if key in parameters and parameters[key] is not None
     }
-
 
 ###############################################################################
 def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
@@ -53,13 +50,13 @@ def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) ->
     return True
 
 
+###############################################################################
 def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any]:
     return [
         port
         for port in manifest.outputs
         if _condition_matches(port.enabled_when, parameters)
     ]
-
 
 ###############################################################################
 def _recurrent_layer(
@@ -126,7 +123,6 @@ def _recurrent_layer(
     kwargs["use_cudnn"] = parameters.get("use_cudnn", "auto")
     return layers.LSTM(parameters.get("units", 64), name=name, **kwargs)
 
-
 ###############################################################################
 def _keras_operation_functions(catalog: NodeCatalog) -> dict[str, Callable[..., Any]]:
     symbols = {"keras.ops.shape"}
@@ -146,7 +142,6 @@ def _keras_operation_functions(catalog: NodeCatalog) -> dict[str, Callable[..., 
         if callable(function):
             functions[symbol] = function
     return functions
-
 
 ###############################################################################
 def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, Any]) -> Any:
@@ -212,7 +207,6 @@ def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, 
                 **base_kwargs, name=f"{node_id}{suffix}_output_norm"
             )(current)
     return current
-
 
 ###############################################################################
 def build_model(

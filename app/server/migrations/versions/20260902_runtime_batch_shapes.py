@@ -26,14 +26,12 @@ _BATCHED_INPUT_DEFINITIONS = frozenset(
     }
 )
 
-
 ###############################################################################
 def _json_object(value: object) -> dict[str, Any]:
     if isinstance(value, str):
         parsed = json.loads(value)
         return parsed if isinstance(parsed, dict) else {}
     return value if isinstance(value, dict) else {}
-
 
 ###############################################################################
 def _empty_quantization_config(value: object) -> bool:
@@ -48,7 +46,6 @@ def _empty_quantization_config(value: object) -> bool:
     return (class_name is None or str(class_name).strip() == "") and (
         config is None or config == {} or config == []
     )
-
 
 ###############################################################################
 def _migrate_parameters(
@@ -68,7 +65,6 @@ def _migrate_parameters(
     if not downgrade and _empty_quantization_config(migrated.get("quantization_config")):
         migrated.pop("quantization_config", None)
     return migrated
-
 
 ###############################################################################
 def _migrate_project_nodes(connection: Any, *, downgrade: bool) -> None:
@@ -98,7 +94,6 @@ def _migrate_project_nodes(connection: Any, *, downgrade: bool) -> None:
                 "parameters": json.dumps(migrated),
             },
         )
-
 
 ###############################################################################
 def _migrate_revision_snapshots(connection: Any, *, downgrade: bool) -> None:
@@ -134,14 +129,12 @@ def _migrate_revision_snapshots(connection: Any, *, downgrade: bool) -> None:
             },
         )
 
-
 ###############################################################################
 def upgrade() -> None:
     connection = op.get_bind()
     _migrate_project_nodes(connection, downgrade=False)
     _migrate_revision_snapshots(connection, downgrade=False)
     connection.execute(sa.text("UPDATE projects SET graph_schema_version = 5"))
-
 
 ###############################################################################
 def downgrade() -> None:

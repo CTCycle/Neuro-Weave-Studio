@@ -4,7 +4,6 @@ from pydantic import BaseModel
 
 from domain.enums import ExecutionBackend
 
-
 ###############################################################################
 class ModelExecutionProfile(BaseModel):
     """The persisted architecture choice for one NeuroWeave model."""

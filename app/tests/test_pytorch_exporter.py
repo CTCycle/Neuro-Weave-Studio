@@ -11,7 +11,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.pytorch_exporter import PyTorchSourceExporter
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def node(
     node_id: str,
@@ -24,7 +23,6 @@ def node(
         position=Position(x=0, y=0),
         parameters=parameters or {},
     )
-
 
 ###############################################################################
 def edge(
@@ -40,7 +38,6 @@ def edge(
         target_node_id=target,
         target_port_id=target_port,
     )
-
 
 ###############################################################################
 def build_model(graph: ModelGraph) -> Any:
@@ -63,7 +60,6 @@ def build_model(graph: ModelGraph) -> Any:
     model = namespace["GeneratedModel"]()
     model.eval()
     return torch, model
-
 
 ###############################################################################
 def test_generated_pytorch_conv_pool_preserves_channels_last_contract() -> None:
@@ -108,7 +104,6 @@ def test_generated_pytorch_conv_pool_preserves_channels_last_contract() -> None:
     result = model(torch.randn(2, 7, 9, 3))
 
     assert tuple(result.shape) == (2, 2, 3, 4)
-
 
 ###############################################################################
 def test_generated_pytorch_lstm_derives_feature_width_from_inferred_shape() -> None:

@@ -15,14 +15,12 @@ down_revision = "20260827_canonical_model_configuration"
 branch_labels = None
 depends_on = None
 
-
 ###############################################################################
 def _json_object(value: object) -> dict[str, Any]:
     if isinstance(value, str):
         parsed = json.loads(value)
         return parsed if isinstance(parsed, dict) else {}
     return value if isinstance(value, dict) else {}
-
 
 ###############################################################################
 def _legacy_output_bindings(connection: Any) -> dict[str, list[dict[str, str]]]:
@@ -38,7 +36,6 @@ def _legacy_output_bindings(connection: Any) -> dict[str, list[dict[str, str]]]:
             {"node_id": str(row["node_id"]), "port_id": "output"}
         )
     return dict(bindings)
-
 
 ###############################################################################
 def _migrate_revision_snapshots(connection: Any, *, downgrade: bool) -> None:
@@ -89,7 +86,6 @@ def _migrate_revision_snapshots(connection: Any, *, downgrade: bool) -> None:
             },
         )
 
-
 ###############################################################################
 def upgrade() -> None:
     with op.batch_alter_table("project_graph_settings") as batch:
@@ -128,7 +124,6 @@ def upgrade() -> None:
         batch.alter_column("output_bindings_json", existing_type=sa.JSON(), nullable=False)
     with op.batch_alter_table("project_nodes") as batch:
         batch.alter_column("locked", existing_type=sa.Boolean(), nullable=False)
-
 
 ###############################################################################
 def downgrade() -> None:
