@@ -23,6 +23,7 @@ from models.worker_backend import (
     run_native_smoke,
 )
 
+
 ###############################################################################
 class JaxWorker:
     backend = ExecutionBackend.JAX
@@ -204,6 +205,7 @@ class JaxWorker:
         except (AttributeError, RuntimeError, TypeError):
             pass
         gc.collect()
+
 
 ###############################################################################
 def create_worker() -> BackendWorker:

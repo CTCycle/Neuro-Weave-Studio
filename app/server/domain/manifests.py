@@ -54,6 +54,7 @@ _OPERATION_SYMBOL_PREFIXES = {
     "jax": ("jnp.", "jax.nn.", "jax.lax.", "jax.scipy.special."),
 }
 
+
 ###############################################################################
 class PortDefinition(BaseModel):
     id: str = Field(min_length=1, max_length=80)
@@ -75,6 +76,7 @@ class PortDefinition(BaseModel):
             raise ValueError("Only tensor_list ports may declare element_kind")
         return self
 
+
 ###############################################################################
 class ParameterValueSchema(BaseModel):
     """Recursive JSON-safe value metadata shared by validation and the UI."""
@@ -83,6 +85,7 @@ class ParameterValueSchema(BaseModel):
     item: ParameterValueSchema | None = None
     properties: dict[str, ParameterValueSchema] = Field(default_factory=dict)
     required_properties: list[str] = Field(default_factory=list)
+
 
 ###############################################################################
 class ParameterDefinition(BaseModel):
@@ -104,6 +107,7 @@ class ParameterDefinition(BaseModel):
     framework_default: Any = None
     editor_default: Any = None
 
+
 ###############################################################################
 class ParameterCapability(BaseModel):
     """Declarative target-specific support for one canonical parameter."""
@@ -115,6 +119,7 @@ class ParameterCapability(BaseModel):
     mapping: str | None = None
     notes: str | None = None
     default: Any = None
+
 
 ###############################################################################
 class OperationMetadata(BaseModel):
@@ -144,6 +149,7 @@ class OperationMetadata(BaseModel):
             raise ValueError("Operation call parameters must be unique")
         return self
 
+
 ###############################################################################
 class ImplementationMapping(BaseModel):
     """Capability metadata for one Keras or native node implementation."""
@@ -157,6 +163,7 @@ class ImplementationMapping(BaseModel):
     variant_symbols: dict[str, str] = Field(default_factory=dict)
     execution_backends: dict[ExecutionBackend, bool] = Field(default_factory=dict)  # pyright: ignore[reportUnknownVariableType]
 
+
 ###############################################################################
 class UiMetadata(BaseModel):
     icon: str = "Box"
@@ -164,10 +171,12 @@ class UiMetadata(BaseModel):
     width: int = Field(default=250, ge=180, le=500)
     height: int = Field(default=120, ge=80, le=500)
 
+
 ###############################################################################
 class ShapeRule(BaseModel):
     kind: str
     config: dict[str, Any] = Field(default_factory=dict)
+
 
 ###############################################################################
 class NodeManifest(BaseModel):
@@ -251,6 +260,7 @@ class NodeManifest(BaseModel):
                         f"Operation mapping {implementation} for {self.id} must use a validated backend symbol"
                     )
         return self
+
 
 ###############################################################################
 class NodeCatalogResponse(BaseModel):

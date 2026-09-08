@@ -7,9 +7,9 @@ from domain.compilation import CanonicalModelIR
 from domain.compilation_catalog import CompilationCatalog
 from domain.graph import ModelGraph
 
+
 ###############################################################################
 class SourceExporter(ABC):
-
     # -------------------------------------------------------------------------
     @abstractmethod
     def generate(

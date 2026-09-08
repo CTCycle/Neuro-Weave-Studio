@@ -13,6 +13,7 @@ from services.validation_service import ValidationService
 
 router = APIRouter(prefix="/api/validation", tags=["validation"])
 
+
 ###############################################################################
 @router.post("", response_model=ValidationResult)
 def validate_graph(
@@ -20,6 +21,7 @@ def validate_graph(
     service: ValidationService = Depends(get_validation_service),
 ) -> ValidationResult:
     return service.validate(payload.graph, payload.execution_backend, payload.keras_enabled)
+
 
 ###############################################################################
 @router.post("/connection", response_model=ConnectionValidationResult)

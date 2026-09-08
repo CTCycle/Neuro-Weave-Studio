@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+
 ###############################################################################
 class ExecutionBackend(StrEnum):
     TENSORFLOW = "tensorflow"
     PYTORCH = "pytorch"
     JAX = "jax"
+
 
 ###############################################################################
 def keras_backend_value(backend: ExecutionBackend) -> str:
@@ -14,11 +16,13 @@ def keras_backend_value(backend: ExecutionBackend) -> str:
 
     return "torch" if backend is ExecutionBackend.PYTORCH else backend.value
 
+
 ###############################################################################
 class ValidationStatus(StrEnum):
     UNKNOWN = "unknown"
     VALID = "valid"
     INVALID = "invalid"
+
 
 ###############################################################################
 class DiagnosticSeverity(StrEnum):
@@ -26,6 +30,7 @@ class DiagnosticSeverity(StrEnum):
     WARNING = "warning"
     COMPATIBILITY = "compatibility"
     INFO = "info"
+
 
 ###############################################################################
 class DataType(StrEnum):
@@ -35,6 +40,7 @@ class DataType(StrEnum):
     INT32 = "int32"
     INT64 = "int64"
     BOOL = "bool"
+
 
 ###############################################################################
 class PortKind(StrEnum):

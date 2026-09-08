@@ -9,6 +9,7 @@ from common.timestamps import utc_now
 from repositories.base import Base
 from repositories.types import UTCDateTime
 
+
 ###############################################################################
 class CustomNodeDefinitionRecord(Base):
     """Installation-wide user-authored node templates."""
@@ -45,14 +46,12 @@ class CustomNodeDefinitionRecord(Base):
         Index("ix_custom_node_definitions_category", "category"),
     )
 
+
 ###############################################################################
 class CustomNodeRepository:
-
-    # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    # -------------------------------------------------------------------------
     def list_all(self) -> list[CustomNodeDefinitionRecord]:
         return list(
             self._session.scalars(
@@ -64,16 +63,13 @@ class CustomNodeRepository:
             ).all()
         )
 
-    # -------------------------------------------------------------------------
     def get(self, definition_id: str) -> CustomNodeDefinitionRecord | None:
         return self._session.get(CustomNodeDefinitionRecord, definition_id)
 
-    # -------------------------------------------------------------------------
     def add(self, record: CustomNodeDefinitionRecord) -> None:
         self._session.add(record)
         self._session.flush()
 
-    # -------------------------------------------------------------------------
     def delete(self, record: CustomNodeDefinitionRecord) -> None:
         self._session.delete(record)
         self._session.flush()

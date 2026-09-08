@@ -7,6 +7,7 @@ from domain.filesystem import FilesystemBrowseResponse, FilesystemEntry
 
 MAX_DIRECTORY_ENTRIES = 500
 
+
 ###############################################################################
 class FilesystemService:
     """Read-only local filesystem navigation for path-backed workflows."""
