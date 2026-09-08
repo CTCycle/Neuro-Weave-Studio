@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { ExecutionBackendStatus } from '../../domain/types'
 import {
   backendSupportsApi,
+  defaultMemoryPolicy,
   defaultRuntimePreference,
+  isMemoryPolicyValid,
   preferredBackend,
   preferredBackendForApi,
   preferredRuntimeApi,
@@ -60,11 +62,21 @@ describe('runtime selection', () => {
     expect(backendSupportsApi(statuses[0], 'keras')).toBe(false)
   })
 
-  it('retains the legacy Keras-only interpretation when per-backend API metadata is absent', () => {
+  it('does not infer runtime API support when per-backend API metadata is absent', () => {
     const legacy = status('pytorch', true, undefined)
 
-    expect(backendSupportsApi(legacy, 'keras')).toBe(true)
+    expect(backendSupportsApi(legacy, 'keras')).toBe(false)
     expect(backendSupportsApi(legacy, 'native')).toBe(false)
-    expect(preferredBackend([legacy])).toBe('pytorch')
+    expect(preferredRuntimeApi(legacy)).toBe(null)
+    expect(defaultRuntimePreference(legacy)).toBe(null)
+    expect(preferredBackend([legacy])).toBe(null)
+  })
+
+  it('validates memory policy values against their advertised kind', () => {
+    expect(isMemoryPolicyValid(defaultMemoryPolicy('tensorflow_limit_mb'))).toBe(true)
+    expect(isMemoryPolicyValid({ kind: 'tensorflow_limit_mb', limit_mb: 0 })).toBe(false)
+    expect(isMemoryPolicyValid(defaultMemoryPolicy('pytorch_fraction'))).toBe(true)
+    expect(isMemoryPolicyValid({ kind: 'pytorch_fraction', fraction: 1.1 })).toBe(false)
+    expect(isMemoryPolicyValid({ kind: 'default', fraction: 0.5 })).toBe(false)
   })
 })
