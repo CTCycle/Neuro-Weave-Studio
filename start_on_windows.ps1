@@ -1237,7 +1237,6 @@ function Invoke-Launch {
         Write-StartupStageDuration -Name 'launcher.frontend_readiness' -Stopwatch $frontendStarted
         Write-Ok 'Frontend is ready.'
         Assert-ManagedProcessesAlive
-        Open-ApplicationBrowser -Uri $uiUrl
 
         Write-Status -Level WAIT -Message "Waiting for backend readiness at $backendHealth"
         if (-not (Invoke-HealthCheck -Url $backendHealth -TimeoutSeconds 60 -Process $backendProcess -DiagnosticsPath (Join-Path $script:LogDir 'backend.err.log'))) {
@@ -1245,6 +1244,7 @@ function Invoke-Launch {
         }
         Write-StartupStageDuration -Name 'launcher.backend_readiness' -Stopwatch $backendStarted
         Write-Ok 'Backend is healthy.'
+        Open-ApplicationBrowser -Uri $uiUrl
         Write-Status -Level SUCCESS -Message 'NeuroWeave Studio is running.'
         Write-Host "  Backend:  $backendHealth (PID $($backendProcess.Id))"
         Write-Host "  Frontend: $uiUrl (PID $($frontendProcess.Id))"
