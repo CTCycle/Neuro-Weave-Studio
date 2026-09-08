@@ -798,6 +798,10 @@ function Invoke-BackendReconciliation {
         $previousExtras = @(Resolve-BackendExtras -Backends @(Get-InstalledExecutionBackends))
     }
     $targetExtras = @(Resolve-BackendExtras -Backends $RequestedBackends)
+    $removedExtras = @($previousExtras | Where-Object { $_ -notin $targetExtras })
+    if ($removedExtras.Count -gt 0 -and -not (Confirm-LauncherAction -Prompt "This removes optional backend package(s): $($removedExtras -join ', '). Continue?")) {
+        throw 'Backend removal cancelled.'
+    }
     $failures = [System.Collections.Generic.List[string]]::new()
     $succeeded = $false
     $failureMessage = $null
@@ -1542,6 +1546,10 @@ function Assert-UserDataTarget {
 }
 
 function Invoke-RemoveApplicationLogs {
+    if (-not (Confirm-LauncherAction -Prompt 'This removes application log files. Continue?')) {
+        Write-Warn 'Log removal cancelled.'
+        return
+    }
     if (-not (Test-Path -LiteralPath $script:LogDir)) {
         Write-Info "Log directory does not exist: $($script:LogDir)"
         return
@@ -1751,6 +1759,10 @@ function Remove-PathBestEffort([string]$Path) {
 }
 
 function Invoke-ClearApplicationCache {
+    if (-not (Confirm-LauncherAction -Prompt 'This removes runtime, test, and tool caches. Continue?')) {
+        Write-Warn 'Cache cleanup cancelled.'
+        return
+    }
     Write-Status -Level STEP -Message 'Removing runtime, test, and tool caches plus generated artifacts.'
     $pythonCacheResult = Remove-PythonCaches
     $legacyPaths = @(
@@ -1788,7 +1800,7 @@ function Confirm-LauncherAction {
     )
 
     Clear-LauncherProgress
-    if ([Console]::IsInputRedirected) {
+    if ([Console]::IsInputRedirected -or [Console]::IsOutputRedirected) {
         throw 'The destructive action requires an interactive console.'
     }
     $response = ([string](Read-Host "$Prompt [y/N]")).Trim()
