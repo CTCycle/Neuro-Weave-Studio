@@ -27,14 +27,14 @@ def test_proposed_edge_respects_execution_profile() -> None:
     graph = ModelGraph(
         nodes=[
             make_node("input", "input.sequence", {"shape": [12, 8]}),
-            make_node("lstm", "recurrent.lstm", {"units": 4}),
+            make_node("rnn", "recurrent.simple_rnn", {"units": 4}),
         ]
     )
     connection = EdgeInstance(
         id="candidate",
         source_node_id="input",
         source_port_id="output",
-        target_node_id="lstm",
+        target_node_id="rnn",
         target_port_id="input",
     )
     service = make_service()
