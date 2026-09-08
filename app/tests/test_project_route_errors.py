@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import NoReturn
 from uuid import uuid4
 
 import pytest
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from domain.graph import ProjectExportBundle
 from services.errors import GraphPersistenceError
+from services.keras_import_service import KerasImportService
 from services.project_service import ProjectService
 
 
@@ -24,6 +26,11 @@ def raise_duplicate_conflict(
     _project_id: object,
     _payload: object,
 ) -> None:
+    raise GraphPersistenceError("Project graph conflicts with the relational schema")
+
+
+###############################################################################
+def raise_keras_import_conflict(*_args: object, **_kwargs: object) -> NoReturn:
     raise GraphPersistenceError("Project graph conflicts with the relational schema")
 
 
@@ -60,6 +67,23 @@ def test_project_duplicate_maps_persistence_conflict_to_409(
     response = client.post(
         f"/api/projects/{uuid4()}/duplicate",
         json={"name": "Copy"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Project graph conflicts with the relational schema"
+
+
+###############################################################################
+def test_keras_import_maps_persistence_conflict_to_409(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(KerasImportService, "import_architecture", raise_keras_import_conflict)
+
+    response = client.post(
+        "/api/imports/keras-architecture",
+        content=b"test archive",
+        headers={"Content-Type": "application/vnd.keras.zip"},
     )
 
     assert response.status_code == 409
