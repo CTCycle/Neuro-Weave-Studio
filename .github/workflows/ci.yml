@@ -111,7 +111,7 @@ jobs:
           version: "0.12.0"
           enable-cache: false
       - name: Install backend runtime for browser tests
-        run: uv sync --locked --project app/server
+        run: uv sync --locked --project app/server --extra torch-cpu
       - name: Start backend for browser tests
         env:
           DATABASE_SQLITE_PATH: ${{ runner.temp }}/neuro-weave-e2e.db
@@ -129,6 +129,27 @@ jobs:
             sleep 1
           done
           cat "${{ runner.temp }}/neuro-weave-e2e-logs/backend.log"
+          exit 1
+      - name: Prime runtime capability discovery
+        run: |
+          curl --fail --silent --show-error \
+            -X POST http://127.0.0.1:8000/api/execution/discovery \
+            -H 'content-type: application/json' \
+            -d '{"backend":"pytorch","api":"keras"}'
+          for attempt in {1..90}; do
+            response="$(curl --fail --silent --show-error \
+              'http://127.0.0.1:8000/api/execution/discovery?backend=pytorch&api=keras')"
+            state="$(printf '%s' "$response" | jq -r '.state')"
+            if [ "$state" = "verified" ]; then
+              exit 0
+            fi
+            if [ "$state" = "unavailable" ] || [ "$state" = "failed" ]; then
+              printf '%s\n' "$response"
+              exit 1
+            fi
+            sleep 1
+          done
+          printf '%s\n' "$response"
           exit 1
       - name: Install Playwright browser
         working-directory: app/client

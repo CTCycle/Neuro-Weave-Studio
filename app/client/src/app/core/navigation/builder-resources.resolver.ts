@@ -8,5 +8,8 @@ export const builderResourcesResolver: ResolveFn<boolean> = async () => {
     resources.loadCatalog(),
     resources.loadRuntimeMetadata(),
   ])
+  if (resources.hasError('catalog') || resources.hasError('runtime')) {
+    throw new Error('The Builder requires the node catalog and runtime metadata. Retry when the API is reachable.')
+  }
   return true
 }
