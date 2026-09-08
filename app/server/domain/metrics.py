@@ -12,7 +12,6 @@ MetricKind = Literal["metric", "loss"]
 MetricOrigin = Literal["builtin", "custom"]
 
 
-###############################################################################
 class MetricDefinitionResponse(BaseModel):
     id: str
     kind: MetricKind
@@ -29,19 +28,16 @@ class MetricDefinitionResponse(BaseModel):
     updated_at: datetime | None = None
 
 
-###############################################################################
 class MetricCatalogResponse(BaseModel):
     definitions: list[MetricDefinitionResponse]
 
 
-###############################################################################
 class MetricDefinitionCreate(BaseModel):
     kind: MetricKind
     label: str
     description: str
     formula: str
 
-    # -------------------------------------------------------------------------
     @field_validator("label", "description", "formula")
     @classmethod
     def non_empty(cls, value: str) -> str:
@@ -51,13 +47,11 @@ class MetricDefinitionCreate(BaseModel):
         return cleaned
 
 
-###############################################################################
 class MetricDefinitionUpdate(BaseModel):
     label: str
     description: str
     formula: str
 
-    # -------------------------------------------------------------------------
     @field_validator("label", "description", "formula")
     @classmethod
     def non_empty(cls, value: str) -> str:
@@ -67,7 +61,6 @@ class MetricDefinitionUpdate(BaseModel):
         return cleaned
 
 
-###############################################################################
 class MetricUsageResponse(BaseModel):
     project_id: UUID
     project_name: str

@@ -5,12 +5,14 @@ from collections import defaultdict, deque
 from domain.graph import EdgeInstance, ModelGraph
 from domain.manifests import NodeManifest
 
+
 ###############################################################################
 def adjacency(graph: ModelGraph) -> dict[str, list[str]]:
     result: dict[str, list[str]] = defaultdict(list)
     for edge in graph.edges:
         result[edge.source_node_id].append(edge.target_node_id)
     return result
+
 
 ###############################################################################
 def topological_order(graph: ModelGraph) -> list[str]:
@@ -34,6 +36,7 @@ def topological_order(graph: ModelGraph) -> list[str]:
         raise ValueError("Graph contains a cycle")
     return ordered
 
+
 ###############################################################################
 def would_create_cycle(graph: ModelGraph, source_node_id: str, target_node_id: str) -> bool:
     if source_node_id == target_node_id:
@@ -51,12 +54,14 @@ def would_create_cycle(graph: ModelGraph, source_node_id: str, target_node_id: s
         stack.extend(outgoing.get(current, []))
     return False
 
+
 ###############################################################################
 def incoming_edges(graph: ModelGraph) -> dict[str, list[EdgeInstance]]:
     result: dict[str, list[EdgeInstance]] = defaultdict(list)
     for edge in graph.edges:
         result[edge.target_node_id].append(edge)
     return result
+
 
 ###############################################################################
 def reachable_nodes(graph: ModelGraph, starts: set[str]) -> set[str]:
@@ -72,6 +77,7 @@ def reachable_nodes(graph: ModelGraph, starts: set[str]) -> set[str]:
         visited.add(current)
         stack.extend(outgoing.get(current, []))
     return visited
+
 
 ###############################################################################
 def nodes_reaching(graph: ModelGraph, targets: set[str]) -> set[str]:
@@ -89,6 +95,7 @@ def nodes_reaching(graph: ModelGraph, targets: set[str]) -> set[str]:
         visited.add(current)
         stack.extend(reverse.get(current, []))
     return visited
+
 
 ###############################################################################
 def ordered_incoming_edges(

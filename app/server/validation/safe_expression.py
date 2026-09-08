@@ -16,6 +16,7 @@ _ALLOWED_FUNCTIONS = {
 _ALLOWED_BINARY_OPERATORS = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow, ast.Mod)
 _ALLOWED_UNARY_OPERATORS = (ast.UAdd, ast.USub)
 
+
 ###############################################################################
 def _integer_literal(node: ast.AST) -> int | None:
     if (
@@ -35,6 +36,7 @@ def _integer_literal(node: ast.AST) -> int | None:
         return value if isinstance(node.op, ast.UAdd) else -value
     return None
 
+
 ###############################################################################
 def _validate_slice(node: ast.AST) -> None:
     if isinstance(node, ast.Tuple):
@@ -53,6 +55,7 @@ def _validate_slice(node: ast.AST) -> None:
     if _integer_literal(node) is not None:
         return
     raise SafeExpressionError("Slice indices must be integer literals, slices, or ellipsis")
+
 
 ###############################################################################
 def _validate_expression_node(node: ast.AST) -> None:
@@ -96,9 +99,11 @@ def _validate_expression_node(node: ast.AST) -> None:
         return
     raise SafeExpressionError(f"Expression element '{type(node).__name__}' is not allowed")
 
+
 ###############################################################################
 class SafeExpressionError(ValueError):
     pass
+
 
 ###############################################################################
 def validate_safe_expression(expression: str) -> None:

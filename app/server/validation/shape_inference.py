@@ -11,9 +11,11 @@ from domain.tensor import Dimension, TensorSpec
 from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 
+
 ###############################################################################
 class ShapeInferenceError(ValueError):
     pass
+
 
 ###############################################################################
 def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
@@ -36,7 +38,6 @@ def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) ->
     return True
 
 
-###############################################################################
 def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any]:
     return [
         port
@@ -44,12 +45,14 @@ def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any
         if _condition_matches(port.enabled_when, parameters)
     ]
 
+
 ###############################################################################
 def _int_parameter(parameters: dict[str, Any], key: str, default: int | None = None) -> int:
     value = parameters.get(key, default)
     if not isinstance(value, int) or isinstance(value, bool):
         raise ShapeInferenceError(f"Parameter '{key}' must be an integer")
     return value
+
 
 ###############################################################################
 def _spatial_parameter(
@@ -67,6 +70,7 @@ def _spatial_parameter(
     if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in items):
         raise ShapeInferenceError(f"Parameter '{key}' must contain positive integers")
     return [int(item) for item in items]
+
 
 ###############################################################################
 def _convolution_size(
@@ -92,6 +96,7 @@ def _convolution_size(
         raise ShapeInferenceError("Kernel and stride produce a non-positive output dimension")
     return result
 
+
 ###############################################################################
 def _optional_positive_int(
     parameters: dict[str, Any],
@@ -105,6 +110,7 @@ def _optional_positive_int(
         raise ShapeInferenceError(f"Parameter '{key}' must be a positive integer")
     return value
 
+
 ###############################################################################
 def _normalize_axis(axis: int, rank: int, *, allow_endpoint: bool = False) -> int:
     upper_bound = rank if allow_endpoint else rank - 1
@@ -112,6 +118,7 @@ def _normalize_axis(axis: int, rank: int, *, allow_endpoint: bool = False) -> in
     if normalized < 0 or normalized > upper_bound:
         raise ShapeInferenceError(f"Axis {axis} is outside rank {rank}")
     return normalized
+
 
 ###############################################################################
 def _valid_spatial_pair(item: Any) -> bool:
@@ -122,6 +129,7 @@ def _valid_spatial_pair(item: Any) -> bool:
         isinstance(value, int) and not isinstance(value, bool) and value >= 0
         for value in pair_values
     )
+
 
 ###############################################################################
 def _spatial_transform(
@@ -160,6 +168,7 @@ def _spatial_transform(
             shape[index] = None
     return TensorSpec(shape=shape, dtype=source.dtype)
 
+
 ###############################################################################
 def _upsample_shape(source: TensorSpec, parameters: dict[str, Any]) -> TensorSpec:
     size = parameters.get("size")
@@ -185,6 +194,7 @@ def _upsample_shape(source: TensorSpec, parameters: dict[str, Any]) -> TensorSpe
             shape[index] = None
     return TensorSpec(shape=shape, dtype=source.dtype)
 
+
 ###############################################################################
 def _attention_output_dimensions(
     parameters: dict[str, Any], query_dimension: int | None
@@ -206,6 +216,7 @@ def _attention_output_dimensions(
     ):
         raise ShapeInferenceError("Attention output_shape must contain positive integers")
     return [int(dimension) for dimension in dimensions], prod(dimensions)
+
 
 ###############################################################################
 def _attention_parameter_count(
@@ -230,6 +241,7 @@ def _attention_parameter_count(
         + (projection_bias + output_bias if use_bias else 0)
     )
 
+
 ###############################################################################
 def _operation_dtype(source: TensorSpec, output_dtype: str, parameters: dict[str, Any]) -> DataType:
     if output_dtype == "bool":
@@ -243,6 +255,7 @@ def _operation_dtype(source: TensorSpec, output_dtype: str, parameters: dict[str
         except ValueError as exc:
             raise ShapeInferenceError(f"Unsupported operation dtype '{value}'") from exc
     return source.dtype
+
 
 ###############################################################################
 def _slice_integer_literal(node: ast.AST) -> int | None:
@@ -262,6 +275,7 @@ def _slice_integer_literal(node: ast.AST) -> int | None:
         value = int(node.operand.value)
         return value if isinstance(node.op, ast.UAdd) else -value
     return None
+
 
 ###############################################################################
 def _slice_expression_shape(source: TensorSpec, expression: str) -> TensorSpec:
@@ -314,6 +328,7 @@ def _slice_expression_shape(source: TensorSpec, expression: str) -> TensorSpec:
         else:
             output_shape.append(None)
     return TensorSpec(shape=output_shape, dtype=source.dtype)
+
 
 ###############################################################################
 def _operation_shape(
@@ -526,6 +541,7 @@ def _operation_shape(
             raise ShapeInferenceError("Expression must be a string")
         return _slice_expression_shape(source, expression)
     raise ShapeInferenceError(f"No shape inference rule for operation behavior '{behavior}'")
+
 
 ###############################################################################
 def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
