@@ -8,11 +8,17 @@ import type {
   MetricDefinition,
   NodeManifest,
   ProjectSummary,
+  RuntimeApi,
   RuntimeApiStatus,
   RuntimeDiscoveryResponse,
-  RuntimeDevice,
   WorkerConfiguration,
 } from '../../domain/types'
+import {
+  backendSupportsApi,
+  defaultRuntimePreference,
+  preferredBackend,
+  preferredBackendForApi as selectPreferredBackendForApi,
+} from './runtime-selection'
 
 @Injectable({ providedIn: 'root' })
 export class AppResourcesService {
@@ -82,12 +88,25 @@ export class AppResourcesService {
       this.runtimeApis.set(value.runtime_apis ?? [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'runtime_unavailable' }])
       const current = this.runtimePreferences()
       const next = { ...current }
-      for (const status of statuses.filter((item) => item.available)) {
-        if (!next[status.id]) next[status.id] = defaultPreference(status)
+      for (const status of statuses) {
+        const existing = next[status.id]
+        if (!status.available) {
+          delete next[status.id]
+          continue
+        }
+        if (!existing || !backendSupportsApi(status, existing.api)) {
+          const preference = defaultRuntimePreference(status)
+          if (preference) next[status.id] = preference
+          else delete next[status.id]
+        }
       }
       this.runtimePreferences.set(next)
       const selected = this.runtimePreferenceBackend()
-      this.runtimePreferenceBackend.set(selected && statuses.some((item) => item.id === selected && item.available) ? selected : preferredBackend(statuses))
+      this.runtimePreferenceBackend.set(
+        selected && next[selected] && statuses.some((item) => item.id === selected && item.available)
+          ? selected
+          : preferredBackend(statuses),
+      )
       for (const status of statuses) {
         for (const api of status.runtime_apis ?? []) {
           if (api.state === 'unchecked' || api.state === undefined) this.validatedDiscoveries.delete(discoveryKey(status.id, api.id))
@@ -119,26 +138,25 @@ export class AppResourcesService {
 
   discoverRuntime(backend: ExecutionBackend, api: WorkerConfiguration['api'], forceRefresh = false, signal?: AbortSignal): Promise<RuntimeDiscoveryResponse> {
     const key = discoveryKey(backend, api)
-    const existing = this.discoveryRequests.get(key)
-    if (existing) return existing
-    this.setDiscoveryPending(key, true)
-    const observation = this.observeRuntime(backend, api, forceRefresh, signal)
-    this.discoveryRequests.set(key, observation)
-    void observation.then((result) => {
-      if (result.state !== 'checking' && !signal?.aborted) this.validatedDiscoveries.add(key)
-      this.clearDiscoveryObservation(key, observation)
-    }, () => this.clearDiscoveryObservation(key, observation))
-    return observation
+    let observation = this.discoveryRequests.get(key)
+    if (!observation) {
+      this.setDiscoveryPending(key, true)
+      observation = this.observeRuntime(backend, api, forceRefresh)
+      this.discoveryRequests.set(key, observation)
+      void observation.then((result) => {
+        if (result.state !== 'checking') this.validatedDiscoveries.add(key)
+        this.clearDiscoveryObservation(key, observation as Promise<RuntimeDiscoveryResponse>)
+      }, () => this.clearDiscoveryObservation(key, observation as Promise<RuntimeDiscoveryResponse>))
+    }
+    return signal ? observeWithAbort(observation, signal) : observation
   }
 
-  private async observeRuntime(backend: ExecutionBackend, api: WorkerConfiguration['api'], forceRefresh: boolean, signal?: AbortSignal): Promise<RuntimeDiscoveryResponse> {
+  private async observeRuntime(backend: ExecutionBackend, api: WorkerConfiguration['api'], forceRefresh: boolean): Promise<RuntimeDiscoveryResponse> {
     const requested = await this.api.requestRuntimeDiscovery(backend, api, forceRefresh)
     let current = requested
     const deadline = Date.now() + 65_000
     while (current.state === 'checking' && Date.now() < deadline) {
-      if (signal?.aborted) return current
-      await waitForDiscoveryPoll(signal)
-      if (signal?.aborted) return current
+      await waitForDiscoveryPoll()
       current = await this.api.runtimeDiscoveryStatus(backend, api)
     }
     if (current.state === 'checking') throw new Error('Runtime capability discovery timed out after 65 seconds.')
@@ -205,13 +223,20 @@ export class AppResourcesService {
     return Boolean(this.errors()[resource])
   }
 
+  preferredBackendForApi(api: RuntimeApi): ExecutionBackend | null {
+    return selectPreferredBackendForApi(this.backendStatuses(), api)
+  }
+
   selectRuntimePreferenceBackend(backend: ExecutionBackend | null): void {
     this.runtimePreferenceBackend.set(backend)
     if (!backend) return
     const status = this.backendStatuses().find((item) => item.id === backend)
     if (!status) return
     const preferences = this.runtimePreferences()
-    if (!preferences[backend]) this.runtimePreferences.set({ ...preferences, [backend]: defaultPreference(status) })
+    if (!preferences[backend]) {
+      const preference = defaultRuntimePreference(status)
+      if (preference) this.runtimePreferences.set({ ...preferences, [backend]: preference })
+    }
   }
 
   setRuntimePreference(selection: WorkerConfiguration): void {
@@ -239,30 +264,6 @@ export class AppResourcesService {
   }
 }
 
-function defaultPreference(status: ExecutionBackendStatus): WorkerConfiguration {
-  const device: RuntimeDevice = status.devices?.[0] ?? {
-    device_id: 'cpu',
-    lease_key: 'cpu',
-    kind: 'cpu',
-    name: 'CPU',
-    accelerator: 'cpu',
-    available: true,
-    supported_memory_policies: ['default'],
-  }
-  return {
-    api: 'keras',
-    backend: status.id,
-    device_id: device.device_id,
-    memory_policy: { kind: 'default' },
-    precision: 'float32',
-  }
-}
-
-function preferredBackend(statuses: ExecutionBackendStatus[]): ExecutionBackend | null {
-  const available = statuses.filter((item) => item.available)
-  return (available.length === 1 ? available[0] : available.find((item) => item.id === 'pytorch'))?.id ?? null
-}
-
 function markResource(resource: string): void {
   if (typeof performance !== 'undefined') performance.mark(`nw:resource:${resource}:complete`)
 }
@@ -271,12 +272,27 @@ function discoveryKey(backend: ExecutionBackend, api: WorkerConfiguration['api']
   return `${backend}:${api}`
 }
 
-function waitForDiscoveryPoll(signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    const timer = window.setTimeout(resolve, 500)
-    signal?.addEventListener('abort', () => {
-      window.clearTimeout(timer)
-      resolve()
-    }, { once: true })
+function waitForDiscoveryPoll(): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, 500))
+}
+
+function observeWithAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(abortError())
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => reject(abortError())
+    signal.addEventListener('abort', onAbort, { once: true })
+    void operation.then((value) => {
+      signal.removeEventListener('abort', onAbort)
+      resolve(value)
+    }, (reason) => {
+      signal.removeEventListener('abort', onAbort)
+      reject(reason)
+    })
   })
+}
+
+function abortError(): Error {
+  const error = new Error('Runtime discovery observation aborted.')
+  error.name = 'AbortError'
+  return error
 }

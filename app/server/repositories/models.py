@@ -27,6 +27,7 @@ from repositories.types import UTCDateTime
 _EXECUTION_BACKEND_SQL_VALUES = ", ".join(repr(item.value) for item in ExecutionBackend)
 _VALIDATION_STATUS_SQL_VALUES = ", ".join(repr(item.value) for item in ValidationStatus)
 
+
 ###############################################################################
 class ProjectRecord(Base):
     __tablename__ = "projects"
@@ -90,6 +91,7 @@ class ProjectRecord(Base):
         Index("ix_projects_updated_at", "updated_at"),
     )
 
+
 ###############################################################################
 class ProjectGraphSettingsRecord(Base):
     __tablename__ = "project_graph_settings"
@@ -124,6 +126,7 @@ class ProjectGraphSettingsRecord(Base):
     )
 
     project: Mapped[ProjectRecord] = relationship(back_populates="graph_settings")
+
 
 ###############################################################################
 class ProjectNodeRecord(Base):
@@ -165,6 +168,7 @@ class ProjectNodeRecord(Base):
         Index("ix_project_nodes_definition", "definition_id", "definition_version"),
     )
 
+
 ###############################################################################
 class ProjectEdgeRecord(Base):
     __tablename__ = "project_edges"
@@ -203,6 +207,7 @@ class ProjectEdgeRecord(Base):
         Index("ix_project_edges_target", "project_id", "target_node_id"),
     )
 
+
 ###############################################################################
 class ProjectRevisionRecord(Base):
     __tablename__ = "project_revisions"
@@ -234,6 +239,7 @@ class ProjectRevisionRecord(Base):
         Index("ix_project_revisions_project_created", "project_id", "created_at"),
     )
 
+
 ###############################################################################
 class GeneratedCodeSnapshotRecord(Base):
     __tablename__ = "generated_code_snapshots"
@@ -264,6 +270,7 @@ class GeneratedCodeSnapshotRecord(Base):
         ),
         Index("ix_generated_code_snapshots_project", "project_id", "revision"),
     )
+
 
 ###############################################################################
 class CustomMetricDefinitionRecord(Base):

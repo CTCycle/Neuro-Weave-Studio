@@ -11,10 +11,12 @@ from domain.exports import ExportArtifactManifest, ExportFormat, ExportOptions
 from domain.graph import ModelGraph
 from domain.runtime import DeviceLeaseStatus, WorkerConfiguration
 
+
 ###############################################################################
 class JobOperation(StrEnum):
     SMOKE_INFERENCE = "smoke_inference"
     MODEL_EXPORT = "model_export"
+
 
 ###############################################################################
 class JobState(StrEnum):
@@ -26,6 +28,7 @@ class JobState(StrEnum):
     TERMINATED = "terminated"
     FAILED = "failed"
 
+
 ###############################################################################
 class SmokeInferenceOperation(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -33,6 +36,7 @@ class SmokeInferenceOperation(BaseModel):
     type: Literal[JobOperation.SMOKE_INFERENCE] = JobOperation.SMOKE_INFERENCE
     project_id: UUID
     graph: ModelGraph
+
 
 ###############################################################################
 class ModelExportOperation(BaseModel):
@@ -51,6 +55,7 @@ JobOperationRequest = Annotated[
     Field(discriminator="type"),
 ]
 
+
 ###############################################################################
 class JobSubmitRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -58,11 +63,13 @@ class JobSubmitRequest(BaseModel):
     operation: JobOperationRequest
     worker: WorkerConfiguration
 
+
 ###############################################################################
 class JobProgress(BaseModel):
     phase: str = "queued"
     message: str = "Worker is starting"
     percent: int | None = Field(default=None, ge=0, le=100)
+
 
 ###############################################################################
 class JobDiagnostics(BaseModel):
@@ -73,11 +80,13 @@ class JobDiagnostics(BaseModel):
     device_used_bytes: int | None = Field(default=None, ge=0)
     device_total_bytes: int | None = Field(default=None, ge=0)
 
+
 ###############################################################################
 class JobError(BaseModel):
     code: str
     message: str
     details: dict[str, Any] = Field(default_factory=dict)
+
 
 ###############################################################################
 class JobResponse(BaseModel):

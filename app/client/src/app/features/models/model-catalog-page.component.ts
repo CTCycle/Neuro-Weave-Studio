@@ -83,7 +83,10 @@ export class ModelCatalogPageComponent {
       let projectId: string
       const isKeras = file.name.toLowerCase().endsWith('.keras')
       if (isKeras) {
-        const preferred = this.resources.backendStatuses().find((status) => status.id === 'pytorch' && status.available)?.id ?? this.resources.backendStatuses().find((status) => status.available)?.id ?? 'pytorch'
+        await this.resources.loadRuntimeMetadata()
+        if (this.resources.hasError('runtime')) throw new Error('Runtime metadata is unavailable. Retry after the compute environment is reachable.')
+        const preferred = this.resources.preferredBackendForApi('keras')
+        if (!preferred) throw new Error('No execution backend with an available Keras runtime is configured.')
         const imported = await this.api.importKerasArchitecture(file, preferred, this.importName(file.name))
         projectId = imported.project.id
         if (imported.warnings.length) this.notice.set(imported.warnings.join(' '))

@@ -6,19 +6,16 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 
-###############################################################################
 class MetricFormulaError(ValueError):
     """Raised when a user formula is outside the supported safe subset."""
 
 
-###############################################################################
 @dataclass(frozen=True, slots=True)
 class FormulaNode:
     op: str
     value: float | None = None
     args: tuple[FormulaNode, ...] = ()
 
-    # -------------------------------------------------------------------------
     def to_json(self) -> dict[str, Any]:
         result: dict[str, Any] = {"op": self.op}
         if self.value is not None:
@@ -27,7 +24,6 @@ class FormulaNode:
             result["args"] = [item.to_json() for item in self.args]
         return result
 
-    # -------------------------------------------------------------------------
     @classmethod
     def from_json(cls, value: object) -> FormulaNode:
         if not isinstance(value, dict):
@@ -60,7 +56,6 @@ _BINARY = {
 }
 
 
-###############################################################################
 def _read_group(value: str, start: int) -> tuple[str, int]:
     opening = value[start]
     closing = "}" if opening == "{" else ")"
@@ -76,7 +71,6 @@ def _read_group(value: str, start: int) -> tuple[str, int]:
     raise MetricFormulaError("Formula contains an unclosed group")
 
 
-###############################################################################
 def _replace_frac(value: str) -> str:
     marker = "\\frac"
     index = value.find(marker)
@@ -98,7 +92,6 @@ def _replace_frac(value: str) -> str:
     return value
 
 
-###############################################################################
 def _replace_command_groups(value: str, command: str, function: str) -> str:
     marker = f"\\{command}"
     index = value.find(marker)
@@ -115,7 +108,6 @@ def _replace_command_groups(value: str, command: str, function: str) -> str:
     return value
 
 
-###############################################################################
 def _replace_absolute(value: str) -> str:
     value = value.replace("\\left|", "|").replace("\\right|", "|")
     value = value.replace("\\lvert", "|").replace("\\rvert", "|")
@@ -128,7 +120,6 @@ def _replace_absolute(value: str) -> str:
     return value
 
 
-###############################################################################
 def _replace_sums(value: str) -> str:
     pattern = re.compile(r"\\sum\s*_(?:\{[^{}]*\}|[^\s^]+)\s*\^(?:\{[^{}]*\}|[^\s]+)")
     value = pattern.sub("sum", value)
@@ -137,7 +128,6 @@ def _replace_sums(value: str) -> str:
     return value
 
 
-###############################################################################
 def _strip_equation_label(value: str) -> str:
     depth = 0
     pairs = {"(": ")", "[": "]", "{": "}"}
@@ -152,7 +142,6 @@ def _strip_equation_label(value: str) -> str:
     return value
 
 
-###############################################################################
 def _normalize_latex(value: str) -> str:
     if len(value) > _MAX_LENGTH:
         raise MetricFormulaError("Formula exceeds the 500-character limit")
@@ -183,7 +172,6 @@ def _normalize_latex(value: str) -> str:
     return value
 
 
-###############################################################################
 def _from_python(node: ast.AST, depth: int, count: list[int]) -> FormulaNode:
     count[0] += 1
     if count[0] > _MAX_NODES or depth > _MAX_DEPTH:
@@ -216,7 +204,6 @@ def _from_python(node: ast.AST, depth: int, count: list[int]) -> FormulaNode:
     raise MetricFormulaError("Formula contains an unsupported expression")
 
 
-###############################################################################
 def parse_metric_formula(formula: str) -> FormulaNode:
     """Parse the bounded LaTeX-like formula subset without evaluating it."""
 
@@ -231,7 +218,6 @@ def parse_metric_formula(formula: str) -> FormulaNode:
     return _from_python(tree.body, 0, [0])
 
 
-###############################################################################
 def emit_metric_formula(node: FormulaNode, backend: str, target: str = "y_true", prediction: str = "y_pred") -> str:
     """Emit an expression using only the selected backend's tensor primitives."""
 
@@ -269,7 +255,6 @@ def emit_metric_formula(node: FormulaNode, backend: str, target: str = "y_true",
     raise MetricFormulaError(f"Unsupported formula backend '{backend}'")
 
 
-###############################################################################
 def evaluate_metric_formula(
     node: FormulaNode,
     target: Any,
