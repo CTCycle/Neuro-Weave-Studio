@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
 import contextlib
@@ -7,7 +8,7 @@ import tempfile
 import time
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from common.catalogs.loader import get_node_catalog
@@ -729,7 +730,7 @@ def _verify_keras_model(
 ) -> ExportVerification:
     import keras
 
-    loaded = keras.saving.load_model(destination, compile=False)
+    loaded = cast(Callable[..., Any], keras.saving.load_model(destination, compile=False))
     checkpoint()
     values = _as_list(
         loaded(input_values[0] if len(input_values) == 1 else input_values, training=False)

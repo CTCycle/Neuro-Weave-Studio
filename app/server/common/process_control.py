@@ -1,11 +1,12 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportAttributeAccessIssue=false
 from __future__ import annotations
 
 import ctypes
 import os
-import signal
 import subprocess
 import time
 from pathlib import Path
+from signal import SIGKILL, SIGTERM  # pyright: ignore[reportUnusedImport]
 from typing import Any
 
 
@@ -87,10 +88,10 @@ def terminate_process_tree(pid: int, *, force: bool) -> None:
             return
         return
     try:
-        os.killpg(os.getpgid(pid), signal.SIGKILL if force else signal.SIGTERM)
+        os.killpg(os.getpgid(pid), SIGKILL if force else SIGTERM)
     except (OSError, ProcessLookupError):
         try:
-            os.kill(pid, signal.SIGKILL if force else signal.SIGTERM)
+            os.kill(pid, SIGKILL if force else SIGTERM)
         except (OSError, ProcessLookupError):
             return
 

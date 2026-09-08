@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
@@ -153,7 +153,7 @@ class ModelGraph(BaseModel):
     schema_version: Literal[5] = GRAPH_SCHEMA_VERSION
     nodes: list[NodeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     edges: list[EdgeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
-    output_bindings: list[OutputBinding] = Field(default_factory=list)
+    output_bindings: list[OutputBinding] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     model_configuration: ModelConfiguration = Field(default_factory=ModelConfiguration)
     export_settings: ExportSettings = Field(default_factory=ExportSettings)
     future_training_configuration: dict[str, Any] = Field(default_factory=dict)
@@ -162,20 +162,23 @@ class ModelGraph(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def migrate_legacy_graph(cls, value: Any) -> Any:
-        if not isinstance(value, dict) or value.get("schema_version") != 4:
+        if not isinstance(value, dict):
             return value
-        migrated = dict(value)
+        raw_value = cast(dict[str, Any], value)
+        if raw_value.get("schema_version") != 4:
+            return raw_value
+        migrated: dict[str, Any] = dict(raw_value)
         migrated["schema_version"] = GRAPH_SCHEMA_VERSION
         nodes: list[Any] = []
-        for raw_node in value.get("nodes", []):
+        for raw_node in cast(list[Any], raw_value.get("nodes", [])):
             if isinstance(raw_node, NodeInstance):
-                node = raw_node.model_dump(mode="python")
+                node: dict[str, Any] = raw_node.model_dump(mode="python")
             elif isinstance(raw_node, dict):
-                node = dict(raw_node)
+                node = dict(cast(dict[str, Any], raw_node))
             else:
                 nodes.append(raw_node)
                 continue
-            parameters = dict(node.get("parameters", {}))
+            parameters = dict(cast(dict[str, Any], node.get("parameters", {})))
             if str(node.get("definition_id", "")).startswith("input."):
                 shape = parameters.get("shape")
                 if isinstance(shape, list) and shape and shape[0] is None:
@@ -274,9 +277,12 @@ class ProjectExportBundle(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def migrate_legacy_bundle(cls, value: Any) -> Any:
-        if not isinstance(value, dict) or value.get("format_version") != 5:
+        if not isinstance(value, dict):
             return value
-        migrated = dict(value)
+        raw_value = cast(dict[str, Any], value)
+        if raw_value.get("format_version") != 5:
+            return raw_value
+        migrated: dict[str, Any] = dict(raw_value)
         migrated["format_version"] = PROJECT_BUNDLE_FORMAT_VERSION
         return migrated
 
@@ -301,8 +307,9 @@ def _empty_quantization_config(value: Any) -> bool:
         return False
     if not value:
         return True
-    class_name = value.get("class_name")
-    config = value.get("config")
+    mapping = cast(dict[str, Any], value)
+    class_name = mapping.get("class_name")
+    config = mapping.get("config")
     return (class_name is None or str(class_name).strip() == "") and (
         config is None or config == {} or config == []
     )

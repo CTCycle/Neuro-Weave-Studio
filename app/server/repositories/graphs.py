@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Literal, cast
 from uuid import UUID
 
@@ -32,21 +32,58 @@ class GraphRepository:
 
     # -------------------------------------------------------------------------
     def load(self, project_id: UUID, graph_schema_version: int) -> ModelGraph | None:
-        project_key = str(project_id)
-        settings = self._session.get(ProjectGraphSettingsRecord, project_key)
-        if settings is None:
-            return None
+        return self.load_many({project_id: graph_schema_version}).get(project_id)
 
-        nodes = self._session.scalars(
+    # -------------------------------------------------------------------------
+    def load_many(self, projects: Mapping[UUID, int]) -> dict[UUID, ModelGraph]:
+        if not projects:
+            return {}
+        keys = [str(project_id) for project_id in projects]
+        settings_by_project = {
+            item.project_id: item
+            for item in self._session.scalars(
+                select(ProjectGraphSettingsRecord).where(
+                    ProjectGraphSettingsRecord.project_id.in_(keys)
+                )
+            ).all()
+        }
+        nodes_by_project: dict[str, list[ProjectNodeRecord]] = {}
+        for node in self._session.scalars(
             select(ProjectNodeRecord)
-            .where(ProjectNodeRecord.project_id == project_key)
-            .order_by(ProjectNodeRecord.ordinal)
-        ).all()
-        edges = self._session.scalars(
+            .where(ProjectNodeRecord.project_id.in_(keys))
+            .order_by(ProjectNodeRecord.project_id, ProjectNodeRecord.ordinal)
+        ).all():
+            nodes_by_project.setdefault(node.project_id, []).append(node)
+        edges_by_project: dict[str, list[ProjectEdgeRecord]] = {}
+        for edge in self._session.scalars(
             select(ProjectEdgeRecord)
-            .where(ProjectEdgeRecord.project_id == project_key)
-            .order_by(ProjectEdgeRecord.ordinal)
-        ).all()
+            .where(ProjectEdgeRecord.project_id.in_(keys))
+            .order_by(ProjectEdgeRecord.project_id, ProjectEdgeRecord.ordinal)
+        ).all():
+            edges_by_project.setdefault(edge.project_id, []).append(edge)
+
+        graphs: dict[UUID, ModelGraph] = {}
+        for project_id, graph_schema_version in projects.items():
+            project_key = str(project_id)
+            settings = settings_by_project.get(project_key)
+            if settings is None:
+                continue
+            graphs[project_id] = self._materialize_graph(
+                graph_schema_version,
+                settings,
+                nodes_by_project.get(project_key, []),
+                edges_by_project.get(project_key, []),
+            )
+        return graphs
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _materialize_graph(
+        graph_schema_version: int,
+        settings: ProjectGraphSettingsRecord,
+        nodes: Sequence[ProjectNodeRecord],
+        edges: Sequence[ProjectEdgeRecord],
+    ) -> ModelGraph:
         return ModelGraph(
             schema_version=cast(Literal[5], graph_schema_version),
             nodes=[

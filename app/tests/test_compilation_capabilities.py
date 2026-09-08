@@ -145,6 +145,9 @@ def test_native_compilation_source_uses_each_backend_native_compiler() -> None:
     assert tensorflow.valid is True
     assert pytorch.valid is True
     assert jax.valid is True
+    assert tensorflow.code is not None
+    assert pytorch.code is not None
+    assert jax.code is not None
     assert "@tf.function(jit_compile=True)" in tensorflow.code
     assert "torch.compile(" in pytorch.code
     assert "mode='max-autotune'" in pytorch.code

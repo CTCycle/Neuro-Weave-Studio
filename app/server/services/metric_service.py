@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import cast
 from uuid import uuid4
 
 from common.timestamps import utc_now
@@ -10,6 +11,7 @@ from domain.metrics import (
     MetricDefinitionCreate,
     MetricDefinitionResponse,
     MetricDefinitionUpdate,
+    MetricKind,
     MetricUsageResponse,
 )
 from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
@@ -116,7 +118,7 @@ class MetricService:
     def _from_record(record: CustomMetricDefinitionRecord) -> MetricDefinitionResponse:
         return MetricDefinitionResponse(
             id=record.id,
-            kind=record.kind,
+            kind=cast(MetricKind, record.kind),
             label=record.label,
             description=record.description,
             formula=record.formula_latex,

@@ -32,6 +32,13 @@ $script:CacheDir = Join-Path $AppDir 'tests\cache'
 $script:UvCacheDir = Join-Path $script:RuntimeCacheDir 'uv'
 $script:NpmCacheDir = Join-Path $script:RuntimeCacheDir 'npm'
 $script:PipCacheDir = Join-Path $script:RuntimeCacheDir 'pip'
+$script:LegacyUvCachePaths = @(
+    (Join-Path $script:RepoRoot '.uv-cache'),
+    (Join-Path $script:AppDir '.uv-cache'),
+    (Join-Path $script:ServerDir '.uv-cache'),
+    (Join-Path $script:ClientDir '.uv-cache'),
+    (Join-Path $script:AppDir 'tests\.uv-cache')
+)
 $script:PythonEggCacheDir = Join-Path $script:RuntimeCacheDir 'python-eggs'
 $script:PythonBytecodeCacheDir = Join-Path $script:CacheDir 'python-bytecode'
 $script:CoverageCacheDir = Join-Path $script:CacheDir 'coverage'
@@ -798,6 +805,10 @@ function Invoke-BackendReconciliation {
         $previousExtras = @(Resolve-BackendExtras -Backends @(Get-InstalledExecutionBackends))
     }
     $targetExtras = @(Resolve-BackendExtras -Backends $RequestedBackends)
+    $removedExtras = @($previousExtras | Where-Object { $_ -notin $targetExtras })
+    if ($removedExtras.Count -gt 0 -and -not (Confirm-LauncherAction -Prompt "This removes optional backend package(s): $($removedExtras -join ', '). Continue?")) {
+        throw 'Backend removal cancelled.'
+    }
     $failures = [System.Collections.Generic.List[string]]::new()
     $succeeded = $false
     $failureMessage = $null
@@ -1226,7 +1237,6 @@ function Invoke-Launch {
         Write-StartupStageDuration -Name 'launcher.frontend_readiness' -Stopwatch $frontendStarted
         Write-Ok 'Frontend is ready.'
         Assert-ManagedProcessesAlive
-        Open-ApplicationBrowser -Uri $uiUrl
 
         Write-Status -Level WAIT -Message "Waiting for backend readiness at $backendHealth"
         if (-not (Invoke-HealthCheck -Url $backendHealth -TimeoutSeconds 60 -Process $backendProcess -DiagnosticsPath (Join-Path $script:LogDir 'backend.err.log'))) {
@@ -1234,6 +1244,7 @@ function Invoke-Launch {
         }
         Write-StartupStageDuration -Name 'launcher.backend_readiness' -Stopwatch $backendStarted
         Write-Ok 'Backend is healthy.'
+        Open-ApplicationBrowser -Uri $uiUrl
         Write-Status -Level SUCCESS -Message 'NeuroWeave Studio is running.'
         Write-Host "  Backend:  $backendHealth (PID $($backendProcess.Id))"
         Write-Host "  Frontend: $uiUrl (PID $($frontendProcess.Id))"
@@ -1542,6 +1553,10 @@ function Assert-UserDataTarget {
 }
 
 function Invoke-RemoveApplicationLogs {
+    if (-not (Confirm-LauncherAction -Prompt 'This removes application log files. Continue?')) {
+        Write-Warn 'Log removal cancelled.'
+        return
+    }
     if (-not (Test-Path -LiteralPath $script:LogDir)) {
         Write-Info "Log directory does not exist: $($script:LogDir)"
         return
@@ -1751,6 +1766,10 @@ function Remove-PathBestEffort([string]$Path) {
 }
 
 function Invoke-ClearApplicationCache {
+    if (-not (Confirm-LauncherAction -Prompt 'This removes runtime, test, and tool caches. Continue?')) {
+        Write-Warn 'Cache cleanup cancelled.'
+        return
+    }
     Write-Status -Level STEP -Message 'Removing runtime, test, and tool caches plus generated artifacts.'
     $pythonCacheResult = Remove-PythonCaches
     $legacyPaths = @(
@@ -1773,7 +1792,7 @@ function Invoke-ClearApplicationCache {
     )
     $removedCount = [int]$pythonCacheResult.Removed
     $skippedCount = [int]$pythonCacheResult.Skipped
-    foreach ($target in @($script:RuntimeCacheDir, $script:CacheDir) + $legacyPaths) {
+    foreach ($target in @($script:RuntimeCacheDir, $script:CacheDir) + $legacyPaths + $script:LegacyUvCachePaths) {
         $result = Remove-PathBestEffort -Path $target
         $removedCount += $result.Removed
         $skippedCount += $result.Skipped
@@ -1788,7 +1807,7 @@ function Confirm-LauncherAction {
     )
 
     Clear-LauncherProgress
-    if ([Console]::IsInputRedirected) {
+    if ([Console]::IsInputRedirected -or [Console]::IsOutputRedirected) {
         throw 'The destructive action requires an interactive console.'
     }
     $response = ([string](Read-Host "$Prompt [y/N]")).Trim()
@@ -1808,6 +1827,7 @@ function Invoke-UninstallApplication {
         $script:RuntimeCacheDir,
         $script:CacheDir,
         (Join-Path $RepoRoot 'assets\cache'),
+        $script:LegacyUvCachePaths,
         $script:VenvDir,
         (Join-Path $script:ClientDir 'node_modules'),
         (Join-Path $script:ClientDir 'dist'),
