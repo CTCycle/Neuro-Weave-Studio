@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from api.dependencies import get_keras_import_service
 from domain.enums import ExecutionBackend
 from domain.imports import KerasArchitectureImportRequest, KerasArchitectureImportResponse
+from services.errors import GraphPersistenceError
 from services.keras_import_service import KerasArchitectureImportError, KerasImportService
 
 router = APIRouter(prefix="/api/imports", tags=["imports"])
@@ -31,3 +32,5 @@ def import_keras_architecture(
         raise HTTPException(
             status_code=422, detail={"code": exc.code, "message": exc.message}
         ) from exc
+    except GraphPersistenceError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
