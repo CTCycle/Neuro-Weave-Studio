@@ -1,4 +1,5 @@
-import { Component, EventEmitter, HostListener, OnChanges, SimpleChanges, computed, effect, inject, Input, Output, signal, viewChild } from '@angular/core'
+import { Component, EventEmitter, HostListener, computed, effect, inject, Input, Output, signal, viewChild } from '@angular/core'
+import type { OnChanges, SimpleChanges } from '@angular/core'
 import { LucideLock, LucideMaximize2, LucideSave, LucideUnlock } from '@lucide/angular'
 import { FCanvasComponent, FFlowModule, FZoomDirective, type FCreateConnectionEvent, type FDeleteSelectedEvent, type FEventTrigger, type FMoveNodesEvent, type FSelectionChangeEvent } from '@foblex/flow'
 import type { EditorNode } from '../../../domain/editor.types'
