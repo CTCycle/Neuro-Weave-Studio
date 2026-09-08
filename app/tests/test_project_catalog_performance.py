@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from typing import cast
+
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import event
+
+from repositories.session import RepositoryContext
 
 
 ###############################################################################
@@ -75,7 +80,9 @@ def project_payload(name: str) -> dict[str, object]:
 
 ###############################################################################
 def count_project_list_queries(client: TestClient) -> int:
-    engine = client.app.state.repository_context.engine
+    application = cast(FastAPI, client.app)
+    repository_context = cast(RepositoryContext, application.state.repository_context)
+    engine = repository_context.engine
     statements = 0
 
     def before_cursor_execute(*_args: object) -> None:
