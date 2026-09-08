@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
 from typing import Any, cast
@@ -584,15 +585,15 @@ class PyTorchSourceExporter(SourceExporter):
         for identifier, _adapter in [*resolved_losses.values(), *[
             item for values in resolved_metrics.values() for item in values
         ]]:
-            option = referenced_options.get(identifier)
-            if option is None:
+            custom_option = referenced_options.get(identifier)
+            if custom_option is None:
                 continue
             function_name = "_custom_" + "".join(
                 char if char.isalnum() else "_" for char in identifier
             )
             try:
                 expression = emit_metric_formula(
-                    parse_metric_formula(option.formula or ""),
+                    parse_metric_formula(custom_option.formula or ""),
                     "pytorch",
                     target="target",
                     prediction="prediction",

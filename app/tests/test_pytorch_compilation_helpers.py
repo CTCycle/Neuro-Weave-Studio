@@ -1,10 +1,13 @@
+# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
 from contextlib import nullcontext
 from itertools import pairwise
-from typing import Any
+from typing import Any, cast
 
 import pytest
+
+pytest.importorskip("torch", reason="PyTorch backend is not installed")
 
 from common.catalogs.loader import get_node_catalog
 from domain.compilation_catalog import get_compilation_catalog
@@ -225,7 +228,8 @@ def test_native_pytorch_workflows_verify_forward_and_compilation_helpers(workflo
     assert result["status"] == "succeeded"
     assert result["compilation"]["verified"] is True
     assert result["compilation"]["optimizer"] == {"id": "adamw", "instantiated": True}
-    assert [tuple(item["shape"]) for item in result["outputs"]] == [expected_shape]
+    outputs = cast(list[dict[str, Any]], result["outputs"])
+    assert [tuple(item["shape"]) for item in outputs] == [expected_shape]
 
 
 ###############################################################################
@@ -252,7 +256,8 @@ def test_keras_pytorch_backend_workflows_compile_and_forward(workflow: str) -> N
 
     assert result["status"] == "succeeded"
     assert result["compilation"]["verified"] is True
-    assert [tuple(item["shape"]) for item in result["outputs"]] == [expected_shape]
+    outputs = cast(list[dict[str, Any]], result["outputs"])
+    assert [tuple(item["shape"]) for item in outputs] == [expected_shape]
 
 
 ###############################################################################

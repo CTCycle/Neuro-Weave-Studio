@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 """Store input feature shapes without a persisted batch dimension."""
 
 from __future__ import annotations

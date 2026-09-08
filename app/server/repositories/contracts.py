@@ -94,6 +94,9 @@ class GraphRepositoryProtocol(Protocol):
     def load(self, project_id: UUID, graph_schema_version: int) -> ModelGraph | None: ...
 
     # -------------------------------------------------------------------------
+    def load_many(self, projects: Mapping[UUID, int]) -> dict[UUID, ModelGraph]: ...
+
+    # -------------------------------------------------------------------------
     def replace(self, project_id: UUID, graph: ModelGraph) -> None: ...
 
     # -------------------------------------------------------------------------

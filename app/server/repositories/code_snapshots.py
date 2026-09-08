@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import and_, delete, or_, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from domain.enums import ExecutionBackend
@@ -83,9 +85,12 @@ class CodeSnapshotRepository:
     def delete_for_projects(self, project_ids: Sequence[UUID]) -> int:
         if not project_ids:
             return 0
-        result = self._session.execute(
-            delete(GeneratedCodeSnapshotRecord).where(
-                GeneratedCodeSnapshotRecord.project_id.in_([str(item) for item in project_ids])
-            )
+        result = cast(
+            CursorResult[Any],
+            self._session.execute(
+                delete(GeneratedCodeSnapshotRecord).where(
+                    GeneratedCodeSnapshotRecord.project_id.in_([str(item) for item in project_ids])
+                )
+            ),
         )
         return int(result.rowcount or 0)

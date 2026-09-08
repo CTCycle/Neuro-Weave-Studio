@@ -15,37 +15,53 @@ concurrency:
 
 env:
   PYTHONPATH: app
-  NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-ml
-  PYTEST_ADDOPTS: "--basetemp=${{ runner.temp }}/neuro-weave-pytest"
 
 jobs:
   backend:
     name: Python quality and tests
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13.7"
+          python-version: "3.13.14"
       - name: Set up UV
         uses: astral-sh/setup-uv@v6
         with:
-          version: "0.11.30"
+          version: "0.12.0"
           enable-cache: true
           cache-dependency-glob: app/server/uv.lock
-      - name: Install locked test dependencies
-        run: uv sync --locked --project app/server --extra test
+      - name: Install locked QA dependencies
+        run: >-
+          uv sync --locked --project app/server
+          --extra test
+          --extra torch-cpu
+          --extra export
       - name: Compile backend
         run: uv run --project app/server python -m compileall app/server
       - name: Ruff
-        run: uv run --project app/server ruff check app/server app/tests
+        working-directory: app/server
+        run: |
+          mkdir -p ../../.ci-logs
+          set -o pipefail
+          uv run ruff check . ../tests 2>&1 | tee ../../.ci-logs/ruff.log
       - name: Pyright
         working-directory: app/server
-        run: uv run pyright
+        run: |
+          mkdir -p ../../.ci-logs
+          set -o pipefail
+          uv run pyright 2>&1 | tee ../../.ci-logs/pyright.log
       - name: Backend tests
-        run: uv run --project app/server python -m pytest app/tests -q
+        if: ${{ always() && !cancelled() }}
+        env:
+          NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-ml
+          PYTEST_ADDOPTS: "--basetemp=${{ runner.temp }}/neuro-weave-pytest"
+        run: |
+          mkdir -p .ci-logs
+          set -o pipefail
+          uv run --project app/server python -m pytest app/tests -q 2>&1 | tee .ci-logs/pytest.log
       - name: Upload backend diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
@@ -53,6 +69,7 @@ jobs:
           name: neuro-backend-diagnostics-${{ github.run_id }}
           retention-days: 3
           if-no-files-found: ignore
+          include-hidden-files: true
           path: |
             app/tests/cache/
             .ci-logs/
@@ -66,7 +83,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22.13.0"
+          node-version: "22.23.1"
           cache: npm
           cache-dependency-path: app/client/package-lock.json
       - name: Install locked dependencies
@@ -80,17 +97,19 @@ jobs:
         run: npm test
       - name: Production build
         working-directory: app/client
-        run: npm run build
+        run: |
+          mkdir -p ../../.ci-logs
+          set -o pipefail
+          npm run build 2>&1 | tee ../../.ci-logs/frontend-build.log
       - name: Set up Python for browser tests
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13.7"
+          python-version: "3.13.14"
       - name: Set up UV for browser tests
         uses: astral-sh/setup-uv@v6
         with:
-          version: "0.11.30"
-          enable-cache: true
-          cache-dependency-glob: app/server/uv.lock
+          version: "0.12.0"
+          enable-cache: false
       - name: Install backend runtime for browser tests
         run: uv sync --locked --project app/server
       - name: Start backend for browser tests
@@ -119,7 +138,30 @@ jobs:
         env:
           FASTAPI_HOST: 127.0.0.1
           FASTAPI_PORT: 8000
-        run: npm run e2e
+        run: |
+          mkdir -p ../../.ci-logs
+          set -o pipefail
+          npm run e2e 2>&1 | tee ../../.ci-logs/playwright.log
+      - name: Stop backend for browser tests
+        if: ${{ always() }}
+        run: |
+          pid_file="${{ runner.temp }}/neuro-weave-e2e-logs/backend.pid"
+          if [ ! -f "$pid_file" ]; then
+            exit 0
+          fi
+          pid="$(cat "$pid_file")"
+          if kill -0 "$pid" 2>/dev/null; then
+            pkill -TERM -P "$pid" 2>/dev/null || true
+            kill "$pid" 2>/dev/null || true
+            for attempt in {1..10}; do
+              if ! kill -0 "$pid" 2>/dev/null; then
+                exit 0
+              fi
+              sleep 1
+            done
+            pkill -KILL -P "$pid" 2>/dev/null || true
+            kill -KILL "$pid" 2>/dev/null || true
+          fi
       - name: Upload frontend diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
@@ -127,8 +169,10 @@ jobs:
           name: neuro-frontend-diagnostics-${{ github.run_id }}
           retention-days: 3
           if-no-files-found: ignore
+          include-hidden-files: true
           path: |
             app/client/coverage/
             app/tests/cache/frontend-dist/
             app/tests/cache/eslint/
+            .ci-logs/
             ${{ runner.temp }}/neuro-weave-e2e-logs/

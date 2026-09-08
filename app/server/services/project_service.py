@@ -49,13 +49,15 @@ class ProjectService:
         catalog = get_node_catalog()
         with self._uow_factory() as uow:
             metadata = uow.projects.list_metadata()
-            graph_summaries = uow.graphs.summaries([item.id for item in metadata])
+            graphs = uow.graphs.load_many(
+                {item.id: item.graph_schema_version for item in metadata}
+            )
             generated_sources = uow.code_snapshots.has_for_revisions(
                 {item.id: item.current_revision for item in metadata}
             )
             summaries: list[ProjectSummary] = []
             for item in metadata:
-                graph = uow.graphs.load(item.id, item.graph_schema_version)
+                graph = graphs.get(item.id)
                 if graph is None:
                     raise RuntimeError(f"Project {item.id} is missing graph settings")
                 summaries.append(
@@ -73,8 +75,8 @@ class ProjectService:
                             is_effective_output(output)
                             for output in resolved_outputs(graph, catalog)
                         ),
-                        node_count=graph_summaries[item.id].node_count,
-                        edge_count=graph_summaries[item.id].edge_count,
+                        node_count=len(graph.nodes),
+                        edge_count=len(graph.edges),
                         has_generated_source=generated_sources.get(item.id, False),
                     )
                 )

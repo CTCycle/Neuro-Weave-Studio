@@ -105,7 +105,7 @@ def _validate_optimizer(
         if parameter is None:
             continue
         if parameter.type == "boolean":
-            if not isinstance(value, bool):
+            if not isinstance(value, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
                 diagnostics.append(
                     _error(
                         "invalid_optimizer_parameter",
@@ -436,7 +436,7 @@ def validate_model_configuration(
     if not keras_enabled:
         configuration = graph.model_configuration.native
         if execution_backend is ExecutionBackend.TENSORFLOW:
-            if not isinstance(configuration.tensorflow.jit_compile, bool):
+            if not isinstance(configuration.tensorflow.jit_compile, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
                 return [
                     _error("invalid_native_compilation", "TensorFlow jit_compile must be boolean")
                 ]
@@ -456,7 +456,7 @@ def validate_model_configuration(
                 "fullgraph": native.fullgraph,
                 "dynamic": native.dynamic,
             }.items():
-                if not isinstance(value, bool):
+                if not isinstance(value, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
                     diagnostics.append(
                         _error(
                             "invalid_native_compilation", f"PyTorch {parameter_id} must be boolean"
@@ -464,7 +464,7 @@ def validate_model_configuration(
                     )
             diagnostics.extend(_validate_semantics(graph, native, native_catalog, resolved))
             return diagnostics
-        if not isinstance(configuration.jax.jit_enabled, bool):
+        if not isinstance(configuration.jax.jit_enabled, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             return [_error("invalid_native_compilation", "JAX jit_enabled must be boolean")]
         return []
 

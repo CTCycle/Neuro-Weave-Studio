@@ -1,3 +1,4 @@
+# pyright: reportUnknownLambdaType=false, reportUnknownArgumentType=false
 from __future__ import annotations
 
 import socket
@@ -16,6 +17,7 @@ from domain.graph import ModelGraph
 from domain.jobs import JobSubmitRequest, SmokeInferenceOperation
 from domain.metadata import ExecutionBackendStatus
 from domain.runtime import (
+    MemoryPolicyKind,
     RuntimeApi,
     RuntimeApiStatus,
     RuntimeDevice,
@@ -72,6 +74,7 @@ def test_discovery_requests_are_deduplicated_and_complete_in_background(
         assert first.state is RuntimeDiscoveryState.CHECKING
         assert second.state is RuntimeDiscoveryState.CHECKING
 
+        result = runtime.discovery_status(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
         for _ in range(100):
             result = runtime.discovery_status(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
             if result.state is not RuntimeDiscoveryState.CHECKING:
@@ -122,13 +125,14 @@ def test_force_refresh_bypasses_matching_snapshot(tmp_path: Path, monkeypatch: p
                         kind="cpu",
                         name="CPU",
                         accelerator="cpu",
-                        supported_memory_policies=["default"],
+                        supported_memory_policies=[MemoryPolicyKind.DEFAULT],
                     ).model_dump(mode="json")
                 ],
             }
 
         monkeypatch.setattr(runtime, "_probe_backend_api", fake_probe)
         runtime.request_discovery(ExecutionBackend.PYTORCH, RuntimeApi.KERAS, force_refresh=True)
+        result = runtime.discovery_status(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
         for _ in range(100):
             result = runtime.discovery_status(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
             if result.state is not RuntimeDiscoveryState.CHECKING:
@@ -167,6 +171,7 @@ def test_probe_timeout_is_reported_and_shutdown_joins_discovery_worker(
         monkeypatch.setattr(runtime, "_load_discovery_snapshot", lambda _fingerprint: None)
         monkeypatch.setattr(runtime, "_probe_backend_api", lambda _backend, _api: (False, "probe_timeout", {"message": "deadline"}))
         runtime.request_discovery(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
+        result = runtime.discovery_status(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
         for _ in range(100):
             result = runtime.discovery_status(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
             if result.state is not RuntimeDiscoveryState.CHECKING:

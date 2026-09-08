@@ -12,6 +12,16 @@ from models.native_runtime import build_native_model, forward_native
 
 
 ###############################################################################
+def require_backend(backend: ExecutionBackend) -> None:
+    module_name = {
+        ExecutionBackend.TENSORFLOW: "tensorflow",
+        ExecutionBackend.PYTORCH: "torch",
+        ExecutionBackend.JAX: "jax",
+    }[backend]
+    pytest.importorskip(module_name, reason=f"{backend.value} backend is not installed")
+
+
+###############################################################################
 def node(
     node_id: str, definition_id: str, parameters: dict[str, Any] | None = None
 ) -> NodeInstance:
@@ -71,6 +81,7 @@ def multi_io_graph() -> ModelGraph:
 def test_native_dense_values_are_deterministic_across_frameworks(
     backend: ExecutionBackend,
 ) -> None:
+    require_backend(backend)
     handle = build_native_model(dense_graph(), backend)
     outputs = forward_native(handle)
 
@@ -88,6 +99,7 @@ def test_native_dense_values_are_deterministic_across_frameworks(
 def test_native_multi_input_multi_output_signatures_match(
     backend: ExecutionBackend,
 ) -> None:
+    require_backend(backend)
     graph = multi_io_graph()
     result = build_native_model(graph, backend)
     outputs = forward_native(result)

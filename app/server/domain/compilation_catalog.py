@@ -45,7 +45,7 @@ class CompilationOption(BaseModel):
     parameters: list[CompilationParameter] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     formula: str | None = None
     implementations: dict[str, CompilationImplementation] = Field(default_factory=dict)
-    supported_tasks: list[CompilationTask] = Field(default_factory=list)
+    supported_tasks: list[CompilationTask] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     target_contract: TargetContract | None = None
     activation_contract: list[str] = Field(default_factory=list)
     origin: Literal["builtin", "custom"] = "builtin"
