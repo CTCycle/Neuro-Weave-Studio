@@ -123,7 +123,10 @@ export class ApiService {
       return await firstValueFrom(this.http.post<KerasArchitectureImportResponse>(
         `${API_BASE}/imports/keras-architecture?${query.toString()}`,
         file,
-        { headers: new HttpHeaders({ 'Content-Type': 'application/vnd.keras.zip' }) },
+        {
+          headers: new HttpHeaders({ 'Content-Type': 'application/vnd.keras.zip' }),
+          timeout: 10000,
+        },
       ))
     } catch (error) {
       throw this.toApiError(error)
