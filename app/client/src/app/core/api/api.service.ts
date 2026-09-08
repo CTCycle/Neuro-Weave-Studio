@@ -27,6 +27,7 @@ import type {
 import { canonicalizeGraph } from '../../domain/graph-mapper'
 
 const API_BASE = '/api'
+const CONNECTION_CANDIDATE_BATCH_SIZE = 256
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -139,6 +140,21 @@ export class ApiService {
 
   validateConnection(graph: GraphPayload, connection: GraphPayload['edges'][number], execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ConnectionValidationResult> {
     return this.request('/validation/connection', 'POST', { graph: canonicalizeGraph(graph), connection, execution_backend, keras_enabled })
+  }
+
+  async validateConnectionCandidates(graph: GraphPayload, connections: GraphPayload['edges'], execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<{ valid_connection_ids: string[] }> {
+    const valid_connection_ids: string[] = []
+    const canonicalGraph = canonicalizeGraph(graph)
+    for (let offset = 0; offset < connections.length; offset += CONNECTION_CANDIDATE_BATCH_SIZE) {
+      const response = await this.request<{ valid_connection_ids: string[] }>('/validation/connection-candidates', 'POST', {
+        graph: canonicalGraph,
+        connections: connections.slice(offset, offset + CONNECTION_CANDIDATE_BATCH_SIZE),
+        execution_backend,
+        keras_enabled,
+      })
+      valid_connection_ids.push(...response.valid_connection_ids)
+    }
+    return { valid_connection_ids }
   }
 
   compile(graph: GraphPayload, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<CompilationResult> {
