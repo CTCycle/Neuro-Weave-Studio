@@ -6,7 +6,7 @@ import type { EditorNode } from '../../../domain/editor.types'
 import { ApiService } from '../../../core/api/api.service'
 import type { ExecutionBackend, ValidationDiagnostic, ValidationResult } from '../../../domain/types'
 import { GraphEditorStore } from '../state/graph-editor.store'
-import { connectionCandidates } from '../graph/graph-validation'
+import { connectionCandidates, wouldCreateCycle } from '../graph/graph-validation'
 import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, normalizeConnection, portOffset } from '../graph/foblex-graph.adapter'
 
 const NO_CONNECTION_TARGET_ID = '__neuro_weave_no_compatible_target__'
@@ -100,7 +100,7 @@ export class GraphCanvasComponent implements OnChanges {
     const nodes = this.store.nodes()
     const edges = this.store.edges()
     const emptyTargets = new Map<string, string[]>()
-    const candidateTargets = new Map<string, { sourceKey: string; targetId: string }>()
+    const candidateTargets = new Map<string, { sourceKey: string; targetId: string; isCycle: boolean }>()
     const candidates: Array<{
       id: string
       source_node_id: string
@@ -133,6 +133,7 @@ export class GraphCanvasComponent implements OnChanges {
           candidateTargets.set(id, {
             sourceKey,
             targetId: connectorId(connection.target, 'input', connection.targetHandle),
+            isCycle: wouldCreateCycle(nodes, edges, connection.source, connection.target),
           })
         }
       }
@@ -161,6 +162,9 @@ export class GraphCanvasComponent implements OnChanges {
         const candidate = candidateTargets.get(id)
         if (!candidate) continue
         validatedTargets.get(candidate.sourceKey)?.push(candidate.targetId)
+      }
+      for (const candidate of candidateTargets.values()) {
+        if (candidate.isCycle) validatedTargets.get(candidate.sourceKey)?.push(candidate.targetId)
       }
       for (const [sourceKey, targetIds] of validatedTargets) {
         if (!targetIds.length) validatedTargets.set(sourceKey, this.noConnectionTargets)
