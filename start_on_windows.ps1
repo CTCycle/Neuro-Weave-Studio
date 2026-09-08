@@ -32,6 +32,13 @@ $script:CacheDir = Join-Path $AppDir 'tests\cache'
 $script:UvCacheDir = Join-Path $script:RuntimeCacheDir 'uv'
 $script:NpmCacheDir = Join-Path $script:RuntimeCacheDir 'npm'
 $script:PipCacheDir = Join-Path $script:RuntimeCacheDir 'pip'
+$script:LegacyUvCachePaths = @(
+    (Join-Path $script:RepoRoot '.uv-cache'),
+    (Join-Path $script:AppDir '.uv-cache'),
+    (Join-Path $script:ServerDir '.uv-cache'),
+    (Join-Path $script:ClientDir '.uv-cache'),
+    (Join-Path $script:AppDir 'tests\.uv-cache')
+)
 $script:PythonEggCacheDir = Join-Path $script:RuntimeCacheDir 'python-eggs'
 $script:PythonBytecodeCacheDir = Join-Path $script:CacheDir 'python-bytecode'
 $script:CoverageCacheDir = Join-Path $script:CacheDir 'coverage'
@@ -1785,7 +1792,7 @@ function Invoke-ClearApplicationCache {
     )
     $removedCount = [int]$pythonCacheResult.Removed
     $skippedCount = [int]$pythonCacheResult.Skipped
-    foreach ($target in @($script:RuntimeCacheDir, $script:CacheDir) + $legacyPaths) {
+    foreach ($target in @($script:RuntimeCacheDir, $script:CacheDir) + $legacyPaths + $script:LegacyUvCachePaths) {
         $result = Remove-PathBestEffort -Path $target
         $removedCount += $result.Removed
         $skippedCount += $result.Skipped
@@ -1820,6 +1827,7 @@ function Invoke-UninstallApplication {
         $script:RuntimeCacheDir,
         $script:CacheDir,
         (Join-Path $RepoRoot 'assets\cache'),
+        $script:LegacyUvCachePaths,
         $script:VenvDir,
         (Join-Path $script:ClientDir 'node_modules'),
         (Join-Path $script:ClientDir 'dist'),
