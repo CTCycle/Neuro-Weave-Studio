@@ -12,6 +12,7 @@ from services.keras_import_service import (
     parse_keras_architecture,
 )
 
+
 ###############################################################################
 def keras_archive(document: dict[str, object]) -> bytes:
     buffer = io.BytesIO()
@@ -19,6 +20,7 @@ def keras_archive(document: dict[str, object]) -> bytes:
         archive.writestr("config.json", json.dumps(document))
         archive.writestr("metadata.json", json.dumps({"keras_version": "3"}))
     return buffer.getvalue()
+
 
 ###############################################################################
 def input_document(parameter_name: str, shape: list[object]) -> dict[str, object]:
@@ -40,6 +42,7 @@ def input_document(parameter_name: str, shape: list[object]) -> dict[str, object
             "output_layers": [["input", 0, 0]],
         },
     }
+
 
 ###############################################################################
 def test_import_reconstructs_allowlisted_functional_architecture_without_weights() -> None:
@@ -90,7 +93,6 @@ def test_import_reconstructs_allowlisted_functional_architecture_without_weights
     assert any("weights" in warning for warning in parsed.warnings)
 
 
-###############################################################################
 @pytest.mark.parametrize(
     ("parameter_name", "shape", "definition_id", "persisted_shape"),
     [
@@ -117,7 +119,6 @@ def test_import_normalizes_input_shapes_to_feature_only_persistence(
     assert input_node.model_dump(mode="json")["parameters"]["shape"] == persisted_shape
 
 
-###############################################################################
 def test_import_warns_when_discarding_a_fixed_runtime_batch_dimension() -> None:
     parsed = parse_keras_architecture(
         keras_archive(input_document("batch_shape", [16, 8])),
@@ -127,7 +128,6 @@ def test_import_warns_when_discarding_a_fixed_runtime_batch_dimension() -> None:
     assert any("Fixed batch dimension 16" in warning for warning in parsed.warnings)
 
 
-###############################################################################
 @pytest.mark.parametrize(
     ("parameter_name", "shape"),
     [("batch_shape", [None]), ("batch_input_shape", []), ("input_shape", [0])],
@@ -141,6 +141,7 @@ def test_import_rejects_empty_or_malformed_feature_shapes(
             keras_archive(input_document(parameter_name, shape)),
             execution_backend=ExecutionBackend.PYTORCH,
         )
+
 
 ###############################################################################
 def test_import_rejects_executable_or_unknown_layers() -> None:

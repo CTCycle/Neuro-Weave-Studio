@@ -9,6 +9,7 @@ from filelock import FileLock, Timeout
 
 LOGGER = logging.getLogger(__name__)
 
+
 ###############################################################################
 @contextmanager
 def database_migration_lock(db_path: Path, timeout: int) -> Generator[None]:

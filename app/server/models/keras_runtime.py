@@ -15,11 +15,13 @@ from domain.graph import ModelGraph
 from domain.metric_formula import MetricFormulaError, evaluate_metric_formula, parse_metric_formula
 from validation.output_resolution import output_selectors, resolved_outputs
 
+
 ###############################################################################
 def option(value: Any) -> Any:
     """Convert the catalog's explicit ``none`` option into Keras ``None``."""
 
     return None if value in (None, "", "none") else value
+
 
 ###############################################################################
 def layer_option(
@@ -41,6 +43,7 @@ def layer_option(
         return option(configuration.default_constraint)
     return option(fallback)
 
+
 ###############################################################################
 def prepare_runtime(graph: ModelGraph) -> None:
     if graph.model_configuration.keras.random_seed is not None:
@@ -48,6 +51,7 @@ def prepare_runtime(graph: ModelGraph) -> None:
     keras.mixed_precision.set_global_policy(
         "mixed_float16" if graph.model_configuration.keras.mixed_precision else "float32"
     )
+
 
 ###############################################################################
 def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
@@ -59,6 +63,7 @@ def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
         for output in resolved_outputs(graph, get_node_catalog())
         if output.node is not None
     ]
+
 
 ###############################################################################
 def _configured_values(
@@ -80,6 +85,7 @@ def _configured_values(
         resolved[output_name] = value
     return resolved
 
+
 ###############################################################################
 def _compile_value(values: dict[str, Any], output_count: int) -> Any:
     if not values:
@@ -87,6 +93,7 @@ def _compile_value(values: dict[str, Any], output_count: int) -> Any:
     if output_count == 1:
         return next(iter(values.values()))
     return list(values.values())
+
 
 ###############################################################################
 def _catalog_option(category: str, identifier: str, catalog: CompilationCatalog) -> CompilationOption:
@@ -99,6 +106,7 @@ def _catalog_option(category: str, identifier: str, catalog: CompilationCatalog)
         raise ValueError(f"No Keras implementation registered for {category}.{identifier}")
     return option
 
+
 ###############################################################################
 def _optimizer(name: str, parameters: dict[str, Any], catalog: CompilationCatalog) -> keras.optimizers.Optimizer:
     option = _catalog_option("optimizers", name, catalog)
@@ -107,6 +115,7 @@ def _optimizer(name: str, parameters: dict[str, Any], catalog: CompilationCatalo
     accepted_parameters = {parameter.id for parameter in option.parameters}
     kwargs = {key: value for key, value in parameters.items() if key in accepted_parameters}
     return optimizer_type(**kwargs)
+
 
 ###############################################################################
 def _custom_formula(option: CompilationOption) -> Any:
@@ -131,7 +140,6 @@ def _custom_formula(option: CompilationOption) -> Any:
     return custom
 
 
-###############################################################################
 def _compile_option(category: str, identifier: str, catalog: CompilationCatalog) -> Any:
     option = _catalog_option(category, identifier, catalog)
     if option.origin == "custom":
@@ -140,6 +148,7 @@ def _compile_option(category: str, identifier: str, catalog: CompilationCatalog)
     namespace = keras.losses if category == "losses" else keras.metrics
     factory = getattr(namespace, implementation.symbol or "")
     return factory()
+
 
 ###############################################################################
 def _resolve_compilation_values(values: dict[str, Any], category: str, catalog: CompilationCatalog) -> dict[str, Any]:
@@ -153,6 +162,7 @@ def _resolve_compilation_values(values: dict[str, Any], category: str, catalog: 
         )
         for output_id, value in values.items()
     }
+
 
 ###############################################################################
 def compile_model(model: keras.Model, graph: ModelGraph, *, compilation_catalog: CompilationCatalog | None = None) -> keras.Model:

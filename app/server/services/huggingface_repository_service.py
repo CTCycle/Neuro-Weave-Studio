@@ -9,17 +9,14 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 
-###############################################################################
 class HuggingFaceReferenceError(ValueError):
     pass
 
 
-###############################################################################
 class HuggingFaceUnavailableError(RuntimeError):
     pass
 
 
-###############################################################################
 @dataclass(frozen=True, slots=True)
 class HuggingFaceRepositoryMetadata:
     commit: str
@@ -27,14 +24,10 @@ class HuggingFaceRepositoryMetadata:
     pipeline_tag: str | None
 
 
-###############################################################################
 class HuggingFaceRepositoryService:
-
-    # -------------------------------------------------------------------------
     def __init__(self, timeout_seconds: float = 6.0) -> None:
         self._timeout_seconds = timeout_seconds
 
-    # -------------------------------------------------------------------------
     def resolve(self, repository_id: str, revision: str) -> HuggingFaceRepositoryMetadata:
         encoded_repo = quote(repository_id, safe="/")
         encoded_revision = quote(revision, safe="")

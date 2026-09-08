@@ -12,12 +12,14 @@ down_revision = "20260821_execution_profile"
 branch_labels = None
 depends_on = None
 
+
 ###############################################################################
 def _json_object(value: object) -> dict[str, Any]:
     if isinstance(value, str):
         parsed = json.loads(value)
         return parsed if isinstance(parsed, dict) else {}
     return value if isinstance(value, dict) else {}
+
 
 ###############################################################################
 def _native_defaults() -> dict[str, object]:
@@ -31,6 +33,7 @@ def _native_defaults() -> dict[str, object]:
         },
         "jax": {"jit_enabled": False},
     }
+
 
 ###############################################################################
 def _canonical_configuration(row: Any) -> dict[str, object]:
@@ -48,6 +51,7 @@ def _canonical_configuration(row: Any) -> dict[str, object]:
         },
         "native": _native_defaults(),
     }
+
 
 ###############################################################################
 def upgrade() -> None:
@@ -113,6 +117,7 @@ def upgrade() -> None:
             "random_seed",
         ):
             batch.drop_column(column)
+
 
 ###############################################################################
 def downgrade() -> None:

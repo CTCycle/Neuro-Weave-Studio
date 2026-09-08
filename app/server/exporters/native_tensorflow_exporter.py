@@ -11,6 +11,7 @@ from domain.graph import ModelGraph
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 
+
 ###############################################################################
 class NativeTensorFlowSourceExporter(SourceExporter):
     """Generate a native TensorFlow ``tf.Module`` for the verified subset."""

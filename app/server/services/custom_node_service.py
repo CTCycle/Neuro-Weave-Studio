@@ -27,14 +27,12 @@ from validation.parameter_values import (
 )
 
 
-###############################################################################
 class CustomNodeDefinitionConflictError(ValueError):
     pass
 
+
 ###############################################################################
 class CustomNodeService:
-
-    # -------------------------------------------------------------------------
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
@@ -45,13 +43,11 @@ class CustomNodeService:
         self._catalog = catalog
         self._repository_service = repository_service or HuggingFaceRepositoryService()
 
-    # -------------------------------------------------------------------------
     def list(self) -> CustomNodeCatalogResponse:
         with self._uow_factory() as uow:
             definitions = [self._from_record(record) for record in uow.custom_nodes.list_all()]
         return CustomNodeCatalogResponse(definitions=definitions)
 
-    # -------------------------------------------------------------------------
     def create(self, payload: CustomNodeDefinitionCreate) -> CustomNodeDefinitionResponse:
         normalized_name = _normalized_name(payload.display_name)
         self._assert_not_builtin_name(payload.display_name)
@@ -75,7 +71,6 @@ class CustomNodeService:
             uow.commit()
             return self._from_record(record)
 
-    # -------------------------------------------------------------------------
     def update(
         self,
         definition_id: str,
@@ -102,7 +97,6 @@ class CustomNodeService:
             uow.commit()
             return self._from_record(record)
 
-    # -------------------------------------------------------------------------
     def delete(self, definition_id: str) -> None:
         with self._uow_factory() as uow:
             record = uow.custom_nodes.get(definition_id)
@@ -113,7 +107,6 @@ class CustomNodeService:
             uow.custom_nodes.delete(record)
             uow.commit()
 
-    # -------------------------------------------------------------------------
     def _normalize_spec(self, spec: CustomNodeSpec) -> CustomNodeSpec:
         if isinstance(spec, MathematicalNodeSpec):
             try:
@@ -180,7 +173,6 @@ class CustomNodeService:
                 )
         return spec.model_copy(update={"components": normalized_components})
 
-    # -------------------------------------------------------------------------
     def _assert_not_builtin_name(self, display_name: str) -> None:
         normalized = _normalized_name(display_name)
         if any(_normalized_name(item.display_name) == normalized for item in self._catalog.manifests):
@@ -188,7 +180,6 @@ class CustomNodeService:
                 f"A built-in node named '{display_name}' already exists"
             )
 
-    # -------------------------------------------------------------------------
     @staticmethod
     def _assert_name_available(
         uow: UnitOfWorkProtocol,
@@ -202,11 +193,9 @@ class CustomNodeService:
         ):
             raise CustomNodeDefinitionConflictError("A custom node with this name already exists")
 
-    # -------------------------------------------------------------------------
     def _builtin(self, definition_id: str) -> bool:
         return any(item.id == definition_id for item in self._catalog.manifests)
 
-    # -------------------------------------------------------------------------
     @staticmethod
     def _from_record(record: CustomNodeDefinitionRecord) -> CustomNodeDefinitionResponse:
         return CustomNodeDefinitionResponse.model_validate(
@@ -225,6 +214,5 @@ class CustomNodeService:
         )
 
 
-###############################################################################
 def _normalized_name(value: str) -> str:
     return " ".join(value.casefold().split())

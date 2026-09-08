@@ -17,9 +17,11 @@ from configurations.settings import DatabaseSettings
 from repositories import initializer
 from repositories.initializer import HEAD_REVISION, initialize_database
 
+
 ###############################################################################
 def _settings(path: Path) -> DatabaseSettings:
     return DatabaseSettings(sqlite_path=path, connect_timeout=10)
+
 
 ###############################################################################
 def _migration_config(connection: Connection) -> Config:
@@ -27,6 +29,7 @@ def _migration_config(connection: Connection) -> Config:
     config.attributes["connection"] = connection
     config.attributes["skip_logging_config"] = True
     return config
+
 
 ###############################################################################
 def test_concurrent_initializers_serialize_on_one_database(tmp_path: Path) -> None:
@@ -55,6 +58,7 @@ def test_concurrent_initializers_serialize_on_one_database(tmp_path: Path) -> No
         assert inspect(engine).get_table_names().count("projects") == 1
     finally:
         engine.dispose()
+
 
 ###############################################################################
 def test_failed_migration_rolls_back_and_releases_lock(
@@ -88,6 +92,7 @@ def test_failed_migration_rolls_back_and_releases_lock(
     finally:
         backend.engine.dispose()
 
+
 ###############################################################################
 def test_runtime_batch_shape_migration_preserves_nonbatched_parameter_nodes() -> None:
     migration = cast(Any, import_module("migrations.versions.20260902_runtime_batch_shapes"))
@@ -104,6 +109,7 @@ def test_runtime_batch_shape_migration_preserves_nonbatched_parameter_nodes() ->
     assert migration._migrate_parameters(
         "layer.dense", {"quantization_config": {"class_name": "", "config": {}}}, downgrade=False
     ) == {}
+
 
 ###############################################################################
 def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
