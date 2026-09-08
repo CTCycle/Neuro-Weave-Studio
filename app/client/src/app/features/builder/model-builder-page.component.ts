@@ -3,7 +3,8 @@ import { Router } from '@angular/router'
 import { LucideFileText, LucideHammer, LucideLayoutGrid, LucidePlay, LucidePlus, LucideRedo2, LucideSave, LucideUndo2, LucideX } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
 import { AppResourcesService } from '../../core/state/app-resources.service'
-import type { ExecutionBackend, ProjectDocument, ValidationResult, ValidationState } from '../../domain/types'
+import { preferredBackend, preferredBackendForApi } from '../../core/state/runtime-selection'
+import type { ExecutionBackend, ExecutionBackendStatus, ProjectDocument, ValidationResult, ValidationState } from '../../domain/types'
 import { executionBackendShortLabels } from '../../domain/types'
 import type { GraphEditorSession } from '../../domain/graph-mapper'
 import { GraphEditorStore } from './state/graph-editor.store'
@@ -20,9 +21,12 @@ function draftSnapshot(name: string, description: string, executionBackend: Exec
   return JSON.stringify({ name, description, executionBackend, kerasEnabled, graph })
 }
 
-function preferredBackend(statuses: { id: ExecutionBackend; available: boolean }[]): ExecutionBackend {
-  if (statuses.some((item) => item.id === 'pytorch' && item.available)) return 'pytorch'
-  return statuses.find((item) => item.available)?.id ?? 'pytorch'
+function preferredBuilderRuntime(statuses: ExecutionBackendStatus[]): { backend: ExecutionBackend | null; kerasEnabled: boolean } {
+  const kerasBackend = preferredBackendForApi(statuses, 'keras')
+  if (kerasBackend) return { backend: kerasBackend, kerasEnabled: true }
+  const nativeBackend = preferredBackendForApi(statuses, 'native')
+  if (nativeBackend) return { backend: nativeBackend, kerasEnabled: false }
+  return { backend: preferredBackend(statuses), kerasEnabled: false }
 }
 
 function projectTabInput(project: ProjectDocument, graph: GraphEditorSession): NewBuilderTab {
@@ -41,19 +45,19 @@ function projectTabInput(project: ProjectDocument, graph: GraphEditorSession): N
   }
 }
 
-function untitledTabInput(executionBackend: ExecutionBackend, graph: GraphEditorSession, modelGraph: unknown): NewBuilderTab {
+function untitledTabInput(executionBackend: ExecutionBackend, kerasEnabled: boolean, graph: GraphEditorSession, modelGraph: unknown): NewBuilderTab {
   return {
     projectId: null,
     name: 'Untitled model',
     description: '',
     executionBackend,
-    kerasEnabled: true,
+    kerasEnabled,
     revision: 1,
     graph,
     validation: null,
     validationExpanded: false,
     validationHeight: DEFAULT_VALIDATION_HEIGHT,
-    savedBaseline: draftSnapshot('Untitled model', '', executionBackend, true, modelGraph),
+    savedBaseline: draftSnapshot('Untitled model', '', executionBackend, kerasEnabled, modelGraph),
   }
 }
 
@@ -193,9 +197,15 @@ export class ModelBuilderPageComponent {
       return
     }
     if (!modelId) {
+      const runtime = preferredBuilderRuntime(this.resources.backendStatuses())
+      if (!runtime.backend) {
+        this.notice.set('No operational execution backend is available for a new model.')
+        this.initialized.set(true)
+        return
+      }
       this.store.reset()
       const graph = this.store.captureEditorSession()
-      const tabId = this.tabsStore.openTab(untitledTabInput(preferredBackend(this.resources.backendStatuses()), graph, this.store.toGraph()))
+      const tabId = this.tabsStore.openTab(untitledTabInput(runtime.backend, runtime.kerasEnabled, graph, this.store.toGraph()))
       this.restoreTab(this.tabsStore.tabs().find((tab) => tab.id === tabId) as BuilderTab)
       this.initialized.set(true)
       return
@@ -304,10 +314,15 @@ export class ModelBuilderPageComponent {
       this.notice.set('Eight model tabs are already open. Close a tab before opening another model.')
       return
     }
+    const runtime = preferredBuilderRuntime(this.resources.backendStatuses())
+    if (!runtime.backend) {
+      this.notice.set('No operational execution backend is available for a new model.')
+      return
+    }
     this.syncActiveTab()
     this.store.reset()
     const graph = this.store.captureEditorSession()
-    const tabId = this.tabsStore.openTab(untitledTabInput(preferredBackend(this.resources.backendStatuses()), graph, this.store.toGraph()))
+    const tabId = this.tabsStore.openTab(untitledTabInput(runtime.backend, runtime.kerasEnabled, graph, this.store.toGraph()))
     const tab = this.tabsStore.tabs().find((item) => item.id === tabId)
     if (tab) this.restoreTab(tab)
     this.initializedKey = 'new'

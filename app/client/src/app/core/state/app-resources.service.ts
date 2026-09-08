@@ -14,8 +14,8 @@ import type {
   WorkerConfiguration,
 } from '../../domain/types'
 import {
-  backendSupportsApi,
   defaultRuntimePreference,
+  isRuntimePreferenceValid,
   preferredBackend,
   preferredBackendForApi as selectPreferredBackendForApi,
 } from './runtime-selection'
@@ -85,7 +85,7 @@ export class AppResourcesService {
       const statuses = value.execution_backends
       this.backendStatuses.set(statuses)
       this.compilationCapabilities.set(value.configuration.compilation_capabilities)
-      this.runtimeApis.set(value.runtime_apis ?? [{ id: 'keras', available: true }, { id: 'native', available: false, reason_code: 'runtime_unavailable' }])
+      this.runtimeApis.set(value.runtime_apis ?? [])
       const current = this.runtimePreferences()
       const next = { ...current }
       for (const status of statuses) {
@@ -94,7 +94,7 @@ export class AppResourcesService {
           delete next[status.id]
           continue
         }
-        if (!existing || !backendSupportsApi(status, existing.api)) {
+        if (!existing || !isRuntimePreferenceValid(status, existing)) {
           const preference = defaultRuntimePreference(status)
           if (preference) next[status.id] = preference
           else delete next[status.id]
