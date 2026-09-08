@@ -79,6 +79,19 @@ class ConnectionValidationResult(BaseModel):
 
 
 ###############################################################################
+class ConnectionCandidatesValidationRequest(BaseModel):
+    graph: ModelGraph
+    connections: list[EdgeInstance] = Field(max_length=512)
+    execution_backend: ExecutionBackend
+    keras_enabled: bool = True
+
+
+###############################################################################
+class ConnectionCandidatesValidationResult(BaseModel):
+    valid_connection_ids: list[str] = Field(default_factory=list)
+
+
+###############################################################################
 class ValidationRequest(BaseModel):
     graph: ModelGraph
     execution_backend: ExecutionBackend
