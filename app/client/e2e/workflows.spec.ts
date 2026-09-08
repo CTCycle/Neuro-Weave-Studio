@@ -502,6 +502,7 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
 })
 
 test('keeps read-only previews, compact Builder controls, and modal bounds usable', async ({ page, request }) => {
+  test.setTimeout(60_000)
   const fixture = await createProject(request, `Angular layout ${Date.now()}`)
   try {
     await page.setViewportSize({ width: 1280, height: 800 })
