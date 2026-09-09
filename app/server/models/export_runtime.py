@@ -946,12 +946,23 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
             for node, value in zip(graph_inputs, handle.inputs, strict=True)
         ]
 
+        # Native TensorFlow models expose ``__call__`` as a ``tf.function`` so
+        # the configured JIT flag is exercised during normal materialization.
+        # Calling that decorated function from another tracing function leaves
+        # a StatefulPartitionedCall in the graph, which tf2onnx cannot lower.
+        # Trace the original Python body for the ONNX conversion instead. This
+        # keeps the saved native model JIT-enabled while giving the converter
+        # the concrete TensorFlow ops it needs.
+        native_call = getattr(handle.model.__call__, "python_function", None)
+
         def call(*values: Any) -> Any:
             model_input = (
                 values[0]
                 if len(values) == 1
                 else {node.id: value for node, value in zip(graph_inputs, values, strict=True)}
             )
+            if callable(native_call):
+                return native_call(model_input)
             return handle.model(model_input)
 
         function = tf.function(call)

@@ -221,6 +221,7 @@ def run_native_smoke(
         "parameter_count": handle.parameter_count(),
         "duration_ms": round((time.perf_counter() - started) * 1000, 1),
         "compilation": compilation,
+        "training": "not_run",
     }
 
 
