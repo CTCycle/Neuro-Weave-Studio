@@ -39,7 +39,7 @@ import { AppResourcesService } from '../../core/state/app-resources.service'
           <a routerLink="/settings" routerLinkActive="active"><svg lucideSettings [size]="16"></svg>Settings</a>
         </nav>
       </header>
-      <main class="app-content" [class.builder-content]="isBuilder()"><router-outlet /></main>
+      <main class="app-content" [class.builder-content]="isBuilder()" [class.nodes-content]="isNodes()"><router-outlet /></main>
       @if (resources.error(); as error) {
         <button class="notice app-notice" (click)="resources.clearError()" aria-label="Dismiss application notice">
           <span>{{ error }}</span><svg lucideX [size]="14"></svg>
@@ -58,6 +58,7 @@ export class AppShellComponent {
   readonly resources = inject(AppResourcesService)
   private readonly router = inject(Router)
   readonly isBuilder = toSignal(this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), map((event) => event.urlAfterRedirects.startsWith('/builder')), startWith(this.router.url.startsWith('/builder'))), { initialValue: this.router.url.startsWith('/builder') })
+  readonly isNodes = toSignal(this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), map((event) => event.urlAfterRedirects.startsWith('/nodes')), startWith(this.router.url.startsWith('/nodes'))), { initialValue: this.router.url.startsWith('/nodes') })
 
   constructor() {
     afterNextRender(() => performance.mark('nw:shell:rendered'))

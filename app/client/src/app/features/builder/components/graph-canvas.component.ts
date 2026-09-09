@@ -36,8 +36,8 @@ const NO_CONNECTION_TARGET_ID = '__neuro_weave_no_compatible_target__'
       @if (!readOnly && !store.nodes().length) { <div class="canvas-empty-state"><span class="eyebrow">EMPTY GRAPH</span><strong>Drop an operation here</strong><span>Choose a node from the catalog to start a model.</span></div> }
       @if (readOnly && !store.nodes().length) { <div class="preview-empty">No renderable nodes in this revision.</div> }
       @if (!readOnly) { <div class="canvas-hint">Drop a node to build the model • Ctrl+L auto-layout</div> }
-      @if (!readOnly && canvasMenu(); as menu) { <div class="canvas-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" (click)="fitView(); closeMenus()">Fit workflow to view</button><button type="button" role="menuitem" (click)="autoLayout(); closeMenus()">Auto layout</button><button type="button" role="menuitem" class="is-destructive" (click)="requestReset(); closeMenus()">Reset canvas</button></div> }
-      @if (!readOnly && nodeMenu(); as menu) { <div class="canvas-context-menu node-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" (click)="duplicateWithDefaults(menu.nodeId); closeMenus()">Duplicate with defaults</button><button type="button" role="menuitem" (click)="duplicateExact(menu.nodeId); closeMenus()">Duplicate exact</button><button type="button" role="menuitem" (click)="copyNode(menu.nodeId); closeMenus()">Copy node</button><button type="button" role="menuitem" (click)="resetParameters(menu.nodeId); closeMenus()">Reset parameters</button><button type="button" role="menuitem" (click)="disconnectNode(menu.nodeId); closeMenus()">Disconnect all</button><button type="button" role="menuitem" [disabled]="isInput(menu.nodeId)" [title]="isInput(menu.nodeId) ? 'Input nodes cannot be workflow outputs' : ''" (click)="toggleOutput(menu.nodeId); closeMenus()">{{ store.isOutput(menu.nodeId) ? 'Remove from outputs' : 'Mark as output' }}</button><button type="button" role="menuitem" (click)="toggleLock(menu.nodeId); closeMenus()">{{ isLocked(menu.nodeId) ? 'Unlock node' : 'Lock node' }}</button><button type="button" role="menuitem" class="is-destructive" (click)="deleteNode(menu.nodeId); closeMenus()">Delete node</button></div> }
+      @if (!readOnly && canvasMenu(); as menu) { <div class="canvas-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" [disabled]="!hasNodes()" [title]="hasNodes() ? 'Fit all nodes in the canvas' : 'Add a node before fitting the workflow'" (click)="fitView(); closeMenus()">Fit workflow to view</button><button type="button" role="menuitem" [disabled]="!hasNodes()" [title]="hasNodes() ? 'Arrange nodes using the workflow layout' : 'Add a node before applying a layout'" (click)="autoLayout(); closeMenus()">Auto layout</button><button type="button" role="menuitem" class="is-destructive" [disabled]="!hasNodes()" [title]="hasNodes() ? 'Remove all nodes and connections from the canvas' : 'The canvas is already empty'" (click)="requestReset(); closeMenus()">Reset canvas</button></div> }
+      @if (!readOnly && nodeMenu(); as menu) { <div class="canvas-context-menu node-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" (click)="duplicateWithDefaults(menu.nodeId); closeMenus()">Duplicate with defaults</button><button type="button" role="menuitem" (click)="duplicateExact(menu.nodeId); closeMenus()">Duplicate exact</button><button type="button" role="menuitem" (click)="copyNode(menu.nodeId); closeMenus()">Copy node</button><button type="button" role="menuitem" [disabled]="!hasParameters(menu.nodeId)" [title]="hasParameters(menu.nodeId) ? 'Restore node parameters to their framework defaults' : 'This node has no parameters to reset'" (click)="resetParameters(menu.nodeId); closeMenus()">Reset parameters</button><button type="button" role="menuitem" [disabled]="!hasConnections(menu.nodeId)" [title]="hasConnections(menu.nodeId) ? 'Remove every connection attached to this node' : 'This node has no connections to disconnect'" (click)="disconnectNode(menu.nodeId); closeMenus()">Disconnect all</button><button type="button" role="menuitem" [disabled]="isOutputActionDisabled(menu.nodeId)" [title]="outputActionTitle(menu.nodeId)" (click)="toggleOutput(menu.nodeId); closeMenus()">{{ outputActionLabel(menu.nodeId) }}</button><button type="button" role="menuitem" (click)="toggleLock(menu.nodeId); closeMenus()">{{ isLocked(menu.nodeId) ? 'Unlock node' : 'Lock node' }}</button><button type="button" role="menuitem" class="is-destructive" (click)="deleteNode(menu.nodeId); closeMenus()">Delete node</button></div> }
     </div>
   `,
 })
@@ -200,16 +200,28 @@ export class GraphCanvasComponent implements OnChanges {
     this.nodeMenu.set({ ...this.menuPosition(event), nodeId })
   }
   closeMenus(): void { this.canvasMenu.set(null); this.nodeMenu.set(null) }
-  requestReset(): void { this.resetRequested.emit() }
-  autoLayout(): void { this.store.autoLayout(this.store.nodes(), this.store.edges()); if (!this.viewportLocked()) this.fitView() }
+  requestReset(): void { if (this.hasNodes()) this.resetRequested.emit() }
+  autoLayout(): void { if (!this.hasNodes()) return; this.store.autoLayout(this.store.nodes(), this.store.edges()); if (!this.viewportLocked()) this.fitView() }
   duplicateWithDefaults(nodeId: string): void { this.store.duplicateWithDefaults(nodeId) }
   duplicateExact(nodeId: string): void { this.store.duplicateExact(nodeId) }
   copyNode(nodeId: string): void { this.store.selectNode(nodeId); this.store.copySelected() }
   resetParameters(nodeId: string): void { this.store.resetParameters(nodeId) }
   disconnectNode(nodeId: string): void { this.store.disconnectNode(nodeId) }
-  toggleOutput(nodeId: string, portId?: string): void { this.store.toggleNodeOutput(nodeId, portId) }
+  toggleOutput(nodeId: string, portId?: string): void { if (portId || this.store.canToggleNodeOutput(nodeId)) this.store.toggleNodeOutput(nodeId, portId) }
   toggleLock(nodeId: string): void { this.store.toggleNodeLocked(nodeId) }
   deleteNode(nodeId: string): void { this.store.selectNode(nodeId); this.store.deleteSelected() }
+  hasNodes(): boolean { return this.store.nodes().length > 0 }
+  hasParameters(nodeId: string): boolean { return (this.store.nodes().find((node) => node.id === nodeId)?.data.manifest.parameters.length ?? 0) > 0 }
+  hasConnections(nodeId: string): boolean { return this.store.edges().some((edge) => edge.source === nodeId || edge.target === nodeId) }
+  isOutputActionDisabled(nodeId: string): boolean { return !this.store.canToggleNodeOutput(nodeId) }
+  outputActionLabel(nodeId: string): string { return this.store.isOutput(nodeId) ? 'Remove from outputs' : 'Use as output' }
+  outputActionTitle(nodeId: string): string {
+    if (this.store.isOutput(nodeId)) return 'Remove this node from the explicit workflow outputs'
+    if (this.isInput(nodeId)) return 'Input nodes cannot be workflow outputs'
+    if (!this.store.hasEnabledOutputPort(nodeId)) return 'This node has no enabled value-producing output port'
+    if (this.store.isInferredOutput(nodeId)) return 'This terminal node is already the inferred workflow output'
+    return 'Use this node as a workflow output'
+  }
   isLocked(nodeId: string): boolean { return this.store.nodes().find((node) => node.id === nodeId)?.locked ?? false }
   isInput(nodeId: string): boolean {
     return this.store.nodes().find((node) => node.id === nodeId)?.data.manifest.semantic_role === 'input'
@@ -340,7 +352,7 @@ export class GraphCanvasComponent implements OnChanges {
   zoomIn(): void { if (!this.viewportLocked()) this.zoom()?.zoomIn() }
   zoomOut(): void { if (!this.viewportLocked()) this.zoom()?.zoomOut() }
   resetView(): void { if (!this.viewportLocked()) this.canvas()?.resetScaleAndCenter(true) }
-  fitView(): void { if (!this.viewportLocked()) this.canvas()?.fitToScreen(graphFitPadding(this.store.nodes(), 0.1, GRAPH_NODE_SIZE), true) }
+  fitView(): void { if (!this.viewportLocked() && this.hasNodes()) this.canvas()?.fitToScreen(graphFitPadding(this.store.nodes(), 0.1, GRAPH_NODE_SIZE), true) }
   fitOnNodesRendered(): void {
     if (this.viewportLocked() || this.graphFitted || !this.store.nodes().length) return
     this.canvas()?.fitToScreen(graphFitPadding(this.store.nodes(), this.readOnly ? 0.18 : 0.1, GRAPH_NODE_SIZE), false)
@@ -362,7 +374,7 @@ export class GraphCanvasComponent implements OnChanges {
     if (command && event.key.toLowerCase() === 'y') { event.preventDefault(); this.store.redo(); return }
     if (command && event.key.toLowerCase() === 'c' && !editing) { this.store.copySelected(); return }
     if (command && event.key.toLowerCase() === 'v' && !editing) { event.preventDefault(); this.store.pasteCopied(); return }
-    if (command && event.key.toLowerCase() === 'l' && !editing) { event.preventDefault(); this.store.autoLayout(this.store.nodes(), this.store.edges()); if (!this.viewportLocked()) this.fitView(); return }
+    if (command && event.key.toLowerCase() === 'l' && !editing) { event.preventDefault(); this.autoLayout(); return }
     if (!editing && (event.key === 'Delete' || event.key === 'Backspace')) { event.preventDefault(); this.store.deleteSelected() }
   }
 
