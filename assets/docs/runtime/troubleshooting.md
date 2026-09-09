@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Last updated: 2026-08-29
+Last updated: 2026-09-09
 
 A blank catalog usually means node JSON failed Pydantic validation; inspect the backend log under `app/resources/runtime/logs`. If a configured port is occupied, the launcher reports the listener PID and leaves that process untouched. Save conflicts return HTTP 409 and require reopening before overwrite.
 
@@ -17,6 +17,12 @@ The controller requests cooperative cancellation first. After five seconds it te
 If the launcher reports that the frontend process exited, it includes the exit code, elapsed wait, endpoint, and recent frontend log output. The preview server serves only regular files, routes extensionless paths to `index.html`, and returns 404 for missing scripts, styles, and other assets. A missing build directory returns an actionable 503; run the explicit `RebuildFrontend` action. The launcher starts the frontend and backend independently, opens the browser after frontend readiness, and continues backend health polling with a bounded deadline. Backend diagnostics are retained in `app/resources/runtime/logs/backend.log` and the launcher terminal/log files.
 
 If a backend package is installed or removed, stop the application and restart it so the process environment is refreshed, then run an explicit capability check. Normal backend/device/policy selection changes only affect new workers.
+
+## Native compilation on Windows
+
+Native PyTorch `torch.compile` uses the default Inductor backend. On Windows, Inductor needs a working Microsoft C++ toolchain and Windows SDK environment; having `cl.exe` installed is not sufficient if the application was started from a normal PowerShell process without the Visual Studio developer variables. Start the application from an x64 Native Tools Command Prompt, or import the matching environment before launching it, for example `call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64`. Then restart the backend and rerun the native PyTorch capability check. Without that environment, the native compiler capability is reported unavailable and compile-enabled jobs are rejected with `native_compiler_unavailable`; eager materialization remains supported.
+
+The model builder does not silently replace the configured native compiler with `aot_eager`: that would change the requested compilation profile. `aot_eager` can be used as a diagnostic or an explicitly selected backend when such a profile is exposed, but it is not treated as equivalent to the default Inductor path.
 
 ## Database migrations
 

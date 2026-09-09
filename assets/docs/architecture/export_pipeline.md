@@ -1,6 +1,6 @@
 # Export Pipeline
 
-Last updated: 2026-08-29
+Last updated: 2026-09-09
 
 `ExportService` is the single capability and publication boundary. `GET /api/exports/{project_id}/capabilities` validates the current graph and returns only profile-compatible methods, runtime/dependency reasons, option definitions, payload/conversion badges, and limitations. The dedicated `/models/:modelId/export` page consumes that matrix and owns project/source downloads and binary export jobs. Compilation owns source generation and source inspection/copy; it does not download artifacts. Project JSON and generated source remain the canonical synchronous representations.
 
@@ -18,7 +18,7 @@ Supported artifact families are:
 | Interchange | `.onnx`, `.onnx.zip` | Named inputs/outputs, default opset 18, dynamic batch, optional deterministic external-data package |
 | Weights/checkpoint | `.safetensors.zip`, `.tf-checkpoint.zip`, `.flax-checkpoint.zip` | Explicit weights-only package with graph/profile manifest; not universally loadable |
 
-All binary artifacts are initialized and untrained. No method claims optimizer or training-state preservation. ONNX uses a verified native PyTorch path, TensorFlow `tf2onnx` bridge, or Keras path; native JAX ONNX remains disabled until its `jax2tf`/`tf2onnx` bridge passes parity verification. Missing optional tooling disables only its affected capability with an actionable reason.
+All binary artifacts are initialized and untrained. No method claims optimizer or training-state preservation. ONNX uses verified native PyTorch and direct native JAX (`jax2onnx`) paths, the TensorFlow `tf2onnx` bridge, or the Keras path. Native JAX export is available when `jax2onnx` and the ONNX runtime dependencies are installed. Missing optional tooling disables only its affected capability with an actionable reason.
 
 `.keras` architecture import remains separate from export. `POST /api/imports/keras-architecture` reads allowlisted configuration metadata, maps it to canonical nodes and edges, and never deserializes arbitrary Python, custom code, or weights.
 

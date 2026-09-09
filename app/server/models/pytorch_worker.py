@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import contextlib
 import gc
+import shutil
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -81,7 +83,13 @@ class PyTorchWorker:
 
     # -------------------------------------------------------------------------
     def native_compilation_capabilities(self) -> dict[str, bool]:
-        return {"torch_compile": callable(getattr(torch, "compile", None))}
+        available = callable(getattr(torch, "compile", None))
+        if available and sys.platform == "win32":
+            # PyTorch's default Inductor backend emits C++ on Windows. The
+            # callable API alone is not enough: without the MSVC developer
+            # environment, the first compiled graph fails with InvalidCxxCompiler.
+            available = shutil.which("cl") is not None
+        return {"torch_compile": available}
 
     # -------------------------------------------------------------------------
     def device_inventory(self) -> list[dict[str, object]]:

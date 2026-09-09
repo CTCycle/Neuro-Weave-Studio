@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
-from domain.exports import ExportFormat, ExportOptions
+from domain.exports import ExportConversion, ExportFormat, ExportOptions
 from domain.graph import (
     EdgeInstance,
     ModelConfiguration,
@@ -91,6 +91,37 @@ def _jax_transformer_graph() -> ModelGraph:
             _edge("position-encoder", "position", "encoder"),
             _edge("encoder-output", "encoder", "output"),
         ],
+    )
+
+
+def _native_jax_multi_input_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            _node("left", "input.tabular", {"shape": [4], "dtype": "float32"}),
+            _node("right", "input.tabular", {"shape": [4], "dtype": "float32"}),
+            _node("concat", "merge.concatenate", {"axis": -1}),
+            _node("dense", "layer.dense", {"units": 3, "activation": "softmax"}),
+            _node("output", "output.classification", {}),
+        ],
+        edges=[
+            EdgeInstance(
+                id="left-concat",
+                source_node_id="left",
+                source_port_id="output",
+                target_node_id="concat",
+                target_port_id="input_0",
+            ),
+            EdgeInstance(
+                id="right-concat",
+                source_node_id="right",
+                source_port_id="output",
+                target_node_id="concat",
+                target_port_id="input_1",
+            ),
+            _edge("concat-dense", "concat", "dense"),
+            _edge("dense-output", "dense", "output"),
+        ],
+        model_configuration=ModelConfiguration(native={"jax": {"jit_enabled": True}}),
     )
 
 
@@ -220,3 +251,30 @@ def test_keras_jax_positional_encoding_onnx_export_uses_static_sequence_shape(
         ExportFormat.ONNX,
         tmp_path / "keras_jax_positional.onnx",
     )
+
+
+def test_native_jax_onnx_export_uses_direct_jax2onnx_bridge(
+    controller: RuntimeController,
+    tmp_path: Path,
+) -> None:
+    result = _export(
+        controller,
+        _native_jax_multi_input_graph(),
+        ExecutionBackend.JAX,
+        RuntimeApi.NATIVE,
+        ExportFormat.ONNX,
+        tmp_path / "native_jax_direct.onnx",
+    )
+    assert result.artifact is not None
+    assert result.artifact.conversion is ExportConversion.NATIVE
+
+
+def test_pytorch_compile_capability_requires_msvc_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    import models.pytorch_worker as pytorch_worker_module
+
+    monkeypatch.setattr(pytorch_worker_module.sys, "platform", "win32")
+    monkeypatch.setattr(pytorch_worker_module.shutil, "which", lambda name: None)
+
+    assert pytorch_worker_module.PyTorchWorker().native_compilation_capabilities() == {
+        "torch_compile": False
+    }
