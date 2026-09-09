@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import ctypes
 import os
+import signal
 import subprocess
 import time
 from pathlib import Path
-from signal import SIGKILL, SIGTERM  # pyright: ignore[reportUnusedImport]
 from typing import Any
 
 
@@ -88,10 +88,11 @@ def terminate_process_tree(pid: int, *, force: bool) -> None:
             return
         return
     try:
-        os.killpg(os.getpgid(pid), SIGKILL if force else SIGTERM)
+        termination_signal = getattr(signal, "SIGKILL", signal.SIGTERM) if force else signal.SIGTERM
+        os.killpg(os.getpgid(pid), termination_signal)
     except (OSError, ProcessLookupError):
         try:
-            os.kill(pid, SIGKILL if force else SIGTERM)
+            os.kill(pid, termination_signal)
         except (OSError, ProcessLookupError):
             return
 

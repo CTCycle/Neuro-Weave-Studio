@@ -11,10 +11,11 @@ from keras import layers
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import apply_runtime_operation
 from domain.graph import ModelGraph
-from models.keras_layers import SinusoidalPositionalEncoding
+from models.keras_layers import GeluActivation, SinusoidalPositionalEncoding
 from models.keras_runtime import layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.output_resolution import input_nodes, resolved_outputs
+from validation.shape_inference import infer_shapes
 
 
 ###############################################################################
@@ -192,10 +193,15 @@ def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, 
             feed_forward_input = current
         feed_forward = layers.Dense(
             hidden_dimension,
-            activation=activation,
+            activation=None if activation == "gelu" else activation,
             **base_kwargs,
             name=f"{node_id}{suffix}_ffn_expand",
         )(feed_forward_input)
+        if activation == "gelu":
+            feed_forward = GeluActivation(
+                **base_kwargs,
+                name=f"{node_id}{suffix}_ffn_activation",
+            )(feed_forward)
         feed_forward = layers.Dense(
             int(source_dimension),
             **base_kwargs,
@@ -224,6 +230,9 @@ def build_model(
     _checkpoint(checkpoint)
     prepare_runtime(graph)
     catalog = catalog or get_node_catalog()
+    shape_summaries = {
+        summary.node_id: summary for summary in infer_shapes(graph, catalog)
+    }
     nodes = {node.id: node for node in graph.nodes}
     tensors: dict[str, Any] = {}
     port_tensors: dict[tuple[str, str], Any] = {}
@@ -667,8 +676,28 @@ def build_model(
         elif definition == "merge.concatenate":
             tensors[node_id] = layers.Concatenate(axis=params.get("axis", -1), name=node.id)(inputs)
         elif definition == "transformer.positional_encoding":
+            source_shape = getattr(source, "shape", None)
+            if incoming_edges:
+                source_summary = shape_summaries.get(incoming_edges[0].source_node_id)
+                if source_summary is not None and source_summary.outputs:
+                    source_shape = next(iter(source_summary.outputs.values())).shape
+            sequence_length = (
+                source_shape[1]
+                if source_shape is not None and len(source_shape) > 1
+                else None
+            )
+            feature_dim = (
+                source_shape[2]
+                if source_shape is not None and len(source_shape) > 2
+                else None
+            )
             tensors[node_id] = SinusoidalPositionalEncoding(
-                **_base_layer_kwargs(params), name=node.id
+                sequence_length=(
+                    int(sequence_length) if isinstance(sequence_length, int) else None
+                ),
+                feature_dim=(int(feature_dim) if isinstance(feature_dim, int) else None),
+                **_base_layer_kwargs(params),
+                name=node.id,
             )(source)
         elif definition in {"transformer.encoder_block", "transformer.stack"}:
             tensors[node_id] = _transformer_encoder_block(source, node.id, params)
@@ -676,12 +705,18 @@ def build_model(
             source_dimension = source.shape[-1]
             if source_dimension is None:
                 raise RuntimeError("Transformer feed-forward requires a known embedding dimension")
+            activation = params.get("activation", "gelu")
             current = layers.Dense(
                 int(source_dimension) * int(params.get("ffn_multiplier", 4)),
-                activation=params.get("activation", "gelu"),
+                activation=None if activation == "gelu" else activation,
                 **_base_layer_kwargs(params),
                 name=f"{node.id}_expand",
             )(source)
+            if activation == "gelu":
+                current = GeluActivation(
+                    **_base_layer_kwargs(params),
+                    name=f"{node.id}_activation",
+                )(current)
             current = layers.Dropout(
                 params.get("dropout", 0.0),
                 **_base_layer_kwargs(params),
@@ -741,10 +776,15 @@ def build_model(
                 feed_forward_input = ffn_norm(current) if pre_norm else current
                 feed_forward = layers.Dense(
                     hidden_dimension,
-                    activation=activation,
+                    activation=None if activation == "gelu" else activation,
                     **base_kwargs,
                     name=f"{node.id}{suffix}_ffn_expand",
                 )(feed_forward_input)
+                if activation == "gelu":
+                    feed_forward = GeluActivation(
+                        **base_kwargs,
+                        name=f"{node.id}{suffix}_ffn_activation",
+                    )(feed_forward)
                 feed_forward = layers.Dropout(
                     params.get("dropout", 0.0),
                     **base_kwargs,

@@ -323,17 +323,50 @@ class KerasSourceExporter(SourceExporter):
                     "",
                     "@keras.saving.register_keras_serializable(package='NeuroWeave')",
                     "class SinusoidalPositionalEncoding(layers.Layer):",
+                    "    def __init__(self, sequence_length=None, feature_dim=None, **kwargs):",
+                    "        super().__init__(**kwargs)",
+                    "        self.sequence_length = sequence_length",
+                    "        self.feature_dim = feature_dim",
                     "    def call(self, inputs):",
-                    "        length = keras.ops.shape(inputs)[1]",
-                    "        depth = keras.ops.shape(inputs)[2]",
-                    "        positions = keras.ops.cast(keras.ops.arange(length)[:, None], inputs.dtype)",
-                    "        dimensions = keras.ops.cast(keras.ops.arange(depth)[None, :], inputs.dtype)",
+                    "        input_shape = getattr(inputs, 'shape', None)",
+                    "        static_length = input_shape[1] if input_shape is not None and len(input_shape) > 1 else None",
+                    "        static_depth = input_shape[2] if input_shape is not None and len(input_shape) > 2 else None",
+                    "        length = self.sequence_length or static_length or keras.ops.shape(inputs)[1]",
+                    "        depth = self.feature_dim or static_depth or keras.ops.shape(inputs)[2]",
+                    "        positions = keras.ops.cast(keras.ops.arange(0, length, 1)[:, None], inputs.dtype)",
+                    "        dimensions = keras.ops.cast(keras.ops.arange(0, depth, 1)[None, :], inputs.dtype)",
                     "        depth_value = keras.ops.cast(depth, inputs.dtype)",
                     "        rates = keras.ops.power(10000.0, -(2.0 * keras.ops.floor(dimensions / 2.0)) / depth_value)",
                     "        angles = positions * rates",
-                    "        even = keras.ops.cast(keras.ops.mod(keras.ops.arange(depth), 2) == 0, inputs.dtype)[None, :]",
+                    "        even = keras.ops.cast(keras.ops.mod(keras.ops.arange(0, depth, 1), 2) == 0, inputs.dtype)[None, :]",
                     "        encoding = keras.ops.sin(angles) * even + keras.ops.cos(angles) * (1.0 - even)",
                     "        return inputs + encoding[None, :, :]",
+                    "",
+                    "    def get_config(self):",
+                    "        return {**super().get_config(), 'sequence_length': self.sequence_length, 'feature_dim': self.feature_dim}",
+                ]
+            )
+        if any(
+            node.definition_id
+            in {
+                "transformer.encoder_block",
+                "transformer.stack",
+                "transformer.feed_forward",
+                "transformer.decoder_block",
+            }
+            for node in graph.nodes
+        ):
+            lines.extend(
+                [
+                    "",
+                    "",
+                    "@keras.saving.register_keras_serializable(package='NeuroWeave')",
+                    "class GeluActivation(layers.Layer):",
+                    "    def call(self, inputs):",
+                    "        half = keras.ops.cast(0.5, inputs.dtype)",
+                    "        one = keras.ops.cast(1.0, inputs.dtype)",
+                    "        root_two = keras.ops.cast(2.0, inputs.dtype)",
+                    "        return half * inputs * (one + keras.ops.erf(inputs / keras.ops.sqrt(root_two)))",
                     "",
                     "    def get_config(self):",
                     "        return super().get_config()",
@@ -1073,7 +1106,7 @@ class KerasSourceExporter(SourceExporter):
                 )
             elif definition == "transformer.positional_encoding":
                 lines.append(
-                    f"    {variable} = SinusoidalPositionalEncoding(name={node.id!r})({source})"
+                    f"    {variable} = SinusoidalPositionalEncoding(sequence_length={source}.shape[1], feature_dim={source}.shape[2], name={node.id!r})({source})"
                 )
             elif definition in {"transformer.encoder_block", "transformer.stack"}:
                 layer_count = int(parameters.get("layers", 1))
@@ -1162,7 +1195,10 @@ class KerasSourceExporter(SourceExporter):
                     expand_kwargs = self._constructor_kwargs(
                         parameters,
                         graph,
-                        {"activation": activation, "name": node.id + suffix + "_ffn_expand"},
+                        {
+                            "activation": None if activation == "gelu" else activation,
+                            "name": node.id + suffix + "_ffn_expand",
+                        },
                     )
                     project_kwargs = self._constructor_kwargs(
                         parameters,
@@ -1185,6 +1221,10 @@ class KerasSourceExporter(SourceExporter):
                             f"    {current} = layers.Add(name={ffn_residual_name!r})([{attention_residual}, {feed_forward_dropout}])",
                         ]
                     )
+                    if activation == "gelu":
+                        lines.append(
+                            f"    {feed_forward} = GeluActivation(name={node.id + suffix + '_ffn_activation'!r})({feed_forward})"
+                        )
                     if not pre_norm:
                         output_norm_kwargs = self._constructor_kwargs(
                             parameters,
@@ -1203,7 +1243,11 @@ class KerasSourceExporter(SourceExporter):
                     parameters,
                     graph,
                     {
-                        "activation": parameters.get("activation", "gelu"),
+                        "activation": (
+                            None
+                            if parameters.get("activation", "gelu") == "gelu"
+                            else parameters.get("activation", "gelu")
+                        ),
                         "name": node.id + "_expand",
                     },
                 )
@@ -1227,6 +1271,11 @@ class KerasSourceExporter(SourceExporter):
                         f"    {variable} = layers.Dense({source_dimension}, {project_kwargs})({variable}_dropout)",
                     ]
                 )
+                if parameters.get("activation", "gelu") == "gelu":
+                    lines.insert(
+                        len(lines) - 2,
+                        f"    {current} = GeluActivation(name={node.id + '_activation'!r})({current})",
+                    )
             elif definition == "transformer.decoder_block":
                 query = inputs[0]
                 context = inputs[1] if len(inputs) > 1 else query
@@ -1290,7 +1339,7 @@ class KerasSourceExporter(SourceExporter):
                         parameters,
                         graph,
                         {
-                            "activation": activation,
+                            "activation": None if activation == "gelu" else activation,
                             "name": node.id + suffix + "_ffn_expand",
                         },
                     )
@@ -1357,6 +1406,11 @@ class KerasSourceExporter(SourceExporter):
                             f"    {next_current} = {ffn_residual}",
                         ]
                     )
+                    if activation == "gelu":
+                        lines.insert(
+                            len(lines) - 4,
+                            f"    {feed_forward} = GeluActivation(name={node.id + suffix + '_ffn_activation'!r})({feed_forward})",
+                        )
                     if not pre_norm:
                         lines[-1] = f"    {next_current} = layers.LayerNormalization({output_norm_kwargs})({ffn_residual})"
                     current = next_current
