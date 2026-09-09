@@ -650,7 +650,16 @@ class RuntimeController:
             for backend in ExecutionBackend
             for installed, version in [self._installed_package(backend)]
         }
-        for name in ("keras", "numpy", "onnx", "onnxruntime", "tf2onnx", "safetensors", "flax"):
+        for name in (
+            "keras",
+            "numpy",
+            "onnx",
+            "onnxruntime",
+            "jax2onnx",
+            "tf2onnx",
+            "safetensors",
+            "flax",
+        ):
             packages[name] = self._package_identity(name, name)
         uname = platform.uname()
         inputs: dict[str, object] = {

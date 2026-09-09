@@ -259,29 +259,20 @@ class ExportService:
         )
 
         onnx_dependencies = ["onnx", "onnxruntime", "onnxscript"]
-        if execution_backend is ExecutionBackend.JAX and keras_enabled:
+        if execution_backend is ExecutionBackend.JAX:
             onnx_dependencies.append("jax2onnx")
         elif execution_backend is not ExecutionBackend.PYTORCH:
             onnx_dependencies.append("tf2onnx")
         onnx_missing = _missing_packages(onnx_dependencies)
-        native_jax_bridge_unverified = (
-            execution_backend is ExecutionBackend.JAX and not keras_enabled
-        )
-        onnx_available = (
-            valid and profile_available and not onnx_missing and not native_jax_bridge_unverified
-        )
+        onnx_available = valid and profile_available and not onnx_missing
         onnx_reason_code = (
             "dependency_missing"
             if onnx_missing
-            else "bridge_unverified"
-            if native_jax_bridge_unverified
             else keras_reason_code
         )
         onnx_reason = (
             f"Install {', '.join(onnx_missing)} to enable verified ONNX export."
             if onnx_missing
-            else "Native JAX ONNX conversion is disabled until the jax2tf/tf2onnx bridge passes parity verification."
-            if native_jax_bridge_unverified
             else keras_reason
         )
         add(
@@ -291,7 +282,7 @@ class ExportService:
             conversion=ExportConversion.KERAS
             if keras_enabled
             else ExportConversion.NATIVE
-            if execution_backend is ExecutionBackend.PYTORCH
+            if execution_backend in {ExecutionBackend.PYTORCH, ExecutionBackend.JAX}
             else ExportConversion.BRIDGE,
             layout=ExportLayout.FILE,
             payload=ExportPayload.FULL_MODEL,

@@ -836,7 +836,7 @@ def _export_onnx_result(
             payload=ExportPayload.FULL_MODEL,
             conversion=(
                 ExportConversion.BRIDGE
-                if api is RuntimeApi.NATIVE and backend is not ExecutionBackend.PYTORCH
+                if api is RuntimeApi.NATIVE and backend is ExecutionBackend.TENSORFLOW
                 else ExportConversion.NATIVE
                 if api is RuntimeApi.NATIVE
                 else ExportConversion.KERAS
@@ -858,7 +858,7 @@ def _export_onnx_result(
         payload=ExportPayload.FULL_MODEL,
         conversion=(
             ExportConversion.BRIDGE
-            if api is RuntimeApi.NATIVE and backend is not ExecutionBackend.PYTORCH
+            if api is RuntimeApi.NATIVE and backend is ExecutionBackend.TENSORFLOW
             else ExportConversion.NATIVE
             if api is RuntimeApi.NATIVE
             else ExportConversion.KERAS
@@ -974,15 +974,20 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
         )
         return model_proto
 
-    import tensorflow as tf
-    import tf2onnx
-    from jax.experimental import jax2tf
+    import jax
+    import jax2onnx
 
     graph_inputs = input_nodes(graph, get_node_catalog())
-    specs = [
-        tf.TensorSpec(tuple(_concrete_shape(value)), value.dtype, name=node.id)
-        for node, value in zip(graph_inputs, handle.inputs, strict=True)
+    input_names = [node.id for node in graph_inputs]
+    output_names = [
+        output.name for output in resolved_outputs(graph, get_node_catalog())
     ]
+    specs = []
+    for value in handle.inputs:
+        shape = tuple(_concrete_shape(value))
+        if options.dynamic_batch and shape:
+            shape = ("batch", *shape[1:])
+        specs.append(jax.ShapeDtypeStruct(shape, value.dtype))
 
     def call_jax(*values: Any) -> Any:
         model_input = (
@@ -992,20 +997,14 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
         )
         return handle.model.apply(handle.variables, model_input)
 
-    converted = jax2tf.convert(
+    return jax2onnx.to_onnx(
         call_jax,
-        with_gradient=False,
-        enable_xla=False,
-        native_serialization=False,
-    )
-    function = tf.function(converted)
-    model_proto, _ = tf2onnx.convert.from_function(
-        function,
-        input_signature=specs,
+        specs,
+        model_name="neuro_weave_native_jax",
         opset=options.opset_version,
-        output_path=None,
+        input_names=input_names,
+        output_names=output_names,
     )
-    return model_proto
 
 
 ###############################################################################
@@ -1211,10 +1210,10 @@ def _tool_versions(
         names.append("keras")
     if export_format is ExportFormat.ONNX:
         names.extend(["onnx", "onnxruntime"])
-        if backend is not ExecutionBackend.PYTORCH:
-            names.append("tf2onnx")
-        if backend is ExecutionBackend.JAX and api is RuntimeApi.KERAS:
+        if backend is ExecutionBackend.JAX:
             names.append("jax2onnx")
+        elif backend is not ExecutionBackend.PYTORCH:
+            names.append("tf2onnx")
     if export_format is ExportFormat.SAFETENSORS:
         names.append("safetensors")
     if export_format is ExportFormat.FLAX_CHECKPOINT:
