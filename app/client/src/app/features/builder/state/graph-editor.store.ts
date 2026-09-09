@@ -248,13 +248,14 @@ export class GraphEditorStore {
     return this.outputBindings().some((binding) => binding.node_id === nodeId && (!portId || binding.port_id === portId))
   }
 
-  isInferredOutput(nodeId: string): boolean {
+  isInferredOutput(nodeId: string, portId?: string): boolean {
     if (this.outputBindings().length) return false
     const node = this.nodes().find((item) => item.id === nodeId)
     if (!node || node.data.manifest.semantic_role === 'input') return false
     return node.data.manifest.outputs.some((port) => {
+      if (portId && port.id !== portId) return false
       if (port.enabled_when && !conditionMatches(port.enabled_when, node.data.parameters)) return false
-      if (!['tensor', 'tensor_list', 'mask', 'scalar'].includes(port.kind)) return false
+      if (!isValueOutputPort(port.kind)) return false
       return !this.edges().some((edge) => edge.source === nodeId && (edge.sourceHandle ?? 'output') === port.id)
     })
   }
@@ -263,21 +264,44 @@ export class GraphEditorStore {
     return this.isOutput(nodeId) || this.isInferredOutput(nodeId)
   }
 
+  hasEnabledOutputPort(nodeId: string): boolean {
+    const node = this.nodes().find((item) => item.id === nodeId)
+    return node?.data.manifest.outputs.some((port) => (
+      isValueOutputPort(port.kind)
+      && (!port.enabled_when || conditionMatches(port.enabled_when, node.data.parameters))
+    )) ?? false
+  }
+
+  canToggleNodeOutput(nodeId: string): boolean {
+    const node = this.nodes().find((item) => item.id === nodeId)
+    if (!node || node.data.manifest.semantic_role === 'input') return false
+    if (this.isOutput(nodeId)) return true
+    return this.hasEnabledOutputPort(nodeId) && !this.isInferredOutput(nodeId)
+  }
+
   toggleNodeOutput(nodeId: string, portId?: string): void {
     const node = this.nodes().find((item) => item.id === nodeId)
     if (!node) return
     if (node.data.manifest.semantic_role === 'input') return
+    const explicitBindings = this.outputBindings().filter((binding) => binding.node_id === nodeId)
+    if (!portId && explicitBindings.length) {
+      this.checkpoint()
+      this.outputBindings.update((bindings) => bindings.filter((binding) => binding.node_id !== nodeId))
+      this.invalidateDerivedState()
+      return
+    }
     const candidate = portId
       ? node.data.manifest.outputs.find((port) => port.id === portId)
       : node.data.manifest.outputs.find((port) => (
-        ['tensor', 'tensor_list', 'mask', 'scalar'].includes(port.kind)
+        isValueOutputPort(port.kind)
         && (!port.enabled_when || conditionMatches(port.enabled_when, node.data.parameters))
         && port.id === 'output'
       )) ?? node.data.manifest.outputs.find((port) => (
-        ['tensor', 'tensor_list', 'mask', 'scalar'].includes(port.kind)
+        isValueOutputPort(port.kind)
         && (!port.enabled_when || conditionMatches(port.enabled_when, node.data.parameters))
       ))
-    if (!candidate || !['tensor', 'tensor_list', 'mask', 'scalar'].includes(candidate.kind)) return
+    if (!candidate || !isValueOutputPort(candidate.kind)) return
+    if (candidate.enabled_when && !conditionMatches(candidate.enabled_when, node.data.parameters)) return
     const existing = this.outputBindings().some((binding) => binding.node_id === nodeId && binding.port_id === candidate.id)
     if (existing) {
       this.checkpoint()
@@ -285,13 +309,15 @@ export class GraphEditorStore {
       this.invalidateDerivedState()
       return
     }
+    if (!this.outputBindings().length && this.isInferredOutput(nodeId, candidate.id)) return
     this.checkpoint()
-    this.outputBindings.update((bindings) => [...bindings, { node_id: nodeId, port_id: candidate.id }])
+    this.outputBindings.update((bindings) => uniqueOutputBindings([...bindings, { node_id: nodeId, port_id: candidate.id }]))
     this.invalidateDerivedState()
   }
 
   disconnectNode(nodeId: string): void {
     if (!this.nodes().some((node) => node.id === nodeId)) return
+    if (!this.edges().some((edge) => edge.source === nodeId || edge.target === nodeId)) return
     this.checkpoint()
     this.edges.update((edges) => edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId))
     this.invalidateDerivedState()
@@ -299,7 +325,7 @@ export class GraphEditorStore {
 
   resetParameters(nodeId: string, executionBackend?: ExecutionBackend, kerasEnabled = true): void {
     const node = this.nodes().find((item) => item.id === nodeId)
-    if (!node) return
+    if (!node || !node.data.manifest.parameters.length) return
     const selectedBackend = executionBackend ?? this.activeExecutionBackend()
     const selectedKeras = executionBackend === undefined ? this.activeKerasEnabled() : kerasEnabled
     const implementation = node.data.manifest.implementations[implementationKey(selectedBackend, selectedKeras)]
@@ -355,7 +381,7 @@ export class GraphEditorStore {
       targetHandle: edge.target_port_id,
       type: 'bezier',
     })))
-    this.outputBindings.set(structuredClone(project.graph.output_bindings))
+    this.outputBindings.set(uniqueOutputBindings(project.graph.output_bindings))
     this.modelConfiguration.set(structuredClone(project.graph.model_configuration))
     this.exportSettings.set(structuredClone(project.graph.export_settings))
     this.futureTrainingConfiguration.set(structuredClone(project.graph.future_training_configuration))
@@ -387,7 +413,7 @@ export class GraphEditorStore {
     const cloned = cloneEditorSession(session)
     this.nodes.set(cloned.nodes)
     this.edges.set(cloned.edges)
-    this.outputBindings.set(cloned.outputBindings)
+    this.outputBindings.set(uniqueOutputBindings(cloned.outputBindings))
     this.modelConfiguration.set(cloned.modelConfiguration)
     this.exportSettings.set(cloned.exportSettings)
     this.futureTrainingConfiguration.set(cloned.futureTrainingConfiguration)
@@ -443,6 +469,7 @@ export class GraphEditorStore {
   }
 
   autoLayout(nodes: EditorNode[], edges: EditorEdge[]): void {
+    if (!nodes.length) return
     this.checkpoint()
     const positions = layeredLayout(nodes, edges)
     this.nodes.set(nodes.map((node) => ({
@@ -467,7 +494,7 @@ export class GraphEditorStore {
   private restoreSnapshot(snapshot: EditorHistorySnapshot): void {
     this.nodes.set(snapshot.nodes.map((node) => ({ ...node, position: { ...node.position }, data: { ...node.data, parameters: structuredClone(node.data.parameters) } })))
     this.edges.set(snapshot.edges.map((edge) => ({ ...edge })))
-    this.outputBindings.set(structuredClone(snapshot.outputBindings))
+    this.outputBindings.set(uniqueOutputBindings(snapshot.outputBindings))
     this.modelConfiguration.set(structuredClone(snapshot.modelConfiguration))
     this.exportSettings.set(structuredClone(snapshot.exportSettings))
     this.futureTrainingConfiguration.set(structuredClone(snapshot.futureTrainingConfiguration))
@@ -529,4 +556,18 @@ function conditionMatches(condition: Record<string, unknown>, parameters: Record
 
 function sameValue(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function isValueOutputPort(kind: string): boolean {
+  return ['tensor', 'tensor_list', 'mask', 'scalar'].includes(kind)
+}
+
+function uniqueOutputBindings(bindings: OutputBinding[]): OutputBinding[] {
+  const seen = new Set<string>()
+  return bindings.filter((binding) => {
+    const key = `${binding.node_id}:${binding.port_id}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).map((binding) => ({ ...binding }))
 }

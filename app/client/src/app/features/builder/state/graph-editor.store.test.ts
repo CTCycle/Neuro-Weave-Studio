@@ -230,15 +230,111 @@ describe('neutral graph editor store', () => {
     expect(store.outputBindings()).toEqual([])
   })
 
+  it('guards inferred terminal outputs and updates availability across explicit transitions', () => {
+    store = new GraphEditorStore()
+    const source = node('source')
+    const terminal = node('terminal')
+    store.restoreEditorSession({
+      nodes: [source, terminal],
+      edges: [{ id: 'source-terminal', source: 'source', sourceHandle: 'output', target: 'terminal', targetHandle: 'input', type: 'bezier' }],
+      outputBindings: [],
+      modelConfiguration: emptyModelConfiguration(),
+      exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
+      futureTrainingConfiguration: {},
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      copiedNodeIds: [],
+      past: [],
+      future: [],
+    })
+
+    expect(store.isInferredOutput('terminal')).toBe(true)
+    expect(store.canToggleNodeOutput('terminal')).toBe(false)
+    const pastLength = store.past().length
+    store.toggleNodeOutput('terminal')
+    expect(store.outputBindings()).toEqual([])
+    expect(store.past()).toHaveLength(pastLength)
+
+    store.toggleNodeOutput('source')
+    expect(store.outputBindings()).toEqual([{ node_id: 'source', port_id: 'output' }])
+    expect(store.isInferredOutput('terminal')).toBe(false)
+    expect(store.canToggleNodeOutput('terminal')).toBe(true)
+
+    store.toggleNodeOutput('terminal')
+    expect(store.outputBindings()).toEqual([
+      { node_id: 'source', port_id: 'output' },
+      { node_id: 'terminal', port_id: 'output' },
+    ])
+    store.toggleNodeOutput('source')
+    expect(store.outputBindings()).toEqual([{ node_id: 'terminal', port_id: 'output' }])
+    store.toggleNodeOutput('terminal')
+    expect(store.outputBindings()).toEqual([])
+    expect(store.isInferredOutput('terminal')).toBe(true)
+    expect(store.canToggleNodeOutput('terminal')).toBe(false)
+  })
+
+  it('deduplicates restored bindings and preserves independent multi-output bindings', () => {
+    store = new GraphEditorStore()
+    const multiOutputManifest = {
+      ...manifest,
+      id: 'layer.multi-output',
+      outputs: [
+        manifest.outputs[0],
+        { id: 'auxiliary', display_name: 'Auxiliary', kind: 'tensor' as const, required: true, accepts_multiple: true, description: '' },
+      ],
+    }
+    const multiNode: EditorNode = { ...node('multi'), data: { ...node('multi').data, manifest: multiOutputManifest } }
+    store.restoreEditorSession({
+      nodes: [multiNode],
+      edges: [],
+      outputBindings: [
+        { node_id: 'multi', port_id: 'output' },
+        { node_id: 'multi', port_id: 'output' },
+      ],
+      modelConfiguration: emptyModelConfiguration(),
+      exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
+      futureTrainingConfiguration: {},
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      copiedNodeIds: [],
+      past: [],
+      future: [],
+    })
+
+    expect(store.outputBindings()).toEqual([{ node_id: 'multi', port_id: 'output' }])
+    store.toggleNodeOutput('multi', 'auxiliary')
+    expect(store.outputBindings()).toEqual([
+      { node_id: 'multi', port_id: 'output' },
+      { node_id: 'multi', port_id: 'auxiliary' },
+    ])
+    store.toggleNodeOutput('multi', 'output')
+    expect(store.outputBindings()).toEqual([{ node_id: 'multi', port_id: 'auxiliary' }])
+    store.toggleNodeOutput('multi')
+    expect(store.outputBindings()).toEqual([])
+  })
+
   it('locks a node against movement while preserving configuration and output state', () => {
     store = new GraphEditorStore()
-    store.setManifests([manifest])
-    store.addNode(manifest, { x: 40, y: 60 })
-    const nodeId = store.nodes()[0].id
+    const source = node('source')
+    const target = node('target')
+    store.restoreEditorSession({
+      nodes: [source, target],
+      edges: [{ id: 'source-target', source: 'source', sourceHandle: 'output', target: 'target', targetHandle: 'input', type: 'bezier' }],
+      outputBindings: [],
+      modelConfiguration: emptyModelConfiguration(),
+      exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
+      futureTrainingConfiguration: {},
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      copiedNodeIds: [],
+      past: [],
+      future: [],
+    })
+    const nodeId = 'source'
     store.toggleNodeLocked(nodeId)
     store.moveNodes([{ id: nodeId, position: { x: 240, y: 260 } }])
     expect(store.nodes()[0].locked).toBe(true)
-    expect(store.nodes()[0].position).toEqual({ x: 48, y: 64 })
+    expect(store.nodes()[0].position).toEqual({ x: 0, y: 0 })
 
     store.toggleNodeOutput(nodeId)
     expect(store.isOutput(nodeId)).toBe(true)
@@ -246,7 +342,6 @@ describe('neutral graph editor store', () => {
     expect(store.toGraph().output_bindings).toEqual([{ node_id: nodeId, port_id: 'output' }])
     expect(store.toGraph().nodes[0].locked).toBe(true)
 
-    store.deleteSelected()
     store.selectNode(nodeId)
     store.deleteSelected()
     expect(store.toGraph().output_bindings).toEqual([])
