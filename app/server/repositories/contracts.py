@@ -181,6 +181,17 @@ class CustomNodeRepositoryProtocol(Protocol):
 
 
 ###############################################################################
+class DatasetRepositoryProtocol(Protocol):
+    def list_all(self) -> list[Any]: ...
+
+    def get(self, dataset_id: UUID) -> Any | None: ...
+
+    def add(self, record: Any) -> None: ...
+
+    def delete(self, record: Any) -> None: ...
+
+
+###############################################################################
 class UnitOfWorkProtocol(Protocol):
     # -------------------------------------------------------------------------
     @property
@@ -205,6 +216,10 @@ class UnitOfWorkProtocol(Protocol):
     # -------------------------------------------------------------------------
     @property
     def custom_nodes(self) -> CustomNodeRepositoryProtocol: ...
+
+    # -------------------------------------------------------------------------
+    @property
+    def datasets(self) -> DatasetRepositoryProtocol: ...
 
     # -------------------------------------------------------------------------
     def __enter__(self) -> UnitOfWorkProtocol: ...

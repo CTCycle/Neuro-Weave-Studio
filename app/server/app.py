@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from api.routes import (
     catalog,
     compilation,
+    datasets,
     execution,
     exports,
     filesystem,
@@ -131,6 +132,7 @@ def create_app() -> FastAPI:
     application.include_router(metrics.router)
     application.include_router(catalog.router)
     application.include_router(projects.router)
+    application.include_router(datasets.router)
     application.include_router(validation.router)
     application.include_router(compilation.router)
     application.include_router(execution.router)

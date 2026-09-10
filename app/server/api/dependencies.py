@@ -16,6 +16,7 @@ from services.catalog_service import CatalogService
 from services.compilation_service import CompilationService
 from services.connection_validation_service import ConnectionValidationService
 from services.custom_node_service import CustomNodeService
+from services.dataset_service import DatasetService
 from services.export_service import ExportService
 from services.filesystem_service import FilesystemService
 from services.job_service import JobService
@@ -100,6 +101,13 @@ def get_custom_node_service(
 ###############################################################################
 def get_filesystem_service() -> FilesystemService:
     return FilesystemService()
+
+
+###############################################################################
+def get_dataset_service(
+    uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
+) -> DatasetService:
+    return DatasetService(uow_factory)
 
 
 ###############################################################################
