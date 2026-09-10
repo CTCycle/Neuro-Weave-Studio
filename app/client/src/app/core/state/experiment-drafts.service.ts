@@ -1,27 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core'
-
-export type DatasetKind = 'tabular' | 'arrays' | 'images' | 'paired' | 'documents' | 'audio' | 'timeseries' | 'custom'
-export type DatasetSplitMode = 'none' | 'smart' | 'custom'
-
-export interface DatasetSplit {
-  mode: DatasetSplitMode
-  train: number
-  validation: number
-  test: number
-}
-
-export interface DatasetReference {
-  id: string
-  name: string
-  kind: DatasetKind
-  primaryPath: string
-  referencePath: string | null
-  options: Record<string, string | number | boolean>
-  previewEntries: string[]
-  preprocessing: string[]
-  split: DatasetSplit
-  createdAt: string
-}
+import { Injectable, signal } from '@angular/core'
 
 export interface TrainingDraft {
   id: string
@@ -47,27 +24,11 @@ export interface CustomMetricDefinition {
 
 @Injectable({ providedIn: 'root' })
 export class ExperimentDraftsService {
-  private readonly datasetState = signal<DatasetReference[]>([])
   private readonly trainingState = signal<TrainingDraft[]>([])
   private readonly definitionState = signal<CustomMetricDefinition[]>([])
 
-  readonly datasets = this.datasetState.asReadonly()
   readonly trainings = this.trainingState.asReadonly()
   readonly customDefinitions = this.definitionState.asReadonly()
-  readonly hasDatasets = computed(() => this.datasetState().length > 0)
-
-  addDataset(dataset: DatasetReference): void {
-    this.datasetState.update((items) => [dataset, ...items])
-  }
-
-  updateDataset(id: string, updater: (dataset: DatasetReference) => DatasetReference): void {
-    this.datasetState.update((items) => items.map((item) => item.id === id ? updater(item) : item))
-  }
-
-  removeDataset(id: string): void {
-    this.datasetState.update((items) => items.filter((item) => item.id !== id))
-    this.trainingState.update((items) => items.filter((item) => item.datasetId !== id))
-  }
 
   addTraining(training: TrainingDraft): void {
     this.trainingState.update((items) => [training, ...items])

@@ -44,6 +44,16 @@ export const routes: Routes = [
         loadComponent: () => import('./features/datasets/datasets-page.component').then((module) => module.DatasetsPageComponent),
       },
       {
+        path: 'datasets/:datasetId',
+        loadComponent: () => import('./features/datasets/dataset-workspace-page.component').then((module) => module.DatasetWorkspacePageComponent),
+        children: [
+          { path: '', pathMatch: 'full', loadComponent: () => import('./features/datasets/dataset-overview-page.component').then((module) => module.DatasetOverviewPageComponent) },
+          { path: 'structure', loadComponent: () => import('./features/datasets/dataset-structure-page.component').then((module) => module.DatasetStructurePageComponent) },
+          { path: 'processing', data: { mode: 'processing' }, loadComponent: () => import('./features/datasets/dataset-future-page.component').then((module) => module.DatasetFuturePageComponent) },
+          { path: 'split', data: { mode: 'split' }, loadComponent: () => import('./features/datasets/dataset-future-page.component').then((module) => module.DatasetFuturePageComponent) },
+        ],
+      },
+      {
         path: 'training',
         loadComponent: () => import('./features/training/training-page.component').then((module) => module.TrainingPageComponent),
       },
