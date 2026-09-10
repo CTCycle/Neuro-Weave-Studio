@@ -16,6 +16,9 @@ from repositories import (
     custom_nodes as _custom_nodes,  # pyright: ignore[reportUnusedImport]  # noqa: F401 - register ORM tables
 )
 from repositories import (
+    datasets as _datasets,  # pyright: ignore[reportUnusedImport]  # noqa: F401 - register ORM tables
+)
+from repositories import (
     models as _models,  # pyright: ignore[reportUnusedImport]  # noqa: F401 - register ORM tables
 )
 from repositories.backend import SQLiteBackend
@@ -25,7 +28,7 @@ from repositories.migration_lock import database_migration_lock
 LOGGER = logging.getLogger(__name__)
 
 ALEMBIC_CONFIG_PATH = Path(__file__).resolve().parents[1] / "alembic.ini"
-HEAD_REVISION = "20260903_custom_node_definitions"
+HEAD_REVISION = "20260910_dataset_registrations"
 ALEMBIC_VERSION_TABLE = "alembic_version"
 
 
