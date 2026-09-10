@@ -1,6 +1,6 @@
 # NeuroWeave Documentation Index
 
-Last updated: 2026-08-31
+Last updated: 2026-09-10
 
 ## Purpose
 
@@ -18,6 +18,7 @@ This is the root navigation document for the repository. Read it first, then ope
 - `architecture/system_overview.md`
 - `architecture/backend_architecture.md`
 - `architecture/frontend_architecture.md`: Angular application composition, graph ownership, and UI boundaries.
+- `architecture/dataset_management.md`: persisted external dataset definitions, inspection, validation, catalog, and workspace boundary.
 - `architecture/metadata_contract.md`: Runtime metadata states, on-demand discovery, and cache identity.
 - `architecture/graph_compiler.md`
 - `architecture/model_execution_profile.md`

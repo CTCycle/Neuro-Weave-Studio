@@ -1,6 +1,6 @@
 # User Flows
 
-Last updated: 2026-09-03
+Last updated: 2026-09-10
 
 The application opens on the model catalog (`/models`). Users browse or filter saved models, select one for a read-only overview, and choose a dedicated Compilation, Export, or Inference workspace. The Model Builder (`/builder`) is reserved for creating a model; `/builder/:modelId` edits an existing architecture. In Builder, users set the execution backend and Keras/native mode, add nodes from the catalog, connect typed ports, configure exposed node properties, validate, and explicitly save. Multiple open models use isolated tabs. Save persists the canonical graph/profile revision; Compilation then owns capability-driven configuration, validation, and source generation. Unsaved Builder changes warn before internal navigation or browser unload.
 
@@ -12,9 +12,9 @@ Mathematical and sequential custom templates also appear in the Model Builder no
 
 The Settings workspace is the global application settings destination. It links installation-wide authoring resources such as the Node library and runtime-wide configuration such as Environment. Model-specific graph and compilation configuration remains inside the corresponding model workspace.
 
-In Datasets, the user starts a wizard, selects a source type, navigates the local filesystem through the server-backed explorer, and selects the real file or folder path used by future operations. Tabular files, serialized arrays, image folders, folder-plus-reference-data layouts, document folders, audio folders, time-series files, and custom sources expose relevant interpretation options. Dataset definitions are held in session memory only. The source is not uploaded, copied, or persisted. Dataset cards provide lightweight path/source previews plus session-only Explore, Preprocessing, Smart split, and Custom split controls.
+In Datasets, the user starts a typed wizard, navigates the local filesystem through the server-backed explorer, and selects real external sources. Tabular, image, text, time-series, array/tensor, and composed layouts expose only their relevant source and role controls; Auto Detect is visibly unavailable. The user inspects the source, assigns input/output/metadata/unused fields, optionally chooses all/first-N/range samples, reviews validation findings, and registers a lightweight metadata definition. Dataset cards are persisted summaries with availability state, and the nested workspace exposes Overview and Structure plus future-only Processing and Split routes. Source files are never uploaded, copied, or deleted.
 
-Training is intentionally a bootstrap workflow. Once at least one saved model and one session dataset reference are available, the user creates a training draft by choosing the model, dataset, name, epochs, and batch size. The draft is displayed as a card similar to the model library, but it cannot start execution. No training worker, fit loop, weight update, checkpoint, or persistent training record is created yet.
+Training is intentionally a bootstrap workflow. Once at least one saved model and one persisted dataset registration are available, the user creates a training draft by choosing the model, dataset, name, epochs, and batch size. The draft is displayed as a card similar to the model library, but it cannot start execution. No training worker, fit loop, weight update, checkpoint, or persistent training record is created yet.
 
 The Metrics route shows the server-owned built-in metric and loss catalog as read-only definitions and supports custom metric/loss authoring through a bounded formula workflow. Users may enter LaTeX directly or use a guided equation palette that edits the same source with a live KaTeX preview. Custom metric/loss definitions remain governed by the compilation capability contract.
 

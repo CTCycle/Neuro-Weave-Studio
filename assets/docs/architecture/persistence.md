@@ -1,12 +1,14 @@
 # Persistence
 
-Last updated: 2026-09-03
+Last updated: 2026-09-10
 
 NeuroWeave uses one SQLAlchemy schema backed exclusively by SQLite. Alembic is the authoritative schema lifecycle and `repositories.base.Base.metadata` is its autogeneration source of truth. A project is the model/workflow aggregate exposed by `/api/projects`; installation-wide reusable authoring definitions are persisted separately from project graphs.
 
 The canonical project tables are `projects`, `project_graph_settings`, `project_nodes`, `project_edges`, `project_revisions`, and `generated_code_snapshots`, plus Alembic's `alembic_version` table. Projects own current graph settings, ordered nodes, and ordered edges. Composite project/node foreign keys prevent an edge from connecting nodes belonging to another project. Project revisions are immutable graph snapshots. Generated source is linked to a specific project revision and is returned only for the current revision.
 
 Installation-wide authoring definitions use focused tables outside the project aggregate. `custom_metric_definitions` stores persisted user metric/loss equations. `custom_node_definitions` stores user-authored node templates with stable relational identity, a monotonically increasing template revision, kind, normalized display name, category, timestamps, and a bounded JSON definition payload. Built-in node manifests are checked-in application resources and are never copied into this table. Custom templates therefore cannot overwrite, edit, or delete built-in manifests.
+
+Dataset registrations use one `datasets` table. Relational columns store identity, type, format, available/selected sample counts, validation status, and creation/update timestamps. `definition_json` contains the normalized typed source/binding/relationship/sequence/subset definition; `inspection_json` contains the compact registration-time schema/count/shape snapshot; and `validation_json` contains timestamped bounded findings and warnings. No sample rows, image bytes, arrays, previews, or source copies are persisted. The repository participates in the existing unit-of-work and services own commit boundaries. List/get compute current source availability from the stored paths without mutating the snapshot. Deleting a registration deletes only the row.
 
 `custom_node_definitions.spec_json` is authoring metadata, not an alternate executable graph representation. Mathematical templates store the original LaTeX-style formula plus the server-normalized safe expression used when the template materializes as built-in `math.expression`. Sequential templates store an ordered list of built-in manifest identities and fully normalized parameter maps validated against those manifests. Public repository definitions store Hugging Face coordinates, the requested revision, the exact resolved public commit, available library/pipeline metadata, and an optional class/entrypoint hint.
 
