@@ -5,7 +5,7 @@ import type { EditorNode } from '../../../domain/editor.types'
 import type { ExecutionBackend, NodeManifest, ParameterCapability, ParameterDefinition, PortDefinition } from '../../../domain/types'
 import { implementationAvailable, implementationKey, implementationLabel } from '../../../domain/types'
 import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
-import { displayParameterValue, helpfulParameterDescription, isFiniteParameter, parameterOptions, parseParameterValue, type ParameterDraftValue } from '../graph/parameter-value'
+import { displayParameterValue, hasInvalidParameter, helpfulParameterDescription, isFiniteParameter, parameterOptions, parseParameterValue, type ParameterDraftValue } from '../graph/parameter-value'
 import { GraphEditorStore } from '../state/graph-editor.store'
 
 @Component({
@@ -109,6 +109,7 @@ export class PropertiesInspectorComponent {
   })
   readonly form = new UntypedFormGroup({ label: new UntypedFormControl('') })
   readonly invalid = signal<Record<string, boolean>>({})
+  readonly hasInvalidParameters = computed(() => hasInvalidParameter(this.invalid()))
   private configuredControlIds = new Set<string>()
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton')
 

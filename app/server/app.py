@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import cast
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -99,6 +99,8 @@ def _serve_client_root() -> FileResponse:
 
 ###############################################################################
 def _serve_client_path(full_path: str) -> FileResponse:
+    if full_path == "api" or full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API route not found")
     client_file = _resolve_client_file(full_path)
     if client_file is not None:
         return FileResponse(client_file)
@@ -127,6 +129,31 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @application.middleware("http")
+    async def log_api_request(request: Request, call_next):  # type: ignore[no-untyped-def]
+        if not request.url.path.startswith("/api"):
+            return await call_next(request)
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            LOGGER.exception(
+                "api_request method=%s path=%s status=exception duration_ms=%s",
+                request.method,
+                request.url.path,
+                round((time.perf_counter() - started) * 1000, 1),
+            )
+            raise
+        LOGGER.info(
+            "api_request method=%s path=%s status=%s duration_ms=%s",
+            request.method,
+            request.url.path,
+            response.status_code,
+            round((time.perf_counter() - started) * 1000, 1),
+        )
+        return response
+
     application.include_router(health.router)
     application.include_router(metadata.router)
     application.include_router(metrics.router)

@@ -5,7 +5,6 @@ from typing import Any, cast
 
 import httpx
 import pytest
-
 from repositories.graphs import GraphRepository
 
 
@@ -316,6 +315,32 @@ def test_export_capabilities_expose_matrix_and_explicit_reasons(
         "dynamic_batch",
         "external_data",
     }
+    opset = next(item for item in formats["onnx"]["options"] if item["id"] == "opset_version")
+    assert opset["choices"] == [17, 18]
+
+
+###############################################################################
+def test_unsupported_onnx_opset_is_rejected_at_request_boundary(client: httpx.Client) -> None:
+    response = client.post(
+        "/api/execution/jobs",
+        json={
+            "operation": {
+                "type": "model_export",
+                "project_id": "00000000-0000-0000-0000-000000000000",
+                "format": "onnx",
+                "options": {"opset_version": 19},
+            },
+            "worker": {
+                "api": "keras",
+                "backend": "tensorflow",
+                "device_id": "cpu",
+                "memory_policy": {"kind": "default"},
+                "precision": "float32",
+            },
+        },
+    )
+
+    assert response.status_code == 422
 
 
 ###############################################################################

@@ -29,14 +29,14 @@ import { AppResourcesService } from '../../core/state/app-resources.service'
           <span><strong>NeuroWeave</strong><small>MODEL STUDIO</small></span>
         </a>
         <nav class="primary-nav" aria-label="Primary navigation">
-          <a routerLink="/models" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: false }"><svg lucideBox [size]="16"></svg>Models</a>
-          <a routerLink="/builder" routerLinkActive="active"><svg lucideHammer [size]="16"></svg>Model Builder</a>
-          <a routerLink="/nodes" routerLinkActive="active"><svg lucideBox [size]="16"></svg>Nodes</a>
-          <a routerLink="/datasets" routerLinkActive="active"><svg lucideFolderOpen [size]="16"></svg>Datasets</a>
-          <a routerLink="/training" routerLinkActive="active"><svg lucideBrainCircuit [size]="16"></svg>Training</a>
-          <a routerLink="/metrics" routerLinkActive="active"><svg lucideActivity [size]="16"></svg>Metrics</a>
-          <a routerLink="/environment" routerLinkActive="active"><svg lucideCpu [size]="16"></svg>Environment</a>
-          <a routerLink="/settings" routerLinkActive="active"><svg lucideSettings [size]="16"></svg>Settings</a>
+          <a routerLink="/models" routerLinkActive="active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: false }"><svg lucideBox [size]="16"></svg>Models</a>
+          <a routerLink="/builder" routerLinkActive="active" ariaCurrentWhenActive="page"><svg lucideHammer [size]="16"></svg>Model Builder</a>
+          <a routerLink="/nodes" routerLinkActive="active" ariaCurrentWhenActive="page"><svg lucideBox [size]="16"></svg>Nodes</a>
+          <a routerLink="/datasets" routerLinkActive="active" ariaCurrentWhenActive="page"><svg lucideFolderOpen [size]="16"></svg>Datasets</a>
+          <a routerLink="/training" routerLinkActive="active" ariaCurrentWhenActive="page"><svg lucideBrainCircuit [size]="16"></svg>Training</a>
+          <a routerLink="/metrics" routerLinkActive="active" ariaCurrentWhenActive="page"><svg lucideActivity [size]="16"></svg>Metrics</a>
+          <a routerLink="/environment" routerLinkActive="active" ariaCurrentWhenActive="page"><svg lucideCpu [size]="16"></svg>Environment</a>
+          <a routerLink="/settings" routerLinkActive="active" ariaCurrentWhenActive="page"><svg lucideSettings [size]="16"></svg>Settings</a>
         </nav>
       </header>
       <main class="app-content" [class.builder-content]="isBuilder()" [class.nodes-content]="isNodes()"><router-outlet /></main>

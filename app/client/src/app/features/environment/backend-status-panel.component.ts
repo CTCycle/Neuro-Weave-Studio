@@ -27,17 +27,23 @@ const apiLabels: Record<RuntimeApi, string> = { keras: 'Keras', native: 'Native 
                 <div class="backend-status-card-top"><span class="backend-status-name"><svg lucideCpu [size]="14"></svg>{{ backendLabels[status.id] }}</span><span class="backend-status-state">@if (status.available && backendSupportsAnyApi(status)) { <svg lucideCheckCircle2 [size]="13"></svg>Usable } @else if (status.discovery_state === 'checking') { <svg lucideAlertTriangle [size]="13"></svg>Checking } @else if (status.discovery_state === 'unchecked') { <svg lucideAlertTriangle [size]="13"></svg>Not checked } @else if (status.installed) { <svg lucideAlertTriangle [size]="13"></svg>Installed } @else { <svg lucidePackageX [size]="13"></svg>Missing }</span></div>
                 <strong>{{ status.version ? 'v' + status.version : 'Optional framework' }}</strong><span>{{ backendDetail(status) }}</span>
               </button>
-              @if (!status.available && status.discovery_state !== 'checking' && preferredRuntimeApi(status)) {
-                <button class="secondary runtime-check" type="button" (click)="check(status, $event)">{{ status.discovery_state === 'unchecked' ? 'Check runtime' : 'Refresh check' }}</button>
+              @if (status.runtime_apis?.length && status.discovery_state !== 'checking') {
+                <div class="runtime-checks" [attr.aria-label]="backendLabels[status.id] + ' runtime checks'">
+                  @for (apiStatus of status.runtime_apis; track apiStatus.id) {
+                    @if (!apiStatus.available) {
+                      <button class="secondary runtime-check" type="button" [disabled]="checking() === status.id + ':' + apiStatus.id" (click)="check(status, $event, apiStatus.id)">{{ checking() === status.id + ':' + apiStatus.id ? 'Checking…' : apiStatus.state === 'unchecked' ? 'Check ' + apiLabels[apiStatus.id] : 'Refresh ' + apiLabels[apiStatus.id] }}</button>
+                    }
+                  }
+                </div>
               }
               @if (status.available && backendSupportsAnyApi(status)) {
                 @if (selectedDevice(status); as device) {
                   @if (selectedPolicy(status); as policy) {
                     <div class="runtime-fields">
-                      <label>Device<select [value]="device.device_id" (change)="selectDevice(status, $event)">@for (availableDevice of devicesFor(status); track availableDevice.device_id) { <option [value]="availableDevice.device_id">{{ availableDevice.device_id }} · {{ availableDevice.name }}</option> }</select></label>
-                      <label>Memory policy<select [value]="policy.kind" (change)="selectPolicy(status, $event)">@for (policyKind of device.supported_memory_policies; track policyKind) { <option [value]="policyKind">{{ policyKind }}</option> }</select></label>
-                      @if (policy.kind === 'tensorflow_limit_mb') { <label>Limit (MB)<input type="number" min="1" [value]="policy.limit_mb ?? 1024" (change)="updatePolicyValue(status, $event)" /></label> }
-                      @if (policy.kind === 'jax_preallocate_fraction' || policy.kind === 'pytorch_fraction') { <label>Fraction<input type="number" min="0.01" max="1" step="0.01" [value]="policy.fraction ?? 0.5" (change)="updatePolicyValue(status, $event)" /></label> }
+                      <label>Device<select [value]="device.device_id" (input)="selectDevice(status, $event)">@for (availableDevice of devicesFor(status); track availableDevice.device_id) { <option [value]="availableDevice.device_id">{{ availableDevice.device_id }} · {{ availableDevice.name }}</option> }</select></label>
+                      <label>Memory policy<select [value]="policy.kind" (input)="selectPolicy(status, $event)">@for (policyKind of device.supported_memory_policies; track policyKind) { <option [value]="policyKind">{{ policyKind }}</option> }</select></label>
+                      @if (policy.kind === 'tensorflow_limit_mb') { <label>Limit (MB)<input type="number" min="1" [value]="policy.limit_mb ?? 1024" (input)="updatePolicyValue(status, $event)" /></label> }
+                      @if (policy.kind === 'jax_preallocate_fraction' || policy.kind === 'pytorch_fraction') { <label>Fraction<input type="number" min="0.01" max="1" step="0.01" [value]="policy.fraction ?? 0.5" (input)="updatePolicyValue(status, $event)" /></label> }
                     </div>
                   }
                 }
@@ -96,10 +102,10 @@ export class BackendStatusPanelComponent {
     return kind ? defaultMemoryPolicy(kind) : null
   }
 
-  async check(status: ExecutionBackendStatus, event: Event): Promise<void> {
+  async check(status: ExecutionBackendStatus, event: Event, requestedApi?: RuntimeApi): Promise<void> {
     event.stopPropagation()
     if (this.checking()) return
-    const api = status.runtime_apis?.find((item) => item.id === this.runtimeSelection()?.api && item.available)?.id ?? preferredRuntimeApi(status)
+    const api = requestedApi ?? status.runtime_apis?.find((item) => item.id === this.runtimeSelection()?.api && !item.available)?.id ?? preferredRuntimeApi(status)
     if (!api) return
     this.checking.set(`${status.id}:${api}`)
     try {

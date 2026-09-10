@@ -7,7 +7,7 @@ from configurations.settings import Settings
 from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity
-from domain.exports import ExportFormat, ExportOptions, export_suffix
+from domain.exports import SUPPORTED_ONNX_OPSETS, ExportFormat, ExportOptions, export_suffix
 from domain.graph import ProjectDocument
 from domain.jobs import JobResponse, JobSubmitRequest, ModelExportOperation, SmokeInferenceOperation
 from domain.runtime import RuntimeApi, WorkerConfiguration
@@ -214,6 +214,17 @@ class JobService:
                         severity=DiagnosticSeverity.ERROR,
                         message="Weight sharding is not enabled for this export profile",
                         details={"format": export_format.value, "option": "max_shard_size_gb"},
+                    )
+                ]
+            )
+        if export_format is ExportFormat.ONNX and options.opset_version not in SUPPORTED_ONNX_OPSETS:
+            raise CompilationRejectedError(
+                [
+                    ValidationDiagnostic(
+                        code="invalid_export_options",
+                        severity=DiagnosticSeverity.ERROR,
+                        message=f"ONNX opset {options.opset_version} is not supported; choose {', '.join(str(item) for item in SUPPORTED_ONNX_OPSETS)}",
+                        details={"format": export_format.value, "option": "opset_version", "choices": list(SUPPORTED_ONNX_OPSETS)},
                     )
                 ]
             )
