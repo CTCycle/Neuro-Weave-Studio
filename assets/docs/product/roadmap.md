@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-09-03
+Last updated: 2026-09-10
 
-Phase 1 is the implemented architecture editor. Phase 2 adds dataset metadata, training configuration, local training jobs, evaluation, and experiment tracking.
+Phase 1 is the implemented architecture editor. The dataset metadata foundation is now implemented: typed external registrations, bounded inspection/validation, persisted definitions, catalog/workspace navigation, and source availability reporting. Phase 2 extends that foundation with preprocessing, split materialization, training configuration, local training jobs, evaluation, and experiment tracking.
 
 Phase 3 covers extensibility. The first safe custom-node authoring layer is now implemented as installation-wide templates that materialize into the existing canonical graph: mathematical templates map to the built-in safe-expression node, and sequential blocks expand into validated built-in manifests and connections. Public Hugging Face references can be verified and commit-pinned but remain non-executable metadata.
 

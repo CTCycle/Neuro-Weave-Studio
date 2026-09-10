@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Last updated: 2026-08-31
+Last updated: 2026-09-10
 
 NeuroWeave's automated suite is intentionally risk-oriented. Tests exist for behavior whose failure can corrupt saved models, produce invalid generated models, violate execution safety, or break an important user workflow. Tooling layout, source-tree shape, presentation details, and framework behavior are not unit-tested merely to increase coverage.
 
@@ -19,6 +19,7 @@ Retained regression coverage focuses on:
 - runtime discovery is on demand per backend/API pair, skips absent framework packages, records a schema-versioned fingerprinted environment snapshot, deduplicates concurrent requests, bypasses the snapshot for explicit refresh, and invalidates matching results when package or environment identity changes;
 - binary Keras, native, ONNX, SafeTensors, and checkpoint export reload/restore coverage where the optional dependency is operational;
 - runtime preflight validation, device lease exclusivity, idempotent cancellation, and worker/workspace cleanup.
+- dataset metadata round trips, CRUD/restart persistence, no-content-copy guarantees, streamed CSV/TSV inspection, Parquet metadata, NPY/NPZ headers, image/text enumeration, exact composed mappings, role conflicts, subset bounds, and unavailable external sources.
 
 Real framework availability is conditional. Runtime tests skip when the required execution backend is not installed and operational. Controller lifecycle tests use deterministic fake worker processes so lease, cancellation, and cleanup behavior remains testable without optional ML frameworks.
 
@@ -32,6 +33,7 @@ Frontend tests are deliberately limited to state and interaction contracts that 
 - the Node Catalog drag payload consumed by the model canvas;
 - Model Export page capability grouping, explicit disabled reasons, format-specific options, job polling, cancellation, retry, and verified download;
 - Builder keeps graph save/validation separate from Compilation configuration and source generation, while CodePreview remains inspection/copy-only there.
+- dataset capability choices, disabled Auto Detect, persisted resource refresh, wizard role/subset/validation transitions, catalog selection/deletion, unavailable-source rendering, and future-only Processing/Split routes.
 
 Presentation details, button inventories, clipboard status, basic filtering, and collapsible UI behavior are covered by static checks and product QA rather than dedicated unit tests.
 

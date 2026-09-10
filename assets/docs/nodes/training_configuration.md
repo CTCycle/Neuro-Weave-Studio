@@ -1,12 +1,12 @@
 # Training Configuration
 
-Last updated: 2026-09-02
+Last updated: 2026-09-10
 
 Optimizer, loss, metric, learning-rate, regularizer, initializer, constraint, random-seed, and mixed-precision concepts are represented in the Keras branch of one model-level configuration value, not the tensor graph. The same canonical value contains explicit native compiler branches for TensorFlow, PyTorch, and JAX. This prevents configuration edges from being mistaken for tensors and supports multiple output heads through `__default__`, output-ID, and output-label mappings.
 
 When `keras_enabled=true`, validated optimizer, loss, metric, initializer, regularizer, constraint, seed, and mixed-precision settings are applied when Keras source or binary models are built. When `keras_enabled=false`, native implementations consume only their selected backend branch: TensorFlow `jit_compile`, PyTorch `torch.compile` options, or JAX `jit_enabled`. Environment device, memory, and precision preferences remain session-scoped worker configuration.
 
-The application now exposes a dataset and training bootstrap without changing the persisted model configuration. Dataset definitions are session-only references to local file or folder paths selected through the filesystem explorer, with draft preprocessing and split choices. Training definitions are also session-only and currently contain the selected saved model, selected dataset reference, epochs, and batch size. Dataset loading, `fit`, training loops, gradient or weight updates, checkpointing, and experiment persistence remain out of scope for this bootstrap.
+The application now exposes a persisted dataset-registration and session-only training bootstrap without changing the persisted model configuration. Dataset definitions reference local file/folder/array sources through the filesystem explorer and store typed roles, compact inspection metadata, validation findings, and subset rules; they do not persist preprocessing or split drafts. Training definitions remain session-only and currently contain the selected saved model, selected dataset registration, epochs, and batch size. Dataset loading, `fit`, training loops, gradient or weight updates, checkpointing, and experiment persistence remain out of scope for this bootstrap.
 
 The Compilation page presents the persisted model configuration through a capability-driven, metadata-driven modal. The backend capability tree is authoritative for supported values, parameter ranges, compiler availability, and trusted formula metadata; Apply validates the proposed graph/profile and performs one revision-aware replacement of the canonical graph configuration. The Metrics page can additionally create session-only custom metric and loss definitions from direct LaTeX or a guided equation builder, but those drafts are not injected into the capability tree or selectable by Compilation or Training yet.
 
