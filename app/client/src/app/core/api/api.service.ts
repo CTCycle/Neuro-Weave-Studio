@@ -4,6 +4,14 @@ import { firstValueFrom } from 'rxjs'
 import { ApiError, apiErrorMessage } from './api-error'
 import type { FilesystemBrowseResponse } from '../../domain/filesystem.types'
 import type {
+  DatasetDefinitionMutation,
+  DatasetDocument,
+  DatasetInspection,
+  DatasetInspectionRequest,
+  DatasetSummary,
+  DatasetValidationResult,
+} from '../../domain/dataset.types'
+import type {
   CompilationResult,
   ConnectionValidationResult,
   ExecutionBackend,
@@ -74,6 +82,35 @@ export class ApiService {
   async listProjects(): Promise<ProjectSummary[]> {
     const response = await this.request<{ projects: ProjectSummary[] }>('/projects')
     return response.projects
+  }
+
+  async listDatasets(): Promise<DatasetSummary[]> {
+    const response = await this.request<{ datasets: DatasetSummary[] }>('/datasets')
+    return response.datasets
+  }
+
+  inspectDataset(payload: DatasetInspectionRequest): Promise<DatasetInspection> {
+    return this.request('/datasets/inspect', 'POST', payload)
+  }
+
+  validateDataset(payload: DatasetDefinitionMutation): Promise<DatasetValidationResult> {
+    return this.request('/datasets/validate', 'POST', payload)
+  }
+
+  createDataset(payload: DatasetDefinitionMutation): Promise<DatasetDocument> {
+    return this.request('/datasets', 'POST', payload)
+  }
+
+  getDataset(id: string): Promise<DatasetDocument> {
+    return this.request(`/datasets/${encodeURIComponent(id)}`)
+  }
+
+  updateDataset(id: string, payload: DatasetDefinitionMutation): Promise<DatasetDocument> {
+    return this.request(`/datasets/${encodeURIComponent(id)}`, 'PUT', payload)
+  }
+
+  deleteDataset(id: string): Promise<void> {
+    return this.request(`/datasets/${encodeURIComponent(id)}`, 'DELETE')
   }
 
   getProject(id: string): Promise<ProjectDocument> {

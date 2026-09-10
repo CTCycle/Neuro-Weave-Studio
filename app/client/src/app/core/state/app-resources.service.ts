@@ -13,6 +13,7 @@ import type {
   RuntimeDiscoveryResponse,
   WorkerConfiguration,
 } from '../../domain/types'
+import type { DatasetSummary } from '../../domain/dataset.types'
 import {
   defaultRuntimePreference,
   isRuntimePreferenceValid,
@@ -26,6 +27,7 @@ export class AppResourcesService {
 
   readonly manifests = signal<NodeManifest[]>([])
   readonly projects = signal<ProjectSummary[]>([])
+  readonly datasets = signal<DatasetSummary[]>([])
   readonly backendStatuses = signal<ExecutionBackendStatus[]>([])
   readonly runtimeApis = signal<RuntimeApiStatus[]>([])
   readonly compilationCapabilities = signal<CompilationCapabilities | null>(null)
@@ -34,12 +36,14 @@ export class AppResourcesService {
   readonly runtimePreferenceBackend = signal<ExecutionBackend | null>(null)
   readonly catalogReady = signal(false)
   readonly projectsReady = signal(false)
+  readonly datasetsReady = signal(false)
   readonly runtimeReady = signal(false)
   readonly metricsReady = signal(false)
   readonly errors = signal<Record<string, string>>({})
   readonly error = computed(() => Object.values(this.errors()).join(' ') || null)
 
   private projectsRequest?: Promise<ProjectSummary[]>
+  private datasetsRequest?: Promise<DatasetSummary[]>
   private catalogRequest?: Promise<NodeManifest[]>
   private runtimeRequest?: Promise<void>
   private metricsRequest?: Promise<MetricDefinition[]>
@@ -61,6 +65,22 @@ export class AppResourcesService {
       markResource('projects')
     })
     return this.projectsRequest
+  }
+
+  loadDatasets(): Promise<DatasetSummary[]> {
+    if (this.datasetsRequest) return this.datasetsRequest
+    this.datasetsRequest = this.api.listDatasets().then((value) => {
+      this.datasets.set(value)
+      this.clearResourceError('datasets')
+      return value
+    }).catch((reason) => {
+      this.recordError('datasets', this.message(reason, 'Dataset catalog unavailable.'))
+      return []
+    }).finally(() => {
+      this.datasetsReady.set(true)
+      markResource('datasets')
+    })
+    return this.datasetsRequest
   }
 
   loadCatalog(): Promise<NodeManifest[]> {
@@ -195,6 +215,16 @@ export class AppResourcesService {
     this.projectsRequest = undefined
     this.projectsReady.set(false)
     return this.loadProjects()
+  }
+
+  async refreshDatasets(): Promise<DatasetSummary[]> {
+    this.datasetsRequest = undefined
+    this.datasetsReady.set(false)
+    return this.loadDatasets()
+  }
+
+  retryDatasets(): Promise<DatasetSummary[]> {
+    return this.refreshDatasets()
   }
 
   retryProjects(): Promise<ProjectSummary[]> {
