@@ -450,8 +450,15 @@ export class DatasetWizardComponent implements OnChanges {
     if (this.editing) this.applyDocumentRoles(next, this.editing)
     if (this.hasRelationship() && !this.relationshipColumn()) this.relationshipColumn.set(this.tableColumns()[0] ?? '')
     this.roleAssignments.set(next)
-    this.rangeEnd.set(Math.max(0, this.availableSamples() - 1))
-    this.firstN.set(Math.min(1, this.availableSamples()))
+    if (!this.editing) {
+      this.rangeEnd.set(Math.max(0, this.availableSamples() - 1))
+      this.firstN.set(Math.min(1, this.availableSamples()))
+    } else if (this.subsetMode() === 'first_n') {
+      this.firstN.set(Math.max(1, Math.min(this.firstN(), this.availableSamples())))
+    } else if (this.subsetMode() === 'range') {
+      this.rangeStart.set(Math.max(0, Math.min(this.rangeStart(), Math.max(0, this.availableSamples() - 1))))
+      this.rangeEnd.set(Math.max(this.rangeStart(), Math.min(this.rangeEnd(), Math.max(0, this.availableSamples() - 1))))
+    }
   }
 
   private defaultRole(field: DatasetField): FieldRole { if (field.structural) return 'unused'; if (field.kind === 'image' || field.kind === 'text') return 'input'; if (field.kind === 'folder_label') return 'output'; return 'unused' }

@@ -20,10 +20,12 @@ import {
   preferredBackend,
   preferredBackendForApi as selectPreferredBackendForApi,
 } from './runtime-selection'
+import { readRuntimePreferences, storedPreferenceBackend, writeRuntimePreferences } from './runtime-preference-storage'
 
 @Injectable({ providedIn: 'root' })
 export class AppResourcesService {
   private readonly api = inject(ApiService)
+  private readonly storedPreferences = readRuntimePreferences()
 
   readonly manifests = signal<NodeManifest[]>([])
   readonly projects = signal<ProjectSummary[]>([])
@@ -32,8 +34,8 @@ export class AppResourcesService {
   readonly runtimeApis = signal<RuntimeApiStatus[]>([])
   readonly compilationCapabilities = signal<CompilationCapabilities | null>(null)
   readonly metricDefinitions = signal<MetricDefinition[]>([])
-  readonly runtimePreferences = signal<Partial<Record<ExecutionBackend, WorkerConfiguration>>>({})
-  readonly runtimePreferenceBackend = signal<ExecutionBackend | null>(null)
+  readonly runtimePreferences = signal<Partial<Record<ExecutionBackend, WorkerConfiguration>>>(this.storedPreferences)
+  readonly runtimePreferenceBackend = signal<ExecutionBackend | null>(storedPreferenceBackend(this.storedPreferences))
   readonly catalogReady = signal(false)
   readonly projectsReady = signal(false)
   readonly datasetsReady = signal(false)
@@ -121,6 +123,7 @@ export class AppResourcesService {
         }
       }
       this.runtimePreferences.set(next)
+      writeRuntimePreferences(next)
       const selected = this.runtimePreferenceBackend()
       this.runtimePreferenceBackend.set(
         selected && next[selected] && statuses.some((item) => item.id === selected && item.available)
@@ -265,12 +268,18 @@ export class AppResourcesService {
     const preferences = this.runtimePreferences()
     if (!preferences[backend]) {
       const preference = defaultRuntimePreference(status)
-      if (preference) this.runtimePreferences.set({ ...preferences, [backend]: preference })
+      if (preference) {
+        const next = { ...preferences, [backend]: preference }
+        this.runtimePreferences.set(next)
+        writeRuntimePreferences(next)
+      }
     }
   }
 
   setRuntimePreference(selection: WorkerConfiguration): void {
-    this.runtimePreferences.set({ ...this.runtimePreferences(), [selection.backend]: selection })
+    const next = { ...this.runtimePreferences(), [selection.backend]: selection }
+    this.runtimePreferences.set(next)
+    writeRuntimePreferences(next)
     this.runtimePreferenceBackend.set(selection.backend)
   }
 

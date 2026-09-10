@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { ParameterDefinition } from '../../../domain/types'
 import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
-import { displayParameterValue, isFiniteParameter, parameterOptions, parseParameterValue } from './parameter-value'
+import { displayParameterValue, hasInvalidParameter, isFiniteParameter, parameterOptions, parseParameterValue } from './parameter-value'
 
 const definition = (type: ParameterDefinition['type'], overrides: Partial<ParameterDefinition> = {}): ParameterDefinition => ({
   id: 'value', display_name: 'Value', type, default: 0, required: true, constraints: {}, options: [], description: '', ...overrides,
 })
 
 describe('parameter value parser', () => {
+  it('exposes invalid editor state to commit guards', () => {
+    expect(hasInvalidParameter({ units: false, activation: false })).toBe(false)
+    expect(hasInvalidParameter({ units: true })).toBe(true)
+  })
+
   it('parses nested shape values and nullable markers', () => {
     expect(parseParameterValue(definition('shape'), '[1, ?, [3, 4]]')).toEqual({ valid: true, value: [1, null, [3, 4]] })
     expect(displayParameterValue([1, null, [3, 4]])).toBe('[1, ?, [3, 4]]')

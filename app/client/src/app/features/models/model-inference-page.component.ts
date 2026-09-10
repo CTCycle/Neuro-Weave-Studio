@@ -1,11 +1,10 @@
 import { Component, DestroyRef, effect, inject, signal } from '@angular/core'
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { RouterLink } from '@angular/router'
 import { LucideFlaskConical, LucideSquare } from '@lucide/angular'
-import { firstValueFrom, switchMap, takeWhile, tap, timer } from 'rxjs'
 import { ApiService } from '../../core/api/api.service'
 import type { JobResponse, RuntimeDevice, WorkerConfiguration } from '../../domain/types'
 import { AppResourcesService } from '../../core/state/app-resources.service'
+import { pollJobUntilTerminal, terminalJobStates } from './job-polling'
 import { ModelWorkspaceState } from './model-workspace.state'
 
 @Component({
@@ -70,10 +69,9 @@ export class ModelInferencePageComponent {
       if (!worker) throw new Error('The selected runtime is unavailable. Check it in Environment and retry.')
       let current = await this.api.submitSmokeInference(project.id, project.graph, worker)
       this.job.set(current)
-      if (!['succeeded', 'terminated', 'failed'].includes(current.state)) {
-        current = await firstValueFrom(timer(250, 250).pipe(switchMap(() => this.api.getJob(current.id)), tap((next) => this.job.set(next)), takeWhile((next) => !['succeeded', 'terminated', 'failed'].includes(next.state), true), takeUntilDestroyed(this.destroyRef)))
-      }
+      if (!terminalJobStates.has(current.state)) current = await pollJobUntilTerminal(current, (jobId) => this.api.getJob(jobId), (next) => this.job.set(next), { intervalMs: 250, timeoutMs: 60_000, isDestroyed: () => this.destroyRef.destroyed })
       if (this.destroyRef.destroyed) return
+      if (!terminalJobStates.has(current.state)) throw new Error('The inference worker did not reach a terminal state within 60 seconds. Refresh the page to inspect it.')
       if (current.state !== 'succeeded') throw new Error(current.error?.message || 'The inference worker did not complete.')
       const data = current.result || {}
       this.result.set({ device_name: String(data['device_name'] || worker.device_id), inputs: Array.isArray(data['inputs']) ? data['inputs'] : [], outputs: Array.isArray(data['outputs']) ? data['outputs'] : [], parameter_count: Number(data['parameter_count'] || 0), duration_ms: Number(data['duration_ms'] || 0) })

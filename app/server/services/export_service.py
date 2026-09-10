@@ -7,6 +7,7 @@ from common.timestamps import utc_now
 from domain.compilation import CompilationResult
 from domain.enums import ExecutionBackend
 from domain.exports import (
+    SUPPORTED_ONNX_OPSETS,
     ExportCapabilitiesResponse,
     ExportCapability,
     ExportCategory,
@@ -296,7 +297,7 @@ class ExportService:
                     label="ONNX opset",
                     type="integer",
                     default=18,
-                    choices=[17, 18, 19, 20],
+                    choices=list(SUPPORTED_ONNX_OPSETS),
                 ),
                 ExportOptionDefinition(
                     id="dynamic_batch", label="Dynamic batch", type="boolean", default=True

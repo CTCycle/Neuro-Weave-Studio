@@ -1,17 +1,15 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core'
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { LucideAlertTriangle, LucideCheckCircle2, LucideDownload, LucideRefreshCw, LucideSquare } from '@lucide/angular'
-import { firstValueFrom, switchMap, takeWhile, tap, timer } from 'rxjs'
 import { ApiService } from '../../core/api/api.service'
 import { AppResourcesService } from '../../core/state/app-resources.service'
 import type { ExecutionBackendStatus, ExportCapability, ExportCategory, ExportFormat, ExportOptions, JobResponse, ProjectDocument, RuntimeDevice, WorkerConfiguration } from '../../domain/types'
+import { pollJobUntilTerminal, terminalJobStates } from './job-polling'
 import { ModelWorkspaceState } from './model-workspace.state'
 
 const initialOptions: ExportOptions = { opset_version: 18, dynamic_batch: true, external_data: 'auto', max_shard_size_gb: null }
+const defaultOnnxOpsets = [17, 18]
 const categoryOrder: ExportCategory[] = ['project', 'source', 'native', 'interchange', 'checkpoint']
 const categoryLabels: Record<ExportCategory, string> = { project: 'Project', source: 'Source', native: 'Native', interchange: 'Interchange', checkpoint: 'Weights / Checkpoint' }
-const terminalStates = new Set<JobResponse['state']>(['succeeded', 'terminated', 'failed'])
-
 @Component({
   selector: 'nw-model-export-page',
   standalone: true,
@@ -50,7 +48,7 @@ export class ModelExportPageComponent {
   readonly groupedCapabilities = computed(() => categoryOrder.map((category) => ({ category, formats: this.capabilities().filter((item) => item.category === category) })).filter((group) => group.formats.length))
   readonly categoryLabels = categoryLabels
   readonly selectedCapability = (): ExportCapability | null => this.capabilities().find((item) => item.format === this.selectedFormat()) ?? null
-  readonly exportActive = computed(() => { const current = this.job(); return Boolean(current && !terminalStates.has(current.state)) })
+  readonly exportActive = computed(() => { const current = this.job(); return Boolean(current && !terminalJobStates.has(current.state)) })
 
   constructor() {
     void this.resources.loadRuntimeMetadata()
@@ -84,7 +82,7 @@ export class ModelExportPageComponent {
   badges(capability: ExportCapability): string[] { return [capability.conversion === 'native' ? 'Native' : capability.conversion === 'bridge' ? 'Converted' : null, capability.payload === 'full_model' ? 'Full model' : capability.payload === 'weights_only' ? 'Weights-only' : null, capability.inference_only ? 'Inference-only' : null, capability.training_state ? 'Training state unavailable' : null].filter((item): item is string => Boolean(item)) }
   hasOption(capability: ExportCapability, id: string): boolean { return capability.options.some((item) => item.id === id) }
   optionLabel(capability: ExportCapability, id: string, fallback: string): string { return capability.options.find((item) => item.id === id)?.label || fallback }
-  optionChoices(capability: ExportCapability, id: string, fallback: unknown[]): unknown[] { const choices = capability.options.find((item) => item.id === id)?.choices; return choices?.length ? choices : fallback }
+  optionChoices(capability: ExportCapability, id: string, fallback: unknown[]): unknown[] { const choices = capability.options.find((item) => item.id === id)?.choices; return choices?.length ? choices : id === 'opset_version' ? defaultOnnxOpsets : fallback }
   updateOptions(patch: Partial<ExportOptions>): void { this.options.update((current) => ({ ...current, ...patch })) }
   isDirect(capability: ExportCapability): boolean { return capability.format === 'project_bundle' || capability.format === 'source' }
   displayedFilename(capability: ExportCapability, project: ProjectDocument): string { return `${safeFilename(this.filenameStem() || project.name)}${capability.format === 'onnx' && this.options().external_data === 'always' ? '.onnx.zip' : extensionFor(capability)}` }
@@ -108,9 +106,10 @@ export class ModelExportPageComponent {
       }
       if (!worker) throw new Error('No operational worker is available for this project profile. Check the backend in Environment and retry.')
       let current = await this.api.submitModelExport(project.id, format, this.filenameStem().trim() || project.name, this.options(), worker); this.job.set(current)
-      if (!terminalStates.has(current.state)) current = await firstValueFrom(timer(400, 400).pipe(switchMap(() => this.api.getJob(current.id)), tap((next) => this.job.set(next)), takeWhile((next) => !terminalStates.has(next.state), true), takeUntilDestroyed(this.destroyRef)))
-      if (this.destroyRef.destroyed) return
-      if (current.state !== 'succeeded') { this.notice.set(`${capability.label} ended with ${current.state}: ${current.error?.message || 'the worker did not publish an artifact'}`); return }
+       if (!terminalJobStates.has(current.state)) current = await pollJobUntilTerminal(current, (jobId) => this.api.getJob(jobId), (next) => this.job.set(next), { intervalMs: 400, timeoutMs: 60_000, isDestroyed: () => this.destroyRef.destroyed })
+       if (this.destroyRef.destroyed) return
+       if (!terminalJobStates.has(current.state)) { this.notice.set(`${capability.label} did not reach a terminal state within 60 seconds. The worker may still be completing; refresh the page to inspect it.`); return }
+       if (current.state !== 'succeeded') { this.notice.set(`${capability.label} ended with ${current.state}: ${current.error?.message || 'the worker did not publish an artifact'}`); return }
       const blob = await this.api.jobArtifact(current.id); this.download(blob, current.artifact?.filename || this.displayedFilename(capability, project)); this.notice.set(`Downloaded verified ${current.artifact?.filename || this.displayedFilename(capability, project)}.`)
     } catch (reason) { if (!this.destroyRef.destroyed) this.notice.set(`${capability.label} failed: ${reason instanceof Error ? reason.message : String(reason)}`) } finally { if (!this.destroyRef.destroyed) this.busy.set(false) }
   }

@@ -4,9 +4,8 @@ from typing import NoReturn
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
-
 from domain.graph import ProjectExportBundle
+from fastapi.testclient import TestClient
 from services.errors import GraphPersistenceError
 from services.keras_import_service import KerasImportService
 from services.project_service import ProjectService
@@ -88,3 +87,13 @@ def test_keras_import_maps_persistence_conflict_to_409(
 
     assert response.status_code == 409
     assert response.json()["detail"] == "Project graph conflicts with the relational schema"
+
+
+###############################################################################
+def test_unknown_api_get_does_not_fall_through_to_the_spa(client: TestClient) -> None:
+    for path in ("/api/health", "/api/metrics/metric.missing"):
+        response = client.get(path)
+
+        assert response.status_code == 404
+        assert response.headers["content-type"].startswith("application/json")
+        assert response.json()["detail"] == "API route not found"

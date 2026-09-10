@@ -154,10 +154,14 @@ class ExportCapabilitiesResponse(BaseModel):
 
 
 ###############################################################################
+SUPPORTED_ONNX_OPSETS = (17, 18)
+
+
+###############################################################################
 class ExportOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    opset_version: int = Field(default=18, ge=17, le=20)
+    opset_version: int = Field(default=18, ge=SUPPORTED_ONNX_OPSETS[0], le=SUPPORTED_ONNX_OPSETS[-1])
     dynamic_batch: bool = True
     external_data: Literal["auto", "always", "never"] = "auto"
     max_shard_size_gb: float | None = Field(default=None, gt=0, le=100)

@@ -28,6 +28,10 @@ export interface ParsedParameterValue {
   value?: unknown
 }
 
+export function hasInvalidParameter(invalid: Record<string, boolean>): boolean {
+  return Object.values(invalid).some(Boolean)
+}
+
 export function parseParameterValue(
   definition: ParameterDefinition,
   raw: ParameterDraftValue,
