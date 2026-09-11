@@ -40,8 +40,8 @@ const apiLabels: Record<RuntimeApi, string> = { keras: 'Keras', native: 'Native 
                 @if (selectedDevice(status); as device) {
                   @if (selectedPolicy(status); as policy) {
                     <div class="runtime-fields">
-                      <label>Device<select [value]="device.device_id" (input)="selectDevice(status, $event)">@for (availableDevice of devicesFor(status); track availableDevice.device_id) { <option [value]="availableDevice.device_id">{{ availableDevice.device_id }} · {{ availableDevice.name }}</option> }</select></label>
-                      <label>Memory policy<select [value]="policy.kind" (input)="selectPolicy(status, $event)">@for (policyKind of device.supported_memory_policies; track policyKind) { <option [value]="policyKind">{{ policyKind }}</option> }</select></label>
+                      <label>Device<select [value]="device.device_id" (change)="selectDevice(status, $event)">@for (availableDevice of devicesFor(status); track availableDevice.device_id) { <option [value]="availableDevice.device_id" [selected]="availableDevice.device_id === device.device_id">{{ availableDevice.device_id }} · {{ availableDevice.name }}</option> }</select></label>
+                      <label>Memory policy<select [value]="policy.kind" (change)="selectPolicy(status, $event)">@for (policyKind of device.supported_memory_policies; track $index) { <option [value]="policyKind" [selected]="policyKind === policy.kind">{{ policyKind }}</option> }</select></label>
                       @if (policy.kind === 'tensorflow_limit_mb') { <label>Limit (MB)<input type="number" min="1" [value]="policy.limit_mb ?? 1024" (input)="updatePolicyValue(status, $event)" /></label> }
                       @if (policy.kind === 'jax_preallocate_fraction' || policy.kind === 'pytorch_fraction') { <label>Fraction<input type="number" min="0.01" max="1" step="0.01" [value]="policy.fraction ?? 0.5" (input)="updatePolicyValue(status, $event)" /></label> }
                     </div>
@@ -91,12 +91,15 @@ export class BackendStatusPanelComponent {
   preferredRuntimeApi(status: ExecutionBackendStatus): RuntimeApi | null { return preferredRuntimeApi(status) }
   backendDetail(status: ExecutionBackendStatus): string { return status.available ? `${status.devices?.length || 1} device${status.devices?.length === 1 ? '' : 's'}${status.device_name ? ` · ${status.device_name}` : ''}` : status.discovery_state === 'unchecked' ? 'Capability check has not run' : status.discovery_state === 'checking' ? 'Checking in an isolated worker' : status.installed ? formatReason(status.reason_code) : 'Not installed' }
   devicesFor(status: ExecutionBackendStatus): RuntimeDevice[] { return status.devices?.filter((device) => device.available) ?? [] }
-  selectedDevice(status: ExecutionBackendStatus): RuntimeDevice | undefined { const current = this.runtimeSelection(); return this.devicesFor(status).find((device) => device.device_id === current?.device_id) ?? this.devicesFor(status)[0] }
+  selectedDevice(status: ExecutionBackendStatus): RuntimeDevice | undefined {
+    const current = this.resources.runtimePreferences()[status.id]
+    return this.devicesFor(status).find((device) => device.device_id === current?.device_id) ?? this.devicesFor(status)[0]
+  }
   selectedPolicy(status: ExecutionBackendStatus): WorkerConfiguration['memory_policy'] | null {
-    const current = this.runtimeSelection()
+    const current = this.resources.runtimePreferences()[status.id]
     const device = this.selectedDevice(status)
     if (!device) return null
-    const policy = current?.backend === status.id ? current.memory_policy : null
+    const policy = current?.memory_policy
     if (policy && device.supported_memory_policies.includes(policy.kind) && isMemoryPolicyValid(policy)) return policy
     const kind = device.supported_memory_policies[0]
     return kind ? defaultMemoryPolicy(kind) : null

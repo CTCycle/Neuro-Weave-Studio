@@ -2,6 +2,7 @@ import path from 'node:path'
 import { expect, test, type APIRequestContext } from '@playwright/test'
 
 const visualEvidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'model-builder-evaluation-20260902', 'screenshots')
+const kerasImportFixture = Buffer.from('UEsDBBQAAAAIALVcKl3fELsi1QAAAL8BAAALAAAAY29uZmlnLmpzb26dj8FqwzAMhl/F+JxLu512K/RSGIOxYylBjZVUzLFTS14pIe9eqxAoaU+7iV+f9EmjbTww1wF6tB/G/uA5YxACbytjmxha6ko+2hn43phdP8Qk6MwXyiWmXyU9XDFxAfbjYuMuDFk+tb3YeARpTjWfYFBuH7L3lXk/FMjJ9Z7Z1keQt7UO8gCJNWzBM5YgQdehewhm4RlqUqedpsosr9liKFtev1YG3dzOgUTfWZcaGqE/EIpBqYQ+3wnG+kigkKSM/5DFLHrmg231ZGPq+kjupfAwTTdQSwMEFAAAAAgAtVwqXafnk7AYAAAAFgAAAA0AAABtZXRhZGF0YS5qc29uq1bKTi1KLI4vSy0qzszPU7JSUDJWqgUAUEsBAhQAFAAAAAgAtVwqXd8QuyLVAAAAvwEAAAsAAAAAAAAAAAAAAIABAAAAAGNvbmZpZy5qc29uUEsBAhQAFAAAAAgAtVwqXafnk7AYAAAAFgAAAA0AAAAAAAAAAAAAAIAB/gAAAG1ldGFkYXRhLmpzb25QSwUGAAAAAAIAAgB0AAAAQQEAAAAA', 'base64')
 
 type CreatedProject = { id: string; current_revision: number; name: string }
 
@@ -159,6 +160,32 @@ async function dragConnection(page: import('@playwright/test').Page, sourceId: s
   await page.mouse.down()
   await page.mouse.move(targetBounds!.x + targetBounds!.width / 2, targetBounds!.y + targetBounds!.height / 2, { steps: 8 })
 }
+
+test('imports a Keras architecture through the browser file input', async ({ page, request }) => {
+  let projectId: string | undefined
+  try {
+    await page.goto('/models')
+    const importResponse = page.waitForResponse((response) => response.url().includes('/api/imports/keras-architecture') && response.request().method() === 'POST')
+    await page.locator('input[type="file"][accept*=".keras"]').setInputFiles({
+      name: 'browser-import.keras',
+      mimeType: 'application/vnd.keras.zip',
+      buffer: kerasImportFixture,
+    })
+    const response = await importResponse
+    expect(response.status()).toBe(201)
+    const imported = await response.json() as { project: { id: string; name: string; graph: { nodes: unknown[] } } }
+    projectId = imported.project.id
+
+    await expect(page).toHaveURL(new RegExp(`/models/${projectId}$`))
+    await expect(page.getByRole('heading', { name: 'browser import' })).toBeVisible()
+    expect(imported.project.graph.nodes.length).toBe(4)
+    const persisted = await (await request.get(`/api/projects/${projectId}`)).json() as { name: string; graph: { nodes: unknown[] } }
+    expect(persisted.name).toBe('browser import')
+    expect(persisted.graph.nodes).toHaveLength(4)
+  } finally {
+    if (projectId) await deleteProject(request, projectId)
+  }
+})
 
 test('deletes a model from its catalog card without navigating', async ({ page, request }) => {
   const fixture = await createProject(request, `Angular catalog delete ${Date.now()}`)
@@ -322,6 +349,35 @@ test('renders stable connection previews, fan-out connections, and cycle rejecti
     await expect(page.locator('[data-f-connector-id="mask-target-e2e|input|input"]')).not.toHaveClass(/f-connector-connectable/)
     await page.mouse.up()
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
+test('exposes keyboard-traversable graph nodes and ports', async ({ page, request }) => {
+  const fixture = await createProject(request, `Angular graph accessibility ${Date.now()}`, fanOutGraph())
+  try {
+    await page.goto(`/builder/${fixture.id}`)
+    const nodes = page.locator('[data-node-id]')
+    const ports = page.locator('.nw-flow-port[role="button"]')
+    await expect(nodes).toHaveCount(7)
+    await expect(nodes.first()).toHaveAttribute('tabindex', '0')
+    await expect(nodes.first()).toHaveAttribute('role', 'group')
+    await expect(ports).not.toHaveCount(0)
+
+    const source = page.locator('[data-node-id="input-branch-e2e"] .nw-flow-port.output')
+    const target = page.locator('[data-node-id="dense-fanout-e2e"] .nw-flow-port.input')
+    await source.focus()
+    await source.press('Enter')
+    await expect(source).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('status')).toContainText('Choose an input port')
+
+    await target.focus()
+    const validationResponse = page.waitForResponse((response) => response.url().includes('/api/validation/connection') && response.request().method() === 'POST')
+    await target.press('Enter')
+    expect((await validationResponse).ok()).toBeTruthy()
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
+    await expect(source).toHaveAttribute('aria-pressed', 'false')
   } finally {
     await deleteProject(request, fixture.id)
   }
