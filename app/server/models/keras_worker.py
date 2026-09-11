@@ -298,6 +298,15 @@ def build_model(
             tensors[node_id] = layers.Activation(
                 params.get("activation", "relu"), **_base_layer_kwargs(params), name=node.id
             )(source)
+        elif definition == "layer.prelu":
+            tensors[node_id] = layers.PReLU(
+                alpha_initializer=layer_option(params, "alpha_initializer", graph, "zeros"),
+                alpha_regularizer=layer_option(params, "alpha_regularizer", graph, "none"),
+                alpha_constraint=layer_option(params, "alpha_constraint", graph, "none"),
+                shared_axes=params.get("shared_axes"),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
         elif definition == "layer.flatten":
             tensors[node_id] = layers.Flatten(
                 data_format=params.get("data_format", "channels_last"),
@@ -349,6 +358,19 @@ def build_model(
                 gamma_regularizer=layer_option(params, "gamma_regularizer", graph, "none"),
                 beta_constraint=layer_option(params, "beta_constraint", graph, "none"),
                 gamma_constraint=layer_option(params, "gamma_constraint", graph, "none"),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
+        elif definition == "layer.rms_norm":
+            tensors[node_id] = layers.RMSNormalization(
+                axis=params.get("axis", -1),
+                epsilon=params.get("epsilon", 1e-6),
+                **_base_layer_kwargs(params),
+                name=node.id,
+            )(source)
+        elif definition == "layer.unit_norm":
+            tensors[node_id] = layers.UnitNormalization(
+                axis=params.get("axis", -1),
                 **_base_layer_kwargs(params),
                 name=node.id,
             )(source)
