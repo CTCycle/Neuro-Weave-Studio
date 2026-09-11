@@ -235,7 +235,9 @@ f-connection.is-selected path, f-connection.f-selected path { stroke: var(--acce
 .field-error { color: var(--error); font-size: 9px; }
 .inspector-panel { padding-bottom: 24px; }
 .inspector-panel:focus-within { outline: 1px solid rgba(101,201,212,.28); outline-offset: -2px; }
-button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.canvas-shell [fNode]:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+.canvas-shell .nw-flow-port:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 50%; }
 .code-drawer { width: min(720px, calc(100vw - 24px)); max-width: 100vw; }
 .notice { max-width: min(560px, calc(100vw - 24px)); text-align: center; }
 @media (max-width: 1024.99px) {
@@ -1008,6 +1010,17 @@ nw-graph-canvas { display: contents; }
 .canvas-shell .nw-flow-port:has(.f-connector-not-connectable):not(:has(.f-connector-connected)) [fConnector] {
   border-color: rgba(239, 106, 114, .65);
   background: #2a1a20;
+}
+.canvas-shell .nw-flow-port.is-keyboard-source [fConnector] {
+  border-color: var(--cyan);
+  background: #21444d;
+  box-shadow: 0 0 0 4px rgba(101, 201, 212, .24), 0 0 14px rgba(101, 201, 212, .65);
+  transform: scale(1.18);
+}
+.canvas-shell .nw-flow-port.is-keyboard-target [fConnector] {
+  border-color: var(--success);
+  background: #214d3d;
+  box-shadow: 0 0 0 3px rgba(103, 201, 139, .2), 0 0 12px rgba(103, 201, 139, .48);
 }
 .canvas-shell [fNode].has-validation-error .nw-flow-node { border-color: rgba(239, 106, 114, .75); }
 .canvas-shell f-connection.is-invalid .f-connection-path { stroke: var(--error); }

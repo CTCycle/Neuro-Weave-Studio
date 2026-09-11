@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Self
 from urllib.error import URLError
 
@@ -282,3 +283,55 @@ def test_repository_resolution_rejects_invalid_commit_response(
         },
     )
     assert response.status_code == 503
+
+
+@pytest.mark.skipif(
+    os.getenv("NEURO_WEAVE_RUN_LIVE_REPOSITORY_TESTS") != "1",
+    reason="Opt-in: exercises the live Hugging Face repository resolver.",
+)
+def test_repository_node_live_round_trip_and_missing_reference(client: httpx.Client) -> None:
+    created = client.post(
+        "/api/nodes/custom",
+        json={
+            "display_name": "Live public encoder reference",
+            "category": "repository",
+            "description": "Live verification of a public Hugging Face model reference.",
+            "spec": {
+                "type": "repository",
+                "provider": "huggingface",
+                "repository_id": "openai-community/gpt2",
+                "revision": "main",
+                "artifact_type": "model",
+            },
+        },
+    )
+    assert created.status_code == 201, created.text
+    definition = created.json()
+    spec = definition["spec"]
+    resolved_commit = spec["resolved_commit"]
+    assert spec["repository_id"] == "openai-community/gpt2"
+    assert isinstance(resolved_commit, str)
+    assert len(resolved_commit) == 40
+    assert all(character in "0123456789abcdef" for character in resolved_commit)
+    assert spec["library_name"]
+    assert definition["executable_template"] is False
+
+    try:
+        missing = client.post(
+            "/api/nodes/custom",
+            json={
+                "display_name": "Missing public repository reference",
+                "category": "repository",
+                "description": "Missing references must remain non-persisted and actionable.",
+                "spec": {
+                    "type": "repository",
+                    "provider": "huggingface",
+                    "repository_id": "openai-community/this-repository-does-not-exist-neuroweave",
+                    "revision": "main",
+                    "artifact_type": "model",
+                },
+            },
+        )
+        assert missing.status_code == 422, missing.text
+    finally:
+        assert client.delete(f"/api/nodes/custom/{definition['id']}").status_code == 204

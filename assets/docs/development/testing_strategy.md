@@ -34,6 +34,10 @@ Frontend tests are deliberately limited to state and interaction contracts that 
 - Model Export page capability grouping, explicit disabled reasons, format-specific options, job polling, cancellation, retry, and verified download;
 - Builder keeps graph save/validation separate from Compilation configuration and source generation, while CodePreview remains inspection/copy-only there.
 - dataset capability choices, disabled Auto Detect, persisted resource refresh, wizard role/subset/validation transitions, catalog selection/deletion, unavailable-source rendering, and future-only Processing/Split routes.
+- browser file-input import of a `.keras` architecture, including persisted project retrieval and downstream route navigation;
+- exact runtime device/memory-policy local-storage round trips after a browser reload, using native select change events;
+- keyboard graph traversal, source/target port activation, authoritative connection validation, and accessible status feedback;
+- visible-control naming, document landmarks, language/title, and focus-visible baseline checks across the core browser routes.
 
 Presentation details, button inventories, clipboard status, basic filtering, and collapsible UI behavior are covered by static checks and product QA rather than dedicated unit tests.
 
@@ -42,5 +46,9 @@ Presentation details, button inventories, clipboard status, basic filtering, and
 Backend changes should run pytest, Ruff, and Pyright. Frontend changes should run Vitest, ESLint, the Angular production build, and Playwright E2E. Vitest includes only `src/**/*.test.ts` and `src/**/*.spec.ts`; Playwright specs live under `e2e/` and are run through the dedicated `npm run e2e` command.
 
 Coverage percentage is not a release goal. Regression signal, business-risk protection, execution safety, and maintainability are the criteria for retaining tests.
+
+The repository reference path has two tiers. Hermetic tests stub the Hugging Face resolver and retain explicit outage and malformed-commit cases. The live backend round trip is opt-in with `NEURO_WEAVE_RUN_LIVE_REPOSITORY_TESTS=1`; the live Nodes UI round trip is opt-in with `NEURO_WEAVE_RUN_LIVE_REPOSITORY_E2E=1`. Both verify a public commit is pinned and that the definition remains reference-only. They are intentionally excluded from the offline default suite because external availability is not a deterministic CI dependency.
+
+The browser file-input test exercises Playwright's browser input path; it does not certify every native file chooser implementation. The accessibility baseline is not a substitute for full WCAG conformance or a screen-reader/assistive-technology matrix. When those environments are available, record the manual result under `assets/QA/` with browser, OS, assistive technology, and observed interaction details.
 
 The native compilation parity gate covers PyTorch and Keras-on-PyTorch representative dense, classification, recurrent, LSTM, and convolution graphs. It verifies catalog mappings, generated helper construction/evaluation, task/target/activation diagnostics, compilation summaries, forward shapes and dtypes, and supported native export reloads. Runtime evidence must state that helper verification is inference-only; TensorFlow and JAX validation remain out of scope for this gate. Browser acceptance uses the official launcher and records graph creation, validation, compilation, inference, export capability results, logs, network/console failures, and cleanup under `assets/QA/`.

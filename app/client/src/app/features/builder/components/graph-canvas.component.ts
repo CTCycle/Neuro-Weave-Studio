@@ -10,13 +10,15 @@ import { connectionCandidates, wouldCreateCycle } from '../graph/graph-validatio
 import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, normalizeConnection, portOffset } from '../graph/foblex-graph.adapter'
 
 const NO_CONNECTION_TARGET_ID = '__neuro_weave_no_compatible_target__'
+type KeyboardPort = { nodeId: string; direction: 'input' | 'output'; portId: string }
+type NormalizedConnection = NonNullable<ReturnType<typeof normalizeConnection>>
 
 @Component({
   selector: 'nw-graph-canvas',
   standalone: true,
   imports: [FFlowModule, LucideLock, LucideMaximize2, LucideSave, LucideUnlock],
   template: `
-    <div class="canvas-shell" [class.is-read-only]="readOnly" [class.is-viewport-locked]="viewportLocked()" [class.has-connection-feedback]="!!activeConnectionFeedback()" (contextmenu)="openCanvasMenu($event)" (dragover)="allowDrop($event)" (drop)="dropNode($event)">
+    <div class="canvas-shell" role="region" aria-label="Model graph canvas" [class.is-read-only]="readOnly" [class.is-viewport-locked]="viewportLocked()" [class.has-connection-feedback]="!!activeConnectionFeedback()" (contextmenu)="openCanvasMenu($event)" (dragover)="allowDrop($event)" (drop)="dropNode($event)">
       <f-flow fDraggable [fDraggableDisabled]="readOnly" [fCanvasMoveTrigger]="canvasMoveTrigger" [vCellSize]="16" [hCellSize]="16" [fCellSizeWhileDragging]="16" (fDragStarted)="startDrag()" (fDragEnded)="store.endDrag()" (fMoveNodes)="moveNodes($event)" (fSelectionChange)="select($event)" (fDeleteSelected)="deleteSelected($event)" (fCreateConnection)="createConnection($event)" (fNodesRendered)="fitOnNodesRendered()">
         <f-background><f-circle-pattern color="rgba(118, 150, 164, .16)" [radius]="24"></f-circle-pattern></f-background>
         @if (minimapVisible()) { <f-minimap [fMinSize]="50" [fNodeRenderLimit]="1000"></f-minimap> }
@@ -24,8 +26,8 @@ const NO_CONNECTION_TARGET_ID = '__neuro_weave_no_compatible_target__'
           <f-connection-for-create fType="straight" fOffset="20"></f-connection-for-create>
           <ng-container ngProjectAs="[fConnections]">@for (edge of store.edges(); track edge.id) { <f-connection fType="straight" fOffset="20" [fSelectionDisabled]="readOnly" [fConnectionId]="edge.id" [fSourceId]="connectorId(edge.source, 'output', edge.sourceHandle || 'output')" [fTargetId]="connectorId(edge.target, 'input', edge.targetHandle || 'input')" [class.is-selected]="store.selectedEdgeId() === edge.id" [class.is-invalid]="hasEdgeError(edge.id)"></f-connection> }</ng-container>
           <ng-container ngProjectAs="[fNodes]">@for (node of store.nodes(); track node.id) {
-            <div fNode [fNodeId]="node.id" [fNodePosition]="node.position" [fNodeDraggingDisabled]="readOnly || node.locked" [fNodeSelectionDisabled]="readOnly" [fNodeSize]="nodeSize(node)" [class.is-selected]="store.selectedNodeId() === node.id" [class.has-validation-error]="hasNodeError(node.id)" [attr.aria-label]="node.data.label" (click)="selectNode(node.id)">
-              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" aria-hidden="true">@if (node.locked) { <svg lucideLock [size]="13"></svg> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { @if (portEnabled(node, 'input', port.id)) { <span class="nw-flow-port input" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'input'" [attr.aria-label]="'Input ' + port.display_name" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> } }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { @if (portEnabled(node, 'output', port.id)) { <span class="nw-flow-port output" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'output'" [attr.aria-label]="'Output ' + port.display_name" [title]="port.display_name + ' · ' + port.kind"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="true" [fCanBeConnectedTo]="connectionTargets(node.id, port.id)"></i></span> } }</div></div>
+            <div fNode [fNodeId]="node.id" [fNodePosition]="node.position" [fNodeDraggingDisabled]="readOnly || node.locked" [fNodeSelectionDisabled]="readOnly" [fNodeSize]="nodeSize(node)" [class.is-selected]="store.selectedNodeId() === node.id" [class.has-validation-error]="hasNodeError(node.id)" [attr.data-node-id]="node.id" [attr.tabindex]="0" role="group" [attr.aria-label]="'Node ' + node.data.label" (click)="selectNode(node.id)" (keydown)="handleNodeKeydown($event, node.id)">
+              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" aria-hidden="true">@if (node.locked) { <svg lucideLock [size]="13"></svg> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { @if (portEnabled(node, 'input', port.id)) { <span class="nw-flow-port input" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'input'" [attr.tabindex]="0" role="button" [attr.aria-label]="keyboardPortLabel(node, 'input', port.id)" [class.is-keyboard-target]="isKeyboardTarget(node.id, port.id)" [title]="port.display_name + ' · ' + port.kind" (keydown)="handlePortKeydown($event, node.id, 'input', port.id)"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> } }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { @if (portEnabled(node, 'output', port.id)) { <span class="nw-flow-port output" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'output'" [attr.tabindex]="0" role="button" [attr.aria-pressed]="isKeyboardSource(node.id, port.id)" [attr.aria-label]="keyboardPortLabel(node, 'output', port.id)" [class.is-keyboard-source]="isKeyboardSource(node.id, port.id)" [title]="port.display_name + ' · ' + port.kind" (keydown)="handlePortKeydown($event, node.id, 'output', port.id)"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="true" [fCanBeConnectedTo]="connectionTargets(node.id, port.id)"></i></span> } }</div></div>
             </div>
           } </ng-container>
         </f-canvas>
@@ -33,6 +35,7 @@ const NO_CONNECTION_TARGET_ID = '__neuro_weave_no_compatible_target__'
         @if (!readOnly) { <div class="canvas-editor-tools" [class.is-focus-mode]="fullCanvas" role="toolbar" aria-label="Graph editor controls"><div class="canvas-tool-group"><button type="button" class="canvas-tool" (click)="minimapVisible.set(!minimapVisible())" [attr.aria-label]="minimapVisible() ? 'Hide minimap' : 'Show minimap'" [title]="minimapVisible() ? 'Hide minimap' : 'Show minimap'">{{ minimapVisible() ? 'Hide map' : 'Show map' }}</button><button type="button" class="canvas-tool canvas-lock-tool" [class.is-active]="viewportLocked()" [attr.aria-pressed]="viewportLocked()" [attr.aria-label]="viewportLocked() ? 'Unlock canvas' : 'Lock canvas'" [title]="viewportLocked() ? 'Unlock canvas' : 'Lock canvas'" (click)="toggleViewportLock()">@if (viewportLocked()) { <svg lucideUnlock [size]="13"></svg><span>Unlock canvas</span> } @else { <svg lucideLock [size]="13"></svg><span>Lock canvas</span> }</button></div>@if (fullCanvas) { <div class="canvas-focus-bar"><span class="canvas-focus-model">{{ modelName }}</span><span class="canvas-focus-draft" [class.is-dirty]="dirty">{{ busy ? 'Saving…' : dirty ? 'Draft' : 'Saved' }}</span><button type="button" class="canvas-tool canvas-focus-save" (click)="save.emit()" [disabled]="busy" aria-label="Save model"><svg lucideSave [size]="14"></svg><span>Save</span></button><button type="button" class="canvas-tool canvas-focus-exit" (click)="exitFocus.emit()" [disabled]="busy" aria-label="Exit full canvas">Exit full canvas</button></div> } @else { <button type="button" class="canvas-tool" (click)="enterFocus.emit()" aria-label="Enter full canvas">Focus</button> }</div> }
       </f-flow>
       @if (!readOnly && activeConnectionFeedback(); as feedback) { <div class="connection-feedback" role="status" aria-live="assertive">{{ feedback }}</div> }
+      @if (!readOnly && keyboardConnectionHint(); as hint) { <div class="connection-feedback keyboard-connection-feedback" role="status" aria-live="polite">{{ hint }}</div> }
       @if (!readOnly && !store.nodes().length) { <div class="canvas-empty-state"><span class="eyebrow">EMPTY GRAPH</span><strong>Drop an operation here</strong><span>Choose a node from the catalog to start a model.</span></div> }
       @if (readOnly && !store.nodes().length) { <div class="preview-empty">No renderable nodes in this revision.</div> }
       @if (!readOnly) { <div class="canvas-hint">Drop a node to build the model • Ctrl+L auto-layout</div> }
@@ -71,6 +74,15 @@ export class GraphCanvasComponent implements OnChanges {
   readonly canvasMenu = signal<{ x: number; y: number } | null>(null)
   readonly nodeMenu = signal<{ x: number; y: number; nodeId: string } | null>(null)
   readonly connectionFeedback = signal<string | null>(null)
+  readonly keyboardConnectionSource = signal<KeyboardPort | null>(null)
+  readonly keyboardConnectionHint = computed(() => {
+    const source = this.keyboardConnectionSource()
+    if (!source) return null
+    const node = this.store.nodes().find((item) => item.id === source.nodeId)
+    const port = node?.data.manifest.outputs.find((item) => item.id === source.portId)
+    if (!node || !port) return null
+    return `Connection source ${port.display_name} on ${node.data.label} selected. Choose an input port and press Enter to connect, or press Escape to cancel.`
+  })
   private readonly connectionFeedbackRevision = signal<number | null>(null)
   readonly activeConnectionFeedback = computed(() => {
     const feedback = this.connectionFeedback()
@@ -182,6 +194,7 @@ export class GraphCanvasComponent implements OnChanges {
 
   allowDrop(event: DragEvent): void { if (!this.readOnly) event.preventDefault() }
   startDrag(): void {
+    this.keyboardConnectionSource.set(null)
     this.setConnectionFeedback(null)
     this.store.beginDrag()
   }
@@ -247,6 +260,59 @@ export class GraphCanvasComponent implements OnChanges {
   moveNodes(event: FMoveNodesEvent): void { this.store.moveNodes(event.nodes.map((node) => ({ id: node.id, position: { x: node.position.x, y: node.position.y } }))) }
   selectNode(nodeId: string): void { if (!this.readOnly) this.store.selectNode(nodeId) }
   select(event: FSelectionChangeEvent): void { if (this.readOnly) return; if (event.connectionIds.length) this.store.selectEdge(event.connectionIds[0]); else if (event.nodeIds.length) this.store.selectNode(event.nodeIds[0]); else this.store.clearSelection() }
+  handleNodeKeydown(event: KeyboardEvent, nodeId: string): void {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      this.selectNode(nodeId)
+      return
+    }
+    const direction = event.key === 'ArrowUp' ? 'up'
+      : event.key === 'ArrowDown' ? 'down'
+        : event.key === 'ArrowLeft' ? 'left'
+          : event.key === 'ArrowRight' ? 'right'
+            : null
+    if (!direction) return
+    event.preventDefault()
+    this.focusNearestNode(nodeId, direction)
+  }
+  async handlePortKeydown(event: KeyboardEvent, nodeId: string, direction: 'input' | 'output', portId: string): Promise<void> {
+    if (event.key === 'Escape') {
+      if (this.keyboardConnectionSource()) {
+        event.preventDefault()
+        event.stopPropagation()
+        this.keyboardConnectionSource.set(null)
+        this.setConnectionFeedback(null)
+      }
+      return
+    }
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    event.stopPropagation()
+    if (this.readOnly) return
+
+    if (direction === 'output') {
+      const current = this.keyboardConnectionSource()
+      this.selectNode(nodeId)
+      this.setConnectionFeedback(null)
+      this.keyboardConnectionSource.set(current?.nodeId === nodeId && current.portId === portId ? null : { nodeId, direction, portId })
+      return
+    }
+
+    const source = this.keyboardConnectionSource()
+    if (!source) {
+      this.selectNode(nodeId)
+      return
+    }
+    const connection = normalizeConnection(
+      connectorId(source.nodeId, 'output', source.portId),
+      connectorId(nodeId, 'input', portId),
+    )
+    if (!connection) {
+      this.setConnectionFeedback('Connection not created. The selected ports are not compatible.')
+      return
+    }
+    if (await this.validateAndCommitConnection(connection)) this.keyboardConnectionSource.set(null)
+  }
   deleteSelected(_event: FDeleteSelectedEvent): void { if (!this.readOnly) this.store.deleteSelected() }
   async createConnection(event: FCreateConnectionEvent): Promise<void> {
     if (this.readOnly) return
@@ -259,6 +325,10 @@ export class GraphCanvasComponent implements OnChanges {
       this.setConnectionFeedback('Connection not created. The selected ports are not compatible.')
       return
     }
+    this.keyboardConnectionSource.set(null)
+    await this.validateAndCommitConnection(connection)
+  }
+  private async validateAndCommitConnection(connection: NormalizedConnection): Promise<boolean> {
     const expectedRevision = this.store.graphRevision()
     const expectedBackend = this.executionBackend
     const expectedKeras = this.kerasEnabled
@@ -280,23 +350,65 @@ export class GraphCanvasComponent implements OnChanges {
         || expectedBackend !== this.executionBackend
         || expectedKeras !== this.kerasEnabled) {
         this.setConnectionFeedback('Connection not created. The graph changed while it was being checked.')
-        return
+        return false
       }
       if (!result.valid) {
         this.setConnectionFeedback(this.connectionDiagnosticMessage(result.diagnostics))
-        return
+        return false
       }
       if (!this.store.commitConnection(connection, expectedRevision)) {
         this.setConnectionFeedback('Connection not created. The graph changed while it was being checked.')
-        return
+        return false
       }
       this.setConnectionFeedback(null)
+      return true
     } catch (reason) {
       this.setConnectionFeedback(`Connection not created. ${reason instanceof Error ? reason.message : String(reason)}`)
+      return false
     }
   }
   connectionTargets(nodeId: string, portId: string): string[] {
     return this.connectionTargetMap().get(`${nodeId}|${portId}`) ?? this.noConnectionTargets
+  }
+  isKeyboardSource(nodeId: string, portId: string): boolean {
+    const source = this.keyboardConnectionSource()
+    return source?.direction === 'output' && source.nodeId === nodeId && source.portId === portId
+  }
+  isKeyboardTarget(nodeId: string, portId: string): boolean {
+    const source = this.keyboardConnectionSource()
+    return source?.direction === 'output'
+      && this.connectionTargets(source.nodeId, source.portId).includes(connectorId(nodeId, 'input', portId))
+  }
+  keyboardPortLabel(node: EditorNode, direction: 'input' | 'output', portId: string): string {
+    const ports = direction === 'input' ? node.data.manifest.inputs : node.data.manifest.outputs
+    const port = ports.find((item) => item.id === portId)
+    const selected = direction === 'output' && this.isKeyboardSource(node.id, portId)
+    return `Port ${port?.display_name ?? portId} (${direction}) on ${node.data.label}${selected ? '. Connection source selected.' : ''}`
+  }
+  private focusNearestNode(nodeId: string, direction: 'up' | 'down' | 'left' | 'right'): void {
+    const current = Array.from(document.querySelectorAll<HTMLElement>('[data-node-id]'))
+      .find((element) => element.dataset['nodeId'] === nodeId)
+    if (!current) return
+    const currentBounds = current.getBoundingClientRect()
+    const currentCenter = { x: currentBounds.left + currentBounds.width / 2, y: currentBounds.top + currentBounds.height / 2 }
+    const candidates = Array.from(current.closest('.canvas-shell')?.querySelectorAll<HTMLElement>('[data-node-id]') ?? [])
+      .filter((element) => element !== current)
+      .map((element) => {
+        const bounds = element.getBoundingClientRect()
+        const center = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }
+        const delta = { x: center.x - currentCenter.x, y: center.y - currentCenter.y }
+        const inDirection = direction === 'right' ? delta.x > 4
+          : direction === 'left' ? delta.x < -4
+            : direction === 'down' ? delta.y > 4
+              : delta.y < -4
+        if (!inDirection) return null
+        const primary = direction === 'left' || direction === 'right' ? Math.abs(delta.x) : Math.abs(delta.y)
+        const secondary = direction === 'left' || direction === 'right' ? Math.abs(delta.y) : Math.abs(delta.x)
+        return { element, score: primary + secondary * 2 }
+      })
+      .filter((candidate): candidate is { element: HTMLElement; score: number } => candidate !== null)
+      .sort((left, right) => left.score - right.score)
+    candidates[0]?.element.focus()
   }
   connectorId = connectorId
   portOffset = portOffset
@@ -361,6 +473,12 @@ export class GraphCanvasComponent implements OnChanges {
 
   @HostListener('document:keydown', ['$event'])
   handleKeyboard(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.keyboardConnectionSource()) {
+      event.preventDefault()
+      this.keyboardConnectionSource.set(null)
+      this.setConnectionFeedback(null)
+      return
+    }
     if (event.key === 'Escape' && (this.canvasMenu() || this.nodeMenu())) { event.preventDefault(); this.closeMenus(); return }
     const command = event.ctrlKey || event.metaKey
     const target = event.target
