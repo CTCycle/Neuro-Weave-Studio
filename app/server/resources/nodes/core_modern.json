@@ -1,0 +1,262 @@
+{
+  "nodes": [
+    {
+      "id": "layer.rms_norm",
+      "version": 1,
+      "display_name": "RMS Normalization",
+      "category": "core",
+      "description": "Root Mean Square normalization with a learned scaling factor.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": -1,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "epsilon",
+          "display_name": "Epsilon",
+          "type": "number",
+          "default": 0.000001,
+          "required": false,
+          "options": [],
+          "constraints": {
+            "min": 0
+          }
+        }
+      ],
+      "shape_rule": {
+        "kind": "normalization",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "adapter": "rms_norm",
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": false,
+          "notes": "Native TensorFlow support is deferred until a dedicated RMS normalization adapter is verified."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Native PyTorch support is deferred until a dedicated RMS normalization adapter is verified."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX support is deferred until a dedicated RMS normalization adapter is verified."
+        }
+      },
+      "ui": {
+        "icon": "Scale",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.prelu",
+      "version": 1,
+      "display_name": "Parametric ReLU",
+      "category": "core",
+      "description": "Parametric rectified linear activation with a learned negative slope.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "alpha_initializer",
+          "display_name": "Alpha initializer",
+          "type": "initializer",
+          "default": "zeros",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "alpha_regularizer",
+          "display_name": "Alpha regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "alpha_constraint",
+          "display_name": "Alpha constraint",
+          "type": "constraint",
+          "default": "none",
+          "required": false,
+          "options": [],
+          "constraints": {}
+        },
+        {
+          "id": "shared_axes",
+          "display_name": "Shared axes",
+          "type": "shape",
+          "default": null,
+          "required": false,
+          "options": [],
+          "constraints": {},
+          "nullable": true
+        }
+      ],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "adapter": "prelu",
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": false,
+          "notes": "Native TensorFlow support is deferred until learned PReLU parameters are represented by the native exporter."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Native PyTorch support is deferred until learned PReLU parameters are represented by the native exporter."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX support is deferred until learned PReLU parameters are represented by the native exporter."
+        }
+      },
+      "ui": {
+        "icon": "Zap",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    },
+    {
+      "id": "layer.unit_norm",
+      "version": 1,
+      "display_name": "Unit Normalization",
+      "category": "core",
+      "description": "L2-normalizes tensors over the selected axis while preserving tensor shape.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": -1,
+          "required": false,
+          "options": [],
+          "constraints": {}
+        }
+      ],
+      "shape_rule": {
+        "kind": "normalization",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "adapter": "unit_norm",
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": false,
+          "notes": "Native TensorFlow support is deferred until a dedicated unit-normalization adapter is verified."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Native PyTorch support is deferred until a dedicated unit-normalization adapter is verified."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX support is deferred until a dedicated unit-normalization adapter is verified."
+        }
+      },
+      "ui": {
+        "icon": "Scale",
+        "accent": "violet",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/core_layers.md"
+    }
+  ]
+}
