@@ -1,0 +1,76 @@
+{
+  "nodes": [
+    {
+      "id": "math.stop_gradient",
+      "version": 1,
+      "display_name": "Stop Gradient",
+      "category": "mathematical",
+      "description": "Preserves the forward tensor while preventing gradient propagation through this path.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "operation",
+        "config": {}
+      },
+      "operation": {
+        "family": "unary",
+        "shape_behavior": "preserve",
+        "output_dtype": "same",
+        "arity": 1,
+        "variadic": false,
+        "arguments": [],
+        "keywords": []
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "symbol": "keras.ops.stop_gradient",
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": false,
+          "notes": "Native TensorFlow support is deferred until gradient-barrier semantics are covered by native compilation tests."
+        },
+        "pytorch": {
+          "supported": false,
+          "notes": "Native PyTorch support is deferred until detach semantics are covered by native compilation tests."
+        },
+        "jax": {
+          "supported": false,
+          "notes": "Native JAX support is deferred until stop-gradient semantics are covered by native compilation tests."
+        }
+      },
+      "ui": {
+        "icon": "CircleOff",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/mathematical_operations.md"
+    }
+  ]
+}
