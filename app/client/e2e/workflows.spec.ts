@@ -161,6 +161,13 @@ async function dragConnection(page: import('@playwright/test').Page, sourceId: s
   await page.mouse.move(targetBounds!.x + targetBounds!.width / 2, targetBounds!.y + targetBounds!.height / 2, { steps: 8 })
 }
 
+async function waitForCanvasFit(page: import('@playwright/test').Page): Promise<void> {
+  await expect.poll(async () => {
+    const style = await page.locator('f-canvas').getAttribute('style')
+    return Boolean(style && !style.includes('matrix(1, 0, 0, 1, 0, 0)'))
+  }, { timeout: 5_000 }).toBeTruthy()
+}
+
 test('imports a Keras architecture through the browser file input', async ({ page, request }) => {
   let projectId: string | undefined
   try {
@@ -325,6 +332,7 @@ test('renders stable connection previews, fan-out connections, and cycle rejecti
     await page.goto(`/builder/${fixture.id}`)
     await expect(page.locator('.nw-flow-node')).toHaveCount(7)
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(4)
+    await waitForCanvasFit(page)
 
     await dragConnection(page, 'input-branch-e2e|output|output', 'dense-fanout-e2e|input|input')
     const preview = page.locator('f-connection-for-create path').first()
@@ -340,6 +348,7 @@ test('renders stable connection previews, fan-out connections, and cycle rejecti
     expect(saved.graph.edges).toHaveLength(5)
 
     await dragConnection(page, 'dense-downstream-e2e|output|output', 'merge-add-e2e|input|inputs')
+    await expect(page.locator('[data-f-connector-id="merge-add-e2e|input|inputs"]')).toHaveClass(/f-connector-connectable/)
     await page.mouse.up()
     await expect(page.getByRole('status')).toContainText('cycle')
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
@@ -523,6 +532,7 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     await page.getByRole('button', { name: 'Configure', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
+    await expect(dialog.getByLabel('Loss')).toHaveValue('binary_crossentropy')
     await dialog.getByRole('button', { name: 'Apply configuration' }).click()
     await expect(page.getByRole('button', { name: /Saved validated compilation settings/ })).toBeVisible()
     const sourceResponse = page.waitForResponse((response) => response.url().includes(`/api/exports/${fixture.id}/source`) && response.request().method() === 'GET')
@@ -622,6 +632,7 @@ test('keeps read-only previews, compact Builder controls, and modal bounds usabl
     })
     const dragStart = { x: canvasBounds.left + canvasBounds.width / 2, y: canvasBounds.top + canvasBounds.height - 20 }
     const readCanvasTransform = () => page.locator('f-canvas').evaluate((element) => `${element.getAttribute('style') ?? ''}:${getComputedStyle(element).transform}`)
+    await waitForCanvasFit(page)
     const lockedTransform = await readCanvasTransform()
     await page.getByRole('button', { name: 'Lock canvas' }).click()
     const unlockButton = page.getByRole('button', { name: 'Unlock canvas' })
