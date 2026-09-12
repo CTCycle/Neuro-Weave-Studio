@@ -87,8 +87,8 @@ def terminate_process_tree(pid: int, *, force: bool) -> None:
         except (OSError, subprocess.TimeoutExpired):
             return
         return
+    termination_signal = getattr(signal, "SIGKILL", signal.SIGTERM) if force else signal.SIGTERM
     try:
-        termination_signal = getattr(signal, "SIGKILL", signal.SIGTERM) if force else signal.SIGTERM
         os.killpg(os.getpgid(pid), termination_signal)
     except (OSError, ProcessLookupError):
         try:
