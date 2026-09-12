@@ -99,12 +99,15 @@ def _serve_client_root() -> FileResponse:
 
 ###############################################################################
 def _serve_client_path(full_path: str) -> FileResponse:
-    if full_path == "api" or full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API route not found")
     client_file = _resolve_client_file(full_path)
     if client_file is not None:
         return FileResponse(client_file)
     return _serve_client_root()
+
+
+###############################################################################
+def _raise_unknown_api_route(_full_path: str) -> None:
+    raise HTTPException(status_code=404, detail="API route not found")
 
 
 ###############################################################################
@@ -166,6 +169,12 @@ def create_app() -> FastAPI:
     application.include_router(exports.router)
     application.include_router(imports.router)
     application.include_router(filesystem.router)
+    application.add_api_route(
+        "/api/{_full_path:path}",
+        _raise_unknown_api_route,
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+        include_in_schema=False,
+    )
 
     if _client_build_available():
         if common_path.FRONTEND_ASSETS_ROOT.is_dir():
