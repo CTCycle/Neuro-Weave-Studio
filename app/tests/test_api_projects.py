@@ -5,6 +5,7 @@ from typing import Any, cast
 
 import httpx
 import pytest
+
 from repositories.graphs import GraphRepository
 
 
