@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import cast
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -139,7 +139,10 @@ def create_app() -> FastAPI:
     )
 
     @application.middleware("http")
-    async def log_api_request(request: Request, call_next):  # type: ignore[no-untyped-def]
+    async def log_api_request(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         if not request.url.path.startswith("/api"):
             return await call_next(request)
         started = time.perf_counter()
