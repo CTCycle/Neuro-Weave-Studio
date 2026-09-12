@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from common.catalogs.loader import NodeCatalog, get_node_catalog
+from common.catalogs.operation_emitter import emit_operation_source
 from compilation.compiler import compile_to_ir
 from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.keras_exporter import KerasSourceExporter
-
 
 NEW_NODE_IDS = {
     "layer.rms_norm",
@@ -65,8 +65,9 @@ def _keras_source(definition_id: str) -> str:
 
 def test_modern_nodes_are_canonical_catalog_entries() -> None:
     catalog = get_node_catalog()
+    manifest_ids = {manifest.id for manifest in catalog.manifests}
 
-    assert NEW_NODE_IDS <= {manifest.id for manifest in catalog.manifests}
+    assert manifest_ids >= NEW_NODE_IDS
     assert len(catalog.manifests) >= 149
 
     for definition_id in NEW_NODE_IDS:
@@ -79,6 +80,9 @@ def test_modern_nodes_are_canonical_catalog_entries() -> None:
             ExecutionBackend.PYTORCH: True,
             ExecutionBackend.JAX: True,
         }
+
+    for definition_id in {"layer.rms_norm", "layer.prelu", "layer.unit_norm"}:
+        manifest = catalog.get(definition_id)
         for native_target in ("tensorflow", "pytorch", "jax"):
             assert manifest.implementations[native_target].supported is False
 
@@ -96,7 +100,7 @@ def test_modern_core_nodes_emit_explicit_keras_layers() -> None:
         assert "No Keras adapter registered" not in source
 
 
-def test_stop_gradient_uses_backend_neutral_keras_operation() -> None:
+def test_stop_gradient_uses_verified_backend_operations() -> None:
     catalog = get_node_catalog()
     manifest = catalog.get("math.stop_gradient")
 
@@ -104,6 +108,17 @@ def test_stop_gradient_uses_backend_neutral_keras_operation() -> None:
     assert manifest.operation.family == "unary"
     assert manifest.operation.shape_behavior == "preserve"
     assert manifest.implementations["keras"].symbol == "keras.ops.stop_gradient"
+    assert manifest.implementations["tensorflow"].symbol == "tf.stop_gradient"
+    assert manifest.implementations["pytorch"].symbol == "torch.detach"
+    assert manifest.implementations["jax"].symbol == "jax.lax.stop_gradient"
 
     source = _keras_source("math.stop_gradient")
     assert "keras.ops.stop_gradient(" in source
+
+    expected_native_source = {
+        "tensorflow": "tf.stop_gradient(value)",
+        "pytorch": "torch.detach(value)",
+        "jax": "jax.lax.stop_gradient(value)",
+    }
+    for target, expected in expected_native_source.items():
+        assert emit_operation_source(manifest, target, ["value"], {}) == expected
