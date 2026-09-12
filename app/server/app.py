@@ -106,6 +106,11 @@ def _serve_client_path(full_path: str) -> FileResponse:
 
 
 ###############################################################################
+def _raise_unknown_api_root() -> None:
+    raise HTTPException(status_code=404, detail="API route not found")
+
+
+###############################################################################
 def _raise_unknown_api_route(_full_path: str) -> None:
     raise HTTPException(status_code=404, detail="API route not found")
 
@@ -169,6 +174,12 @@ def create_app() -> FastAPI:
     application.include_router(exports.router)
     application.include_router(imports.router)
     application.include_router(filesystem.router)
+    application.add_api_route(
+        "/api",
+        _raise_unknown_api_root,
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+        include_in_schema=False,
+    )
     application.add_api_route(
         "/api/{_full_path:path}",
         _raise_unknown_api_route,
