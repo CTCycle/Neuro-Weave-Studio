@@ -4,8 +4,9 @@ from typing import NoReturn
 from uuid import uuid4
 
 import pytest
-from domain.graph import ProjectExportBundle
 from fastapi.testclient import TestClient
+
+from domain.graph import ProjectExportBundle
 from services.errors import GraphPersistenceError
 from services.keras_import_service import KerasImportService
 from services.project_service import ProjectService
