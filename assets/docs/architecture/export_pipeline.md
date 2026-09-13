@@ -1,8 +1,10 @@
 # Export Pipeline
 
-Last updated: 2026-09-09
+Last updated: 2026-09-13
 
 `ExportService` is the single capability and publication boundary. `GET /api/exports/{project_id}/capabilities` validates the current graph and returns only profile-compatible methods, runtime/dependency reasons, option definitions, payload/conversion badges, and limitations. The dedicated `/models/:modelId/export` page consumes that matrix and owns project/source downloads and binary export jobs. Compilation owns source generation and source inspection/copy; it does not download artifacts. Project JSON and generated source remain the canonical synchronous representations.
+
+Capability availability and job validation are the same contract: both use the saved graph revision, exact `execution_backend`, exact Keras/native API, runtime requirements, and server-owned option choices. An invalid graph makes source and artifact capabilities unavailable and prevents job creation; a worker with the wrong backend or API is rejected before the controller can create a job or publish an artifact. Unavailable runtime/compiler and dependency reasons are displayed, not converted into a fallback path.
 
 `POST /api/execution/jobs` accepts the clean-break `model_export` operation with a persisted project revision, server-validated filename stem, format, options, and immutable worker selection. The UI completes on-demand discovery for the persisted Keras/native API pair before submission; direct requests with an unchecked pair start or join discovery and return structured `runtime_discovery_pending`. `RuntimeController` probes only the requested API, skips absent frameworks, and validates or reuses a matching environment snapshot; explicit refresh or a changed package/hardware/configuration fingerprint refreshes discovery. It then starts an isolated worker, reports preflight/building/serializing/validating/publishing phases, and keeps the prior published artifact when any check, cancellation, revision guard, or packaging step fails. Publication is staged and atomic; the returned `ExportArtifactManifest` contains deterministic file paths, hashes, signatures, dependency versions, and verification results.
 

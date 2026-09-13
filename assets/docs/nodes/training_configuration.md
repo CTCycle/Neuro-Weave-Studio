@@ -1,10 +1,12 @@
 # Training Configuration
 
-Last updated: 2026-09-10
+Last updated: 2026-09-13
 
 Optimizer, loss, metric, learning-rate, regularizer, initializer, constraint, random-seed, and mixed-precision concepts are represented in the Keras branch of one model-level configuration value, not the tensor graph. The same canonical value contains explicit native compiler branches for TensorFlow, PyTorch, and JAX. This prevents configuration edges from being mistaken for tensors and supports multiple output heads through `__default__`, output-ID, and output-label mappings.
 
 When `keras_enabled=true`, validated optimizer, loss, metric, initializer, regularizer, constraint, seed, and mixed-precision settings are applied when Keras source or binary models are built. When `keras_enabled=false`, native implementations consume only their selected backend branch: TensorFlow `jit_compile`, PyTorch `torch.compile` options, or JAX `jit_enabled`. Environment device, memory, and precision preferences remain session-scoped worker configuration.
+
+The compilation branch follows the same six-profile rule as the graph: Keras uses the Keras catalog over the selected backend, native TensorFlow and JAX expose only their implemented compiler settings, and native PyTorch exposes its native catalog plus `torch.compile` settings. An unavailable runtime or compiler remains visible with its reason and cannot start an execution job. Native paths never fall back to Keras, and compilation validates the complete graph and selected profile before source or artifacts are produced.
 
 The application now exposes a persisted dataset-registration and session-only training bootstrap without changing the persisted model configuration. Dataset definitions reference local file/folder/array sources through the filesystem explorer and store typed roles, compact inspection metadata, validation findings, and subset rules; they do not persist preprocessing or split drafts. Training definitions remain session-only and currently contain the selected saved model, selected dataset registration, epochs, and batch size. Dataset loading, `fit`, training loops, gradient or weight updates, checkpointing, and experiment persistence remain out of scope for this bootstrap.
 
