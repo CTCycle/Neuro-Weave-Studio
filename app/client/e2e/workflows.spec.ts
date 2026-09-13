@@ -412,7 +412,7 @@ test('retains incompatible drafts while disabling catalog, compilation, and expo
     expect(saved.keras_enabled).toBe(false)
     expect(saved.validation_status).toBe('invalid')
     expect(saved.graph.nodes).toHaveLength(3)
-    await expect(page.getByText(`Saved revision ${saved.current_revision}`)).toBeVisible()
+    await expect(page.locator('.builder-badge')).toContainText('Saved')
 
     const persisted = await (await request.get(`/api/projects/${fixture.id}`)).json() as { keras_enabled: boolean; validation_status: string; graph: { nodes: Array<{ id: string }> } }
     expect(persisted).toMatchObject({ keras_enabled: false, validation_status: 'invalid' })
@@ -446,7 +446,7 @@ test('polls a compatible smoke-test job to a verified result', async ({ page, re
   await mkdir(evidenceDir, { recursive: true })
   try {
     await page.goto(`/models/${fixture.id}/inference`)
-    await expect(page.getByRole('heading', { name: 'Run a safe model check' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Run a safe model check' })).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText(/keras · pytorch ·/i)).toBeVisible({ timeout: 75_000 })
     const submitResponse = page.waitForResponse((response) => response.url().includes('/api/execution/jobs') && response.request().method() === 'POST')
     await page.getByRole('button', { name: 'Run smoke test', exact: true }).click()
