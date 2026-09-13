@@ -9,7 +9,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-
 ###############################################################################
 def process_rss_bytes(pid: int) -> int | None:
     """Return best-effort resident memory without importing an optional package."""
@@ -24,7 +23,6 @@ def process_rss_bytes(pid: int) -> int | None:
         return resident_pages * int(os.sysconf("SC_PAGE_SIZE"))
     except (OSError, IndexError, ValueError):
         return None
-
 
 ###############################################################################
 def _windows_process_rss(pid: int) -> int | None:
@@ -62,7 +60,6 @@ def _windows_process_rss(pid: int) -> int | None:
     except (AttributeError, OSError):
         return None
 
-
 ###############################################################################
 def process_start_options() -> dict[str, Any]:
     """Return platform-safe options that keep a worker in its own process group."""
@@ -70,7 +67,6 @@ def process_start_options() -> dict[str, Any]:
     if os.name == "nt":
         return {"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)}
     return {"start_new_session": True}
-
 
 ###############################################################################
 def terminate_process_tree(pid: int, *, force: bool) -> None:
@@ -96,7 +92,6 @@ def terminate_process_tree(pid: int, *, force: bool) -> None:
         except (OSError, ProcessLookupError):
             return
 
-
 ###############################################################################
 def wait_for_process(process: subprocess.Popen[Any], timeout: float) -> bool:
     try:
@@ -104,7 +99,6 @@ def wait_for_process(process: subprocess.Popen[Any], timeout: float) -> bool:
     except subprocess.TimeoutExpired:
         return False
     return True
-
 
 ###############################################################################
 def sleep_poll(seconds: float) -> None:

@@ -7,6 +7,7 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.keras_exporter import KerasSourceExporter
 
 
+###############################################################################
 def test_catalog_contract_is_unique_and_round_trips() -> None:
     catalog = get_node_catalog()
 
@@ -20,6 +21,7 @@ def test_catalog_contract_is_unique_and_round_trips() -> None:
         assert manifest.__class__.model_validate(manifest.model_dump()) == manifest
 
 
+###############################################################################
 def test_supported_keras_mappings_are_explicit_and_non_legacy() -> None:
     catalog = get_node_catalog()
 
@@ -31,6 +33,7 @@ def test_supported_keras_mappings_are_explicit_and_non_legacy() -> None:
         assert "legacy" not in (mapping.adapter or "").lower()
 
 
+###############################################################################
 def test_keras_layer_surface_matches_current_constructor_contract() -> None:
     catalog = get_node_catalog()
 
@@ -135,6 +138,7 @@ def test_keras_layer_surface_matches_current_constructor_contract() -> None:
     assert padding.default == "valid"
 
 
+###############################################################################
 def test_every_supported_keras_node_has_a_source_adapter() -> None:
     catalog = get_node_catalog()
     exporter = KerasSourceExporter()

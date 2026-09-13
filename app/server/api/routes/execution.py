@@ -13,7 +13,6 @@ from services.runtime_controller import RuntimeController, RuntimeControllerErro
 
 router = APIRouter(prefix="/api/execution", tags=["execution"])
 
-
 ###############################################################################
 @router.post("/discovery", response_model=RuntimeDiscoveryResponse, status_code=202)
 def request_discovery(
@@ -32,7 +31,6 @@ def request_discovery(
             detail={"code": exc.code, "message": str(exc), **exc.details},
         ) from exc
 
-
 ###############################################################################
 @router.get("/discovery", response_model=RuntimeDiscoveryResponse)
 def discovery_status(
@@ -44,7 +42,6 @@ def discovery_status(
         return controller.discovery_status(ExecutionBackend(backend), RuntimeApi(api))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Unknown backend or runtime API") from exc
-
 
 ###############################################################################
 @router.post("/jobs", response_model=JobResponse, status_code=202)
@@ -87,7 +84,6 @@ def submit_job(
             detail={"code": exc.code, "message": str(exc), **exc.details},
         ) from exc
 
-
 ###############################################################################
 @router.get("/jobs", response_model=list[JobResponse])
 def list_jobs(
@@ -95,7 +91,6 @@ def list_jobs(
     controller: RuntimeController = Depends(get_runtime_controller),
 ) -> list[JobResponse]:
     return controller.list(active_only=active_only)
-
 
 ###############################################################################
 @router.get("/jobs/{job_id}", response_model=JobResponse)
@@ -110,7 +105,6 @@ def get_job(
             status_code=404, detail={"code": exc.code, "message": str(exc)}
         ) from exc
 
-
 ###############################################################################
 @router.post("/jobs/{job_id}/stop", response_model=JobResponse)
 def stop_job(
@@ -124,7 +118,6 @@ def stop_job(
         raise HTTPException(
             status_code=status, detail={"code": exc.code, "message": str(exc)}
         ) from exc
-
 
 ###############################################################################
 @router.get("/jobs/{job_id}/artifact")

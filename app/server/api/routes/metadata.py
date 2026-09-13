@@ -8,7 +8,6 @@ from services.runtime_service import RuntimeService
 
 router = APIRouter(prefix="/api/metadata", tags=["metadata"])
 
-
 ###############################################################################
 @router.get("", response_model=MetadataResponse)
 def metadata(service: RuntimeService = Depends(get_runtime_service)) -> MetadataResponse:

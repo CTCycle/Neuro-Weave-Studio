@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from configurations.settings import DatabaseSettings
 
-
 ###############################################################################
 class SQLiteBackend:
+
     # -------------------------------------------------------------------------
     def __init__(self, settings: DatabaseSettings) -> None:
         self.db_path = Path(settings.sqlite_path).resolve()
@@ -43,12 +43,10 @@ class SQLiteBackend:
             if previous_autocommit is not None:
                 dbapi_connection.autocommit = previous_autocommit
 
-
 ###############################################################################
 def build_sqlite_url(db_path: Path) -> str:
     """Build the SQLite URL shared by the application and Alembic."""
     return f"sqlite+pysqlite:///{db_path.resolve().as_posix()}"
-
 
 ###############################################################################
 def build_session_factory(engine: Engine) -> sessionmaker[Session]:

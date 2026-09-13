@@ -9,7 +9,6 @@ from uuid import UUID
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import ModelGraph
 
-
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class ProjectMetadata:
@@ -24,16 +23,15 @@ class ProjectMetadata:
     current_revision: int
     validation_status: ValidationStatus
 
-
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class GraphSummary:
     node_count: int
     edge_count: int
 
-
 ###############################################################################
 class RepositoryRevisionConflictError(RuntimeError):
+
     # -------------------------------------------------------------------------
     def __init__(self, expected_revision: int, current_revision: int) -> None:
         super().__init__(
@@ -42,14 +40,13 @@ class RepositoryRevisionConflictError(RuntimeError):
         self.expected_revision = expected_revision
         self.current_revision = current_revision
 
-
 ###############################################################################
 class RepositoryIntegrityError(RuntimeError):
     """Persistence integrity failure translated from the ORM boundary."""
 
-
 ###############################################################################
 class ProjectRepositoryProtocol(Protocol):
+
     # -------------------------------------------------------------------------
     def list_metadata(self) -> list[ProjectMetadata]: ...
 
@@ -87,9 +84,9 @@ class ProjectRepositoryProtocol(Protocol):
     # -------------------------------------------------------------------------
     def delete(self, project_id: UUID) -> bool: ...
 
-
 ###############################################################################
 class GraphRepositoryProtocol(Protocol):
+
     # -------------------------------------------------------------------------
     def load(self, project_id: UUID, graph_schema_version: int) -> ModelGraph | None: ...
 
@@ -102,9 +99,9 @@ class GraphRepositoryProtocol(Protocol):
     # -------------------------------------------------------------------------
     def summaries(self, project_ids: Sequence[UUID]) -> dict[UUID, GraphSummary]: ...
 
-
 ###############################################################################
 class RevisionRepositoryProtocol(Protocol):
+
     # -------------------------------------------------------------------------
     def append(
         self,
@@ -117,9 +114,9 @@ class RevisionRepositoryProtocol(Protocol):
         timestamp: datetime,
     ) -> None: ...
 
-
 ###############################################################################
 class CodeSnapshotRepositoryProtocol(Protocol):
+
     # -------------------------------------------------------------------------
     def get_for_revision(self, project_id: UUID, revision: int) -> str | None: ...
 
@@ -142,13 +139,16 @@ class CodeSnapshotRepositoryProtocol(Protocol):
     def delete_for_projects(self, project_ids: Sequence[UUID]) -> int: ...
 
 
+###############################################################################
 @dataclass(frozen=True, slots=True)
 class MetricUsage:
     project_id: UUID
     project_name: str
 
 
+###############################################################################
 class MetricRepositoryProtocol(Protocol):
+
     # -------------------------------------------------------------------------
     def list_all(self) -> list[Any]: ...
 
@@ -164,9 +164,9 @@ class MetricRepositoryProtocol(Protocol):
     # -------------------------------------------------------------------------
     def referencing_projects(self, metric_id: str) -> list[MetricUsage]: ...
 
-
 ###############################################################################
 class CustomNodeRepositoryProtocol(Protocol):
+
     # -------------------------------------------------------------------------
     def list_all(self) -> list[Any]: ...
 
@@ -179,20 +179,24 @@ class CustomNodeRepositoryProtocol(Protocol):
     # -------------------------------------------------------------------------
     def delete(self, record: Any) -> None: ...
 
-
 ###############################################################################
 class DatasetRepositoryProtocol(Protocol):
+
+    # -------------------------------------------------------------------------
     def list_all(self) -> list[Any]: ...
 
+    # -------------------------------------------------------------------------
     def get(self, dataset_id: UUID) -> Any | None: ...
 
+    # -------------------------------------------------------------------------
     def add(self, record: Any) -> None: ...
 
+    # -------------------------------------------------------------------------
     def delete(self, record: Any) -> None: ...
-
 
 ###############################################################################
 class UnitOfWorkProtocol(Protocol):
+
     # -------------------------------------------------------------------------
     @property
     def projects(self) -> ProjectRepositoryProtocol: ...
@@ -230,8 +234,8 @@ class UnitOfWorkProtocol(Protocol):
     # -------------------------------------------------------------------------
     def commit(self) -> None: ...
 
-
 ###############################################################################
 class UnitOfWorkFactory(Protocol):
+
     # -------------------------------------------------------------------------
     def __call__(self) -> UnitOfWorkProtocol: ...

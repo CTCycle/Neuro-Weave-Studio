@@ -34,13 +34,16 @@ TYPE_INFERENCE_LIMIT = 512
 PARQUET = cast(Any, parquet)
 
 
+###############################################################################
 class DatasetInspectionError(ValueError):
     pass
 
 
+###############################################################################
 class DatasetInspectionService:
     """Read compact metadata from external dataset sources without copying sample data."""
 
+    # -------------------------------------------------------------------------
     def inspect(self, request: DatasetInspectionRequest) -> DatasetInspection:
         source_ids = [source.id for source in request.sources]
         if len(source_ids) != len(set(source_ids)):
@@ -68,6 +71,7 @@ class DatasetInspectionService:
             warnings=warnings,
         )
 
+    # -------------------------------------------------------------------------
     def file_keys(self, source: ImageFolderSource | TextSource, mode: str) -> set[str]:
         root = self._validated_path(source.path, directory=source.type == "image_folder" or source.path_kind == "folder")
         paths = self._image_paths(root, source.recursive) if isinstance(source, ImageFolderSource) else self._text_paths(root, source)
@@ -84,6 +88,7 @@ class DatasetInspectionService:
             keys.add(key)
         return keys
 
+    # -------------------------------------------------------------------------
     def table_identifiers(self, source: TableSource, column: str, mode: str) -> tuple[set[str], list[str]]:
         values: set[str] = set()
         duplicates: list[str] = []
@@ -102,6 +107,7 @@ class DatasetInspectionService:
             values.add(value)
         return values, duplicates
 
+    # -------------------------------------------------------------------------
     def _inspect_table(self, source: TableSource) -> TableInspection:
         path = self._validated_path(source.path, directory=False)
         self._assert_suffix(path, source.format)
@@ -157,6 +163,7 @@ class DatasetInspectionService:
             inference_sample_size=min(count, TYPE_INFERENCE_LIMIT),
         )
 
+    # -------------------------------------------------------------------------
     def _inspect_images(self, source: ImageFolderSource) -> ImageFolderInspection:
         root = self._validated_path(source.path, directory=True)
         extensions: set[str] = set()
@@ -176,6 +183,7 @@ class DatasetInspectionService:
             class_counts=dict(sorted(class_counts.items())),
         )
 
+    # -------------------------------------------------------------------------
     def _inspect_text(self, source: TextSource) -> TextInspection:
         path = self._validated_path(source.path, directory=source.path_kind == "folder")
         paths = list(self._text_paths(path, source))
@@ -186,6 +194,7 @@ class DatasetInspectionService:
             extensions=sorted({item.suffix.casefold() for item in paths}),
         )
 
+    # -------------------------------------------------------------------------
     def _inspect_array(self, source: ArraySource) -> ArrayInspection:
         path = self._validated_path(source.path, directory=False)
         self._assert_suffix(path, source.format)
@@ -223,6 +232,7 @@ class DatasetInspectionService:
             arrays=arrays,
         )
 
+    # -------------------------------------------------------------------------
     def _table_column_values(self, source: TableSource, column: str) -> Iterator[str]:
         path = self._validated_path(source.path, directory=False)
         if source.format == "parquet":
@@ -259,6 +269,7 @@ class DatasetInspectionService:
         except (OSError, UnicodeError, csv.Error) as exc:
             raise DatasetInspectionError(f"Unable to read delimited table identifiers: {exc}") from exc
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _column_names(first: list[str], has_header: bool) -> list[str]:
         if not first:
@@ -270,6 +281,7 @@ class DatasetInspectionService:
             raise DatasetInspectionError("Table header contains duplicate column names")
         return names
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _consume_row(row: list[str], names: list[str], states: list[_DTypeState]) -> None:
         if len(row) != len(names):
@@ -277,6 +289,7 @@ class DatasetInspectionService:
         for state, value in zip(states, row, strict=True):
             state.observe(value)
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _validated_path(raw: str, *, directory: bool) -> Path:
         path = Path(raw).expanduser()
@@ -291,11 +304,13 @@ class DatasetInspectionService:
         except OSError as exc:
             raise DatasetInspectionError(f"Unable to resolve path: {path}") from exc
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _assert_suffix(path: Path, expected: str) -> None:
         if path.suffix.casefold() != f".{expected}":
             raise DatasetInspectionError(f"Expected a .{expected} file: {path}")
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _image_paths(root: Path, recursive: bool) -> Iterator[Path]:
         iterator = root.rglob("*") if recursive else root.iterdir()
@@ -306,6 +321,7 @@ class DatasetInspectionService:
         except PermissionError as exc:
             raise DatasetInspectionError(f"Permission denied while reading image folder: {root}") from exc
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _text_paths(path: Path, source: TextSource) -> Iterator[Path]:
         if source.path_kind == "file":
@@ -322,12 +338,16 @@ class DatasetInspectionService:
             raise DatasetInspectionError(f"Permission denied while reading text folder: {path}") from exc
 
 
+###############################################################################
 class _DTypeState:
+
+    # -------------------------------------------------------------------------
     def __init__(self) -> None:
         self.dtype = "unknown"
         self.nullable = False
         self._frozen = False
 
+    # -------------------------------------------------------------------------
     def observe(self, raw: str) -> None:
         if self._frozen:
             return
@@ -338,6 +358,7 @@ class _DTypeState:
         observed = _scalar_dtype(value)
         self.dtype = _merge_dtype(self.dtype, observed)
 
+    # -------------------------------------------------------------------------
     def freeze(self) -> _DTypeState:
         self._frozen = True
         if self.dtype == "unknown":
@@ -345,6 +366,7 @@ class _DTypeState:
         return self
 
 
+###############################################################################
 def _scalar_dtype(value: str) -> str:
     if value.casefold() in {"true", "false"}:
         return "bool"
@@ -360,6 +382,7 @@ def _scalar_dtype(value: str) -> str:
         return "string"
 
 
+###############################################################################
 def _merge_dtype(current: str, observed: str) -> str:
     if current in {"unknown", observed}:
         return observed
@@ -368,6 +391,7 @@ def _merge_dtype(current: str, observed: str) -> str:
     return "string"
 
 
+###############################################################################
 def _read_npy_header(handle: IO[bytes]) -> tuple[tuple[int, ...], str]:
     if handle.read(6) != b"\x93NUMPY":
         raise ValueError("Invalid NumPy array signature")

@@ -10,9 +10,9 @@ from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from repositories.models import ProjectRevisionRecord
 
-
 ###############################################################################
 class RevisionRepository:
+
     # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session

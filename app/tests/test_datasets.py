@@ -12,6 +12,7 @@ from pyarrow import parquet
 from app import create_app
 
 
+###############################################################################
 def _table_source(path: Path, source_id: str = "table") -> dict[str, object]:
     return {
         "type": "table",
@@ -23,6 +24,7 @@ def _table_source(path: Path, source_id: str = "table") -> dict[str, object]:
     }
 
 
+###############################################################################
 def _tabular_payload(path: Path, *, subset: dict[str, object] | None = None) -> dict[str, object]:
     return {
         "name": "Patient outcomes",
@@ -43,6 +45,7 @@ def _tabular_payload(path: Path, *, subset: dict[str, object] | None = None) -> 
     }
 
 
+###############################################################################
 def test_tabular_registration_persists_metadata_only_and_lists_summary(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -75,6 +78,7 @@ def test_tabular_registration_persists_metadata_only_and_lists_summary(
     assert "negative" not in serialized
 
 
+###############################################################################
 def test_validate_rejects_missing_columns_and_create_returns_structured_findings(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -95,6 +99,7 @@ def test_validate_rejects_missing_columns_and_create_returns_structured_findings
     assert created.json()["detail"]["code"] == "dataset_definition_invalid"
 
 
+###############################################################################
 def test_first_n_subset_is_persisted_and_out_of_bounds_is_blocking(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -115,6 +120,7 @@ def test_first_n_subset_is_persisted_and_out_of_bounds_is_blocking(
     assert any(item["code"] == "subset_out_of_bounds" for item in validation.json()["validation"]["errors"])
 
 
+###############################################################################
 def test_image_folder_and_label_table_require_exact_mapping(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -171,6 +177,7 @@ def test_image_folder_and_label_table_require_exact_mapping(
     assert any(item["code"] == "rows_without_files" for item in invalid.json()["validation"]["errors"])
 
 
+###############################################################################
 def test_array_sources_validate_leading_sample_dimensions(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -203,6 +210,7 @@ def test_array_sources_validate_leading_sample_dimensions(
     assert created.json()["inspection"]["sources"][0]["arrays"][0]["shape"] == [4, 3]
 
 
+###############################################################################
 def test_npz_inspection_exposes_keys_without_persisting_array_values(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -227,6 +235,7 @@ def test_npz_inspection_exposes_keys_without_persisting_array_values(
     assert "1.0" not in json.dumps(created.json())
 
 
+###############################################################################
 def test_parquet_inspection_uses_schema_metadata_and_supports_input_only(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -246,6 +255,7 @@ def test_parquet_inspection_uses_schema_metadata_and_supports_input_only(
     assert created.json()["output_definition"]["bindings"] == []
 
 
+###############################################################################
 def test_delimited_inspection_rejects_duplicate_headers_and_malformed_rows(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -263,6 +273,7 @@ def test_delimited_inspection_rejects_duplicate_headers_and_malformed_rows(
     assert "column counts" in malformed_response.json()["detail"]["message"]
 
 
+###############################################################################
 def test_range_subset_is_zero_based_and_inclusive(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -275,6 +286,7 @@ def test_range_subset_is_zero_based_and_inclusive(
     assert created.json()["selected_sample_count"] == 2
 
 
+###############################################################################
 def test_missing_source_remains_registered_and_delete_does_not_remove_source(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -296,6 +308,7 @@ def test_missing_source_remains_registered_and_delete_does_not_remove_source(
     assert client.get(f"/api/datasets/{dataset_id}").status_code == 404
 
 
+###############################################################################
 def test_delete_registration_leaves_external_source_untouched(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -311,6 +324,7 @@ def test_delete_registration_leaves_external_source_untouched(
     assert source.read_text(encoding="utf-8") == "feature,target\n1,yes\n"
 
 
+###############################################################################
 def test_update_relink_refreshes_definition_and_inspection_snapshot(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -330,6 +344,7 @@ def test_update_relink_refreshes_definition_and_inspection_snapshot(
     assert updated.json()["sample_count"] == 2
 
 
+###############################################################################
 def test_dataset_registration_survives_application_restart(tmp_path: Path, monkeypatch) -> None:
     database = tmp_path / "restart.db"
     source = tmp_path / "restart.csv"

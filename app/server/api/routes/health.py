@@ -8,7 +8,6 @@ from services.runtime_service import RuntimeService
 
 router = APIRouter(tags=["health"])
 
-
 ###############################################################################
 @router.get("/health", response_model=HealthResponse)
 def health(service: RuntimeService = Depends(get_runtime_service)) -> HealthResponse:

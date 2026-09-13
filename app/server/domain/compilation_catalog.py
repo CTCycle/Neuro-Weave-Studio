@@ -16,7 +16,6 @@ TargetContract = Literal[
     "probability_distribution_same_shape",
 ]
 
-
 ###############################################################################
 class CompilationParameter(BaseModel):
     id: str
@@ -27,7 +26,6 @@ class CompilationParameter(BaseModel):
     options: list[str] = Field(default_factory=list)
     constraints: dict[str, float | int | bool | str] = Field(default_factory=dict)
 
-
 ###############################################################################
 class CompilationImplementation(BaseModel):
     supported: bool = False
@@ -35,7 +33,6 @@ class CompilationImplementation(BaseModel):
     adapter: str | None = None
     parameter_mapping: dict[str, str] = Field(default_factory=dict)
     notes: str | None = None
-
 
 ###############################################################################
 class CompilationOption(BaseModel):
@@ -55,7 +52,6 @@ class CompilationOption(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-
 ###############################################################################
 class CompilationCatalog(BaseModel):
     optimizers: list[CompilationOption] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
@@ -65,7 +61,6 @@ class CompilationCatalog(BaseModel):
     regularizers: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
 
-
 ###############################################################################
 class CompilationCatalogProvider(Protocol):
     """Boundary for the future user-editable compilation catalog."""
@@ -73,9 +68,9 @@ class CompilationCatalogProvider(Protocol):
     # -------------------------------------------------------------------------
     def get(self) -> CompilationCatalog: ...
 
-
 ###############################################################################
 class StaticCompilationCatalogProvider:
+
     # -------------------------------------------------------------------------
     def __init__(self) -> None:
         self._catalog: CompilationCatalog | None = None
@@ -85,7 +80,6 @@ class StaticCompilationCatalogProvider:
         if self._catalog is None:
             self._catalog = _build_compilation_catalog()
         return self._catalog
-
 
 ###############################################################################
 def _number(
@@ -111,7 +105,6 @@ def _number(
         constraints=constraints,
     )
 
-
 ###############################################################################
 def _optimizer(
     identifier: str,
@@ -133,7 +126,6 @@ def _optimizer(
             ),
         },
     )
-
 
 ###############################################################################
 def _mapped_option(
@@ -165,7 +157,6 @@ def _mapped_option(
         can_edit=False,
         can_delete=False,
     )
-
 
 ###############################################################################
 def _build_compilation_catalog() -> CompilationCatalog:
@@ -511,18 +502,20 @@ def _build_compilation_catalog() -> CompilationCatalog:
 
 _COMPILATION_CATALOG_PROVIDER = StaticCompilationCatalogProvider()
 
-
 ###############################################################################
 def get_compilation_catalog_provider() -> CompilationCatalogProvider:
     return _COMPILATION_CATALOG_PROVIDER
 
 
+###############################################################################
 class PersistentCompilationCatalogProvider:
     """Merge server-owned built-ins with installation-wide user definitions."""
 
+    # -------------------------------------------------------------------------
     def __init__(self, uow_factory: Callable[[], Any]) -> None:
         self._uow_factory = uow_factory
 
+    # -------------------------------------------------------------------------
     def get(self) -> CompilationCatalog:
         # Keep the import local so the static catalog remains usable by pure
         # compiler tests without importing the persistence layer.
@@ -572,11 +565,9 @@ class PersistentCompilationCatalogProvider:
             }
         )
 
-
 ###############################################################################
 def get_compilation_catalog() -> CompilationCatalog:
     return get_compilation_catalog_provider().get()
-
 
 ###############################################################################
 def get_compilation_catalog_for_implementation(

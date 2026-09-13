@@ -41,7 +41,6 @@ from validation.output_resolution import input_nodes as catalog_input_nodes
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
 
-
 ###############################################################################
 def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     if parameter.value_schema is not None:
@@ -77,7 +76,6 @@ def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
         return isinstance(value, list)
     return True
 
-
 ###############################################################################
 def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
     if schema.type == "object":
@@ -108,7 +106,6 @@ def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
         return isinstance(value, (str, dict))
     return True
 
-
 ###############################################################################
 def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
     for parameter_id, expected in condition.items():
@@ -129,7 +126,6 @@ def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) ->
             return False
     return True
 
-
 ###############################################################################
 def _effective_default(
     parameter: ParameterDefinition, capability: ParameterCapability | None
@@ -139,7 +135,6 @@ def _effective_default(
     if "framework_default" in parameter.model_fields_set:
         return parameter.framework_default
     return parameter.default
-
 
 ###############################################################################
 def _graph_subset(graph: ModelGraph, node_ids: set[str]) -> ModelGraph:
@@ -157,7 +152,6 @@ def _graph_subset(graph: ModelGraph, node_ids: set[str]) -> ModelGraph:
             "output_bindings": [],
         },
     )
-
 
 ###############################################################################
 def _infer_port_spec(
@@ -177,6 +171,7 @@ def _infer_port_spec(
     return summary.outputs.get(port_id) if summary is not None else None
 
 
+###############################################################################
 def _shape_error_parameter_id(
     manifest: NodeManifest | None,
     message: str,
@@ -205,6 +200,7 @@ def _shape_error_parameter_id(
     return None
 
 
+###############################################################################
 def _shape_error_context(
     graph: ModelGraph,
     catalog: NodeCatalog,
@@ -230,7 +226,6 @@ def _shape_error_context(
             return node_id, _shape_error_parameter_id(manifest, str(prefix_error))
     return None, fallback_parameter_id
 
-
 ###############################################################################
 def _shape_error_is_pending(
     graph: ModelGraph,
@@ -249,7 +244,6 @@ def _shape_error_is_pending(
     ):
         return True
     return manifest.shape_rule.kind in {"merge_same", "concatenate"} and len(incoming) < 2
-
 
 ###############################################################################
 class ValidationService:

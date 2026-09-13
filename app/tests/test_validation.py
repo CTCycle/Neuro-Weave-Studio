@@ -4,7 +4,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, OutputBinding, 
 from services.validation_service import ValidationService
 from validation.shape_inference import infer_shapes
 
-
 ###############################################################################
 def make_node(
     node_id: str,
@@ -17,7 +16,6 @@ def make_node(
         position=Position(x=0, y=0),
         parameters=parameters or {},
     )
-
 
 ###############################################################################
 def two_input_graph(
@@ -57,7 +55,6 @@ def two_input_graph(
             ),
         ],
     )
-
 
 ###############################################################################
 def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
@@ -103,7 +100,6 @@ def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
     assert result.total_parameters == 63
     dense = next(item for item in result.shape_summaries if item.node_id == "dense")
     assert dense.outputs["output"].shape == [None, 3]
-
 
 ###############################################################################
 def test_cycle_is_reported_as_error() -> None:
@@ -162,7 +158,6 @@ def test_cycle_is_reported_as_error() -> None:
         for item in result.diagnostics
     )
 
-
 ###############################################################################
 def test_unsafe_math_expression_is_rejected() -> None:
     graph = ModelGraph(
@@ -205,7 +200,6 @@ def test_unsafe_math_expression_is_rejected() -> None:
 
     assert not result.valid
     assert any(item.code == "unsafe_expression" for item in result.diagnostics)
-
 
 ###############################################################################
 def test_matmul_requires_batch_first_matrix_tensors() -> None:
@@ -253,7 +247,6 @@ def test_matmul_requires_batch_first_matrix_tensors() -> None:
         and "rank-3 or higher batch-first" in item.message
         for item in result.diagnostics
     )
-
 
 ###############################################################################
 def test_declared_parameter_contract_rejects_null_and_unknown_values() -> None:
@@ -306,7 +299,6 @@ def test_declared_parameter_contract_rejects_null_and_unknown_values() -> None:
         for item in unknown_result.diagnostics
     )
 
-
 ###############################################################################
 def test_native_backend_rejects_parameter_values_without_verified_mapping() -> None:
     graph = ModelGraph(
@@ -353,7 +345,6 @@ def test_native_backend_rejects_parameter_values_without_verified_mapping() -> N
         for item in result.diagnostics
     )
 
-
 ###############################################################################
 def test_merge_contracts_reject_incompatible_tensor_inputs() -> None:
     dtype_mismatch = two_input_graph(
@@ -383,7 +374,6 @@ def test_merge_contracts_reject_incompatible_tensor_inputs() -> None:
     assert any("compatible shapes" in item.message for item in dtype_result.diagnostics)
     assert not dimension_result.valid
     assert any("non-concatenated" in item.message for item in dimension_result.diagnostics)
-
 
 ###############################################################################
 def test_residual_and_concatenate_branches_propagate_shapes() -> None:
@@ -426,7 +416,6 @@ def test_residual_and_concatenate_branches_propagate_shapes() -> None:
     assert concatenate_result.valid
     assert next(item for item in concatenate_result.shape_summaries if item.node_id == "merge").outputs["output"].shape == [None, 8, 25]
 
-
 ###############################################################################
 def test_reshape_rejects_impossible_target_and_identifies_cause() -> None:
     graph = ModelGraph(
@@ -454,7 +443,6 @@ def test_reshape_rejects_impossible_target_and_identifies_cause() -> None:
     assert diagnostic.details["reason"] == "target_shape is incompatible with the input element count"
     assert "reshape" in diagnostic.message.lower()
 
-
 ###############################################################################
 def test_shape_summaries_recompute_after_an_upstream_parameter_change() -> None:
     graph = ModelGraph(
@@ -475,7 +463,6 @@ def test_shape_summaries_recompute_after_an_upstream_parameter_change() -> None:
 
     assert next(item for item in initial.shape_summaries if item.node_id == "dense").outputs["output"].shape == [None, 3]
     assert next(item for item in updated.shape_summaries if item.node_id == "dense").outputs["output"].shape == [None, 7]
-
 
 ###############################################################################
 def test_convolution_rejects_stride_and_dilation_combination() -> None:
@@ -525,7 +512,6 @@ def test_convolution_rejects_stride_and_dilation_combination() -> None:
     assert not result.valid
     assert any("strides > 1" in item.message for item in result.diagnostics)
 
-
 ###############################################################################
 def test_unreachable_model_input_is_rejected() -> None:
     graph = ModelGraph(
@@ -573,7 +559,6 @@ def test_unreachable_model_input_is_rejected() -> None:
         for item in result.diagnostics
     )
 
-
 ###############################################################################
 def test_transposed_convolution_uses_declared_dimension_parameter() -> None:
     graph = ModelGraph(
@@ -619,7 +604,6 @@ def test_transposed_convolution_uses_declared_dimension_parameter() -> None:
 
     assert transposed.outputs["output"].shape == [None, 10, 4]
 
-
 ###############################################################################
 def test_terminal_operation_is_inferred_as_output_without_output_adapter() -> None:
     graph = ModelGraph(
@@ -650,7 +634,6 @@ def test_terminal_operation_is_inferred_as_output_without_output_adapter() -> No
         ("prediction", "output")
     ]
     assert result.model_type.kind == "binary_classification"
-
 
 ###############################################################################
 def test_explicit_output_bindings_support_multiple_inputs_and_outputs() -> None:
@@ -693,7 +676,6 @@ def test_explicit_output_bindings_support_multiple_inputs_and_outputs() -> None:
     assert result.output_mode == "explicit"
     assert {item.node_id for item in result.effective_outputs} == {"left_head", "right_head"}
     assert result.model_type.kind == "multi_output"
-
 
 ###############################################################################
 def test_recurrent_return_state_ports_are_conditional_and_shape_propagated() -> None:

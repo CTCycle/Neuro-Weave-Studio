@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 ###############################################################################
 def test_launcher_opens_browser_only_after_backend_readiness() -> None:
     repository_root = Path(__file__).resolve().parents[2]

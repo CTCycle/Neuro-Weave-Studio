@@ -12,9 +12,9 @@ from sqlalchemy.orm import Session
 from domain.enums import ExecutionBackend
 from repositories.models import GeneratedCodeSnapshotRecord
 
-
 ###############################################################################
 class CodeSnapshotRepository:
+
     # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session

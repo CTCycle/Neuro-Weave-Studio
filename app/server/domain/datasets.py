@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
+###############################################################################
 class DatasetType(StrEnum):
     TABULAR = "tabular"
     IMAGES = "images"
@@ -17,20 +18,24 @@ class DatasetType(StrEnum):
     COMPOSED = "composed"
 
 
+###############################################################################
 class DatasetValidationStatus(StrEnum):
     VALID = "valid"
     INVALID = "invalid"
 
 
+###############################################################################
 class DatasetAvailability(StrEnum):
     AVAILABLE = "available"
     UNAVAILABLE = "unavailable"
 
 
+###############################################################################
 class DatasetModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+###############################################################################
 class TableSource(DatasetModel):
     type: Literal["table"] = "table"
     id: str = Field(min_length=1, max_length=80)
@@ -40,6 +45,7 @@ class TableSource(DatasetModel):
     delimiter: Literal[",", "\t", ";", "|"] | None = None
 
 
+###############################################################################
 class ImageFolderSource(DatasetModel):
     type: Literal["image_folder"] = "image_folder"
     id: str = Field(min_length=1, max_length=80)
@@ -48,6 +54,7 @@ class ImageFolderSource(DatasetModel):
     label_mode: Literal["none", "parent_folder"] = "none"
 
 
+###############################################################################
 class TextSource(DatasetModel):
     type: Literal["text"] = "text"
     id: str = Field(min_length=1, max_length=80)
@@ -56,6 +63,7 @@ class TextSource(DatasetModel):
     recursive: bool = True
 
 
+###############################################################################
 class ArraySource(DatasetModel):
     type: Literal["array"] = "array"
     id: str = Field(min_length=1, max_length=80)
@@ -69,28 +77,33 @@ DatasetSource = Annotated[
 ]
 
 
+###############################################################################
 class ColumnBinding(DatasetModel):
     type: Literal["columns"] = "columns"
     source_id: str = Field(min_length=1, max_length=80)
     columns: list[str] = Field(min_length=1)
 
 
+###############################################################################
 class ImageBinding(DatasetModel):
     type: Literal["image"] = "image"
     source_id: str = Field(min_length=1, max_length=80)
 
 
+###############################################################################
 class TextBinding(DatasetModel):
     type: Literal["text"] = "text"
     source_id: str = Field(min_length=1, max_length=80)
 
 
+###############################################################################
 class ArrayBinding(DatasetModel):
     type: Literal["array"] = "array"
     source_id: str = Field(min_length=1, max_length=80)
     keys: list[str] = Field(min_length=1)
 
 
+###############################################################################
 class FolderLabelBinding(DatasetModel):
     type: Literal["folder_label"] = "folder_label"
     source_id: str = Field(min_length=1, max_length=80)
@@ -102,10 +115,12 @@ DatasetBinding = Annotated[
 ]
 
 
+###############################################################################
 class DatasetRoleDefinition(DatasetModel):
     bindings: list[DatasetBinding] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
 
+###############################################################################
 class FileTableRelationship(DatasetModel):
     type: Literal["file_table"] = "file_table"
     file_source_id: str = Field(min_length=1, max_length=80)
@@ -117,25 +132,30 @@ class FileTableRelationship(DatasetModel):
 DatasetRelationship = FileTableRelationship
 
 
+###############################################################################
 class TimeSeriesStructure(DatasetModel):
     timestamp_column: str | None = Field(default=None, max_length=512)
     group_column: str | None = Field(default=None, max_length=512)
 
 
+###############################################################################
 class AllSamplesSubset(DatasetModel):
     type: Literal["all"] = "all"
 
 
+###############################################################################
 class FirstNSamplesSubset(DatasetModel):
     type: Literal["first_n"] = "first_n"
     count: int = Field(ge=1)
 
 
+###############################################################################
 class RangeSamplesSubset(DatasetModel):
     type: Literal["range"] = "range"
     start: int = Field(ge=0)
     end: int = Field(ge=0)
 
+    # -------------------------------------------------------------------------
     @model_validator(mode="after")
     def ordered_range(self) -> RangeSamplesSubset:
         if self.end < self.start:
@@ -149,6 +169,7 @@ DatasetSubsetDefinition = Annotated[
 ]
 
 
+###############################################################################
 class DatasetDefinitionMutation(DatasetModel):
     name: str = Field(min_length=1, max_length=160)
     dataset_type: DatasetType
@@ -160,6 +181,7 @@ class DatasetDefinitionMutation(DatasetModel):
     sequence_definition: TimeSeriesStructure | None = None
     subset_definition: DatasetSubsetDefinition = Field(default_factory=AllSamplesSubset)
 
+    # -------------------------------------------------------------------------
     @field_validator("name")
     @classmethod
     def clean_name(cls, value: str) -> str:
@@ -169,23 +191,27 @@ class DatasetDefinitionMutation(DatasetModel):
         return cleaned
 
 
+###############################################################################
 class DatasetInspectionRequest(DatasetModel):
     dataset_type: DatasetType
     sources: list[DatasetSource] = Field(min_length=1, max_length=3)
 
 
+###############################################################################
 class ColumnMetadata(DatasetModel):
     name: str
     dtype: str
     nullable: bool = False
 
 
+###############################################################################
 class ArrayMetadata(DatasetModel):
     key: str
     shape: list[int]
     dtype: str
 
 
+###############################################################################
 class TableInspection(DatasetModel):
     type: Literal["table"] = "table"
     source_id: str
@@ -196,6 +222,7 @@ class TableInspection(DatasetModel):
     inference_sample_size: int = Field(ge=0)
 
 
+###############################################################################
 class ImageFolderInspection(DatasetModel):
     type: Literal["image_folder"] = "image_folder"
     source_id: str
@@ -206,6 +233,7 @@ class ImageFolderInspection(DatasetModel):
     class_counts: dict[str, int] = Field(default_factory=dict)
 
 
+###############################################################################
 class TextInspection(DatasetModel):
     type: Literal["text"] = "text"
     source_id: str
@@ -214,6 +242,7 @@ class TextInspection(DatasetModel):
     extensions: list[str]
 
 
+###############################################################################
 class ArrayInspection(DatasetModel):
     type: Literal["array"] = "array"
     source_id: str
@@ -229,6 +258,7 @@ DatasetSourceInspection = Annotated[
 ]
 
 
+###############################################################################
 class DatasetInspection(DatasetModel):
     dataset_type: DatasetType
     sample_count: int = Field(ge=0)
@@ -236,6 +266,7 @@ class DatasetInspection(DatasetModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+###############################################################################
 class DatasetValidationFinding(DatasetModel):
     code: str
     message: str
@@ -243,6 +274,7 @@ class DatasetValidationFinding(DatasetModel):
     details: dict[str, Any] = Field(default_factory=dict)
 
 
+###############################################################################
 class DatasetValidationMetadata(DatasetModel):
     status: DatasetValidationStatus
     checked_at: datetime
@@ -250,6 +282,7 @@ class DatasetValidationMetadata(DatasetModel):
     warnings: list[DatasetValidationFinding] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
 
+###############################################################################
 class DatasetValidationResult(DatasetModel):
     valid: bool
     sample_count: int = Field(ge=0)
@@ -258,11 +291,13 @@ class DatasetValidationResult(DatasetModel):
     validation: DatasetValidationMetadata
 
 
+###############################################################################
 class DatasetAvailabilityState(DatasetModel):
     status: DatasetAvailability
     unavailable_source_ids: list[str] = Field(default_factory=list)
 
 
+###############################################################################
 class DatasetSummary(DatasetModel):
     id: UUID
     name: str
@@ -279,10 +314,12 @@ class DatasetSummary(DatasetModel):
     updated_at: datetime
 
 
+###############################################################################
 class DatasetListResponse(DatasetModel):
     datasets: list[DatasetSummary]
 
 
+###############################################################################
 class DatasetDocument(DatasetDefinitionMutation):
     id: UUID
     format: str
