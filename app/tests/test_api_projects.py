@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Any, cast
 
 import httpx
 import pytest
+
 from repositories.graphs import GraphRepository
+
 
 ###############################################################################
 def fail_update_graph_replace(*_args: object, **_kwargs: object) -> None:
@@ -257,6 +260,7 @@ def test_model_export_publishes_only_verified_artifact(client: httpx.Client) -> 
 ###############################################################################
 def test_model_export_rejects_invalid_graph_before_worker_start(
     client: httpx.Client,
+    tmp_path: Path,
 ) -> None:
     payload = project_payload()
     graph = cast(dict[str, Any], payload["graph"])
@@ -280,6 +284,34 @@ def test_model_export_rejects_invalid_graph_before_worker_start(
 
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "model_validation_failed"
+    assert not list((tmp_path / "exports").rglob("*"))
+
+###############################################################################
+def test_model_export_rejects_worker_profile_mismatch_before_job_creation(
+    client: httpx.Client,
+) -> None:
+    project = client.post("/api/projects", json=project_payload()).json()
+    worker = {
+        "api": "keras",
+        "backend": "tensorflow",
+        "device_id": "cpu",
+        "memory_policy": {"kind": "default"},
+        "precision": "float32",
+    }
+
+    response = client.post(
+        "/api/execution/jobs",
+        json={
+            "operation": {"type": "model_export", "project_id": project["id"], "format": "keras"},
+            "worker": worker,
+        },
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail["code"] == "model_validation_failed"
+    assert detail["diagnostics"][0]["code"] == "runtime_backend_mismatch"
+    assert client.get("/api/execution/jobs", params={"active_only": True}).json() == []
 
 ###############################################################################
 def test_export_capabilities_expose_matrix_and_explicit_reasons(
