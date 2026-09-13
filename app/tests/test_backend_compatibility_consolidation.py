@@ -258,11 +258,16 @@ def test_keras_backend_exclusion_has_a_distinct_reason_code() -> None:
     assert "Keras" in diagnostic.message
 
 ###############################################################################
-def test_synthetic_unverified_node_mapping_is_unavailable() -> None:
+@pytest.mark.parametrize(("execution_backend", "keras_enabled"), PROFILES)
+def test_synthetic_unverified_node_mapping_is_unavailable(
+    execution_backend: ExecutionBackend,
+    keras_enabled: bool,
+) -> None:
     base_catalog = get_node_catalog()
     base_manifest = base_catalog.get("layer.dense")
+    implementation_key = "keras" if keras_enabled else execution_backend.value
     implementations = dict(base_manifest.implementations)
-    implementations["pytorch"] = implementations["pytorch"].model_copy(
+    implementations[implementation_key] = implementations[implementation_key].model_copy(
         update={"status": "unverified"}
     )
     unverified_manifest = base_manifest.model_copy(
@@ -277,8 +282,8 @@ def test_synthetic_unverified_node_mapping_is_unavailable() -> None:
 
     result = ValidationService(catalog).validate(
         chain_graph("test.unverified_dense"),
-        ExecutionBackend.PYTORCH,
-        False,
+        execution_backend,
+        keras_enabled,
     )
 
     diagnostic = next(item for item in result.diagnostics if item.node_id == "operation")
@@ -287,14 +292,19 @@ def test_synthetic_unverified_node_mapping_is_unavailable() -> None:
     assert diagnostic.details["reason_code"] == "unverified_implementation"
 
 ###############################################################################
-def test_synthetic_unverified_parameter_mapping_is_unavailable() -> None:
+@pytest.mark.parametrize(("execution_backend", "keras_enabled"), PROFILES)
+def test_synthetic_unverified_parameter_mapping_is_unavailable(
+    execution_backend: ExecutionBackend,
+    keras_enabled: bool,
+) -> None:
     base_catalog = get_node_catalog()
     base_manifest = base_catalog.get("layer.dense")
-    native_mapping = base_manifest.implementations["pytorch"]
+    implementation_key = "keras" if keras_enabled else execution_backend.value
+    native_mapping = base_manifest.implementations[implementation_key]
     parameters = dict(native_mapping.parameters)
     parameters["units"] = ParameterCapability(supported=True, status="unverified")
     implementations = dict(base_manifest.implementations)
-    implementations["pytorch"] = native_mapping.model_copy(
+    implementations[implementation_key] = native_mapping.model_copy(
         update={"parameters": parameters}
     )
     unverified_manifest = base_manifest.model_copy(
@@ -309,8 +319,8 @@ def test_synthetic_unverified_parameter_mapping_is_unavailable() -> None:
 
     result = ValidationService(catalog).validate(
         chain_graph("test.unverified_dense_parameter", {"units": 2}),
-        ExecutionBackend.PYTORCH,
-        False,
+        execution_backend,
+        keras_enabled,
     )
 
     assert not result.valid
