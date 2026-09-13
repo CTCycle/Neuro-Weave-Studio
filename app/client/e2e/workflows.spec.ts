@@ -1,3 +1,4 @@
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test, type APIRequestContext } from '@playwright/test'
 
@@ -159,6 +160,22 @@ async function dragConnection(page: import('@playwright/test').Page, sourceId: s
   await page.mouse.move(sourceBounds!.x + sourceBounds!.width / 2, sourceBounds!.y + sourceBounds!.height / 2)
   await page.mouse.down()
   await page.mouse.move(targetBounds!.x + targetBounds!.width / 2, targetBounds!.y + targetBounds!.height / 2, { steps: 8 })
+}
+
+function backendCompatibilityGraph() {
+  const base = graph()
+  return {
+    ...base,
+    nodes: [
+      { ...base.nodes[0], id: 'input-sequence-compat-e2e', definition_id: 'input.sequence', label: 'Sequence input', position: { x: 48, y: 160 }, parameters: { shape: [4, 3], dtype: 'float32' } },
+      { ...base.nodes[1], id: 'simple-rnn-compat-e2e', definition_id: 'recurrent.simple_rnn', label: 'Simple RNN', position: { x: 400, y: 160 }, parameters: { units: 8, return_sequences: true } },
+      { ...base.nodes[3], id: 'output-sequence-compat-e2e', definition_id: 'output.sequence', label: 'Sequence output', position: { x: 752, y: 160 }, parameters: {} },
+    ],
+    edges: [
+      { id: 'edge-compat-e2e-1', source_node_id: 'input-sequence-compat-e2e', source_port_id: 'output', target_node_id: 'simple-rnn-compat-e2e', target_port_id: 'input' },
+      { id: 'edge-compat-e2e-2', source_node_id: 'simple-rnn-compat-e2e', source_port_id: 'output', target_node_id: 'output-sequence-compat-e2e', target_port_id: 'input' },
+    ],
+  }
 }
 
 async function waitForCanvasFit(page: import('@playwright/test').Page): Promise<void> {
@@ -358,6 +375,90 @@ test('renders stable connection previews, fan-out connections, and cycle rejecti
     await expect(page.locator('[data-f-connector-id="mask-target-e2e|input|input"]')).not.toHaveClass(/f-connector-connectable/)
     await page.mouse.up()
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
+test('retains incompatible drafts while disabling catalog, compilation, and export actions', async ({ page, request }) => {
+  test.setTimeout(90_000)
+  const fixture = await createProject(request, `Angular compatibility ${Date.now()}`, backendCompatibilityGraph())
+  const evidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'backend-compatibility-consolidation')
+  await mkdir(evidenceDir, { recursive: true })
+  try {
+    await page.goto(`/builder/${fixture.id}`)
+    const kerasToggle = page.getByLabel('Enable Keras', { exact: true })
+    await expect(kerasToggle).toBeChecked()
+    await kerasToggle.uncheck()
+
+    const incompatibleNode = page.locator('[data-node-id="simple-rnn-compat-e2e"]')
+    await expect(incompatibleNode).toHaveClass(/is-profile-incompatible/)
+    await expect(incompatibleNode).toHaveAttribute('aria-label', /Repair required/)
+
+    await page.getByRole('textbox', { name: 'Search nodes' }).fill('Simple RNN')
+    const catalogItem = page.locator('.catalog-item').filter({ hasText: 'Simple RNN' }).first()
+    await expect(catalogItem).toBeDisabled()
+    await expect(catalogItem).toHaveAttribute('title', /not supported by Native PyTorch/i)
+
+    await incompatibleNode.click()
+    const inspector = page.getByRole('complementary', { name: 'Properties inspector' })
+    await expect(inspector.locator('label.inspector-field').filter({ hasText: 'Units' }).locator('input')).toBeDisabled()
+    await expect(inspector.locator('label.inspector-field').filter({ hasText: 'Return Sequences' }).locator('input')).toBeDisabled()
+    await page.screenshot({ path: path.join(evidenceDir, 'profile-incompatible-builder.png'), fullPage: true })
+
+    const saveResponse = page.waitForResponse((response) => response.url().includes(`/api/projects/${fixture.id}`) && response.request().method() === 'PUT')
+    await page.getByRole('button', { name: 'Save model', exact: true }).click()
+    const saved = await (await saveResponse).json() as { current_revision: number; keras_enabled: boolean; validation_status: string; graph: { nodes: unknown[] } }
+    expect(saved.keras_enabled).toBe(false)
+    expect(saved.validation_status).toBe('invalid')
+    expect(saved.graph.nodes).toHaveLength(3)
+    await expect(page.getByText(`Saved revision ${saved.current_revision}`)).toBeVisible()
+
+    const persisted = await (await request.get(`/api/projects/${fixture.id}`)).json() as { keras_enabled: boolean; validation_status: string; graph: { nodes: Array<{ id: string }> } }
+    expect(persisted).toMatchObject({ keras_enabled: false, validation_status: 'invalid' })
+    expect(persisted.graph.nodes.map((node) => node.id)).toContain('simple-rnn-compat-e2e')
+
+    await page.goto(`/models/${fixture.id}/compilation`)
+    await expect(page.getByRole('button', { name: 'Compile source', exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: 'Validate profile', exact: true }).click()
+    await expect(page.getByText(/Simple RNN is not supported by native pytorch/i)).toBeVisible()
+    await page.screenshot({ path: path.join(evidenceDir, 'invalid-compilation.png'), fullPage: true })
+
+    await page.goto(`/models/${fixture.id}/export`)
+    await expect(page.getByRole('button', { name: /Project bundle/ })).toBeDisabled()
+    await expect(page.getByRole('button', { name: /Project bundle/ })).toContainText('Fix the validation diagnostics')
+    await expect(page.getByRole('button', { name: /PyTorch ExportedProgram/ })).toContainText('Unavailable for this profile')
+    await page.screenshot({ path: path.join(evidenceDir, 'invalid-export-capabilities.png'), fullPage: true })
+
+    await page.goto(`/builder/${fixture.id}`)
+    await expect(page.getByLabel('Enable Keras', { exact: true })).not.toBeChecked()
+    await page.getByLabel('Enable Keras', { exact: true }).check()
+    await expect(page.locator('[data-node-id="simple-rnn-compat-e2e"]')).not.toHaveClass(/is-profile-incompatible/)
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
+test('polls a compatible smoke-test job to a verified result', async ({ page, request }) => {
+  test.setTimeout(120_000)
+  const fixture = await createProject(request, `Angular compatibility smoke ${Date.now()}`)
+  const evidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'backend-compatibility-consolidation')
+  await mkdir(evidenceDir, { recursive: true })
+  try {
+    await page.goto(`/models/${fixture.id}/inference`)
+    await expect(page.getByRole('heading', { name: 'Run a safe model check' })).toBeVisible()
+    await expect(page.getByText(/keras · pytorch ·/i)).toBeVisible({ timeout: 75_000 })
+    const submitResponse = page.waitForResponse((response) => response.url().includes('/api/execution/jobs') && response.request().method() === 'POST')
+    await page.getByRole('button', { name: 'Run smoke test', exact: true }).click()
+    const submitted = await submitResponse
+    expect(submitted.ok()).toBeTruthy()
+    const job = await submitted.json() as { id: string }
+    await expect(page.getByText(/Completed on/)).toBeVisible({ timeout: 75_000 })
+    await expect.poll(async () => {
+      const response = await request.get(`/api/execution/jobs/${job.id}`)
+      return response.ok() ? (await response.json() as { state: string }).state : 'missing'
+    }, { timeout: 75_000 }).toBe('succeeded')
+    await page.screenshot({ path: path.join(evidenceDir, 'smoke-job-succeeded.png'), fullPage: true })
   } finally {
     await deleteProject(request, fixture.id)
   }
