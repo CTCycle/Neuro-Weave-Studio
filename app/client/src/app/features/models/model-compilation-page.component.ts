@@ -37,7 +37,7 @@ import { ModelWorkspaceState } from './model-workspace.state'
           <section class="workflow-card panel readiness-card">
             <div class="section-heading"><div><span class="eyebrow">READINESS</span><h3>{{ nextAction(project) }}</h3></div><svg lucideClipboardCheck [size]="18"></svg></div>
             <div class="readiness-steps"><div [class.complete]="effectiveValid() === true"><span>1</span><div><strong>Validate profile</strong><small>{{ effectiveValid() === true ? 'Current configuration is valid.' : effectiveValid() === false ? 'Blocking diagnostics need attention.' : 'Run validation against the saved graph.' }}</small></div></div><div [class.complete]="!!project.generated_source"><span>2</span><div><strong>Generate source</strong><small>{{ project.generated_source ? 'Source snapshot exists for the current saved revision.' : 'Generate after validation succeeds.' }}</small></div></div></div>
-            <div class="workflow-card-actions"><button class="secondary" type="button" (click)="validate()" [disabled]="validationBusy()"><svg lucideClipboardCheck [size]="16"></svg>{{ validationBusy() ? 'Validating…' : 'Validate profile' }}</button><button class="primary" type="button" (click)="compile()" [disabled]="busy() || effectiveValid() === false">@if (busy()) { <svg class="spin" lucideRefreshCw [size]="16"></svg> } @else { <svg lucideCheckCircle2 [size]="16"></svg> }{{ busy() ? 'Compiling…' : project.generated_source ? 'Recompile source' : 'Compile source' }}</button></div>
+            <div class="workflow-card-actions"><button class="secondary" type="button" (click)="validate()" [disabled]="validationBusy()"><svg lucideClipboardCheck [size]="16"></svg>{{ validationBusy() ? 'Validating…' : 'Validate profile' }}</button><button class="primary" type="button" (click)="compile()" [disabled]="busy() || effectiveValid() !== true" [title]="effectiveValid() === true ? 'Generate source for the validated saved profile' : 'Validate and repair the saved graph before generating source'">@if (busy()) { <svg class="spin" lucideRefreshCw [size]="16"></svg> } @else { <svg lucideCheckCircle2 [size]="16"></svg> }{{ busy() ? 'Compiling…' : project.generated_source ? 'Recompile source' : 'Compile source' }}</button></div>
           </section>
         </div>
 
@@ -117,6 +117,10 @@ export class ModelCompilationPageComponent {
 
   async compile(): Promise<void> {
     const project = this.state.project(); if (!project) return
+    if (this.effectiveValid() !== true) {
+      this.notice.set('Compilation is blocked until the saved graph passes profile validation.')
+      return
+    }
     this.busy.set(true)
     try { const source = await this.api.sourceForProject(project.id); this.code.set(source.code); const refreshed = await this.state.refresh(); this.notice.set(`Compiled ${implementationLabel(refreshed.execution_backend, refreshed.keras_enabled)} source for revision ${refreshed.current_revision}.`) } catch (reason) { this.notice.set(`Compilation failed: ${reason instanceof Error ? reason.message : String(reason)}`) } finally { this.busy.set(false) }
   }

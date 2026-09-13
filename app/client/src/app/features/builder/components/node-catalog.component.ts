@@ -3,7 +3,7 @@ import { LucideSearch, LucideX } from '@lucide/angular'
 import { CustomNodeApiService } from '../../../core/api/custom-node-api.service'
 import type { CustomNodeDefinition } from '../../../domain/custom-node.types'
 import type { ExecutionBackend, NodeManifest, PortKind } from '../../../domain/types'
-import { implementationAvailable } from '../../../domain/types'
+import { resolveImplementationCompatibility } from '../../../domain/types'
 import { CustomNodeMaterializerService } from '../services/custom-node-materializer.service'
 import { GraphEditorStore } from '../state/graph-editor.store'
 
@@ -48,7 +48,7 @@ type CompatibilityFilter = 'all' | 'current' | 'keras' | ExecutionBackend
           <section class="catalog-category custom-category">
             <div class="custom-heading"><span><strong>Custom templates</strong><small>Expand into canonical graph nodes</small></span></div>
             @for (definition of customTemplates(); track definition.id) {
-              <button class="catalog-item custom-item" type="button" [title]="definition.kind === 'composite' ? 'Insert sequential built-in block' : 'Insert safe mathematical operation'" (click)="addCustom(definition)"><span class="node-accent" aria-hidden="true"></span><span class="catalog-item-copy"><strong>{{ definition.display_name }}</strong><small>{{ definition.kind === 'composite' ? 'Sequential block' : 'Mathematical operation' }} · v{{ definition.version }}</small></span><span class="custom-badge">Custom</span></button>
+              <button class="catalog-item custom-item" type="button" [disabled]="!isCustomSupported(definition)" [title]="customTitle(definition)" (click)="addCustom(definition)"><span class="node-accent" aria-hidden="true"></span><span class="catalog-item-copy"><strong>{{ definition.display_name }}</strong><small>{{ definition.kind === 'composite' ? 'Sequential block' : 'Mathematical operation' }} · v{{ definition.version }}</small></span>@if (!isCustomSupported(definition)) { <span class="compatibility-badge">Limited</span> } @else { <span class="custom-badge">Custom</span> }</button>
             }
             @for (definition of referenceDefinitions(); track definition.id) {
               <button class="catalog-item reference-item" type="button" disabled title="Verified repository reference only; no trusted execution adapter is installed"><span class="node-accent" aria-hidden="true"></span><span class="catalog-item-copy"><strong>{{ definition.display_name }}</strong><small>Hugging Face reference · not executable</small></span><span class="reference-badge">Reference</span></button>
@@ -64,7 +64,7 @@ type CompatibilityFilter = 'all' | 'current' | 'keras' | ExecutionBackend
             @if (categoryOpen(group.category)) {
               <div class="catalog-category-items" [id]="'catalog-' + group.category">
                 @for (manifest of group.manifests; track manifest.id + manifest.version) {
-                  <button class="catalog-item" [class.export-limited]="!isSupported(manifest)" type="button" draggable="true" [title]="isSupported(manifest) ? 'Drag to the canvas or activate to add' : 'Available for editing; export is limited for this execution profile'" (dragstart)="startDrag($event, manifest)" (click)="addNode(manifest)"><span class="node-accent" aria-hidden="true"></span><span class="catalog-item-copy"><strong>{{ manifest.display_name }}</strong><small>{{ compactMetadata(manifest) }}</small></span>@if (!isSupported(manifest)) { <span class="compatibility-badge">Limited</span> }</button>
+                  <button class="catalog-item" [class.export-limited]="!isSupported(manifest)" type="button" [draggable]="isSupported(manifest)" [disabled]="!isSupported(manifest)" [title]="isSupported(manifest) ? 'Drag to the canvas or activate to add' : compatibilityMessage(manifest)" (dragstart)="startDrag($event, manifest)" (click)="addNode(manifest)"><span class="node-accent" aria-hidden="true"></span><span class="catalog-item-copy"><strong>{{ manifest.display_name }}</strong><small>{{ compactMetadata(manifest) }}</small></span>@if (!isSupported(manifest)) { <span class="compatibility-badge">Limited</span> }</button>
                 }
               </div>
             }
@@ -133,6 +133,7 @@ export class NodeCatalogComponent {
   readonly referenceDefinitions = computed(() => this.filteredCustoms().filter((definition) => !definition.executable_template))
 
   constructor() {
+    effect(() => this.store.setExecutionProfile(this.executionBackend(), this.kerasEnabled()))
     effect(() => { if (this.mobileOpen()) queueMicrotask(() => this.closeButton()?.nativeElement.focus()) })
     void this.loadCustoms()
   }
@@ -156,14 +157,37 @@ export class NodeCatalogComponent {
   categoryOpen(category: string): boolean { return Boolean(this.query().trim()) || Boolean(this.activeFilterCount()) || Boolean(this.openCategories()[category]) }
   toggleCategory(category: string): void { this.openCategories.update((current) => ({ ...current, [category]: !current[category] })) }
   formatCategory(value: string): string { return value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase()) }
-  isSupported(manifest: NodeManifest): boolean { return implementationAvailable(manifest, this.executionBackend(), this.kerasEnabled()) }
+  isSupported(manifest: NodeManifest): boolean { return this.store.nodeCompatibility(manifest).available }
+  compatibilityMessage(manifest: NodeManifest): string { return this.store.nodeCompatibility(manifest).reason ?? 'Unavailable for the current execution profile.' }
   compactMetadata(manifest: NodeManifest): string { return `${manifest.id} · ${manifest.operation?.family ?? manifest.semantic_role ?? manifest.category}` }
-  addNode(manifest: NodeManifest): void { this.store.addNode(manifest, this.nextPosition()) }
-  startDrag(event: DragEvent, manifest: NodeManifest): void { event.dataTransfer?.setData('application/neuro-weave-node', JSON.stringify({ id: manifest.id, version: manifest.version })); if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy' }
+  addNode(manifest: NodeManifest): void {
+    if (!this.isSupported(manifest)) {
+      this.materializeError.set(this.compatibilityMessage(manifest))
+      return
+    }
+    if (this.store.addNode(manifest, this.nextPosition()) === null) this.materializeError.set(this.compatibilityMessage(manifest))
+  }
+  startDrag(event: DragEvent, manifest: NodeManifest): void {
+    if (!this.isSupported(manifest)) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    event.dataTransfer?.setData('application/neuro-weave-node', JSON.stringify({ id: manifest.id, version: manifest.version })); if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy'
+  }
   addCustom(definition: CustomNodeDefinition): void {
     this.materializeError.set(null)
+    if (!this.isCustomSupported(definition)) {
+      this.materializeError.set(this.customTitle(definition))
+      return
+    }
     try { this.materializer.materialize(definition, this.nextPosition()) }
     catch (reason) { this.materializeError.set(reason instanceof Error ? reason.message : String(reason)) }
+  }
+  isCustomSupported(definition: CustomNodeDefinition): boolean { return this.materializer.compatibility(definition).available }
+  customTitle(definition: CustomNodeDefinition): string {
+    const result = this.materializer.compatibility(definition)
+    return result.available ? (definition.kind === 'composite' ? 'Insert sequential built-in block' : 'Insert safe mathematical operation') : result.reason
   }
   clearFilters(): void { this.categoryFilter.set('all'); this.compatibilityFilter.set('all'); this.portKindFilter.set('all'); this.familyFilter.set('all'); this.operationFilter.set('all') }
   clearFilter(key: string): void {
@@ -177,10 +201,9 @@ export class NodeCatalogComponent {
     if (filter === 'all') return true
     if (filter === 'current') return this.isSupported(manifest)
     if (filter === 'keras') {
-      const keras = manifest.implementations['keras']
-      return Boolean(keras?.supported && (!keras.execution_backends || Object.values(keras.execution_backends).some(Boolean)))
+      return (['tensorflow', 'pytorch', 'jax'] as ExecutionBackend[]).some((backend) => resolveImplementationCompatibility(manifest, backend, true).available)
     }
-    return implementationAvailable(manifest, filter, false)
+    return resolveImplementationCompatibility(manifest, filter, false).available
   }
   private compatibilityLabel(filter: CompatibilityFilter): string {
     if (filter === 'current') return 'Current profile'

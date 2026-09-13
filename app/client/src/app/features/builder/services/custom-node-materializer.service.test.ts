@@ -24,7 +24,7 @@ const manifest = (id: string, displayName: string): NodeManifest => ({
   outputs: [{ ...port }],
   parameters: [],
   shape_rule: { kind: 'operation', config: {} },
-  implementations: { keras: { supported: true } },
+  implementations: { keras: { supported: true, status: 'verified' } },
   ui: { icon: 'Box', accent: 'cyan', width: 250, height: 120 },
   deprecated: false,
   documentation_ref: '',
@@ -145,6 +145,50 @@ describe('custom node materializer', () => {
       target: store.nodes()[1].id,
       targetHandle: 'tensor',
     })
+  })
+
+  it('preflights every component and leaves the graph unchanged when one is unavailable', () => {
+    store = new GraphEditorStore()
+    const first = {
+      ...manifest('layer.first', 'First'),
+      implementations: {
+        keras: { supported: true, status: 'verified' as const },
+        pytorch: { supported: true, status: 'verified' as const },
+      },
+    }
+    const second = {
+      ...manifest('layer.second', 'Second'),
+      implementations: {
+        keras: { supported: true, status: 'verified' as const },
+        pytorch: { supported: false, status: 'verified' as const },
+      },
+    }
+    store.setManifests([first, second])
+    store.setExecutionProfile('pytorch', false)
+    materializer = new CustomNodeMaterializerService(store)
+    const definition: CustomNodeDefinition = {
+      ...common,
+      id: 'custom.node.block.invalid-profile',
+      display_name: 'Unavailable block',
+      kind: 'composite',
+      executable_template: true,
+      spec: {
+        type: 'composite',
+        connection_mode: 'sequential',
+        components: [
+          { definition_id: first.id, definition_version: first.version, parameters: {} },
+          { definition_id: second.id, definition_version: second.version, parameters: {} },
+        ],
+      },
+    }
+
+    expect(materializer.compatibility(definition)).toMatchObject({
+      available: false,
+      reason: expect.stringContaining('not supported'),
+    })
+    expect(() => materializer.materialize(definition, { x: 40, y: 40 })).toThrow(/not supported/)
+    expect(store.nodes()).toEqual([])
+    expect(store.edges()).toEqual([])
   })
 
   it('does not materialize repository references into the canonical graph', () => {

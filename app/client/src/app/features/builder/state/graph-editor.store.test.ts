@@ -15,7 +15,7 @@ const manifest = {
   outputs: [{ id: 'output', display_name: 'Output', kind: 'tensor' as const, required: true, accepts_multiple: false, description: '' }],
   parameters: [{ id: 'units', display_name: 'Units', type: 'integer' as const, default: 32, required: false, constraints: {}, options: [], description: '' }],
   shape_rule: { kind: 'dense', config: {} },
-  implementations: { keras: { supported: true } },
+  implementations: { keras: { supported: true, status: 'verified' } },
   ui: { icon: 'Box', accent: 'violet', width: 250, height: 120 },
   deprecated: false,
   documentation_ref: '',
@@ -132,7 +132,7 @@ describe('neutral graph editor store', () => {
       implementations: {
         keras: {
           ...manifest.implementations.keras,
-          parameters: { units: { supported: true, constraints: {}, default: 12 } },
+          parameters: { units: { supported: true, status: 'verified', constraints: {}, default: 12 } },
         },
       },
     }
