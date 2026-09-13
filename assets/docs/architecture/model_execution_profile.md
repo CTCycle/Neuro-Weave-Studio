@@ -1,6 +1,6 @@
 # Model Execution Profile
 
-Last updated: 2026-08-29
+Last updated: 2026-09-13
 
 ## Purpose
 
@@ -11,6 +11,8 @@ NeuroWeave has one model identity and one execution decision. A persisted model 
 - **model_configuration**: one nested value with `keras` compilation metadata and independent `native` TensorFlow, PyTorch, and JAX compiler settings. Native compiler options are disabled by default and remain preserved when the selected backend changes.
 
 Keras is the model API layer. It is not a fourth execution backend. The profile is persisted on the project, revision, and generated-source snapshot so validation, source generation, and runtime jobs cannot silently select a different backend.
+
+The profile resolver has one rule for all editor and server boundaries: the selected mapping must exist, be supported, and be verified. Its stable node reasons are `missing_implementation`, `unsupported_implementation`, `unverified_implementation`, and `backend_excluded`; runtime and compiler availability are separate gates. The editor keeps incompatible persisted content for repair, but disables every creation/mutation path that would materialize an incompatible node or parameter.
 
 ```mermaid
 flowchart LR
@@ -84,6 +86,8 @@ flowchart TD
 ```
 
 The frontend combines backend diagnostics with local graph diagnostics in one bottom panel. The splitter changes its height continuously, the diagnostic list scrolls inside the panel, and selecting an actionable finding focuses the related node or edge.
+
+Profile changes increment the graph revision, retain nodes, edges, and parameter values, and trigger a fresh validation request. A response is usable only when both its profile and graph revision still match the current editor session.
 
 ## Export architecture
 
