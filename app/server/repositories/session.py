@@ -10,7 +10,6 @@ from repositories.backend import SQLiteBackend, build_session_factory
 from repositories.initializer import initialize_database
 from repositories.unit_of_work import UnitOfWork
 
-
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class RepositoryContext:
@@ -27,7 +26,6 @@ class RepositoryContext:
     # -------------------------------------------------------------------------
     def dispose(self) -> None:
         self.engine.dispose()
-
 
 ###############################################################################
 def create_repository_context(settings: DatabaseSettings) -> RepositoryContext:

@@ -7,7 +7,6 @@ from typing import Any, cast
 from domain.manifests import ImplementationMapping, NodeManifest
 from validation.safe_expression import validate_safe_expression
 
-
 ###############################################################################
 class OperationEmissionError(ValueError):
     """Raised when a catalog operation cannot be emitted for a target."""
@@ -69,7 +68,6 @@ _BINARY_OPERATOR_SYMBOLS: dict[type[ast.operator], str] = {
 }
 _UNARY_OPERATOR_SYMBOLS: dict[type[ast.unaryop], str] = {ast.UAdd: "+", ast.USub: "-"}
 
-
 ###############################################################################
 def _mapping(manifest: NodeManifest, implementation_key: str) -> ImplementationMapping:
     mapping = manifest.implementations.get(implementation_key)
@@ -83,13 +81,11 @@ def _mapping(manifest: NodeManifest, implementation_key: str) -> ImplementationM
         )
     return mapping
 
-
 ###############################################################################
 def _resolved_parameters(manifest: NodeManifest, parameters: Mapping[str, Any]) -> dict[str, Any]:
     resolved = {parameter.id: parameter.default for parameter in manifest.parameters}
     resolved.update(parameters)
     return resolved
-
 
 ###############################################################################
 def _parameter_name(mapping: ImplementationMapping, parameter_id: str, backend: str) -> str:
@@ -102,7 +98,6 @@ def _parameter_name(mapping: ImplementationMapping, parameter_id: str, backend: 
         return "keepdim"
     return parameter_id
 
-
 ###############################################################################
 def _literal(value: Any) -> str:
     if isinstance(value, (str, int, float, bool)) or value is None:
@@ -111,7 +106,6 @@ def _literal(value: Any) -> str:
         items = cast(list[Any], value)
         return "[" + ", ".join(_literal(item) for item in items) + "]"
     raise OperationEmissionError("Operation parameters must be scalar or serializable lists")
-
 
 ###############################################################################
 def _symbol(mapping: ImplementationMapping, parameters: Mapping[str, Any]) -> str:
@@ -124,7 +118,6 @@ def _symbol(mapping: ImplementationMapping, parameters: Mapping[str, Any]) -> st
     if mapping.symbol is None:
         raise OperationEmissionError("Operation mapping does not expose a callable symbol")
     return mapping.symbol
-
 
 ###############################################################################
 def _keywords(
@@ -140,7 +133,6 @@ def _keywords(
         for parameter_id in manifest.operation.keywords
         if parameter_id in parameters
     ]
-
 
 ###############################################################################
 def _safe_expression_source(expression: str, source: str, backend: str) -> str:
@@ -204,7 +196,6 @@ def _safe_expression_source(expression: str, source: str, backend: str) -> str:
 
     return render(tree)
 
-
 ###############################################################################
 def _dtype_literal(value: Any, backend: str) -> str:
     dtype = str(value)
@@ -212,7 +203,6 @@ def _dtype_literal(value: Any, backend: str) -> str:
         return repr(dtype)
     prefix = {"tensorflow": "tf", "pytorch": "torch", "jax": "jnp"}[backend]
     return f"{prefix}.{dtype}"
-
 
 ###############################################################################
 def _binary_expression(symbol: str, inputs: Sequence[str]) -> str:
@@ -222,7 +212,6 @@ def _binary_expression(symbol: str, inputs: Sequence[str]) -> str:
     for value in inputs[2:]:
         result = f"{symbol}({result}, {value})"
     return result
-
 
 ###############################################################################
 def emit_operation_source(
@@ -331,7 +320,6 @@ def emit_operation_source(
         return f"{symbol}({inputs[0]})"
     raise OperationEmissionError(f"No source emitter for operation behavior '{behavior}'")
 
-
 ###############################################################################
 def evaluate_safe_expression(
     expression: str,
@@ -410,7 +398,6 @@ def evaluate_safe_expression(
         raise OperationEmissionError(f"Expression element '{type(node).__name__}' is not allowed")
 
     return evaluate(tree)
-
 
 ###############################################################################
 def apply_runtime_operation(

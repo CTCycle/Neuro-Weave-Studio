@@ -64,20 +64,18 @@ from models.export_artifacts import sha256_file
 LOGGER = logging.getLogger(__name__)
 DISCOVERY_SNAPSHOT_SCHEMA_VERSION = 2
 
-
 ###############################################################################
 def _empty_diagnostics() -> dict[str, int | None]:
     return {}
 
-
 ###############################################################################
 class RuntimeControllerError(RuntimeError):
+
     # -------------------------------------------------------------------------
     def __init__(self, code: str, message: str, *, details: dict[str, Any] | None = None) -> None:
         self.code = code
         self.details = details or {}
         super().__init__(message)
-
 
 ###############################################################################
 @dataclass
@@ -114,7 +112,6 @@ class _JobRecord:
     stderr_tail: str | None = None
     restart_reason: str = "new_job"
     monitor: threading.Thread | None = None
-
 
 ###############################################################################
 class RuntimeController:

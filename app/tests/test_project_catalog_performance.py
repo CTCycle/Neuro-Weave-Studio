@@ -8,7 +8,6 @@ from sqlalchemy import event
 
 from repositories.session import RepositoryContext
 
-
 ###############################################################################
 def project_payload(name: str, *, extra_dense: bool = False) -> dict[str, object]:
     payload: dict[str, object] = {
@@ -108,7 +107,6 @@ def project_payload(name: str, *, extra_dense: bool = False) -> dict[str, object
         )
     return payload
 
-
 ###############################################################################
 def count_project_list_queries(client: TestClient) -> int:
     application = cast(FastAPI, client.app)
@@ -127,7 +125,6 @@ def count_project_list_queries(client: TestClient) -> int:
     finally:
         event.remove(engine, "before_cursor_execute", before_cursor_execute)
     return statements
-
 
 ###############################################################################
 def test_project_catalog_query_count_does_not_scale_with_project_count(client: TestClient) -> None:

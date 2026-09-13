@@ -27,21 +27,17 @@ from services.runtime_controller import RuntimeController
 from services.runtime_service import RuntimeService
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def get_catalog(request: Request) -> NodeCatalog:
     return cast(NodeCatalog, request.app.state.catalog)
-
 
 ###############################################################################
 def get_settings(request: Request) -> Settings:
     return cast(Settings, request.app.state.settings)
 
-
 ###############################################################################
 def get_repository_context(request: Request) -> RepositoryContext:
     return cast(RepositoryContext, request.app.state.repository_context)
-
 
 ###############################################################################
 def get_uow_factory(
@@ -49,11 +45,9 @@ def get_uow_factory(
 ) -> UnitOfWorkFactory:
     return repository_context.new_unit_of_work
 
-
 ###############################################################################
 def get_runtime_controller(request: Request) -> RuntimeController:
     return cast(RuntimeController, request.app.state.runtime_controller)
-
 
 ###############################################################################
 def get_compilation_catalog_provider(
@@ -61,14 +55,12 @@ def get_compilation_catalog_provider(
 ) -> CompilationCatalogProvider:
     return PersistentCompilationCatalogProvider(uow_factory)
 
-
 ###############################################################################
 def get_validation_service(
     catalog: NodeCatalog = Depends(get_catalog),
     compilation_catalog_provider: CompilationCatalogProvider = Depends(get_compilation_catalog_provider),
 ) -> ValidationService:
     return ValidationService(catalog, compilation_catalog_provider)
-
 
 ###############################################################################
 def get_connection_validation_service(
@@ -78,17 +70,16 @@ def get_connection_validation_service(
     return ConnectionValidationService(catalog, validator)
 
 
+###############################################################################
 def get_metric_service(
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
     compilation_catalog_provider: CompilationCatalogProvider = Depends(get_compilation_catalog_provider),
 ) -> MetricService:
     return MetricService(uow_factory, compilation_catalog_provider)
 
-
 ###############################################################################
 def get_catalog_service(catalog: NodeCatalog = Depends(get_catalog)) -> CatalogService:
     return CatalogService(catalog)
-
 
 ###############################################################################
 def get_custom_node_service(
@@ -97,18 +88,15 @@ def get_custom_node_service(
 ) -> CustomNodeService:
     return CustomNodeService(uow_factory, catalog)
 
-
 ###############################################################################
 def get_filesystem_service() -> FilesystemService:
     return FilesystemService()
-
 
 ###############################################################################
 def get_dataset_service(
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
 ) -> DatasetService:
     return DatasetService(uow_factory)
-
 
 ###############################################################################
 def get_runtime_service(
@@ -118,7 +106,6 @@ def get_runtime_service(
 ) -> RuntimeService:
     return RuntimeService(settings, controller.backend_statuses, compilation_catalog_provider)
 
-
 ###############################################################################
 def get_project_service(
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
@@ -127,13 +114,11 @@ def get_project_service(
 ) -> ProjectService:
     return ProjectService(uow_factory, validator, controller.backend_statuses)
 
-
 ###############################################################################
 def get_keras_import_service(
     project_service: ProjectService = Depends(get_project_service),
 ) -> KerasImportService:
     return KerasImportService(project_service)
-
 
 ###############################################################################
 def get_compilation_service(
@@ -142,7 +127,6 @@ def get_compilation_service(
     compilation_catalog_provider: CompilationCatalogProvider = Depends(get_compilation_catalog_provider),
 ) -> CompilationService:
     return CompilationService(catalog, validator, compilation_catalog_provider)
-
 
 ###############################################################################
 def get_export_service(
@@ -159,7 +143,6 @@ def get_export_service(
         runtime_controller=runtime_controller,
         validation_service=validation_service,
     )
-
 
 ###############################################################################
 def get_job_service(

@@ -6,10 +6,12 @@ from domain.manifests import NodeManifest, ParameterDefinition, ParameterValueSc
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 
 
+###############################################################################
 class ParameterValueError(ValueError):
     pass
 
 
+###############################################################################
 def condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
     for parameter_id, expected in condition.items():
         actual = parameters.get(parameter_id)
@@ -30,6 +32,7 @@ def condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> 
     return True
 
 
+###############################################################################
 def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
     if schema.type == "object":
         if not isinstance(value, dict):
@@ -59,6 +62,7 @@ def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
     return True
 
 
+###############################################################################
 def parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     if parameter.value_schema is not None:
         return _value_matches_schema(parameter.value_schema, value)
@@ -95,12 +99,14 @@ def parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     return True
 
 
+###############################################################################
 def _default(parameter: ParameterDefinition) -> Any:
     if "editor_default" in parameter.model_fields_set:
         return parameter.editor_default
     return parameter.default
 
 
+###############################################################################
 def _validate_constraints(parameter: ParameterDefinition, value: Any) -> None:
     constraints = parameter.constraints
     minimum = constraints.get("min")
@@ -149,6 +155,7 @@ def _validate_constraints(parameter: ParameterDefinition, value: Any) -> None:
         )
 
 
+###############################################################################
 def normalize_manifest_parameters(
     manifest: NodeManifest,
     supplied: dict[str, Any],

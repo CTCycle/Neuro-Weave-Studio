@@ -11,6 +11,7 @@ from repositories.base import Base
 from repositories.types import UTCDateTime
 
 
+###############################################################################
 class DatasetRecord(Base):
     """A lightweight external dataset registration; source bytes are never stored here."""
 
@@ -49,10 +50,14 @@ class DatasetRecord(Base):
     )
 
 
+###############################################################################
 class DatasetRepository:
+
+    # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    # -------------------------------------------------------------------------
     def list_all(self) -> list[DatasetRecord]:
         return list(
             self._session.scalars(
@@ -60,13 +65,16 @@ class DatasetRepository:
             ).all()
         )
 
+    # -------------------------------------------------------------------------
     def get(self, dataset_id: UUID) -> DatasetRecord | None:
         return self._session.get(DatasetRecord, str(dataset_id))
 
+    # -------------------------------------------------------------------------
     def add(self, record: DatasetRecord) -> None:
         self._session.add(record)
         self._session.flush()
 
+    # -------------------------------------------------------------------------
     def delete(self, record: DatasetRecord) -> None:
         self._session.delete(record)
         self._session.flush()

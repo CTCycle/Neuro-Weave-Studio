@@ -25,6 +25,7 @@ from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
 from services.runtime_controller import RuntimeController
 
 
+###############################################################################
 def _node(node_id: str, definition_id: str, parameters: dict[str, object]) -> NodeInstance:
     return NodeInstance(
         id=node_id,
@@ -34,6 +35,7 @@ def _node(node_id: str, definition_id: str, parameters: dict[str, object]) -> No
     )
 
 
+###############################################################################
 def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
     return EdgeInstance(
         id=edge_id,
@@ -44,6 +46,7 @@ def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
     )
 
 
+###############################################################################
 def _dense_graph(*, jit_compile: bool = False) -> ModelGraph:
     return ModelGraph(
         nodes=[
@@ -58,6 +61,7 @@ def _dense_graph(*, jit_compile: bool = False) -> ModelGraph:
     )
 
 
+###############################################################################
 def _jax_transformer_graph() -> ModelGraph:
     return ModelGraph(
         nodes=[
@@ -94,6 +98,7 @@ def _jax_transformer_graph() -> ModelGraph:
     )
 
 
+###############################################################################
 def _native_jax_multi_input_graph() -> ModelGraph:
     return ModelGraph(
         nodes=[
@@ -125,6 +130,7 @@ def _native_jax_multi_input_graph() -> ModelGraph:
     )
 
 
+###############################################################################
 def _worker(controller: RuntimeController, backend: ExecutionBackend, api: RuntimeApi) -> WorkerConfiguration:
     status = controller.backend_statuses.get(backend)
     if status is None or not status.available:
@@ -144,6 +150,7 @@ def _worker(controller: RuntimeController, backend: ExecutionBackend, api: Runti
     )
 
 
+###############################################################################
 def _wait(controller: RuntimeController, job_id: str) -> JobResponse:
     deadline = time.monotonic() + 300
     while time.monotonic() < deadline:
@@ -155,6 +162,7 @@ def _wait(controller: RuntimeController, job_id: str) -> JobResponse:
     raise TimeoutError(f"ML worker job {job_id} timed out")
 
 
+###############################################################################
 def _export(
     controller: RuntimeController,
     graph: ModelGraph,
@@ -191,6 +199,7 @@ def _export(
     return result
 
 
+###############################################################################
 @pytest.fixture
 def controller(tmp_path: Path):
     runtime = RuntimeController(
@@ -204,6 +213,7 @@ def controller(tmp_path: Path):
     runtime.shutdown()
 
 
+###############################################################################
 def test_native_tensorflow_onnx_export_inlines_jit_call_graph(
     controller: RuntimeController,
     tmp_path: Path,
@@ -218,6 +228,7 @@ def test_native_tensorflow_onnx_export_inlines_jit_call_graph(
     )
 
 
+###############################################################################
 def test_native_smoke_reports_training_not_run(
     controller: RuntimeController,
 ) -> None:
@@ -239,6 +250,7 @@ def test_native_smoke_reports_training_not_run(
     assert result.result["training"] == "not_run"
 
 
+###############################################################################
 def test_keras_jax_positional_encoding_onnx_export_uses_static_sequence_shape(
     controller: RuntimeController,
     tmp_path: Path,
@@ -253,6 +265,7 @@ def test_keras_jax_positional_encoding_onnx_export_uses_static_sequence_shape(
     )
 
 
+###############################################################################
 def test_native_jax_onnx_export_uses_direct_jax2onnx_bridge(
     controller: RuntimeController,
     tmp_path: Path,
@@ -269,6 +282,7 @@ def test_native_jax_onnx_export_uses_direct_jax2onnx_bridge(
     assert result.artifact.conversion is ExportConversion.NATIVE
 
 
+###############################################################################
 def test_pytorch_compile_capability_requires_msvc_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
     import models.pytorch_worker as pytorch_worker_module
 

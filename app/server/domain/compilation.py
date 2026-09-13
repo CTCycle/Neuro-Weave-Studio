@@ -6,7 +6,6 @@ from domain.diagnostics import ValidationDiagnostic
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph, OutputBinding, ShapeSummary
 
-
 ###############################################################################
 class InputBinding(BaseModel):
     """A compiled edge retaining both endpoint port identities."""
@@ -16,7 +15,6 @@ class InputBinding(BaseModel):
     target_node_id: str
     target_port_id: str
 
-
 ###############################################################################
 class CompiledNode(BaseModel):
     node_id: str
@@ -25,7 +23,6 @@ class CompiledNode(BaseModel):
     input_node_ids: list[str]
     input_bindings: list[InputBinding]
     parameters: dict[str, object] = Field(default_factory=dict)
-
 
 ###############################################################################
 class CanonicalModelIR(BaseModel):
@@ -38,7 +35,6 @@ class CanonicalModelIR(BaseModel):
     output_bindings: list[OutputBinding] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     shape_summaries: list[ShapeSummary] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
-
 ###############################################################################
 class CompilationResult(BaseModel):
     valid: bool
@@ -47,7 +43,6 @@ class CompilationResult(BaseModel):
     diagnostics: list[ValidationDiagnostic]
     code: str | None = None
     ir: CanonicalModelIR | None = None
-
 
 ###############################################################################
 class CompilationRequest(BaseModel):

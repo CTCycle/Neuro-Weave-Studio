@@ -18,17 +18,24 @@ from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
 from repositories.models import CustomMetricDefinitionRecord
 
 
+###############################################################################
 class MetricDefinitionConflictError(ValueError):
+
+    # -------------------------------------------------------------------------
     def __init__(self, message: str, *, usages: list[MetricUsageResponse] | None = None) -> None:
         super().__init__(message)
         self.usages = usages or []
 
 
+###############################################################################
 class MetricService:
+
+    # -------------------------------------------------------------------------
     def __init__(self, uow_factory: UnitOfWorkFactory, catalog_provider: CompilationCatalogProvider) -> None:
         self._uow_factory = uow_factory
         self._catalog_provider = catalog_provider
 
+    # -------------------------------------------------------------------------
     def list(self) -> MetricCatalogResponse:
         catalog = self._catalog_provider.get()
         definitions = [
@@ -38,6 +45,7 @@ class MetricService:
         ]
         return MetricCatalogResponse(definitions=definitions)
 
+    # -------------------------------------------------------------------------
     def create(self, payload: MetricDefinitionCreate) -> MetricDefinitionResponse:
         parsed = _parse(payload.formula)
         normalized_label = _normalized_label(payload.label)
@@ -62,6 +70,7 @@ class MetricService:
             uow.commit()
             return self._from_record(record)
 
+    # -------------------------------------------------------------------------
     def update(self, metric_id: str, payload: MetricDefinitionUpdate) -> MetricDefinitionResponse:
         parsed = _parse(payload.formula)
         normalized_label = _normalized_label(payload.label)
@@ -87,6 +96,7 @@ class MetricService:
             uow.commit()
             return self._from_record(record)
 
+    # -------------------------------------------------------------------------
     def delete(self, metric_id: str) -> None:
         with self._uow_factory() as uow:
             record = uow.metrics.get(metric_id)
@@ -107,6 +117,7 @@ class MetricService:
             uow.metrics.delete(record)
             uow.commit()
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _label_taken(uow: UnitOfWorkProtocol, kind: str, normalized: str, exclude_id: str | None = None) -> bool:
         return any(
@@ -114,6 +125,7 @@ class MetricService:
             for item in uow.metrics.list_all()
         )
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _from_record(record: CustomMetricDefinitionRecord) -> MetricDefinitionResponse:
         return MetricDefinitionResponse(
@@ -131,6 +143,7 @@ class MetricService:
             updated_at=record.updated_at,
         )
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _from_option(kind: str, option: CompilationOption) -> MetricDefinitionResponse:
         return MetricDefinitionResponse(
@@ -149,6 +162,7 @@ class MetricService:
             updated_at=option.updated_at,
         )
 
+    # -------------------------------------------------------------------------
     def _builtin(self, metric_id: str) -> bool:
         catalog = self._catalog_provider.get()
         return any(
@@ -157,10 +171,12 @@ class MetricService:
         )
 
 
+###############################################################################
 def _normalized_label(value: str) -> str:
     return " ".join(value.casefold().split())
 
 
+###############################################################################
 def _parse(formula: str):
     try:
         return parse_metric_formula(formula)

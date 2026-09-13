@@ -6,12 +6,12 @@ from typing import Any
 import keras
 from keras import layers
 
-
 ###############################################################################
 @keras.saving.register_keras_serializable(package="NeuroWeave")
 class SinusoidalPositionalEncoding(layers.Layer):
     """Backend-neutral sinusoidal positional encoding."""
 
+    # -------------------------------------------------------------------------
     def __init__(
         self,
         sequence_length: int | None = None,
@@ -60,17 +60,18 @@ class SinusoidalPositionalEncoding(layers.Layer):
             "feature_dim": self.feature_dim,
         }
 
-
 ###############################################################################
 @keras.saving.register_keras_serializable(package="NeuroWeave")
 class GeluActivation(layers.Layer):
     """Backend-neutral exact GELU for export bridges without a GELU primitive."""
 
+    # -------------------------------------------------------------------------
     def call(self, inputs: Any) -> Any:
         half = keras.ops.cast(0.5, inputs.dtype)
         one = keras.ops.cast(1.0, inputs.dtype)
         root_two = keras.ops.cast(2.0, inputs.dtype)
         return half * inputs * (one + keras.ops.erf(inputs / keras.ops.sqrt(root_two)))
 
+    # -------------------------------------------------------------------------
     def get_config(self) -> dict[str, Any]:
         return super().get_config()

@@ -19,6 +19,7 @@ from services.dataset_service import DatasetDefinitionInvalidError, DatasetServi
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
 
+###############################################################################
 @router.post("/inspect", response_model=DatasetInspection)
 def inspect_dataset(
     payload: DatasetInspectionRequest,
@@ -30,6 +31,7 @@ def inspect_dataset(
         raise HTTPException(status_code=422, detail={"code": "inspection_failed", "message": str(exc)}) from exc
 
 
+###############################################################################
 @router.post("/validate", response_model=DatasetValidationResult)
 def validate_dataset(
     payload: DatasetDefinitionMutation,
@@ -38,11 +40,13 @@ def validate_dataset(
     return service.validate(payload)
 
 
+###############################################################################
 @router.get("", response_model=DatasetListResponse)
 def list_datasets(service: DatasetService = Depends(get_dataset_service)) -> DatasetListResponse:
     return service.list()
 
 
+###############################################################################
 @router.post("", response_model=DatasetDocument, status_code=status.HTTP_201_CREATED)
 def create_dataset(
     payload: DatasetDefinitionMutation,
@@ -57,6 +61,7 @@ def create_dataset(
         ) from exc
 
 
+###############################################################################
 @router.get("/{dataset_id}", response_model=DatasetDocument)
 def get_dataset(
     dataset_id: UUID,
@@ -68,6 +73,7 @@ def get_dataset(
     return dataset
 
 
+###############################################################################
 @router.put("/{dataset_id}", response_model=DatasetDocument)
 def update_dataset(
     dataset_id: UUID,
@@ -88,6 +94,7 @@ def update_dataset(
     return dataset
 
 
+###############################################################################
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_dataset(
     dataset_id: UUID,

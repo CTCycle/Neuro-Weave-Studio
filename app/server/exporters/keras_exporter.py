@@ -17,9 +17,9 @@ from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse
 from exporters.base import SourceExporter
 from validation.output_resolution import output_selectors, resolved_outputs
 
-
 ###############################################################################
 class KerasSourceExporter(SourceExporter):
+
     # -------------------------------------------------------------------------
     @staticmethod
     def _option(value: object) -> object:
@@ -217,10 +217,12 @@ class KerasSourceExporter(SourceExporter):
             raise ValueError(f"No Keras implementation registered for {category}.{identifier}")
         return option
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _custom_function_name(option: CompilationOption) -> str:
         return "nw_custom_" + "".join(char if char.isalnum() else "_" for char in option.id)
 
+    # -------------------------------------------------------------------------
     @classmethod
     def _keras_value_source(cls, option: CompilationOption, *, metric: bool = False) -> str:
         implementation = option.implementations.get("keras")
@@ -231,6 +233,7 @@ class KerasSourceExporter(SourceExporter):
         namespace = "metrics" if metric else "losses"
         return f"keras.{namespace}.{implementation.symbol}()"
 
+    # -------------------------------------------------------------------------
     @classmethod
     def _custom_formula_functions(
         cls, graph: ModelGraph, compilation_catalog: CompilationCatalog

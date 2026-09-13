@@ -11,7 +11,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance
 from domain.manifests import NodeManifest
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 class ConnectionValidationService:
     """Validate proposed edges against graph semantics and the active runtime profile."""

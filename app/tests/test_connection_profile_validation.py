@@ -5,6 +5,7 @@ from services.connection_validation_service import ConnectionValidationService
 from services.validation_service import ValidationService
 
 
+###############################################################################
 def make_node(
     node_id: str,
     definition_id: str,
@@ -18,11 +19,13 @@ def make_node(
     )
 
 
+###############################################################################
 def make_service() -> ConnectionValidationService:
     catalog = get_node_catalog()
     return ConnectionValidationService(catalog, ValidationService(catalog))
 
 
+###############################################################################
 def test_proposed_edge_respects_execution_profile() -> None:
     graph = ModelGraph(
         nodes=[
@@ -60,6 +63,7 @@ def test_proposed_edge_respects_execution_profile() -> None:
     )
 
 
+###############################################################################
 def test_candidate_batch_returns_only_authoritatively_valid_edges() -> None:
     graph = ModelGraph(
         nodes=[

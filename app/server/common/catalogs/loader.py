@@ -95,7 +95,6 @@ _NATIVE_BRANCH_ADAPTERS: dict[tuple[str, str], str] = {
 }
 _PYTORCH_ACTIVATIONS = ["linear", "relu", "gelu", "sigmoid", "tanh", "softmax"]
 
-
 ###############################################################################
 def _parameter(
     identifier: str,
@@ -142,7 +141,6 @@ def _parameter(
         parameter["editor_default"] = editor_default
     return parameter
 
-
 ###############################################################################
 def _initializer_parameter(identifier: str, label: str, default: str) -> dict[str, Any]:
     return _parameter(
@@ -154,7 +152,6 @@ def _initializer_parameter(identifier: str, label: str, default: str) -> dict[st
         options=_INITIALIZER_OPTIONS,
         ui={"control": "select_or_json", "json_type": "initializer"},
     )
-
 
 ###############################################################################
 def _regularizer_parameter(identifier: str, label: str) -> dict[str, Any]:
@@ -168,7 +165,6 @@ def _regularizer_parameter(identifier: str, label: str) -> dict[str, Any]:
         ui={"control": "select_or_json", "json_type": "regularizer"},
     )
 
-
 ###############################################################################
 def _constraint_parameter(identifier: str, label: str) -> dict[str, Any]:
     return _parameter(
@@ -180,7 +176,6 @@ def _constraint_parameter(identifier: str, label: str) -> dict[str, Any]:
         options=_CONSTRAINT_OPTIONS,
         ui={"control": "select_or_json", "json_type": "constraint"},
     )
-
 
 ###############################################################################
 def _base_layer_parameters() -> list[dict[str, Any]]:
@@ -207,7 +202,6 @@ def _base_layer_parameters() -> list[dict[str, Any]]:
         _parameter("trainable", "Trainable", "boolean", True, group="Advanced"),
         _parameter("autocast", "Autocast", "boolean", True, group="Advanced"),
     ]
-
 
 ###############################################################################
 def _spatial_parameters(dimensions: int) -> list[dict[str, Any]]:
@@ -245,7 +239,6 @@ def _spatial_parameters(dimensions: int) -> list[dict[str, Any]]:
             constraints={"length": dimensions, "item_min": 1},
         ),
     ]
-
 
 ###############################################################################
 def _pool_parameters(dimensions: int, *, include_pool_size: bool = False) -> list[dict[str, Any]]:
@@ -293,7 +286,6 @@ def _pool_parameters(dimensions: int, *, include_pool_size: bool = False) -> lis
         ]
     )
     return parameters
-
 
 ###############################################################################
 def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
@@ -817,7 +809,6 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
         ]
     return []
 
-
 ###############################################################################
 def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize the catalog into the complete safe inspector contract."""
@@ -923,7 +914,6 @@ def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
         item.setdefault("semantic_role", "operation")
     return item
 
-
 ###############################################################################
 def _output_task_hint(node_id: str) -> str | None:
     return {
@@ -935,7 +925,6 @@ def _output_task_hint(node_id: str) -> str | None:
         "output.detection_placeholder": "detection",
         "output.custom": "generic",
     }.get(node_id)
-
 
 ###############################################################################
 def _merge_manifest_data(
@@ -1023,7 +1012,6 @@ def _merge_manifest_data(
         item["implementations"] = implementations
     return item
 
-
 ###############################################################################
 def _expand_operation_spec(spec: dict[str, Any]) -> dict[str, Any]:
     """Expand compact declarative operation metadata into a normal manifest."""
@@ -1095,7 +1083,6 @@ def _expand_operation_spec(spec: dict[str, Any]) -> dict[str, Any]:
         "documentation_ref": "assets/docs/nodes/mathematical_operations.md",
     }
 
-
 ###############################################################################
 def _catalog_extensions() -> dict[str, Any]:
     if not CATALOG_EXTENSION_PATH.exists():
@@ -1104,7 +1091,6 @@ def _catalog_extensions() -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise RuntimeError("Catalog extension data must be an object")
     return cast(dict[str, Any], raw)
-
 
 ###############################################################################
 def _combined_override(
@@ -1132,9 +1118,9 @@ def _combined_override(
         result["implementations"] = implementations
     return result
 
-
 ###############################################################################
 class NodeCatalog:
+
     # -------------------------------------------------------------------------
     def __init__(self, manifests: list[NodeManifest]) -> None:
         self._manifests = sorted(manifests, key=lambda item: (item.category, item.display_name))
@@ -1151,7 +1137,6 @@ class NodeCatalog:
             return self._by_key[(definition_id, version)]
         except KeyError as exc:
             raise KeyError(f"Unknown node definition: {definition_id}@{version}") from exc
-
 
 ###############################################################################
 def get_node_catalog() -> NodeCatalog:

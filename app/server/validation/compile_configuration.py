@@ -15,7 +15,6 @@ from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
 from validation.output_resolution import ResolvedOutput, output_selectors, resolved_outputs
 
-
 ###############################################################################
 def _error(
     code: str,
@@ -34,7 +33,6 @@ def _error(
         details=details or {},
     )
 
-
 ###############################################################################
 def _output_selectors(outputs: Sequence[ResolvedOutput]) -> set[str]:
     return {
@@ -42,7 +40,6 @@ def _output_selectors(outputs: Sequence[ResolvedOutput]) -> set[str]:
         for output in outputs
         for selector in output_selectors(output)
     }
-
 
 ###############################################################################
 def _selected_value(
@@ -56,6 +53,7 @@ def _selected_value(
     return value
 
 
+###############################################################################
 def _output_details(output: ResolvedOutput, task: str | None = None) -> dict[str, object]:
     details: dict[str, object] = {
         "output_id": f"{output.binding.node_id}:{output.binding.port_id}",
@@ -68,13 +66,13 @@ def _output_details(output: ResolvedOutput, task: str | None = None) -> dict[str
     return details
 
 
+###############################################################################
 def _matching_outputs(
     output_selector: str, outputs: Sequence[ResolvedOutput]
 ) -> list[ResolvedOutput]:
     if output_selector == "__default__":
         return list(outputs)
     return [output for output in outputs if output_selector in output_selectors(output)]
-
 
 ###############################################################################
 def _validate_optimizer(
@@ -149,7 +147,6 @@ def _validate_optimizer(
                 )
             )
     return diagnostics
-
 
 ###############################################################################
 def _validate_mappings(
@@ -249,7 +246,6 @@ def _validate_mappings(
                     )
     return diagnostics
 
-
 ###############################################################################
 def _terminal_head(graph: ModelGraph, output: ResolvedOutput) -> tuple[str | None, int | None]:
     """Find the final activation and class width for one selected output."""
@@ -288,7 +284,6 @@ def _terminal_head(graph: ModelGraph, output: ResolvedOutput) -> tuple[str | Non
         current = nodes.get(source_id) if source_id is not None else None
     return None, None
 
-
 ###############################################################################
 def _output_task(output: ResolvedOutput, width: int | None) -> str | None:
     definition_id = output.manifest.id if output.manifest is not None else None
@@ -297,7 +292,6 @@ def _output_task(output: ResolvedOutput, width: int | None) -> str | None:
     if definition_id == "output.classification" and width is not None:
         return "binary_classification" if width == 1 else "multiclass_classification"
     return None
-
 
 ###############################################################################
 def _validate_semantics(
@@ -417,7 +411,6 @@ def _validate_semantics(
                         )
                     )
     return diagnostics
-
 
 ###############################################################################
 def validate_model_configuration(

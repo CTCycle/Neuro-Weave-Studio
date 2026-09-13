@@ -11,6 +11,7 @@ branch_labels = None
 depends_on = None
 
 
+###############################################################################
 def upgrade() -> None:
     op.create_table(
         "datasets",
@@ -46,6 +47,7 @@ def upgrade() -> None:
     op.create_index("ix_datasets_type", "datasets", ["dataset_type"])
 
 
+###############################################################################
 def downgrade() -> None:
     op.drop_index("ix_datasets_type", table_name="datasets")
     op.drop_index("ix_datasets_updated_at", table_name="datasets")

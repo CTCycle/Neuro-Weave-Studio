@@ -5,7 +5,6 @@ import pytest
 
 from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
 
-
 ###############################################################################
 def test_metric_formula_uses_only_the_bounded_expression_subset() -> None:
     formula = r"\frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2"
@@ -15,7 +14,6 @@ def test_metric_formula_uses_only_the_bounded_expression_subset() -> None:
     assert "keras.ops.square" in emit_metric_formula(node, "keras")
     with pytest.raises(MetricFormulaError):
         parse_metric_formula("__import__('os').system('whoami')")
-
 
 ###############################################################################
 def test_custom_metric_lifecycle_and_builtin_locking(client: httpx.Client) -> None:
@@ -77,7 +75,6 @@ def test_custom_metric_lifecycle_and_builtin_locking(client: httpx.Client) -> No
     deleted = client.delete(f"/api/metrics/{metric_id}")
     assert deleted.status_code == 204
     assert all(item["id"] != metric_id for item in client.get("/api/metrics").json()["definitions"])
-
 
 ###############################################################################
 def test_custom_metric_delete_reports_saved_model_references(client: httpx.Client) -> None:

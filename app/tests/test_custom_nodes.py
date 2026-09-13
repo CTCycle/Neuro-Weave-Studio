@@ -9,20 +9,27 @@ import httpx
 import pytest
 
 
+###############################################################################
 class _FakeResponse:
+
+    # -------------------------------------------------------------------------
     def __init__(self, payload: dict[str, object]) -> None:
         self._payload = payload
 
+    # -------------------------------------------------------------------------
     def __enter__(self) -> Self:
         return self
 
+    # -------------------------------------------------------------------------
     def __exit__(self, *_args: object) -> None:
         return None
 
+    # -------------------------------------------------------------------------
     def read(self) -> bytes:
         return json.dumps(self._payload).encode("utf-8")
 
 
+###############################################################################
 def _stub_huggingface(monkeypatch: pytest.MonkeyPatch, sha: str = "a" * 40) -> None:
     def fake_urlopen(*_args: object, **_kwargs: object) -> _FakeResponse:
         return _FakeResponse(
@@ -34,7 +41,6 @@ def _stub_huggingface(monkeypatch: pytest.MonkeyPatch, sha: str = "a" * 40) -> N
         )
 
     monkeypatch.setattr("services.huggingface_repository_service.urlopen", fake_urlopen)
-
 
 ###############################################################################
 def test_custom_node_lifecycle_versions_and_builtin_locking(client: httpx.Client) -> None:
@@ -109,7 +115,6 @@ def test_custom_node_lifecycle_versions_and_builtin_locking(client: httpx.Client
     assert locked_update.status_code == 403
     assert client.delete(f"/api/nodes/custom/{builtin['id']}").status_code == 403
     assert client.delete(f"/api/nodes/custom/{definition_id}").status_code == 204
-
 
 ###############################################################################
 def test_composite_nodes_validate_full_manifest_parameter_contract(client: httpx.Client) -> None:
@@ -191,7 +196,6 @@ def test_composite_nodes_validate_full_manifest_parameter_contract(client: httpx
     )
     assert invalid_option.status_code == 422
 
-
 ###############################################################################
 def test_repository_nodes_resolve_and_pin_public_hugging_face_reference(
     client: httpx.Client,
@@ -238,6 +242,7 @@ def test_repository_nodes_resolve_and_pin_public_hugging_face_reference(
     assert invalid.status_code == 422
 
 
+###############################################################################
 def test_repository_resolution_outage_is_service_unavailable(
     client: httpx.Client,
     monkeypatch: pytest.MonkeyPatch,
@@ -263,6 +268,7 @@ def test_repository_resolution_outage_is_service_unavailable(
     assert response.status_code == 503
 
 
+###############################################################################
 def test_repository_resolution_rejects_invalid_commit_response(
     client: httpx.Client,
     monkeypatch: pytest.MonkeyPatch,
@@ -285,6 +291,7 @@ def test_repository_resolution_rejects_invalid_commit_response(
     assert response.status_code == 503
 
 
+###############################################################################
 @pytest.mark.skipif(
     os.getenv("NEURO_WEAVE_RUN_LIVE_REPOSITORY_TESTS") != "1",
     reason="Opt-in: exercises the live Hugging Face repository resolver.",

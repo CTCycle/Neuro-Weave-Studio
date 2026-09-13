@@ -43,13 +43,19 @@ from repositories.datasets import DatasetRecord
 from services.dataset_inspection_service import DatasetInspectionError, DatasetInspectionService
 
 
+###############################################################################
 class DatasetDefinitionInvalidError(ValueError):
+
+    # -------------------------------------------------------------------------
     def __init__(self, result: DatasetValidationResult) -> None:
         self.result = result
         super().__init__("Dataset definition is invalid")
 
 
+###############################################################################
 class DatasetService:
+
+    # -------------------------------------------------------------------------
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
@@ -58,9 +64,11 @@ class DatasetService:
         self._uow_factory = uow_factory
         self._inspector = inspector or DatasetInspectionService()
 
+    # -------------------------------------------------------------------------
     def inspect(self, request: DatasetInspectionRequest) -> DatasetInspection:
         return self._inspector.inspect(request)
 
+    # -------------------------------------------------------------------------
     def validate(self, payload: DatasetDefinitionMutation) -> DatasetValidationResult:
         now = utc_now()
         errors: list[DatasetValidationFinding] = []
@@ -97,17 +105,20 @@ class DatasetService:
             warnings,
         )
 
+    # -------------------------------------------------------------------------
     def list(self) -> DatasetListResponse:
         with self._uow_factory() as uow:
             records = uow.datasets.list_all()
             datasets = [self._summary(record) for record in records]
         return DatasetListResponse(datasets=datasets)
 
+    # -------------------------------------------------------------------------
     def get(self, dataset_id: UUID) -> DatasetDocument | None:
         with self._uow_factory() as uow:
             record = uow.datasets.get(dataset_id)
             return None if record is None else self._document(record)
 
+    # -------------------------------------------------------------------------
     def create(self, payload: DatasetDefinitionMutation) -> DatasetDocument:
         result = self.validate(payload)
         if not result.valid or result.inspection is None:
@@ -133,6 +144,7 @@ class DatasetService:
             uow.commit()
             return self._document(record)
 
+    # -------------------------------------------------------------------------
     def update(
         self,
         dataset_id: UUID,
@@ -159,6 +171,7 @@ class DatasetService:
             uow.commit()
             return self._document(record)
 
+    # -------------------------------------------------------------------------
     def delete(self, dataset_id: UUID) -> bool:
         with self._uow_factory() as uow:
             record = uow.datasets.get(dataset_id)
@@ -168,6 +181,7 @@ class DatasetService:
             uow.commit()
             return True
 
+    # -------------------------------------------------------------------------
     def _validate_layout(self, payload: DatasetDefinitionMutation) -> list[DatasetValidationFinding]:
         errors: list[DatasetValidationFinding] = []
         tables = [source for source in payload.sources if isinstance(source, TableSource)]
@@ -208,6 +222,7 @@ class DatasetService:
             )
         return errors
 
+    # -------------------------------------------------------------------------
     def _validate_bindings(
         self,
         payload: DatasetDefinitionMutation,
@@ -290,6 +305,7 @@ class DatasetService:
                 )
         return errors
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _binding_keys(
         binding: DatasetBinding,
@@ -333,6 +349,7 @@ class DatasetService:
             errors.append(DatasetValidationFinding(code="invalid_folder_labels", message="Folder labels require a labeled image-folder output", source_id=binding.source_id))
         return [binding.type]
 
+    # -------------------------------------------------------------------------
     def _resolve_sample_count(
         self,
         payload: DatasetDefinitionMutation,
@@ -382,6 +399,7 @@ class DatasetService:
             return min(selected_arrays)
         return selected_arrays[0] if selected_arrays else inspection.sample_count
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _validate_subset(
         payload: DatasetDefinitionMutation,
@@ -399,6 +417,7 @@ class DatasetService:
             errors.append(DatasetValidationFinding(code="subset_out_of_bounds", message=f"Sample range must stay between 0 and {max(sample_count - 1, 0)}"))
         return max(0, min(subset.end, sample_count - 1) - subset.start + 1)
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _validation_result(
         checked_at: datetime,
@@ -423,6 +442,7 @@ class DatasetService:
             validation=metadata,
         )
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _availability(payload: DatasetDefinitionMutation) -> DatasetAvailabilityState:
         unavailable: list[str] = []
@@ -435,6 +455,7 @@ class DatasetService:
             unavailable_source_ids=unavailable,
         )
 
+    # -------------------------------------------------------------------------
     def _summary(self, record: DatasetRecord) -> DatasetSummary:
         payload = DatasetDefinitionMutation.model_validate(record.definition_json)
         return DatasetSummary(
@@ -453,6 +474,7 @@ class DatasetService:
             updated_at=record.updated_at,
         )
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _normalize_payload(
         payload: DatasetDefinitionMutation,
@@ -468,6 +490,7 @@ class DatasetService:
                 source["path"] = resolved
         return DatasetDefinitionMutation.model_validate(data)
 
+    # -------------------------------------------------------------------------
     def _document(self, record: DatasetRecord) -> DatasetDocument:
         payload = DatasetDefinitionMutation.model_validate(record.definition_json)
         return DatasetDocument.model_validate(
@@ -485,6 +508,7 @@ class DatasetService:
             }
         )
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _role_summary(definition: DatasetRoleDefinition, *, empty: str = "None") -> str:
         parts: list[str] = []
@@ -501,6 +525,7 @@ class DatasetService:
                 parts.append("folder label")
         return " + ".join(parts) or empty
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _format_label(payload: DatasetDefinitionMutation) -> str:
         labels: list[str] = []

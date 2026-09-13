@@ -10,14 +10,12 @@ from services.errors import GraphPersistenceError
 from services.keras_import_service import KerasImportService
 from services.project_service import ProjectService
 
-
 ###############################################################################
 def raise_create_conflict(
     _service: ProjectService,
     _payload: object,
 ) -> None:
     raise GraphPersistenceError("Project graph conflicts with the relational schema")
-
 
 ###############################################################################
 def raise_duplicate_conflict(
@@ -27,11 +25,9 @@ def raise_duplicate_conflict(
 ) -> None:
     raise GraphPersistenceError("Project graph conflicts with the relational schema")
 
-
 ###############################################################################
 def raise_keras_import_conflict(*_args: object, **_kwargs: object) -> NoReturn:
     raise GraphPersistenceError("Project graph conflicts with the relational schema")
-
 
 ###############################################################################
 def test_project_import_maps_persistence_conflict_to_409(
@@ -55,7 +51,6 @@ def test_project_import_maps_persistence_conflict_to_409(
     assert response.status_code == 409
     assert response.json()["detail"] == "Project graph conflicts with the relational schema"
 
-
 ###############################################################################
 def test_project_duplicate_maps_persistence_conflict_to_409(
     client: TestClient,
@@ -70,7 +65,6 @@ def test_project_duplicate_maps_persistence_conflict_to_409(
 
     assert response.status_code == 409
     assert response.json()["detail"] == "Project graph conflicts with the relational schema"
-
 
 ###############################################################################
 def test_keras_import_maps_persistence_conflict_to_409(
@@ -87,7 +81,6 @@ def test_keras_import_maps_persistence_conflict_to_409(
 
     assert response.status_code == 409
     assert response.json()["detail"] == "Project graph conflicts with the relational schema"
-
 
 ###############################################################################
 def test_unknown_api_get_does_not_fall_through_to_the_spa(client: TestClient) -> None:
