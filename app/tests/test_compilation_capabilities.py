@@ -20,6 +20,7 @@ from services.compilation_service import CompilationService
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
 
+
 ###############################################################################
 def _native_graph() -> ModelGraph:
     return ModelGraph(
@@ -151,3 +152,24 @@ def test_native_compilation_source_uses_each_backend_native_compiler() -> None:
     assert "def configured_losses" in pytorch.code
     assert "def configured_metrics" in pytorch.code
     assert "return jax.jit(model.apply)" in jax.code
+    assert "keras.Model" not in tensorflow.code
+    assert "keras.Model" not in pytorch.code
+    assert "keras.Model" not in jax.code
+
+###############################################################################
+def test_compilation_rejects_a_native_parameter_without_falling_back_to_keras() -> None:
+    graph = _native_graph().model_copy(deep=True)
+    dense = next(node for node in graph.nodes if node.id == "dense")
+    dense.parameters["kernel_initializer"] = "he_normal"
+    catalog = get_node_catalog()
+    service = CompilationService(catalog, ValidationService(catalog))
+
+    result = service.compile(graph, ExecutionBackend.PYTORCH, False)
+
+    assert result.valid is False
+    assert result.code is None
+    assert any(
+        item.code == "unsupported_parameter_value"
+        and item.parameter_id == "kernel_initializer"
+        for item in result.diagnostics
+    )
