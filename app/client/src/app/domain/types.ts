@@ -67,7 +67,7 @@ export type CapabilityStatus = 'verified' | 'unsupported' | 'unverified'
 
 export interface ParameterCapability {
   supported: boolean
-  status?: CapabilityStatus
+  status: CapabilityStatus
   allowed_values?: unknown[] | null
   constraints: Record<string, unknown>
   mapping?: string | null
@@ -77,7 +77,7 @@ export interface ParameterCapability {
 
 export interface ImplementationMapping {
   supported: boolean
-  status?: CapabilityStatus
+  status: CapabilityStatus
   symbol?: string
   adapter?: string
   notes?: string
@@ -657,14 +657,303 @@ export function implementationKey(backend: ExecutionBackend, kerasEnabled: boole
   return kerasEnabled ? 'keras' : backend
 }
 
-export function implementationAvailable(
-  manifest: Pick<NodeManifest, 'implementations'> | undefined,
+export type CompatibilityReasonCode =
+  | 'missing_implementation'
+  | 'unsupported_implementation'
+  | 'unverified_implementation'
+  | 'backend_excluded'
+  | 'unsupported_parameter'
+  | 'unverified_parameter'
+  | 'unsupported_parameter_option'
+  | 'invalid_parameter_value'
+  | 'parameter_fixed'
+  | 'disabled_parameter'
+
+export interface ImplementationCompatibility {
+  available: boolean
+  reasonCode: CompatibilityReasonCode | null
+  reason: string | null
+  mapping?: ImplementationMapping
+}
+
+export interface ParameterCompatibility {
+  editable: boolean
+  valueCompatible: boolean
+  reasonCode: CompatibilityReasonCode | null
+  reason: string | null
+  capability?: ParameterCapability
+  effectiveDefault: unknown
+}
+
+export function resolveImplementationCompatibility(
+  manifest: (Pick<NodeManifest, 'implementations'> & Partial<Pick<NodeManifest, 'display_name'>>) | undefined,
   backend: ExecutionBackend,
   kerasEnabled: boolean,
-): boolean {
+): ImplementationCompatibility {
   const mapping = manifest?.implementations[implementationKey(backend, kerasEnabled)]
-  if (!mapping || mapping.supported === false || mapping.status === 'unsupported') return false
-  return !kerasEnabled || mapping.execution_backends?.[backend] !== false
+  const label = implementationLabel(backend, kerasEnabled)
+  if (!mapping) {
+    return {
+      available: false,
+      reasonCode: 'missing_implementation',
+      reason: `${manifest?.display_name ?? 'This node'} has no explicit ${label} adapter.`,
+    }
+  }
+  if (mapping.supported === false || mapping.status === 'unsupported') {
+    return {
+      available: false,
+      reasonCode: 'unsupported_implementation',
+      reason: `${manifest?.display_name ?? 'This node'} is not supported by ${label}.`,
+      mapping,
+    }
+  }
+  if (mapping.status !== 'verified') {
+    return {
+      available: false,
+      reasonCode: 'unverified_implementation',
+      reason: `${manifest?.display_name ?? 'This node'} has not been verified for ${label}.`,
+      mapping,
+    }
+  }
+  if (kerasEnabled && mapping.execution_backends?.[backend] === false) {
+    return {
+      available: false,
+      reasonCode: 'backend_excluded',
+      reason: `${manifest?.display_name ?? 'This node'} is not available through Keras on the ${executionBackendShortLabels[backend]} backend.`,
+      mapping,
+    }
+  }
+  return { available: true, reasonCode: null, reason: null, mapping }
+}
+
+export function effectiveParameterDefault(
+  definition: ParameterDefinition,
+  capability?: ParameterCapability,
+): unknown {
+  if (capability?.default !== undefined && capability.default !== null) return capability.default
+  if (Object.prototype.hasOwnProperty.call(definition, 'framework_default')) return definition.framework_default
+  return definition.default
+}
+
+/**
+ * Validate the structural part of a parameter value without applying the
+ * selected implementation's allowed-value mapping. The server performs the
+ * authoritative validation; this predicate keeps direct editor mutations
+ * from creating values that the editor already knows are malformed.
+ */
+export function parameterValueMatchesDefinition(
+  definition: ParameterDefinition,
+  value: unknown,
+  capability?: ParameterCapability,
+): boolean {
+  if (value === undefined) return false
+  if (value === null) return Boolean(definition.nullable)
+  if (definition.value_schema && !valueMatchesSchema(definition.value_schema, value)) return false
+
+  let typeMatches = true
+  if (!definition.value_schema) {
+    switch (definition.type) {
+      case 'boolean': typeMatches = typeof value === 'boolean'; break
+      case 'integer': typeMatches = Number.isSafeInteger(value) && typeof value === 'number'; break
+      case 'axis':
+        typeMatches = (Number.isSafeInteger(value) && typeof value === 'number')
+          || (Array.isArray(value) && value.every((item) => Number.isSafeInteger(item) && typeof item === 'number'))
+        break
+      case 'number': typeMatches = typeof value === 'number' && Number.isFinite(value); break
+      case 'enum': typeMatches = !definition.options.length || definition.options.some((option) => sameValue(option, value)); break
+      case 'string':
+      case 'expression':
+      case 'dtype':
+      case 'activation': typeMatches = typeof value === 'string'; break
+      case 'initializer':
+      case 'regularizer':
+      case 'constraint': typeMatches = typeof value === 'string' || isRecord(value); break
+      case 'object': typeMatches = isRecord(value); break
+      case 'shape':
+        typeMatches = Array.isArray(value) && value.every((item) => (
+          item === null
+          || Number.isSafeInteger(item) && typeof item === 'number'
+          || Array.isArray(item)
+        )); break
+      case 'list':
+      case 'tuple': typeMatches = Array.isArray(value); break
+    }
+  }
+  if (!typeMatches) return false
+
+  if (definition.options.length && !isRecord(value)
+    && !definition.options.some((option) => sameValue(option, value))) return false
+
+  const constraints = { ...definition.constraints, ...(capability?.constraints ?? {}) }
+  if (typeof value === 'number' && !Number.isFinite(value)) return false
+  if (typeof value === 'number') {
+    if (typeof constraints['min'] === 'number' && value < constraints['min']) return false
+    if (typeof constraints['max'] === 'number' && value > constraints['max']) return false
+  }
+  if (Array.isArray(value)) {
+    if (typeof constraints['length'] === 'number' && value.length !== constraints['length']) return false
+    if (typeof constraints['min_length'] === 'number' && value.length < constraints['min_length']) return false
+    if (typeof constraints['max_length'] === 'number' && value.length > constraints['max_length']) return false
+    const numericItems = value.filter((item): item is number => typeof item === 'number' && !Number.isNaN(item))
+    const itemMin = constraints['item_min']
+    const itemMax = constraints['item_max']
+    if (typeof itemMin === 'number' && numericItems.some((item) => item < itemMin)) return false
+    if (typeof itemMax === 'number' && numericItems.some((item) => item > itemMax)) return false
+    if (definition.type === 'shape' && value.some((item) => item === 0)) return false
+  }
+  return true
+}
+
+export function resolveParameterCompatibility(
+  manifest: (Pick<NodeManifest, 'implementations'> & Partial<Pick<NodeManifest, 'display_name'>>) | undefined,
+  definition: ParameterDefinition,
+  value: unknown,
+  parameters: Record<string, unknown>,
+  backend: ExecutionBackend,
+  kerasEnabled: boolean,
+): ParameterCompatibility {
+  const implementation = resolveImplementationCompatibility(manifest, backend, kerasEnabled)
+  const capability = implementation.mapping?.parameters?.[definition.id]
+  const effectiveDefault = effectiveParameterDefault(definition, capability)
+  if (!implementation.available) {
+    return {
+      editable: false,
+      valueCompatible: false,
+      reasonCode: implementation.reasonCode,
+      reason: implementation.reason,
+      capability,
+      effectiveDefault,
+    }
+  }
+
+  const label = implementationLabel(backend, kerasEnabled)
+  const unsupported = capability?.supported === false || capability?.status === 'unsupported'
+  if (capability && !unsupported && capability.status !== 'verified') {
+    return {
+      editable: false,
+      valueCompatible: false,
+      reasonCode: 'unverified_parameter',
+      reason: `${definition.display_name} has not been verified for ${label}.`,
+      capability,
+      effectiveDefault,
+    }
+  }
+
+  const allowedValues = capability?.allowed_values
+  const allowed = !allowedValues || allowedValues.some((item) => sameValue(item, value))
+  if (!parameterValueMatchesDefinition(definition, value, capability)) {
+    return {
+      editable: true,
+      valueCompatible: false,
+      reasonCode: 'invalid_parameter_value',
+      reason: `${definition.display_name} has an invalid value for ${label}.`,
+      capability,
+      effectiveDefault,
+    }
+  }
+  const enabled = conditionMatches(definition.enabled_when, parameters)
+  const valueCompatible = !unsupported || (
+    sameValue(value, effectiveDefault) && allowed
+  )
+  const conditionCompatible = enabled || sameValue(value, effectiveDefault)
+  if (unsupported) {
+    return {
+      editable: false,
+      valueCompatible: valueCompatible && conditionCompatible,
+      reasonCode: 'unsupported_parameter',
+      reason: `${definition.display_name} is not supported for ${label}.`,
+      capability,
+      effectiveDefault,
+    }
+  }
+  if (!enabled) {
+    return {
+      editable: false,
+      valueCompatible: conditionCompatible && allowed,
+      reasonCode: 'disabled_parameter',
+      reason: `${definition.display_name} is disabled by the current node configuration.`,
+      capability,
+      effectiveDefault,
+    }
+  }
+  if (!allowed) {
+    return {
+      editable: !allowedValues || allowedValues.length > 1,
+      valueCompatible: false,
+      reasonCode: 'unsupported_parameter_option',
+      reason: `${definition.display_name} has no supported ${label} mapping for this value.`,
+      capability,
+      effectiveDefault,
+    }
+  }
+  if (allowedValues?.length === 1) {
+    return {
+      editable: false,
+      valueCompatible: true,
+      reasonCode: 'parameter_fixed',
+      reason: `Fixed to ${String(allowedValues[0])} by this backend.`,
+      capability,
+      effectiveDefault,
+    }
+  }
+  return {
+    editable: true,
+    valueCompatible: true,
+    reasonCode: null,
+    reason: null,
+    capability,
+    effectiveDefault,
+  }
+}
+
+function conditionMatches(
+  condition: Record<string, unknown> | undefined,
+  parameters: Record<string, unknown>,
+): boolean {
+  if (!condition) return true
+  return Object.entries(condition).every(([parameterId, expected]) => {
+    const actual = parameters[parameterId]
+    if (typeof expected === 'object' && expected !== null && !Array.isArray(expected)) {
+      const rule = expected as Record<string, unknown>
+      if ('equals' in rule && !sameValue(actual, rule['equals'])) return false
+      if ('not_equals' in rule && sameValue(actual, rule['not_equals'])) return false
+      if ('in' in rule && Array.isArray(rule['in']) && !rule['in'].some((item) => sameValue(actual, item))) return false
+      if ('not_in' in rule && Array.isArray(rule['not_in']) && rule['not_in'].some((item) => sameValue(actual, item))) return false
+      return true
+    }
+    if (Array.isArray(expected)) return expected.some((item) => sameValue(actual, item))
+    return sameValue(actual, expected)
+  })
+}
+
+function sameValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function valueMatchesSchema(schema: ParameterValueSchema, value: unknown): boolean {
+  if (value === null) return false
+  if (schema.type === 'object') {
+    if (!isRecord(value)) return false
+    if ((schema.required_properties ?? []).some((key) => !Object.prototype.hasOwnProperty.call(value, key))) return false
+    return Object.entries(schema.properties ?? {}).every(([key, propertySchema]) => (
+      !Object.prototype.hasOwnProperty.call(value, key) || valueMatchesSchema(propertySchema, value[key])
+    ))
+  }
+  if (schema.type === 'list' || schema.type === 'tuple' || schema.type === 'shape') {
+    return Array.isArray(value) && (!schema.item || value.every((item) => valueMatchesSchema(schema.item as ParameterValueSchema, item)))
+  }
+  if (schema.type === 'integer' || schema.type === 'axis') {
+    return typeof value === 'number' && Number.isSafeInteger(value)
+  }
+  if (schema.type === 'number') return typeof value === 'number' && Number.isFinite(value)
+  if (schema.type === 'boolean') return typeof value === 'boolean'
+  if (schema.type === 'string' || schema.type === 'enum' || schema.type === 'expression' || schema.type === 'dtype' || schema.type === 'activation') return typeof value === 'string'
+  if (schema.type === 'initializer' || schema.type === 'regularizer' || schema.type === 'constraint') return typeof value === 'string' || isRecord(value)
+  return true
 }
 
 export interface ProjectExportBundle {

@@ -38,8 +38,10 @@ from validation.output_resolution import (
     resolved_outputs,
 )
 from validation.output_resolution import input_nodes as catalog_input_nodes
+from validation.profile_compatibility import resolve_implementation_compatibility
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
+
 
 ###############################################################################
 def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
@@ -552,7 +554,6 @@ class ValidationService:
         diagnostics: list[ValidationDiagnostic] = []
         nodes = {node.id: node for node in graph.nodes}
         manifests: dict[str, NodeManifest] = {}
-        implementation_key = "keras" if keras_enabled else execution_backend.value
         implementation_label = "Keras" if keras_enabled else f"native {execution_backend.value}"
 
         for node in graph.nodes:
@@ -569,40 +570,30 @@ class ValidationService:
                     )
                 )
                 continue
-            mapping = manifest.implementations.get(implementation_key)
-            backend_excluded = (
-                keras_enabled
-                and mapping is not None
-                and bool(mapping.execution_backends)
-                and mapping.execution_backends.get(execution_backend, True) is False
+            compatibility = resolve_implementation_compatibility(
+                manifest,
+                execution_backend,
+                keras_enabled,
             )
-            if mapping is None or not mapping.supported or backend_excluded:
-                message = (
-                    f"{manifest.display_name} does not support Keras on the "
-                    f"{execution_backend.value} backend"
-                    if backend_excluded
-                    else f"{manifest.display_name} has no explicit {implementation_label} adapter"
+            mapping = compatibility.mapping
+            if not compatibility.available:
+                diagnostic_code = (
+                    "unverified_implementation"
+                    if compatibility.reason_code == "unverified_implementation"
+                    else "unsupported_implementation"
                 )
                 diagnostics.append(
                     ValidationDiagnostic(
-                        code="unsupported_implementation",
+                        code=diagnostic_code,
                         severity=DiagnosticSeverity.COMPATIBILITY,
-                        message=message,
+                        message=compatibility.reason or "The node is unavailable for the selected execution profile.",
                         node_id=node.id,
                         execution_backend=execution_backend,
                         keras_enabled=keras_enabled,
-                    )
-                )
-            elif mapping.status == "unverified":
-                diagnostics.append(
-                    ValidationDiagnostic(
-                        code="unverified_implementation",
-                        severity=DiagnosticSeverity.COMPATIBILITY,
-                        message=f"{manifest.display_name} has not been verified for {implementation_label}",
-                        node_id=node.id,
-                        execution_backend=execution_backend,
-                        keras_enabled=keras_enabled,
-                        details={"notes": mapping.notes},
+                        details={
+                            "reason_code": compatibility.reason_code,
+                            "notes": mapping.notes if mapping is not None else None,
+                        },
                     )
                 )
             known_parameter_ids = {parameter.id for parameter in manifest.parameters}

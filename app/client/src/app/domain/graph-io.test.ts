@@ -16,7 +16,7 @@ const manifest = (id: string, semantic_role: NodeManifest['semantic_role'], outp
   outputs,
   parameters: [],
   shape_rule: { kind: 'preserve', config: {} },
-  implementations: { keras: { supported: true } },
+  implementations: { keras: { supported: true, status: 'verified' } },
   ui: { icon: 'Box', accent: 'cyan', width: 250, height: 120 },
   deprecated: false,
   documentation_ref: '',

@@ -1,5 +1,5 @@
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'
-import type { ExecutionBackend } from '../../../domain/types'
+import { resolveImplementationCompatibility, type ExecutionBackend } from '../../../domain/types'
 
 export interface GraphConnection {
   source: string
@@ -58,8 +58,8 @@ export function validateGraphConnection(
   const expectedKind = targetPort.kind === 'tensor_list' ? targetPort.element_kind ?? 'tensor' : targetPort.kind
   if (sourcePort.kind !== expectedKind) return rejected('incompatible_kind')
   if (executionBackend !== undefined && kerasEnabled !== undefined
-    && (!supportsExecutionProfile(sourceNode, executionBackend, kerasEnabled)
-      || !supportsExecutionProfile(targetNode, executionBackend, kerasEnabled))) return rejected('unsupported_profile')
+    && (!resolveImplementationCompatibility(sourceNode.data.manifest, executionBackend, kerasEnabled).available
+      || !resolveImplementationCompatibility(targetNode.data.manifest, executionBackend, kerasEnabled).available)) return rejected('unsupported_profile')
   if (edges.some((edge) => edge.source === connection.source
     && (edge.sourceHandle ?? 'output') === (connection.sourceHandle ?? 'output')
     && edge.target === connection.target
@@ -131,18 +131,6 @@ export function wouldCreateCycle(
     stack.push(...(adjacency.get(current) ?? []))
   }
   return false
-}
-
-function supportsExecutionProfile(
-  node: EditorNode,
-  executionBackend: ExecutionBackend,
-  kerasEnabled: boolean,
-): boolean {
-  const implementationKey = kerasEnabled ? 'keras' : executionBackend
-  const mapping = node.data.manifest.implementations[implementationKey]
-  if (!mapping || !mapping.supported || mapping.status === 'unsupported' || mapping.status === 'unverified') return false
-  if (kerasEnabled && mapping.execution_backends?.[executionBackend] === false) return false
-  return true
 }
 
 function conditionMatches(
