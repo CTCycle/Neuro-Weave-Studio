@@ -21,8 +21,8 @@ describe('parameter value parser', () => {
   it('enforces integer bounds and backend capability restrictions', () => {
     const integer = definition('integer', { constraints: { min: 1, max: 8 } })
     expect(parseParameterValue(integer, '0').valid).toBe(false)
-    expect(parseParameterValue(integer, '4', { supported: true, constraints: { max: 3 } }).valid).toBe(false)
-    expect(parseParameterValue(integer, '4', { supported: true, constraints: {} }).value).toBe(4)
+    expect(parseParameterValue(integer, '4', { supported: true, status: 'verified', constraints: { max: 3 } }).valid).toBe(false)
+    expect(parseParameterValue(integer, '4', { supported: true, status: 'verified', constraints: {} }).value).toBe(4)
   })
 
   it('allows optional empty values and rejects malformed sequences', () => {

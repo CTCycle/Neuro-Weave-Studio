@@ -15,7 +15,7 @@ const inputManifest: NodeManifest = {
   outputs: [{ id: 'output', display_name: 'Output', kind: 'tensor', required: true, accepts_multiple: true, description: '' }],
   parameters: [{ id: 'shape', display_name: 'Shape', type: 'shape', default: [8], required: false, constraints: {}, options: [], description: '' }],
   shape_rule: { kind: 'input', config: {} },
-  implementations: { keras: { supported: true } },
+  implementations: { keras: { supported: true, status: 'verified' } },
   ui: { icon: 'Database', accent: 'cyan', width: 220, height: 120 },
   deprecated: false,
   documentation_ref: '',
