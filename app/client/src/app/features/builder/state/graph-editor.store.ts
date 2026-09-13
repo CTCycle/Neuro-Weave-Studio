@@ -8,7 +8,22 @@ import {
   type EditorHistorySnapshot,
   type GraphEditorSession,
 } from '../../../domain/graph-mapper'
-import { emptyModelConfiguration, implementationKey, type ExecutionBackend, type ModelConfiguration, type ModelGraph, type NodeManifest, type OutputBinding, type ProjectDocument, type ShapeSummary } from '../../../domain/types'
+import {
+  emptyModelConfiguration,
+  effectiveParameterDefault,
+  parameterValueMatchesDefinition,
+  resolveImplementationCompatibility,
+  resolveParameterCompatibility,
+  type ExecutionBackend,
+  type ImplementationCompatibility,
+  type ModelConfiguration,
+  type ModelGraph,
+  type NodeManifest,
+  type OutputBinding,
+  type ParameterCompatibility,
+  type ProjectDocument,
+  type ShapeSummary,
+} from '../../../domain/types'
 import { layeredLayout } from '../graph/graph-layout.service'
 import { validateGraphConnection, type GraphConnection, type GraphConnectionValidation } from '../graph/graph-validation'
 
@@ -39,6 +54,10 @@ export class GraphEditorStore {
   readonly shapeSummaryByNode = computed(() => new Map(this.shapeSummaries().map((summary) => [summary.node_id, summary])))
   readonly canUndo = computed(() => this.past().length > 0)
   readonly canRedo = computed(() => this.future().length > 0)
+  readonly executionProfile = computed(() => ({
+    executionBackend: this.activeExecutionBackend(),
+    kerasEnabled: this.activeKerasEnabled(),
+  }))
   private readonly activeExecutionBackend = signal<ExecutionBackend>('pytorch')
   private readonly activeKerasEnabled = signal(true)
 
@@ -50,8 +69,50 @@ export class GraphEditorStore {
   }
 
   setExecutionProfile(executionBackend: ExecutionBackend, kerasEnabled: boolean): void {
+    if (executionBackend === this.activeExecutionBackend() && kerasEnabled === this.activeKerasEnabled()) return
     this.activeExecutionBackend.set(executionBackend)
     this.activeKerasEnabled.set(kerasEnabled)
+    this.invalidateDerivedState()
+  }
+
+  nodeCompatibility(manifest: NodeManifest): ImplementationCompatibility {
+    return resolveImplementationCompatibility(
+      manifest,
+      this.activeExecutionBackend(),
+      this.activeKerasEnabled(),
+    )
+  }
+
+  parameterCompatibility(
+    node: EditorNode,
+    definition: NodeManifest['parameters'][number],
+    value: unknown,
+    parameters = node.data.parameters,
+  ): ParameterCompatibility {
+    return resolveParameterCompatibility(
+      node.data.manifest,
+      definition,
+      value,
+      parameters,
+      this.activeExecutionBackend(),
+      this.activeKerasEnabled(),
+    )
+  }
+
+  canDuplicate(nodeId: string): boolean {
+    const node = this.nodes().find((item) => item.id === nodeId)
+    return Boolean(node && this.canMaterializeNode(node.data.manifest, node.data.parameters))
+  }
+
+  nodeParametersFor(
+    manifest: NodeManifest,
+    overrides: Record<string, unknown> = {},
+  ): Record<string, unknown> {
+    return { ...this.defaultParameters(manifest), ...structuredClone(overrides) }
+  }
+
+  canMaterializeNode(manifest: NodeManifest, parameters: Record<string, unknown>): boolean {
+    return this.nodeCompatibility(manifest).available && this.parametersCompatible(manifest, parameters)
   }
 
   shapeSummary(nodeId: string): ShapeSummary | undefined {
@@ -93,7 +154,13 @@ export class GraphEditorStore {
     }))
   }
 
-  addNode(manifest: NodeManifest, position: { x: number; y: number }): string {
+  addNode(manifest: NodeManifest, position: { x: number; y: number }): string | null {
+    if (!this.nodeCompatibility(manifest).available) return null
+    const editorParameters = this.editorParameters(manifest)
+    const parameters = this.parametersCompatible(manifest, editorParameters)
+      ? editorParameters
+      : this.defaultParameters(manifest)
+    if (!this.parametersCompatible(manifest, parameters)) return null
     const node: EditorNode = {
       id: newId(manifest.id.replaceAll('.', '-')),
       type: 'modelNode',
@@ -101,7 +168,7 @@ export class GraphEditorStore {
       locked: false,
       data: {
         manifest,
-        parameters: Object.fromEntries(manifest.parameters.map((item) => [item.id, structuredClone(editorDefault(item))])),
+        parameters,
         label: manifest.display_name,
       },
     }
@@ -114,11 +181,23 @@ export class GraphEditorStore {
   }
 
   isConnectionValid(connection: GraphConnection): boolean {
-    return validateGraphConnection(this.nodes(), this.edges(), connection).valid
+    return validateGraphConnection(
+      this.nodes(),
+      this.edges(),
+      connection,
+      this.activeExecutionBackend(),
+      this.activeKerasEnabled(),
+    ).valid
   }
 
   connect(connection: GraphConnection): GraphConnectionValidation {
-    const result = validateGraphConnection(this.nodes(), this.edges(), connection)
+    const result = validateGraphConnection(
+      this.nodes(),
+      this.edges(),
+      connection,
+      this.activeExecutionBackend(),
+      this.activeKerasEnabled(),
+    )
     if (!result.valid) return result
     this.commitConnection(connection, this.graphRevision())
     return result
@@ -126,7 +205,13 @@ export class GraphEditorStore {
 
   commitConnection(connection: GraphConnection, expectedRevision: number): boolean {
     if (expectedRevision !== this.graphRevision()) return false
-    const result = validateGraphConnection(this.nodes(), this.edges(), connection)
+    const result = validateGraphConnection(
+      this.nodes(),
+      this.edges(),
+      connection,
+      this.activeExecutionBackend(),
+      this.activeKerasEnabled(),
+    )
     if (!result.valid) return false
     this.checkpoint()
     this.edges.update((edges) => [...edges, {
@@ -153,7 +238,10 @@ export class GraphEditorStore {
     this.selectedEdgeId.set(null)
   }
 
-  updateNode(nodeId: string, patch: { label?: string; parameters?: Record<string, unknown>; locked?: boolean }): void {
+  updateNode(nodeId: string, patch: { label?: string; parameters?: Record<string, unknown>; locked?: boolean }): boolean {
+    const node = this.nodes().find((item) => item.id === nodeId)
+    if (!node) return false
+    if (patch.parameters !== undefined && !this.canUpdateParameters(node, patch.parameters)) return false
     this.checkpoint()
     this.nodes.update((nodes) => nodes.map((node) => node.id === nodeId ? {
       ...node,
@@ -165,6 +253,7 @@ export class GraphEditorStore {
       },
     } : node))
     this.invalidateDerivedState()
+    return true
   }
 
   deleteSelected(): void {
@@ -189,9 +278,9 @@ export class GraphEditorStore {
     this.copiedNodeIds.set(this.selectedNodeId() ? [this.selectedNodeId() as string] : [])
   }
 
-  pasteCopied(): void {
+  pasteCopied(): boolean {
     const selected = this.nodes().filter((node) => this.copiedNodeIds().includes(node.id))
-    if (!selected.length) return
+    if (!selected.length || selected.some((node) => !this.canMaterializeNode(node.data.manifest, node.data.parameters))) return false
     const copies = selected.map((node) => ({
       ...structuredClone(node),
       id: newId(node.data.manifest.id.replaceAll('.', '-')),
@@ -203,11 +292,12 @@ export class GraphEditorStore {
     this.selectedNodeId.set(copies[0].id)
     this.selectedEdgeId.set(null)
     this.invalidateDerivedState()
+    return true
   }
 
   duplicateExact(nodeId: string): string | null {
     const node = this.nodes().find((item) => item.id === nodeId)
-    if (!node) return null
+    if (!node || !this.canMaterializeNode(node.data.manifest, node.data.parameters)) return null
     const copy = this.copyNode(node, node.data.parameters, node.data.label)
     this.checkpoint()
     this.nodes.update((nodes) => [...nodes, copy])
@@ -216,18 +306,11 @@ export class GraphEditorStore {
     return copy.id
   }
 
-  duplicateWithDefaults(nodeId: string, executionBackend?: ExecutionBackend, kerasEnabled = true): string | null {
+  duplicateWithDefaults(nodeId: string): string | null {
     const node = this.nodes().find((item) => item.id === nodeId)
-    if (!node) return null
-    const selectedBackend = executionBackend ?? this.activeExecutionBackend()
-    const selectedKeras = executionBackend === undefined ? this.activeKerasEnabled() : kerasEnabled
-    const implementation = node.data.manifest.implementations[implementationKey(selectedBackend, selectedKeras)]
-    const parameters = Object.fromEntries(
-      node.data.manifest.parameters.map((item) => [
-        item.id,
-        structuredClone(frameworkDefault(item, implementation?.parameters?.[item.id])),
-      ]),
-    )
+    if (!node || !this.canMaterializeNode(node.data.manifest, node.data.parameters)) return null
+    const parameters = this.defaultParameters(node.data.manifest)
+    if (!this.parametersCompatible(node.data.manifest, parameters)) return null
     const copy = this.copyNode(node, parameters, node.data.manifest.display_name)
     this.checkpoint()
     this.nodes.update((nodes) => [...nodes, copy])
@@ -276,6 +359,7 @@ export class GraphEditorStore {
     const node = this.nodes().find((item) => item.id === nodeId)
     if (!node || node.data.manifest.semantic_role === 'input') return false
     if (this.isOutput(nodeId)) return true
+    if (!this.nodeCompatibility(node.data.manifest).available) return false
     return this.hasEnabledOutputPort(nodeId) && !this.isInferredOutput(nodeId)
   }
 
@@ -290,6 +374,7 @@ export class GraphEditorStore {
       this.invalidateDerivedState()
       return
     }
+    if (!this.nodeCompatibility(node.data.manifest).available) return
     const candidate = portId
       ? node.data.manifest.outputs.find((port) => port.id === portId)
       : node.data.manifest.outputs.find((port) => (
@@ -323,18 +408,10 @@ export class GraphEditorStore {
     this.invalidateDerivedState()
   }
 
-  resetParameters(nodeId: string, executionBackend?: ExecutionBackend, kerasEnabled = true): void {
+  resetParameters(nodeId: string): void {
     const node = this.nodes().find((item) => item.id === nodeId)
     if (!node || !node.data.manifest.parameters.length) return
-    const selectedBackend = executionBackend ?? this.activeExecutionBackend()
-    const selectedKeras = executionBackend === undefined ? this.activeKerasEnabled() : kerasEnabled
-    const implementation = node.data.manifest.implementations[implementationKey(selectedBackend, selectedKeras)]
-    const parameters = Object.fromEntries(
-      node.data.manifest.parameters.map((item) => [
-        item.id,
-        structuredClone(frameworkDefault(item, implementation?.parameters?.[item.id])),
-      ]),
-    )
+    const parameters = this.defaultParameters(node.data.manifest)
     this.checkpoint()
     this.nodes.update((nodes) => nodes.map((item) => item.id === nodeId ? {
       ...item,
@@ -514,20 +591,92 @@ export class GraphEditorStore {
       },
     }
   }
-}
 
-function editorDefault(definition: NodeManifest['parameters'][number]): unknown {
-  return definition.editor_default !== undefined ? definition.editor_default : definition.default
-}
+  private defaultParameters(manifest: NodeManifest): Record<string, unknown> {
+    const mapping = this.nodeCompatibility(manifest).mapping
+    return Object.fromEntries(manifest.parameters.flatMap((definition) => {
+      const value = effectiveParameterDefault(definition, mapping?.parameters?.[definition.id])
+      return value === undefined ? [] : [[definition.id, structuredClone(value)]]
+    }))
+  }
 
-function frameworkDefault(
-  definition: NodeManifest['parameters'][number],
-  capability?: { default?: unknown },
-): unknown {
-  if (capability?.default !== undefined && capability.default !== null) return capability.default
-  return Object.prototype.hasOwnProperty.call(definition, 'framework_default')
-    ? definition.framework_default
-    : definition.default
+  private editorParameters(manifest: NodeManifest): Record<string, unknown> {
+    return Object.fromEntries(manifest.parameters.flatMap((definition) => {
+      const value = definition.editor_default !== undefined ? definition.editor_default : definition.default
+      return value === undefined ? [] : [[definition.id, structuredClone(value)]]
+    }))
+  }
+
+  private parametersCompatible(manifest: NodeManifest, parameters: Record<string, unknown>): boolean {
+    if (Object.keys(parameters).some((id) => !manifest.parameters.some((definition) => definition.id === id))) return false
+    const mapping = this.nodeCompatibility(manifest).mapping
+    return manifest.parameters.every((definition) => {
+      const supplied = Object.prototype.hasOwnProperty.call(parameters, definition.id)
+      const required = definition.required
+        || Boolean(definition.required_when && conditionMatches(definition.required_when, parameters))
+      if (required && !supplied) return false
+      const value = supplied ? parameters[definition.id] : effectiveParameterDefault(definition, mapping?.parameters?.[definition.id])
+      if (!supplied && value === undefined) return true
+      if (!definition.visible_when || conditionMatches(definition.visible_when, parameters)) {
+        return resolveParameterCompatibility(
+          manifest,
+          definition,
+          value,
+          parameters,
+          this.activeExecutionBackend(),
+          this.activeKerasEnabled(),
+        ).valueCompatible
+      }
+      return true
+    })
+  }
+
+  private canUpdateParameters(node: EditorNode, parameters: Record<string, unknown>): boolean {
+    const definitions = new Map(node.data.manifest.parameters.map((definition) => [definition.id, definition]))
+    if (Object.keys(parameters).some((id) => !definitions.has(id))) return false
+    const current = node.data.parameters
+    for (const definition of node.data.manifest.parameters) {
+      const currentlySupplied = Object.prototype.hasOwnProperty.call(current, definition.id)
+      const nextSupplied = Object.prototype.hasOwnProperty.call(parameters, definition.id)
+      const required = definition.required
+        || Boolean(definition.required_when && conditionMatches(definition.required_when, parameters))
+      if (!nextSupplied) {
+        if (!currentlySupplied) continue
+        if (required) return false
+        const defaultValue = effectiveParameterDefault(
+          definition,
+          this.nodeCompatibility(node.data.manifest).mapping?.parameters?.[definition.id],
+        )
+        if (!sameValue(current[definition.id], defaultValue)
+          && !resolveParameterCompatibility(
+            node.data.manifest,
+            definition,
+            defaultValue,
+            parameters,
+            this.activeExecutionBackend(),
+            this.activeKerasEnabled(),
+          ).editable) return false
+        continue
+      }
+      const nextValue = parameters[definition.id]
+      if (currentlySupplied && sameValue(current[definition.id], nextValue)) continue
+      if (!parameterValueMatchesDefinition(
+        definition,
+        nextValue,
+        this.nodeCompatibility(node.data.manifest).mapping?.parameters?.[definition.id],
+      )) return false
+      const compatibility = resolveParameterCompatibility(
+        node.data.manifest,
+        definition,
+        nextValue,
+        parameters,
+        this.activeExecutionBackend(),
+        this.activeKerasEnabled(),
+      )
+      if (!compatibility.editable || !compatibility.valueCompatible) return false
+    }
+    return true
+  }
 }
 
 function newId(prefix: string): string {

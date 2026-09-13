@@ -258,7 +258,6 @@ export class ModelBuilderPageComponent {
     if (patch.kerasEnabled !== undefined) this.kerasEnabled.set(patch.kerasEnabled)
     if (patch.executionBackend !== undefined || patch.kerasEnabled !== undefined) {
       this.store.setExecutionProfile(patch.executionBackend ?? this.backend(), patch.kerasEnabled ?? this.kerasEnabled())
-      this.store.invalidateDerivedState()
       this.invalidateValidation('Execution profile changed. Checking the updated architecture…')
       this.scheduleValidation()
     }

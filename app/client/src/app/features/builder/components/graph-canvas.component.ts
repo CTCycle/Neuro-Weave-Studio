@@ -26,8 +26,8 @@ type NormalizedConnection = NonNullable<ReturnType<typeof normalizeConnection>>
           <f-connection-for-create fType="straight" fOffset="20"></f-connection-for-create>
           <ng-container ngProjectAs="[fConnections]">@for (edge of store.edges(); track edge.id) { <f-connection fType="straight" fOffset="20" [fSelectionDisabled]="readOnly" [fConnectionId]="edge.id" [fSourceId]="connectorId(edge.source, 'output', edge.sourceHandle || 'output')" [fTargetId]="connectorId(edge.target, 'input', edge.targetHandle || 'input')" [class.is-selected]="store.selectedEdgeId() === edge.id" [class.is-invalid]="hasEdgeError(edge.id)"></f-connection> }</ng-container>
           <ng-container ngProjectAs="[fNodes]">@for (node of store.nodes(); track node.id) {
-            <div fNode [fNodeId]="node.id" [fNodePosition]="node.position" [fNodeDraggingDisabled]="readOnly || node.locked" [fNodeSelectionDisabled]="readOnly" [fNodeSize]="nodeSize(node)" [class.is-selected]="store.selectedNodeId() === node.id" [class.has-validation-error]="hasNodeError(node.id)" [attr.data-node-id]="node.id" [attr.tabindex]="0" role="group" [attr.aria-label]="'Node ' + node.data.label" (click)="selectNode(node.id)" (keydown)="handleNodeKeydown($event, node.id)">
-              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" aria-hidden="true">@if (node.locked) { <svg lucideLock [size]="13"></svg> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { @if (portEnabled(node, 'input', port.id)) { <span class="nw-flow-port input" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'input'" [attr.tabindex]="0" role="button" [attr.aria-label]="keyboardPortLabel(node, 'input', port.id)" [class.is-keyboard-target]="isKeyboardTarget(node.id, port.id)" [title]="port.display_name + ' · ' + port.kind" (keydown)="handlePortKeydown($event, node.id, 'input', port.id)"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> } }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { @if (portEnabled(node, 'output', port.id)) { <span class="nw-flow-port output" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'output'" [attr.tabindex]="0" role="button" [attr.aria-pressed]="isKeyboardSource(node.id, port.id)" [attr.aria-label]="keyboardPortLabel(node, 'output', port.id)" [class.is-keyboard-source]="isKeyboardSource(node.id, port.id)" [title]="port.display_name + ' · ' + port.kind" (keydown)="handlePortKeydown($event, node.id, 'output', port.id)"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="true" [fCanBeConnectedTo]="connectionTargets(node.id, port.id)"></i></span> } }</div></div>
+            <div fNode [fNodeId]="node.id" [fNodePosition]="node.position" [fNodeDraggingDisabled]="readOnly || node.locked" [fNodeSelectionDisabled]="readOnly" [fNodeSize]="nodeSize(node)" [class.is-selected]="store.selectedNodeId() === node.id" [class.has-validation-error]="hasNodeError(node.id)" [class.is-profile-incompatible]="!isProfileCompatible(node.id)" [attr.data-node-id]="node.id" [attr.tabindex]="0" role="group" [attr.aria-label]="nodeAccessibilityLabel(node)" [title]="nodeCompatibilityTitle(node.id)" (click)="selectNode(node.id)" (keydown)="handleNodeKeydown($event, node.id)">
+              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" [attr.aria-label]="!isProfileCompatible(node.id) ? nodeCompatibilityTitle(node.id) : null">@if (node.locked) { <svg lucideLock [size]="13"></svg> } @if (!isProfileCompatible(node.id)) { <span class="nw-flow-node-incompatible" aria-hidden="true">!</span> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { @if (portEnabled(node, 'input', port.id)) { <span class="nw-flow-port input" [class.is-profile-incompatible]="!isProfileCompatible(node.id)" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'input'" [attr.tabindex]="isProfileCompatible(node.id) ? 0 : -1" [attr.aria-disabled]="!isProfileCompatible(node.id)" role="button" [attr.aria-label]="keyboardPortLabel(node, 'input', port.id)" [class.is-keyboard-target]="isKeyboardTarget(node.id, port.id)" [title]="portTitle(node.id, port.display_name, port.kind)" (keydown)="handlePortKeydown($event, node.id, 'input', port.id)"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> } }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { @if (portEnabled(node, 'output', port.id)) { <span class="nw-flow-port output" [class.is-profile-incompatible]="!isProfileCompatible(node.id)" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'output'" [attr.tabindex]="isProfileCompatible(node.id) ? 0 : -1" [attr.aria-disabled]="!isProfileCompatible(node.id)" role="button" [attr.aria-pressed]="isKeyboardSource(node.id, port.id)" [attr.aria-label]="keyboardPortLabel(node, 'output', port.id)" [class.is-keyboard-source]="isKeyboardSource(node.id, port.id)" [title]="portTitle(node.id, port.display_name, port.kind)" (keydown)="handlePortKeydown($event, node.id, 'output', port.id)"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="true" [fCanBeConnectedTo]="connectionTargets(node.id, port.id)"></i></span> } }</div></div>
             </div>
           } </ng-container>
         </f-canvas>
@@ -40,7 +40,7 @@ type NormalizedConnection = NonNullable<ReturnType<typeof normalizeConnection>>
       @if (readOnly && !store.nodes().length) { <div class="preview-empty">No renderable nodes in this revision.</div> }
       @if (!readOnly) { <div class="canvas-hint">Drop a node to build the model • Ctrl+L auto-layout</div> }
       @if (!readOnly && canvasMenu(); as menu) { <div class="canvas-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" [disabled]="!hasNodes()" [title]="hasNodes() ? 'Fit all nodes in the canvas' : 'Add a node before fitting the workflow'" (click)="fitView(); closeMenus()">Fit workflow to view</button><button type="button" role="menuitem" [disabled]="!hasNodes()" [title]="hasNodes() ? 'Arrange nodes using the workflow layout' : 'Add a node before applying a layout'" (click)="autoLayout(); closeMenus()">Auto layout</button><button type="button" role="menuitem" class="is-destructive" [disabled]="!hasNodes()" [title]="hasNodes() ? 'Remove all nodes and connections from the canvas' : 'The canvas is already empty'" (click)="requestReset(); closeMenus()">Reset canvas</button></div> }
-      @if (!readOnly && nodeMenu(); as menu) { <div class="canvas-context-menu node-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" (click)="duplicateWithDefaults(menu.nodeId); closeMenus()">Duplicate with defaults</button><button type="button" role="menuitem" (click)="duplicateExact(menu.nodeId); closeMenus()">Duplicate exact</button><button type="button" role="menuitem" (click)="copyNode(menu.nodeId); closeMenus()">Copy node</button><button type="button" role="menuitem" [disabled]="!hasParameters(menu.nodeId)" [title]="hasParameters(menu.nodeId) ? 'Restore node parameters to their framework defaults' : 'This node has no parameters to reset'" (click)="resetParameters(menu.nodeId); closeMenus()">Reset parameters</button><button type="button" role="menuitem" [disabled]="!hasConnections(menu.nodeId)" [title]="hasConnections(menu.nodeId) ? 'Remove every connection attached to this node' : 'This node has no connections to disconnect'" (click)="disconnectNode(menu.nodeId); closeMenus()">Disconnect all</button><button type="button" role="menuitem" [disabled]="isOutputActionDisabled(menu.nodeId)" [title]="outputActionTitle(menu.nodeId)" (click)="toggleOutput(menu.nodeId); closeMenus()">{{ outputActionLabel(menu.nodeId) }}</button><button type="button" role="menuitem" (click)="toggleLock(menu.nodeId); closeMenus()">{{ isLocked(menu.nodeId) ? 'Unlock node' : 'Lock node' }}</button><button type="button" role="menuitem" class="is-destructive" (click)="deleteNode(menu.nodeId); closeMenus()">Delete node</button></div> }
+      @if (!readOnly && nodeMenu(); as menu) { <div class="canvas-context-menu node-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" [disabled]="!canDuplicate(menu.nodeId)" [title]="duplicateTitle(menu.nodeId)" (click)="duplicateWithDefaults(menu.nodeId); closeMenus()">Duplicate with defaults</button><button type="button" role="menuitem" [disabled]="!canDuplicate(menu.nodeId)" [title]="duplicateTitle(menu.nodeId)" (click)="duplicateExact(menu.nodeId); closeMenus()">Duplicate exact</button><button type="button" role="menuitem" (click)="copyNode(menu.nodeId); closeMenus()">Copy node</button><button type="button" role="menuitem" [disabled]="!hasParameters(menu.nodeId)" [title]="hasParameters(menu.nodeId) ? 'Restore node parameters to their framework defaults' : 'This node has no parameters to reset'" (click)="resetParameters(menu.nodeId); closeMenus()">Reset parameters</button><button type="button" role="menuitem" [disabled]="!hasConnections(menu.nodeId)" [title]="hasConnections(menu.nodeId) ? 'Remove every connection attached to this node' : 'This node has no connections to disconnect'" (click)="disconnectNode(menu.nodeId); closeMenus()">Disconnect all</button><button type="button" role="menuitem" [disabled]="isOutputActionDisabled(menu.nodeId)" [title]="outputActionTitle(menu.nodeId)" (click)="toggleOutput(menu.nodeId); closeMenus()">{{ outputActionLabel(menu.nodeId) }}</button><button type="button" role="menuitem" (click)="toggleLock(menu.nodeId); closeMenus()">{{ isLocked(menu.nodeId) ? 'Unlock node' : 'Lock node' }}</button><button type="button" role="menuitem" class="is-destructive" (click)="deleteNode(menu.nodeId); closeMenus()">Delete node</button></div> }
     </div>
   `,
 })
@@ -104,6 +104,7 @@ export class GraphCanvasComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['executionBackend'] || changes['kerasEnabled'] || changes['readOnly']) {
+      this.store.setExecutionProfile(this.executionBackend, this.kerasEnabled)
       void this.refreshConnectionTargets()
     }
   }
@@ -239,6 +240,31 @@ export class GraphCanvasComponent implements OnChanges {
   isInput(nodeId: string): boolean {
     return this.store.nodes().find((node) => node.id === nodeId)?.data.manifest.semantic_role === 'input'
   }
+  canDuplicate(nodeId: string): boolean { return this.store.canDuplicate(nodeId) }
+  duplicateTitle(nodeId: string): string {
+    const node = this.store.nodes().find((item) => item.id === nodeId)
+    if (!node) return 'The selected node is no longer available'
+    if (this.store.canDuplicate(nodeId)) return 'Duplicate this compatible node'
+    return `Unavailable: ${this.store.nodeCompatibility(node.data.manifest).reason ?? 'the stored parameters are not compatible with this profile'}`
+  }
+  isProfileCompatible(nodeId: string): boolean {
+    const node = this.store.nodes().find((item) => item.id === nodeId)
+    return Boolean(node && this.store.nodeCompatibility(node.data.manifest).available)
+  }
+  nodeCompatibilityTitle(nodeId: string): string | null {
+    const node = this.store.nodes().find((item) => item.id === nodeId)
+    if (!node) return null
+    const compatibility = this.store.nodeCompatibility(node.data.manifest)
+    return compatibility.available ? null : `Repair required: ${compatibility.reason ?? 'unavailable for the active execution profile'}`
+  }
+  nodeAccessibilityLabel(node: EditorNode): string {
+    const reason = this.nodeCompatibilityTitle(node.id)
+    return reason ? `Node ${node.data.label}. ${reason}` : `Node ${node.data.label}`
+  }
+  portTitle(nodeId: string, displayName: string, kind: string): string {
+    const reason = this.nodeCompatibilityTitle(nodeId)
+    return reason ? `${displayName} · ${kind}. ${reason}` : `${displayName} · ${kind}`
+  }
   private menuPosition(event: MouseEvent): { x: number; y: number } {
     const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
     const shell = target?.closest('.canvas-shell') ?? target
@@ -254,7 +280,10 @@ export class GraphCanvasComponent implements OnChanges {
       const value = JSON.parse(payload) as { id: string; version: number }
       const manifest = this.store.manifests().find((item) => item.id === value.id && item.version === value.version)
       const canvas = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
-      if (manifest) this.store.addNode(manifest, canvas ? flowPositionFromDrop(event, canvas) : { x: event.offsetX, y: event.offsetY })
+      if (manifest) {
+        const nodeId = this.store.addNode(manifest, canvas ? flowPositionFromDrop(event, canvas) : { x: event.offsetX, y: event.offsetY })
+        if (nodeId === null) this.setConnectionFeedback(`Node not added. ${this.store.nodeCompatibility(manifest).reason ?? 'Unavailable for the active execution profile.'}`)
+      }
     } catch { /* The drop payload is external UI data; ignore malformed items. */ }
   }
   moveNodes(event: FMoveNodesEvent): void { this.store.moveNodes(event.nodes.map((node) => ({ id: node.id, position: { x: node.position.x, y: node.position.y } }))) }
@@ -289,6 +318,11 @@ export class GraphCanvasComponent implements OnChanges {
     event.preventDefault()
     event.stopPropagation()
     if (this.readOnly) return
+
+    if (!this.isProfileCompatible(nodeId)) {
+      this.setConnectionFeedback(`Connection not created. ${this.nodeCompatibilityTitle(nodeId)?.replace(/^Repair required: /, '') ?? 'The node is unavailable for the active execution profile.'}`)
+      return
+    }
 
     if (direction === 'output') {
       const current = this.keyboardConnectionSource()
@@ -325,10 +359,18 @@ export class GraphCanvasComponent implements OnChanges {
       this.setConnectionFeedback('Connection not created. The selected ports are not compatible.')
       return
     }
+    if (!this.isProfileCompatible(connection.source) || !this.isProfileCompatible(connection.target)) {
+      this.setConnectionFeedback('Connection not created. One of the selected nodes is unavailable for the active execution profile.')
+      return
+    }
     this.keyboardConnectionSource.set(null)
     await this.validateAndCommitConnection(connection)
   }
   private async validateAndCommitConnection(connection: NormalizedConnection): Promise<boolean> {
+    if (!this.isProfileCompatible(connection.source) || !this.isProfileCompatible(connection.target)) {
+      this.setConnectionFeedback('Connection not created. One of the selected nodes is unavailable for the active execution profile.')
+      return false
+    }
     const expectedRevision = this.store.graphRevision()
     const expectedBackend = this.executionBackend
     const expectedKeras = this.kerasEnabled
@@ -368,6 +410,7 @@ export class GraphCanvasComponent implements OnChanges {
     }
   }
   connectionTargets(nodeId: string, portId: string): string[] {
+    if (!this.isProfileCompatible(nodeId)) return this.noConnectionTargets
     return this.connectionTargetMap().get(`${nodeId}|${portId}`) ?? this.noConnectionTargets
   }
   isKeyboardSource(nodeId: string, portId: string): boolean {
@@ -383,7 +426,8 @@ export class GraphCanvasComponent implements OnChanges {
     const ports = direction === 'input' ? node.data.manifest.inputs : node.data.manifest.outputs
     const port = ports.find((item) => item.id === portId)
     const selected = direction === 'output' && this.isKeyboardSource(node.id, portId)
-    return `Port ${port?.display_name ?? portId} (${direction}) on ${node.data.label}${selected ? '. Connection source selected.' : ''}`
+    const compatibility = this.nodeCompatibilityTitle(node.id)
+    return `Port ${port?.display_name ?? portId} (${direction}) on ${node.data.label}${selected ? '. Connection source selected.' : ''}${compatibility ? `. ${compatibility}` : ''}`
   }
   private focusNearestNode(nodeId: string, direction: 'up' | 'down' | 'left' | 'right'): void {
     const current = Array.from(document.querySelectorAll<HTMLElement>('[data-node-id]'))

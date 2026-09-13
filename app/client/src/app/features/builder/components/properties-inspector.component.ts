@@ -3,7 +3,7 @@ import { ReactiveFormsModule, UntypedFormControl, UntypedFormGroup } from '@angu
 import { LucideTrash2, LucideX } from '@lucide/angular'
 import type { EditorNode } from '../../../domain/editor.types'
 import type { ExecutionBackend, NodeManifest, ParameterCapability, ParameterDefinition, PortDefinition } from '../../../domain/types'
-import { implementationAvailable, implementationKey, implementationLabel } from '../../../domain/types'
+import { effectiveParameterDefault, resolveImplementationCompatibility, resolveParameterCompatibility } from '../../../domain/types'
 import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
 import { displayParameterValue, hasInvalidParameter, helpfulParameterDescription, isFiniteParameter, parameterOptions, parseParameterValue, type ParameterDraftValue } from '../graph/parameter-value'
 import { GraphEditorStore } from '../state/graph-editor.store'
@@ -29,7 +29,7 @@ import { GraphEditorStore } from '../state/graph-editor.store'
                 @if (isVisible(definition, node)) {
                   @let capability = capabilityFor(node.data.manifest, definition);
                   @let help = helpfulParameterDescription(definition);
-                  @let availability = availabilityMessage(node.data.manifest, definition, capability);
+                  @let availability = availabilityMessage(node.data.manifest, definition, capability, node);
                   @if (isRuntimeInputShape(node.data.manifest, definition)) {
                     <div class="runtime-batch-control">
                       <label><input type="checkbox" [checked]="showBatchDimension()" (change)="showBatchDimension.set($any($event.target).checked)" /><span>Show batch dimension</span></label>
@@ -62,7 +62,7 @@ import { GraphEditorStore } from '../state/graph-editor.store'
               }
               @for (port of node.data.manifest.outputs; track port.id) {
                   <div class="port-spec-row output" [class.is-connected]="portConnectionCount(node.id, 'output', port.id) > 0" [class.is-disabled]="portStatus(node, 'output', port) === 'Disabled'" [title]="port.description">
-                  <span class="port-direction output">OUTPUT</span><div class="port-spec-main"><strong>{{ port.display_name }}</strong><small>{{ portKindLabel(port) }} · {{ portShapeLabel(node, port, 'output') }}</small><div class="port-spec-meta"><span class="port-status">{{ portStatus(node, 'output', port) }}</span><span class="port-rule">{{ port.required ? 'Required' : 'Optional' }}</span><span class="port-rule">{{ multiplicityLabel(port, 'output') }}</span><button type="button" class="port-output-toggle" [class.is-active]="store.isOutput(node.id, port.id)" [attr.aria-pressed]="store.isOutput(node.id, port.id)" [attr.aria-label]="store.isOutput(node.id, port.id) ? 'Remove ' + port.display_name + ' from model outputs' : 'Use ' + port.display_name + ' as a model output'" (click)="toggleOutput(node.id, port.id); $event.stopPropagation()">{{ store.isOutput(node.id, port.id) ? 'Model output' : 'Use as output' }}</button></div></div>
+                  <span class="port-direction output">OUTPUT</span><div class="port-spec-main"><strong>{{ port.display_name }}</strong><small>{{ portKindLabel(port) }} · {{ portShapeLabel(node, port, 'output') }}</small><div class="port-spec-meta"><span class="port-status">{{ portStatus(node, 'output', port) }}</span><span class="port-rule">{{ port.required ? 'Required' : 'Optional' }}</span><span class="port-rule">{{ multiplicityLabel(port, 'output') }}</span><button type="button" class="port-output-toggle" [class.is-active]="store.isOutput(node.id, port.id)" [attr.aria-pressed]="store.isOutput(node.id, port.id)" [disabled]="!store.isOutput(node.id, port.id) && !store.canToggleNodeOutput(node.id)" [title]="store.isOutput(node.id, port.id) ? 'Remove this output binding' : (nodeStatus(node).label === 'Check parameters' ? 'Repair this node before adding a model output' : 'Use this port as a model output')" [attr.aria-label]="store.isOutput(node.id, port.id) ? 'Remove ' + port.display_name + ' from model outputs' : 'Use ' + port.display_name + ' as a model output'" (click)="toggleOutput(node.id, port.id); $event.stopPropagation()">{{ store.isOutput(node.id, port.id) ? 'Model output' : 'Use as output' }}</button></div></div>
                 </div>
               }
             </div>
@@ -114,6 +114,7 @@ export class PropertiesInspectorComponent {
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton')
 
   constructor() {
+    effect(() => this.store.setExecutionProfile(this.executionBackend(), this.kerasEnabled()))
     effect(() => {
       if (this.mobileOpen()) queueMicrotask(() => this.closeButton()?.nativeElement.focus())
     })
@@ -150,20 +151,46 @@ export class PropertiesInspectorComponent {
   updateLabel(nodeId: string, label: string): void { this.store.updateNode(nodeId, { label }) }
 
   updateParameter(definition: ParameterDefinition, raw: ParameterDraftValue): void {
-    const parsed = parseParameterValue(definition, raw, this.capabilityFor(this.selectedNode()?.data.manifest, definition))
-    this.invalid.update((state) => ({ ...state, [definition.id]: !parsed.valid }))
-    if (parsed.valid) {
-      const node = this.selectedNode()
-      if (!node) return
-      const parameters = { ...node.data.parameters }
-      if (parsed.value === undefined || (definition.id === 'quantization_config' && emptyQuantizationConfiguration(parsed.value))) delete parameters[definition.id]
-      else parameters[definition.id] = parsed.value
-      this.store.updateNode(node.id, { parameters })
+    const node = this.selectedNode()
+    if (!node) return
+    const capability = this.capabilityFor(node.data.manifest, definition)
+    const currentValue = this.parameterValue(node, definition)
+    const currentCompatibility = resolveParameterCompatibility(
+      node.data.manifest,
+      definition,
+      currentValue,
+      node.data.parameters,
+      this.executionBackend(),
+      this.kerasEnabled(),
+    )
+    const parsed = parseParameterValue(definition, raw, capability)
+    if (!parsed.valid || !currentCompatibility.editable) {
+      this.invalid.update((state) => ({ ...state, [definition.id]: !parsed.valid }))
+      return
     }
+    const parameters = { ...node.data.parameters }
+    if (parsed.value === undefined || (definition.id === 'quantization_config' && emptyQuantizationConfiguration(parsed.value))) delete parameters[definition.id]
+    else parameters[definition.id] = parsed.value
+    const nextValue = Object.prototype.hasOwnProperty.call(parameters, definition.id)
+      ? parameters[definition.id]
+      : effectiveParameterDefault(definition, capability)
+    const nextCompatibility = resolveParameterCompatibility(
+      node.data.manifest,
+      definition,
+      nextValue,
+      parameters,
+      this.executionBackend(),
+      this.kerasEnabled(),
+    )
+    if (!nextCompatibility.valueCompatible || !this.store.updateNode(node.id, { parameters })) {
+      this.invalid.update((state) => ({ ...state, [definition.id]: true }))
+      return
+    }
+    this.invalid.update((state) => ({ ...state, [definition.id]: false }))
   }
 
   capabilityFor(manifest: NodeManifest | undefined, definition: ParameterDefinition): ParameterCapability | undefined {
-    return manifest?.implementations[implementationKey(this.executionBackend(), this.kerasEnabled())]?.parameters?.[definition.id]
+    return resolveImplementationCompatibility(manifest, this.executionBackend(), this.kerasEnabled()).mapping?.parameters?.[definition.id]
   }
 
   helpfulParameterDescription(definition: ParameterDefinition): string | null { return helpfulParameterDescription(definition) }
@@ -171,11 +198,15 @@ export class PropertiesInspectorComponent {
   optionLabel(definition: ParameterDefinition, value: unknown): string { return definition.type === 'boolean' ? value === true ? 'Enabled' : 'Disabled' : value === null ? 'None' : String(value) }
 
   isDisabled(capability: ParameterCapability | undefined, definition?: ParameterDefinition, node?: { data: { parameters: Record<string, unknown> } }, manifest?: NodeManifest): boolean {
-    return !implementationAvailable(manifest, this.executionBackend(), this.kerasEnabled())
-      || capability?.supported === false
-      || capability?.status === 'unsupported'
-      || Boolean(capability?.allowed_values && capability.allowed_values.length === 1)
-      || Boolean(definition?.enabled_when && node && !conditionMatches(definition.enabled_when, node.data.parameters))
+    if (!definition || !node || !manifest) return true
+    return !resolveParameterCompatibility(
+      manifest,
+      definition,
+      this.parameterValue(node, definition),
+      node.data.parameters,
+      this.executionBackend(),
+      this.kerasEnabled(),
+    ).editable
   }
 
   optionsFor(definition: ParameterDefinition, capability?: ParameterCapability): unknown[] {
@@ -201,18 +232,38 @@ export class PropertiesInspectorComponent {
   hasExplicitConfiguration(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): boolean { const value = node.data.parameters[definition.id]; return value !== null && value !== undefined && !isEffectivelyEmptyObject(value) }
   runtimeShapePreview(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): string { const value = this.parameterValue(node, definition); return `runtime: [batch${Array.isArray(value) && value.length ? `, ${value.map((item) => item === null ? '?' : String(item)).join(', ')}` : ''}]` }
 
-  availabilityMessage(manifest: NodeManifest, definition: ParameterDefinition, capability?: ParameterCapability): string | null {
-    const mapping = manifest.implementations[implementationKey(this.executionBackend(), this.kerasEnabled())]
-    if (!mapping || !implementationAvailable(manifest, this.executionBackend(), this.kerasEnabled())) return `Unavailable for ${implementationLabel(this.executionBackend(), this.kerasEnabled())}`
-    if (capability?.supported === false || capability?.status === 'unsupported') return `Unavailable for ${this.kerasEnabled() ? 'Keras' : this.executionBackend()}`
-    if (capability?.status === 'unverified') return 'Backend mapping is not verified'
-    if (capability?.allowed_values?.length === 1) return `Fixed to ${String(capability.allowed_values[0])} by this backend`
-    return null
+  availabilityMessage(
+    manifest: NodeManifest,
+    definition: ParameterDefinition,
+    capability?: ParameterCapability,
+    node?: { data: { parameters: Record<string, unknown> } },
+  ): string | null {
+    const parameters = node?.data.parameters ?? {}
+    const value = node ? this.parameterValue(node, definition) : effectiveParameterDefault(definition, capability)
+    return resolveParameterCompatibility(
+      manifest,
+      definition,
+      value,
+      parameters,
+      this.executionBackend(),
+      this.kerasEnabled(),
+    ).reason
   }
 
   nodeStatus(node: { id: string; data: { manifest: NodeManifest; parameters: Record<string, unknown> } }): { label: string; tone: 'ready' | 'warning' | 'error' } {
-    if (!implementationAvailable(node.data.manifest, this.executionBackend(), this.kerasEnabled())) return { label: 'Unavailable', tone: 'error' }
-    if (this.invalidParameters()) return { label: 'Check parameters', tone: 'warning' }
+    if (!resolveImplementationCompatibility(node.data.manifest, this.executionBackend(), this.kerasEnabled()).available) return { label: 'Unavailable', tone: 'error' }
+    const incompatibleParameter = node.data.manifest.parameters.some((definition) => {
+      if (definition.visible_when && !conditionMatches(definition.visible_when, node.data.parameters)) return false
+      return !resolveParameterCompatibility(
+        node.data.manifest,
+        definition,
+        this.parameterValue(node, definition),
+        node.data.parameters,
+        this.executionBackend(),
+        this.kerasEnabled(),
+      ).valueCompatible
+    })
+    if (this.invalidParameters() || incompatibleParameter) return { label: 'Check parameters', tone: 'warning' }
     const missing = node.data.manifest.inputs.some((port) => port.required && this.isPortEnabled(node, port) && this.portConnectionCount(node.id, 'input', port.id) === 0)
     return missing ? { label: 'Needs input', tone: 'warning' } : { label: 'Ready', tone: 'ready' }
   }
@@ -254,11 +305,10 @@ export class PropertiesInspectorComponent {
     return edge ? this.store.shapeSummary(edge.source)?.outputs[edge.sourceHandle ?? 'output'] : undefined
   }
 
-  private parameterValue(node: { data: { parameters: Record<string, unknown> } }, definition: ParameterDefinition): unknown {
+  private parameterValue(node: { data: { parameters: Record<string, unknown>; manifest?: NodeManifest } }, definition: ParameterDefinition): unknown {
     if (Object.prototype.hasOwnProperty.call(node.data.parameters, definition.id)) return node.data.parameters[definition.id]
-    const capability = this.capabilityFor(this.selectedNode()?.data.manifest, definition)
-    if (capability?.default !== undefined && capability.default !== null) return capability.default
-    return definition.editor_default !== undefined ? definition.editor_default : definition.default
+    const manifest = node.data.manifest ?? this.selectedNode()?.data.manifest
+    return effectiveParameterDefault(definition, this.capabilityFor(manifest, definition))
   }
 
   private invalidParameters(): boolean { return Object.values(this.invalid()).some(Boolean) }
