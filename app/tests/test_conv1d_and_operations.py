@@ -29,6 +29,7 @@ from services.validation_service import ValidationService
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import infer_shapes
 
+
 ###############################################################################
 def _node(
     node_id: str,

@@ -17,6 +17,7 @@ from domain.graph import ModelGraph
 from domain.runtime import WorkerConfiguration
 from models.worker_backend import BackendWorker
 
+
 ###############################################################################
 class WorkerCancelled(RuntimeError):
     pass

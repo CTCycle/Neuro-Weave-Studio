@@ -12,6 +12,7 @@ from domain.compilation_catalog import (
 )
 from domain.enums import ExecutionBackend
 
+
 ###############################################################################
 class NativeCompilationCapability(BaseModel):
     backend: ExecutionBackend

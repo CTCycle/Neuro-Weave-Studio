@@ -6,6 +6,7 @@ from typing import Any, cast
 import httpx
 import pytest
 
+
 ###############################################################################
 def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
     shape = input_shape or [4]

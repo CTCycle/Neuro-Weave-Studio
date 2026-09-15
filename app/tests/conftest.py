@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app import create_app
 from common.path import REPOSITORY_ROOT
 
+
 ###############################################################################
 def pytest_configure(config: pytest.Config) -> None:
     if config.option.basetemp is None:

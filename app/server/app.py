@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import cast
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -93,12 +93,20 @@ def _serve_client_root() -> FileResponse:
 
 ###############################################################################
 def _serve_client_path(full_path: str) -> FileResponse:
-    if full_path == "api" or full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API route not found")
     client_file = _resolve_client_file(full_path)
     if client_file is not None:
         return FileResponse(client_file)
     return _serve_client_root()
+
+###############################################################################
+def _raise_unknown_api_root() -> None:
+    raise HTTPException(status_code=404, detail="API route not found")
+
+
+###############################################################################
+def _raise_unknown_api_route(_full_path: str) -> None:
+    raise HTTPException(status_code=404, detail="API route not found")
+
 
 ###############################################################################
 def _redirect_root_to_docs() -> RedirectResponse:
@@ -122,8 +130,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    @application.middleware("http")
-    async def log_api_request(request: Request, call_next):  # type: ignore[no-untyped-def]
+    async def log_api_request(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         if not request.url.path.startswith("/api"):
             return await call_next(request)
         started = time.perf_counter()
@@ -146,6 +156,8 @@ def create_app() -> FastAPI:
         )
         return response
 
+    application.middleware("http")(log_api_request)
+
     application.include_router(health.router)
     application.include_router(metadata.router)
     application.include_router(metrics.router)
@@ -158,6 +170,18 @@ def create_app() -> FastAPI:
     application.include_router(exports.router)
     application.include_router(imports.router)
     application.include_router(filesystem.router)
+    application.add_api_route(
+        "/api",
+        _raise_unknown_api_root,
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+        include_in_schema=False,
+    )
+    application.add_api_route(
+        "/api/{_full_path:path}",
+        _raise_unknown_api_route,
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+        include_in_schema=False,
+    )
 
     if _client_build_available():
         if common_path.FRONTEND_ASSETS_ROOT.is_dir():

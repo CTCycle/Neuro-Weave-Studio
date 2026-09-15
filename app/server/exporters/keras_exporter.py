@@ -17,6 +17,7 @@ from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse
 from exporters.base import SourceExporter
 from validation.output_resolution import output_selectors, resolved_outputs
 
+
 ###############################################################################
 class KerasSourceExporter(SourceExporter):
 
@@ -455,6 +456,25 @@ class KerasSourceExporter(SourceExporter):
                 lines.append(
                     f"    {variable} = layers.Activation({kwargs})({source})"
                 )
+            elif definition == "layer.prelu":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "alpha_initializer": self._layer_option(
+                            parameters, "alpha_initializer", graph, "zeros"
+                        ),
+                        "alpha_regularizer": self._layer_option(
+                            parameters, "alpha_regularizer", graph, "none"
+                        ),
+                        "alpha_constraint": self._layer_option(
+                            parameters, "alpha_constraint", graph, "none"
+                        ),
+                        "shared_axes": parameters.get("shared_axes"),
+                        "name": node.id,
+                    },
+                )
+                lines.append(f"    {variable} = layers.PReLU({kwargs})({source})")
             elif definition == "layer.dropout":
                 kwargs = self._constructor_kwargs(
                     parameters,
@@ -554,6 +574,28 @@ class KerasSourceExporter(SourceExporter):
                 )
                 lines.append(
                     f"    {variable} = layers.LayerNormalization({kwargs})({source})"
+                )
+            elif definition == "layer.rms_norm":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {
+                        "axis": parameters.get("axis", -1),
+                        "epsilon": parameters.get("epsilon", 1e-6),
+                        "name": node.id,
+                    },
+                )
+                lines.append(
+                    f"    {variable} = layers.RMSNormalization({kwargs})({source})"
+                )
+            elif definition == "layer.unit_norm":
+                kwargs = self._constructor_kwargs(
+                    parameters,
+                    graph,
+                    {"axis": parameters.get("axis", -1), "name": node.id},
+                )
+                lines.append(
+                    f"    {variable} = layers.UnitNormalization({kwargs})({source})"
                 )
             elif definition == "layer.group_norm":
                 kwargs = self._constructor_kwargs(
