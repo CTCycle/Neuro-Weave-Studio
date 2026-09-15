@@ -28,7 +28,7 @@ from repositories.migration_lock import database_migration_lock
 LOGGER = logging.getLogger(__name__)
 
 ALEMBIC_CONFIG_PATH = Path(__file__).resolve().parents[1] / "alembic.ini"
-HEAD_REVISION = "20260910_dataset_registrations"
+HEAD_REVISION = "20260915_remove_graph_schema_tracking"
 ALEMBIC_VERSION_TABLE = "alembic_version"
 
 ###############################################################################
@@ -118,7 +118,7 @@ def _run_migrations(connection: Connection) -> None:
 
 ###############################################################################
 def initialize_database(settings: DatabaseSettings) -> SQLiteBackend:
-    """Create or upgrade the current SQLite schema with no legacy adoption."""
+    """Create or upgrade the current SQLite schema without accepting unversioned databases."""
 
     backend = SQLiteBackend(settings)
     try:

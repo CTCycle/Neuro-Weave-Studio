@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-27",
+  "generated_at": "2026-09-15",
   "branch": "develop",
-  "implementation_commit": "460a7de",
+  "implementation_commit": "working-tree",
   "environment": {
     "python": "3.13.14",
     "tensorflow": "2.21.0",
@@ -25,7 +25,6 @@
       "available_formats": ["project_bundle", "source", "keras", "keras_weights", "tensorflow_saved_model", "onnx", "safetensors"],
       "disabled_reasons": {
         "pytorch_exported_program": "backend_unsupported",
-        "torchscript": "backend_unsupported",
         "tensorflow_checkpoint": "backend_unsupported",
         "flax_checkpoint": "backend_unsupported"
       }
@@ -38,7 +37,6 @@
         "keras": "keras_disabled",
         "keras_weights": "keras_disabled",
         "pytorch_exported_program": "backend_unsupported",
-        "torchscript": "backend_unsupported",
         "flax_checkpoint": "backend_unsupported"
       }
     },
@@ -49,7 +47,6 @@
       "disabled_reasons": {
         "tensorflow_saved_model": "backend_unsupported",
         "pytorch_exported_program": "keras_enabled",
-        "torchscript": "keras_enabled",
         "tensorflow_checkpoint": "backend_unsupported",
         "flax_checkpoint": "backend_unsupported"
       }
@@ -57,7 +54,7 @@
     {
       "profile": "pytorch/native",
       "project_id": "dd1af20b-b949-4978-963a-f0109d13801f",
-      "available_formats": ["project_bundle", "source", "onnx", "pytorch_exported_program", "torchscript", "safetensors"],
+      "available_formats": ["project_bundle", "source", "onnx", "pytorch_exported_program", "safetensors"],
       "disabled_reasons": {
         "keras": "keras_disabled",
         "keras_weights": "keras_disabled",
@@ -73,7 +70,6 @@
       "disabled_reasons": {
         "tensorflow_saved_model": "backend_unsupported",
         "pytorch_exported_program": "backend_unsupported",
-        "torchscript": "backend_unsupported",
         "tensorflow_checkpoint": "backend_unsupported",
         "flax_checkpoint": "backend_unsupported"
       }
@@ -88,7 +84,6 @@
         "tensorflow_saved_model": "backend_unsupported",
         "onnx": "bridge_unverified",
         "pytorch_exported_program": "backend_unsupported",
-        "torchscript": "backend_unsupported",
         "tensorflow_checkpoint": "backend_unsupported"
       }
     }
@@ -113,7 +108,6 @@
       "pytorch/keras:onnx",
       "pytorch/keras:safetensors",
       "pytorch/native:pytorch_exported_program",
-      "pytorch/native:torchscript",
       "pytorch/native:onnx",
       "pytorch/native:safetensors",
       "jax/keras:keras",

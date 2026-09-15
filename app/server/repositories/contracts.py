@@ -17,7 +17,6 @@ class ProjectMetadata:
     description: str
     created_at: datetime
     updated_at: datetime
-    graph_schema_version: int
     execution_backend: ExecutionBackend
     keras_enabled: bool
     current_revision: int
@@ -61,7 +60,6 @@ class ProjectRepositoryProtocol(Protocol):
         description: str,
         execution_backend: ExecutionBackend,
         keras_enabled: bool,
-        graph_schema_version: int,
         timestamp: datetime,
         validation_status: ValidationStatus,
     ) -> ProjectMetadata: ...
@@ -75,7 +73,6 @@ class ProjectRepositoryProtocol(Protocol):
         description: str,
         execution_backend: ExecutionBackend,
         keras_enabled: bool,
-        graph_schema_version: int,
         timestamp: datetime,
         validation_status: ValidationStatus,
         expected_revision: int,
@@ -88,10 +85,10 @@ class ProjectRepositoryProtocol(Protocol):
 class GraphRepositoryProtocol(Protocol):
 
     # -------------------------------------------------------------------------
-    def load(self, project_id: UUID, graph_schema_version: int) -> ModelGraph | None: ...
+    def load(self, project_id: UUID) -> ModelGraph | None: ...
 
     # -------------------------------------------------------------------------
-    def load_many(self, projects: Mapping[UUID, int]) -> dict[UUID, ModelGraph]: ...
+    def load_many(self, project_ids: Sequence[UUID]) -> dict[UUID, ModelGraph]: ...
 
     # -------------------------------------------------------------------------
     def replace(self, project_id: UUID, graph: ModelGraph) -> None: ...

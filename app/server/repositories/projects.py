@@ -37,14 +37,12 @@ class ProjectRepository:
         description: str,
         execution_backend: ExecutionBackend,
         keras_enabled: bool,
-        graph_schema_version: int,
         timestamp: datetime,
         validation_status: ValidationStatus,
     ) -> ProjectMetadata:
         record = ProjectRecord(
             name=name,
             description=description,
-            graph_schema_version=graph_schema_version,
             execution_backend=execution_backend.value,
             keras_enabled=keras_enabled,
             current_revision=1,
@@ -65,7 +63,6 @@ class ProjectRepository:
         description: str,
         execution_backend: ExecutionBackend,
         keras_enabled: bool,
-        graph_schema_version: int,
         timestamp: datetime,
         validation_status: ValidationStatus,
         expected_revision: int,
@@ -79,7 +76,6 @@ class ProjectRepository:
             .values(
                 name=name,
                 description=description,
-                graph_schema_version=graph_schema_version,
                 execution_backend=execution_backend.value,
                 keras_enabled=keras_enabled,
                 current_revision=expected_revision + 1,
@@ -116,7 +112,6 @@ class ProjectRepository:
             description=record.description,
             created_at=record.created_at,
             updated_at=record.updated_at,
-            graph_schema_version=record.graph_schema_version,
             execution_backend=ExecutionBackend(record.execution_backend),
             keras_enabled=record.keras_enabled,
             current_revision=record.current_revision,

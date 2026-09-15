@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Literal, cast
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from domain.graph import (
+    GRAPH_SCHEMA_VERSION,
     EdgeInstance,
     ExportSettings,
     ModelConfiguration,
@@ -31,14 +31,14 @@ class GraphRepository:
         self._session = session
 
     # -------------------------------------------------------------------------
-    def load(self, project_id: UUID, graph_schema_version: int) -> ModelGraph | None:
-        return self.load_many({project_id: graph_schema_version}).get(project_id)
+    def load(self, project_id: UUID) -> ModelGraph | None:
+        return self.load_many([project_id]).get(project_id)
 
     # -------------------------------------------------------------------------
-    def load_many(self, projects: Mapping[UUID, int]) -> dict[UUID, ModelGraph]:
-        if not projects:
+    def load_many(self, project_ids: Sequence[UUID]) -> dict[UUID, ModelGraph]:
+        if not project_ids:
             return {}
-        keys = [str(project_id) for project_id in projects]
+        keys = [str(project_id) for project_id in project_ids]
         settings_by_project = {
             item.project_id: item
             for item in self._session.scalars(
@@ -63,13 +63,12 @@ class GraphRepository:
             edges_by_project.setdefault(edge.project_id, []).append(edge)
 
         graphs: dict[UUID, ModelGraph] = {}
-        for project_id, graph_schema_version in projects.items():
+        for project_id in project_ids:
             project_key = str(project_id)
             settings = settings_by_project.get(project_key)
             if settings is None:
                 continue
             graphs[project_id] = self._materialize_graph(
-                graph_schema_version,
                 settings,
                 nodes_by_project.get(project_key, []),
                 edges_by_project.get(project_key, []),
@@ -79,13 +78,12 @@ class GraphRepository:
     # -------------------------------------------------------------------------
     @staticmethod
     def _materialize_graph(
-        graph_schema_version: int,
         settings: ProjectGraphSettingsRecord,
         nodes: Sequence[ProjectNodeRecord],
         edges: Sequence[ProjectEdgeRecord],
     ) -> ModelGraph:
         return ModelGraph(
-            schema_version=cast(Literal[5], graph_schema_version),
+            schema_version=GRAPH_SCHEMA_VERSION,
             nodes=[
                 NodeInstance(
                     id=node.node_id,

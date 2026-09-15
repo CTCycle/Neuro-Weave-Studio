@@ -613,10 +613,10 @@ export class GraphEditorStore {
     return manifest.parameters.every((definition) => {
       const supplied = Object.prototype.hasOwnProperty.call(parameters, definition.id)
       const required = definition.required
-        || Boolean(definition.required_when && conditionMatches(definition.required_when, parameters))
+        || Boolean(definition.required_when && Object.keys(definition.required_when).length && conditionMatches(definition.required_when, parameters))
       if (required && !supplied) return false
       const value = supplied ? parameters[definition.id] : effectiveParameterDefault(definition, mapping?.parameters?.[definition.id])
-      if (!supplied && value === undefined) return true
+      if (!supplied && (value === undefined || value === null)) return true
       if (!definition.visible_when || conditionMatches(definition.visible_when, parameters)) {
         return resolveParameterCompatibility(
           manifest,
@@ -639,7 +639,7 @@ export class GraphEditorStore {
       const currentlySupplied = Object.prototype.hasOwnProperty.call(current, definition.id)
       const nextSupplied = Object.prototype.hasOwnProperty.call(parameters, definition.id)
       const required = definition.required
-        || Boolean(definition.required_when && conditionMatches(definition.required_when, parameters))
+        || Boolean(definition.required_when && Object.keys(definition.required_when).length && conditionMatches(definition.required_when, parameters))
       if (!nextSupplied) {
         if (!currentlySupplied) continue
         if (required) return false

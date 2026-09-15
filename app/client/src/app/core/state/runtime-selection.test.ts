@@ -63,13 +63,13 @@ describe('runtime selection', () => {
   })
 
   it('does not infer runtime API support when per-backend API metadata is absent', () => {
-    const legacy = status('pytorch', true, undefined)
+    const missingMetadata = status('pytorch', true, undefined)
 
-    expect(backendSupportsApi(legacy, 'keras')).toBe(false)
-    expect(backendSupportsApi(legacy, 'native')).toBe(false)
-    expect(preferredRuntimeApi(legacy)).toBe(null)
-    expect(defaultRuntimePreference(legacy)).toBe(null)
-    expect(preferredBackend([legacy])).toBe(null)
+    expect(backendSupportsApi(missingMetadata, 'keras')).toBe(false)
+    expect(backendSupportsApi(missingMetadata, 'native')).toBe(false)
+    expect(preferredRuntimeApi(missingMetadata)).toBe(null)
+    expect(defaultRuntimePreference(missingMetadata)).toBe(null)
+    expect(preferredBackend([missingMetadata])).toBe(null)
   })
 
   it('validates memory policy values against their advertised kind', () => {

@@ -173,6 +173,7 @@ def test_project_revision_workflow_invalidates_generated_source_and_rejects_stal
     project = created.json()
     assert project["current_revision"] == 1
     assert project["generated_source"] is None
+    assert "schema_version" not in project
     assert project["graph"]["schema_version"] == 5
     assert project["graph"]["nodes"][0]["parameters"]["shape"] == [8]
 
@@ -324,6 +325,7 @@ def test_export_capabilities_expose_matrix_and_explicit_reasons(
     assert response.status_code == 200, response.text
     payload = response.json()
     formats = {item["format"]: item for item in payload["formats"]}
+    assert "torchscript" not in formats
     assert payload["project_revision"] == project["current_revision"]
     assert formats["project_bundle"]["available"] is True
     assert formats["source"]["available"] is True
@@ -364,7 +366,7 @@ def test_unsupported_onnx_opset_is_rejected_at_request_boundary(client: httpx.Cl
     assert response.status_code == 422
 
 ###############################################################################
-def test_legacy_keras_export_operation_is_rejected(client: httpx.Client) -> None:
+def test_removed_keras_export_operation_is_rejected(client: httpx.Client) -> None:
     project = client.post("/api/projects", json=project_payload()).json()
     response = client.post(
         "/api/execution/jobs",
@@ -375,6 +377,26 @@ def test_legacy_keras_export_operation_is_rejected(client: httpx.Client) -> None
     )
 
     assert response.status_code == 422
+
+###############################################################################
+def test_project_create_requires_current_backend_and_graph_contracts(
+    client: httpx.Client,
+) -> None:
+    missing_backend = project_payload()
+    missing_backend.pop("execution_backend")
+    assert client.post("/api/projects", json=missing_backend).status_code == 422
+
+    old_graph = project_payload()
+    cast(dict[str, Any], old_graph["graph"])["schema_version"] = 4
+    assert client.post("/api/projects", json=old_graph).status_code == 422
+
+###############################################################################
+def test_project_import_requires_current_bundle_format(client: httpx.Client) -> None:
+    project = client.post("/api/projects", json=project_payload()).json()
+    bundle = client.get(f"/api/projects/{project['id']}/export").json()
+    bundle["format_version"] = 5
+
+    assert client.post("/api/projects/import", json=bundle).status_code == 422
 
 ###############################################################################
 def test_native_model_export_publishes_pt2_artifact(client: httpx.Client) -> None:

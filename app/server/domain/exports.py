@@ -18,7 +18,6 @@ class ExportFormat(StrEnum):
     TENSORFLOW_SAVED_MODEL = "tensorflow_saved_model"
     ONNX = "onnx"
     PYTORCH_EXPORTED_PROGRAM = "pytorch_exported_program"
-    TORCHSCRIPT = "torchscript"
     SAFETENSORS = "safetensors"
     TENSORFLOW_CHECKPOINT = "tensorflow_checkpoint"
     FLAX_CHECKPOINT = "flax_checkpoint"
@@ -168,7 +167,6 @@ def export_suffix(export_format: ExportFormat, options: ExportOptions | None = N
         if options is not None and options.external_data == "always"
         else ".onnx",
         ExportFormat.PYTORCH_EXPORTED_PROGRAM: ".pt2",
-        ExportFormat.TORCHSCRIPT: ".pt",
         ExportFormat.SAFETENSORS: ".safetensors.zip",
         ExportFormat.TENSORFLOW_CHECKPOINT: ".tf-checkpoint.zip",
         ExportFormat.FLAX_CHECKPOINT: ".flax-checkpoint.zip",

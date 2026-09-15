@@ -49,7 +49,6 @@ def export_controller(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Runt
         (ExecutionBackend.PYTORCH, RuntimeApi.KERAS, ExportFormat.ONNX),
         (ExecutionBackend.PYTORCH, RuntimeApi.KERAS, ExportFormat.SAFETENSORS),
         (ExecutionBackend.PYTORCH, RuntimeApi.NATIVE, ExportFormat.PYTORCH_EXPORTED_PROGRAM),
-        (ExecutionBackend.PYTORCH, RuntimeApi.NATIVE, ExportFormat.TORCHSCRIPT),
         (ExecutionBackend.PYTORCH, RuntimeApi.NATIVE, ExportFormat.ONNX),
         (ExecutionBackend.PYTORCH, RuntimeApi.NATIVE, ExportFormat.SAFETENSORS),
         (ExecutionBackend.JAX, RuntimeApi.KERAS, ExportFormat.KERAS),
@@ -150,7 +149,6 @@ def extension_for(export_format: ExportFormat) -> str:
         ExportFormat.ONNX: ".onnx",
         ExportFormat.SAFETENSORS: ".safetensors.zip",
         ExportFormat.PYTORCH_EXPORTED_PROGRAM: ".pt2",
-        ExportFormat.TORCHSCRIPT: ".pt",
         ExportFormat.TENSORFLOW_CHECKPOINT: ".tf-checkpoint.zip",
         ExportFormat.FLAX_CHECKPOINT: ".flax-checkpoint.zip",
     }[export_format]

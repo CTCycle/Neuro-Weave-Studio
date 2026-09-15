@@ -347,33 +347,6 @@ class ExportService:
             dependencies=["torch"],
             compatibility="Native PyTorch inference program without optimizer state",
         )
-        add(
-            ExportFormat.TORCHSCRIPT,
-            label="TorchScript (legacy)",
-            category=ExportCategory.NATIVE,
-            conversion=ExportConversion.NATIVE,
-            layout=ExportLayout.FILE,
-            payload=ExportPayload.FULL_MODEL,
-            api=RuntimeApi.NATIVE,
-            available=pytorch_native,
-            reason_code=None
-            if pytorch_native
-            else "backend_unsupported"
-            if execution_backend is not ExecutionBackend.PYTORCH
-            else "keras_enabled"
-            if keras_enabled
-            else native_reason_code,
-            reason=None
-            if pytorch_native
-            else "Trace-based TorchScript is available only for native PyTorch profiles."
-            if execution_backend is not ExecutionBackend.PYTORCH or keras_enabled
-            else native_reason,
-            limitations=[
-                "Legacy trace-based inference artifact; optimizer and training state are not preserved."
-            ],
-            dependencies=["torch"],
-            compatibility="Native PyTorch only; legacy trace-based format",
-        )
 
         safe_dependencies = ["safetensors"]
         safe_missing = _missing_packages(safe_dependencies)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { defaultExportSettings, graphEditorSessionFromGraph, sessionToGraph, canonicalizeGraph } from './graph-mapper'
-import type { LegacyModelGraph, NodeManifest } from './types'
+import { defaultExportSettings, graphEditorSessionFromGraph, sessionToGraph } from './graph-mapper'
+import type { ModelGraph, NodeManifest } from './types'
 import { emptyModelConfiguration } from './types'
 
 const inputManifest: NodeManifest = {
@@ -21,15 +21,15 @@ const inputManifest: NodeManifest = {
   documentation_ref: '',
 }
 
-const legacyGraph: LegacyModelGraph = {
-  schema_version: 4,
+const currentGraph: ModelGraph = {
+  schema_version: 5,
   nodes: [{
     id: 'input',
     definition_id: 'input.tabular',
     definition_version: 1,
     label: 'Features',
     position: { x: 0, y: 0 },
-    parameters: { shape: [null, 8], quantization_config: {} },
+    parameters: { shape: [8] },
     locked: false,
   }],
   edges: [],
@@ -39,17 +39,13 @@ const legacyGraph: LegacyModelGraph = {
   future_training_configuration: {},
 }
 
-describe('canonical graph mapping', () => {
-  it('migrates legacy input shapes and empty optional objects before editor persistence', () => {
-    const canonical = canonicalizeGraph(legacyGraph)
+describe('current graph mapping', () => {
+  it('round-trips the current graph schema without compatibility rewriting', () => {
+    const session = graphEditorSessionFromGraph(currentGraph, [inputManifest])
 
-    expect(canonical.schema_version).toBe(5)
-    expect(canonical.nodes[0].parameters).toEqual({ shape: [8] })
-    expect(legacyGraph.schema_version).toBe(4)
-    expect(legacyGraph.nodes[0].parameters.shape).toEqual([null, 8])
-
-    const session = graphEditorSessionFromGraph(legacyGraph, [inputManifest])
     expect(session.nodes[0].data.parameters).toEqual({ shape: [8] })
-    expect(sessionToGraph(session).nodes[0].parameters).toEqual({ shape: [8] })
+    expect(sessionToGraph(session)).toEqual(currentGraph)
+    expect(currentGraph.schema_version).toBe(5)
+    expect(currentGraph.nodes[0].parameters.shape).toEqual([8])
   })
 })

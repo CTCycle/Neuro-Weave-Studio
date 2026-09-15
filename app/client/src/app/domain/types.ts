@@ -264,16 +264,12 @@ export interface ModelGraph {
   future_training_configuration: Record<string, unknown>
 }
 
-export type LegacyModelGraph = Omit<ModelGraph, 'schema_version'> & { schema_version: 4 }
-export type GraphPayload = ModelGraph | LegacyModelGraph
-
 export interface ProjectDocument {
   id: string
   name: string
   description: string
   created_at: string
   updated_at: string
-  schema_version: number
   execution_backend: ExecutionBackend
   keras_enabled: boolean
   current_revision: number
@@ -460,7 +456,6 @@ export type ExportFormat =
   | 'tensorflow_saved_model'
   | 'onnx'
   | 'pytorch_exported_program'
-  | 'torchscript'
   | 'safetensors'
   | 'tensorflow_checkpoint'
   | 'flax_checkpoint'

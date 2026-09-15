@@ -16,7 +16,7 @@ Supported artifact families are:
 | --- | --- | --- |
 | Project/source | `.neuro-weave.json`, `.py` | Canonical graph/profile or generated source; no weights in the project bundle |
 | Keras | `.keras`, `.weights.h5` | Keras-enabled profiles; initialized inference model or weights-only |
-| Native | `.savedmodel.zip`, `.pt2`, `.pt` | TensorFlow SavedModel; PyTorch ExportedProgram; legacy trace-based TorchScript |
+| Native | `.savedmodel.zip`, `.pt2` | TensorFlow SavedModel; PyTorch ExportedProgram |
 | Interchange | `.onnx`, `.onnx.zip` | Named inputs/outputs, default opset 18, dynamic batch, optional deterministic external-data package |
 | Weights/checkpoint | `.safetensors.zip`, `.tf-checkpoint.zip`, `.flax-checkpoint.zip` | Explicit weights-only package with graph/profile manifest; not universally loadable |
 

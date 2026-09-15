@@ -1,6 +1,5 @@
 import type { EditorEdge, EditorNode, EditorNodeData } from './editor.types'
-import type { GraphNodeInstance, GraphPayload, ModelGraph, NodeManifest, OutputBinding, ProjectDocument } from './types'
-import { isEffectivelyEmptyObject } from './parameter-utils'
+import type { GraphNodeInstance, ModelGraph, NodeManifest, OutputBinding, ProjectDocument } from './types'
 
 export interface GraphEditorSession {
   nodes: EditorNode[]
@@ -57,23 +56,22 @@ export function editorEdgeFromGraph(edge: ModelGraph['edges'][number]): EditorEd
 }
 
 export function graphEditorSessionFromGraph(
-  graph: GraphPayload,
+  graph: ModelGraph,
   manifests: readonly NodeManifest[],
 ): GraphEditorSession {
-  const canonicalGraph = canonicalizeGraph(graph)
   const manifestMap = new Map(manifests.map((manifest) => [`${manifest.id}@${manifest.version}`, manifest]))
-  const nodes = canonicalGraph.nodes.map((node) => {
+  const nodes = graph.nodes.map((node) => {
     const manifest = manifestMap.get(`${node.definition_id}@${node.definition_version}`)
     if (!manifest) throw new Error(`Missing node manifest ${node.definition_id}@${node.definition_version}`)
     return editorNodeFromGraph(node, manifest)
   })
   return {
     nodes,
-    edges: canonicalGraph.edges.map(editorEdgeFromGraph),
-    outputBindings: structuredClone(canonicalGraph.output_bindings),
-    modelConfiguration: structuredClone(canonicalGraph.model_configuration),
-    exportSettings: structuredClone(canonicalGraph.export_settings),
-    futureTrainingConfiguration: structuredClone(canonicalGraph.future_training_configuration),
+    edges: graph.edges.map(editorEdgeFromGraph),
+    outputBindings: structuredClone(graph.output_bindings),
+    modelConfiguration: structuredClone(graph.model_configuration),
+    exportSettings: structuredClone(graph.export_settings),
+    futureTrainingConfiguration: structuredClone(graph.future_training_configuration),
     selectedNodeId: null,
     selectedEdgeId: null,
     copiedNodeIds: [],
@@ -90,7 +88,7 @@ export function projectDocumentToSession(
 }
 
 export function sessionToGraph(session: GraphEditorSession): ModelGraph {
-  return canonicalizeGraph({
+  return {
     schema_version: 5,
     nodes: session.nodes.map((node) => ({
       id: node.id,
@@ -112,26 +110,7 @@ export function sessionToGraph(session: GraphEditorSession): ModelGraph {
     model_configuration: structuredClone(session.modelConfiguration),
     export_settings: structuredClone(session.exportSettings),
     future_training_configuration: structuredClone(session.futureTrainingConfiguration),
-  })
-}
-
-export function canonicalizeGraph(graph: GraphPayload): ModelGraph {
-  const migratedNodes = graph.nodes.map((node) => {
-    const parameters = structuredClone(node.parameters)
-    if (
-      graph.schema_version === 4
-      && node.definition_id.startsWith('input.')
-      && Array.isArray(parameters['shape'])
-      && parameters['shape'][0] === null
-    ) {
-      parameters['shape'] = parameters['shape'].slice(1)
-    }
-    if ('quantization_config' in parameters && isEffectivelyEmptyObject(parameters['quantization_config'])) {
-      delete parameters['quantization_config']
-    }
-    return { ...node, parameters }
-  })
-  return { ...structuredClone(graph), schema_version: 5, nodes: migratedNodes }
+  }
 }
 
 export function cloneEditorNode(node: EditorNode): EditorNode {

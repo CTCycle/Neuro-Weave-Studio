@@ -202,6 +202,14 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
             }
             assert "model_configuration_json" in settings_columns
             assert "optimizer" not in settings_columns
+            project_columns = {
+                item["name"] for item in inspect(connection).get_columns("projects")
+            }
+            revision_columns = {
+                item["name"] for item in inspect(connection).get_columns("project_revisions")
+            }
+            assert "graph_schema_version" not in project_columns
+            assert "graph_schema_version" not in revision_columns
             migrated = connection.execute(
                 text(
                     "SELECT model_configuration_json FROM project_graph_settings WHERE project_id = :id"
@@ -211,13 +219,6 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
             migrated = json.loads(migrated) if isinstance(migrated, str) else migrated
             assert migrated["keras"]["optimizer_parameters"] == {"learning_rate": 0.002}
             assert migrated["native"]["pytorch"]["compile_enabled"] is False
-            assert (
-                connection.execute(
-                    text("SELECT graph_schema_version FROM projects WHERE id = :id"),
-                    {"id": project_id},
-                ).scalar_one()
-                == 5
-            )
             migrated_snapshot = connection.execute(
                 text("SELECT graph_snapshot_json FROM project_revisions WHERE project_id = :id"),
                 {"id": project_id},

@@ -62,10 +62,10 @@ def test_sqlite_initialization_is_idempotent_and_enforces_foreign_keys(
 def test_incompatible_unversioned_database_is_rejected_without_mutation(
     tmp_path: Path,
 ) -> None:
-    path = tmp_path / "legacy.db"
+    path = tmp_path / "unversioned.db"
     engine = create_engine(f"sqlite:///{path}")
     with engine.begin() as connection:
-        connection.execute(text("CREATE TABLE legacy (id INTEGER PRIMARY KEY)"))
+        connection.execute(text("CREATE TABLE unversioned (id INTEGER PRIMARY KEY)"))
     engine.dispose()
 
     with pytest.raises(RuntimeError, match="no current Alembic revision"):
@@ -73,7 +73,7 @@ def test_incompatible_unversioned_database_is_rejected_without_mutation(
 
     engine = create_engine(f"sqlite:///{path}")
     try:
-        assert inspect(engine).get_table_names() == ["legacy"]
+        assert inspect(engine).get_table_names() == ["unversioned"]
     finally:
         engine.dispose()
 
@@ -91,7 +91,6 @@ def test_unit_of_work_rolls_back_partial_project(tmp_path: Path) -> None:
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=5,
                 timestamp=datetime.now(UTC),
                 validation_status=ValidationStatus.VALID,
             )
@@ -117,7 +116,6 @@ def test_project_delete_cascades_revision_graph_and_generated_source(
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=5,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -164,7 +162,6 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=5,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )
@@ -173,7 +170,6 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
                 description="",
                 execution_backend=ExecutionBackend.PYTORCH,
                 keras_enabled=True,
-                graph_schema_version=5,
                 timestamp=now,
                 validation_status=ValidationStatus.VALID,
             )

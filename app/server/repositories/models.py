@@ -34,7 +34,6 @@ class ProjectRecord(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    graph_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     execution_backend: Mapped[str] = mapped_column(
         String(32), nullable=False, default=ExecutionBackend.PYTORCH.value
     )
@@ -77,7 +76,6 @@ class ProjectRecord(Base):
 
     __table_args__ = (
         CheckConstraint("length(trim(name)) > 0", name="ck_projects_name_nonempty"),
-        CheckConstraint("graph_schema_version >= 1", name="ck_projects_graph_version"),
         CheckConstraint(
             f"execution_backend IN ({_EXECUTION_BACKEND_SQL_VALUES})",
             name="ck_projects_execution_backend",
@@ -212,7 +210,6 @@ class ProjectRevisionRecord(Base):
         ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    graph_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
     execution_backend: Mapped[str] = mapped_column(String(32), nullable=False)
     keras_enabled: Mapped[bool] = mapped_column(
         Boolean(create_constraint=True, name="ck_project_revisions_keras_enabled"),
@@ -226,7 +223,6 @@ class ProjectRevisionRecord(Base):
     __table_args__ = (
         UniqueConstraint("project_id", "revision", name="uq_project_revisions_revision"),
         CheckConstraint("revision >= 1", name="ck_project_revisions_revision"),
-        CheckConstraint("graph_schema_version >= 1", name="ck_project_revisions_graph_version"),
         CheckConstraint(
             f"execution_backend IN ({_EXECUTION_BACKEND_SQL_VALUES})",
             name="ck_project_revisions_execution_backend",
