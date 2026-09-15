@@ -427,7 +427,10 @@ test('retains incompatible drafts while disabling catalog, compilation, and expo
     await page.goto(`/models/${fixture.id}/export`)
     await expect(page.getByRole('button', { name: /Project bundle/ })).toBeDisabled()
     await expect(page.getByRole('button', { name: /Project bundle/ })).toContainText('Fix the validation diagnostics')
-    await expect(page.getByRole('button', { name: /PyTorch ExportedProgram/ })).toContainText('Unavailable for this profile')
+    const pytorchExport = page.getByRole('button', { name: /PyTorch ExportedProgram/ })
+    await expect(pytorchExport).toBeDisabled()
+    await expect(pytorchExport).toHaveAttribute('title', /(?:Unavailable|Native runtime|profile|probed)/i)
+    await expect(pytorchExport).toContainText(/(?:Unavailable for this profile|Native runtime is unavailable|capability has not been probed)/i)
     await page.screenshot({ path: path.join(evidenceDir, 'invalid-export-capabilities.png'), fullPage: true })
 
     await page.goto(`/builder/${fixture.id}`)
