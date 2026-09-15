@@ -87,15 +87,22 @@ export class FilesystemBrowserComponent implements OnChanges {
 
   async browse(path: string): Promise<void> {
     if (this.busy()) return
+    const requestedPath = path.trim()
     this.busy.set(true)
     this.error.set(null)
     this.selectedFile.set(null)
     try {
-      const response = await this.api.browseFilesystem(path, this.selectionMode === 'file', this.extensions)
+      const response = await this.api.browseFilesystem(requestedPath, this.selectionMode === 'file', this.extensions)
       this.items.set(response.items)
       this.currentPath.set(response.current_path)
       this.parentPath.set(response.parent_path)
-      this.pathControl.setValue(response.current_path, { emitEvent: false })
+      // Do not let a slow initial root request erase a path the user entered
+      // while that request was in flight. Explicit browse/navigation requests
+      // still normalize the field after their response is current.
+      if (!this.pathControl.dirty || this.pathControl.value.trim() === requestedPath) {
+        this.pathControl.setValue(response.current_path, { emitEvent: false })
+        this.pathControl.markAsPristine()
+      }
       this.truncated.set(response.truncated)
     } catch (reason) {
       this.error.set(reason instanceof Error ? reason.message : String(reason))

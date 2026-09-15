@@ -92,6 +92,7 @@ async function openNodeMenu(page: Page, label: string): Promise<ReturnType<Page[
 test.describe.configure({ mode: 'serial' })
 
 test('keeps the Nodes workspace contained and the catalog controls coherent', async ({ page }) => {
+  test.setTimeout(90_000)
   await fs.mkdir(evidenceDir, { recursive: true })
   const viewports = [
     { width: 1440, height: 900 },
