@@ -32,7 +32,6 @@ class RevisionRepository:
             ProjectRevisionRecord(
                 project_id=str(project_id),
                 revision=revision,
-                graph_schema_version=graph.schema_version,
                 execution_backend=execution_backend.value,
                 keras_enabled=keras_enabled,
                 created_at=timestamp,

@@ -146,38 +146,6 @@ class ModelGraph(BaseModel):
     future_training_configuration: dict[str, Any] = Field(default_factory=dict)
 
     # -------------------------------------------------------------------------
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_legacy_graph(cls, value: Any) -> Any:
-        if not isinstance(value, dict):
-            return value
-        raw_value = cast(dict[str, Any], value)
-        if raw_value.get("schema_version") != 4:
-            return raw_value
-        migrated: dict[str, Any] = dict(raw_value)
-        migrated["schema_version"] = GRAPH_SCHEMA_VERSION
-        nodes: list[Any] = []
-        for raw_node in cast(list[Any], raw_value.get("nodes", [])):
-            if isinstance(raw_node, NodeInstance):
-                node: dict[str, Any] = raw_node.model_dump(mode="python")
-            elif isinstance(raw_node, dict):
-                node = dict(cast(dict[str, Any], raw_node))
-            else:
-                nodes.append(raw_node)
-                continue
-            parameters = dict(cast(dict[str, Any], node.get("parameters", {})))
-            if str(node.get("definition_id", "")).startswith("input."):
-                shape = parameters.get("shape")
-                if isinstance(shape, list) and shape and shape[0] is None:
-                    parameters["shape"] = shape[1:]
-            if _empty_quantization_config(parameters.get("quantization_config")):
-                parameters.pop("quantization_config", None)
-            node["parameters"] = parameters
-            nodes.append(node)
-        migrated["nodes"] = nodes
-        return migrated
-
-    # -------------------------------------------------------------------------
     @model_validator(mode="after")
     def unique_ids(self) -> ModelGraph:
         nodes = self.nodes  # pyright: ignore[reportUnknownVariableType]
@@ -194,7 +162,7 @@ class ModelGraph(BaseModel):
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=2000)
-    execution_backend: ExecutionBackend | None = None
+    execution_backend: ExecutionBackend
     keras_enabled: bool = True
     graph: ModelGraph = Field(default_factory=ModelGraph)
 
@@ -214,7 +182,6 @@ class ProjectDocument(BaseModel):
     description: str
     created_at: datetime
     updated_at: datetime
-    schema_version: int
     execution_backend: ExecutionBackend
     keras_enabled: bool
     current_revision: int
@@ -252,19 +219,6 @@ class ProjectExportBundle(BaseModel):
     format_version: Literal[6] = PROJECT_BUNDLE_FORMAT_VERSION
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
-
-    # -------------------------------------------------------------------------
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_legacy_bundle(cls, value: Any) -> Any:
-        if not isinstance(value, dict):
-            return value
-        raw_value = cast(dict[str, Any], value)
-        if raw_value.get("format_version") != 5:
-            return raw_value
-        migrated: dict[str, Any] = dict(raw_value)
-        migrated["format_version"] = PROJECT_BUNDLE_FORMAT_VERSION
-        return migrated
 
 ###############################################################################
 class ShapeSummary(BaseModel):

@@ -144,7 +144,6 @@ def _media_type(path: Path) -> str:
         ".zip": "application/zip",
         ".keras": "application/octet-stream",
         ".h5": "application/octet-stream",
-        ".pt": "application/octet-stream",
         ".pt2": "application/octet-stream",
         ".safetensors": "application/octet-stream",
         ".msgpack": "application/octet-stream",

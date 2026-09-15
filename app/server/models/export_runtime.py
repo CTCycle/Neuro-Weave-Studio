@@ -378,34 +378,6 @@ def _export_native(
             project_revision=project_revision,
         )
 
-    if export_format is ExportFormat.TORCHSCRIPT:
-        if backend is not ExecutionBackend.PYTORCH:
-            raise RuntimeError("TorchScript requires the native PyTorch backend")
-        import torch
-
-        traced = torch.jit.trace(handle.model, (handle.model_input,), strict=False)
-        traced.save(destination)
-        loaded = torch.jit.load(str(destination), map_location="cpu")
-        loaded_outputs = _as_list(loaded(handle.model_input))
-        _synchronize_tensors(loaded_outputs)
-        verification = _compare_outputs(outputs, loaded_outputs, semantic=True)
-        return _final_result(
-            graph=graph,
-            destination=destination,
-            export_format=export_format,
-            backend=backend,
-            api=api,
-            payload=ExportPayload.FULL_MODEL,
-            conversion=ExportConversion.NATIVE,
-            layout=ExportLayout.FILE,
-            input_values=input_values,
-            outputs=outputs,
-            parameter_count=handle.parameter_count(),
-            verification=verification,
-            project_id=project_id,
-            project_revision=project_revision,
-        )
-
     if export_format is ExportFormat.SAFETENSORS:
         tensor_path = working_root / "model.safetensors"
         _save_native_safetensors(handle, tensor_path)
@@ -908,8 +880,9 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
             )
         except Exception:
             # PyTorch 2.8 can reject dynamic_axes with the dynamo exporter
-            # before producing an ONNX graph. Retry with the stable legacy
-            # exporter; the artifact remains direct native PyTorch ONNX.
+            # before producing an ONNX graph. Retry with the stable exporter
+            # supported across the declared PyTorch dependency range; the
+            # artifact remains direct native PyTorch ONNX.
             torch.onnx.export(
                 wrapper,
                 args,

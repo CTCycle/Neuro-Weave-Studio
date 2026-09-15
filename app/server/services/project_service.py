@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from uuid import UUID
 
 from common.catalogs.loader import get_node_catalog
 from common.timestamps import utc_now
-from domain.enums import ExecutionBackend, ValidationStatus
+from domain.enums import ValidationStatus
 from domain.graph import (
     ProjectCreate,
     ProjectDocument,
@@ -15,7 +14,6 @@ from domain.graph import (
     ProjectSummary,
     ProjectUpdate,
 )
-from domain.metadata import ExecutionBackendStatus
 from repositories.contracts import (
     ProjectMetadata,
     RepositoryIntegrityError,
@@ -38,20 +36,16 @@ class ProjectService:
         self,
         uow_factory: UnitOfWorkFactory,
         validator: ValidationService,
-        backend_statuses: Mapping[ExecutionBackend, ExecutionBackendStatus] | None = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._validator = validator
-        self._backend_statuses = backend_statuses or {}
 
     # -------------------------------------------------------------------------
     def list(self) -> ProjectListResponse:
         catalog = get_node_catalog()
         with self._uow_factory() as uow:
             metadata = uow.projects.list_metadata()
-            graphs = uow.graphs.load_many(
-                {item.id: item.graph_schema_version for item in metadata}
-            )
+            graphs = uow.graphs.load_many([item.id for item in metadata])
             generated_sources = uow.code_snapshots.has_for_revisions(
                 {item.id: item.current_revision for item in metadata}
             )
@@ -92,9 +86,8 @@ class ProjectService:
 
     # -------------------------------------------------------------------------
     def create(self, payload: ProjectCreate) -> ProjectDocument:
-        execution_backend = self._resolve_execution_backend(payload.execution_backend)
         validation = self._validator.validate(
-            payload.graph, execution_backend, payload.keras_enabled
+            payload.graph, payload.execution_backend, payload.keras_enabled
         )
         timestamp = utc_now()
         try:
@@ -102,9 +95,8 @@ class ProjectService:
                 metadata = uow.projects.create(
                     name=payload.name,
                     description=payload.description,
-                    execution_backend=execution_backend,
+                    execution_backend=payload.execution_backend,
                     keras_enabled=payload.keras_enabled,
-                    graph_schema_version=payload.graph.schema_version,
                     timestamp=timestamp,
                     validation_status=(
                         ValidationStatus.VALID if validation.valid else ValidationStatus.INVALID
@@ -115,7 +107,7 @@ class ProjectService:
                     metadata.id,
                     revision=1,
                     graph=payload.graph,
-                    execution_backend=execution_backend,
+                    execution_backend=payload.execution_backend,
                     keras_enabled=payload.keras_enabled,
                     timestamp=timestamp,
                 )
@@ -141,7 +133,6 @@ class ProjectService:
                     description=payload.description,
                     execution_backend=payload.execution_backend,
                     keras_enabled=payload.keras_enabled,
-                    graph_schema_version=payload.graph.schema_version,
                     timestamp=timestamp,
                     validation_status=(
                         ValidationStatus.VALID if validation.valid else ValidationStatus.INVALID
@@ -212,7 +203,7 @@ class ProjectService:
     # -------------------------------------------------------------------------
     @staticmethod
     def _document(uow: UnitOfWorkProtocol, metadata: ProjectMetadata) -> ProjectDocument:
-        graph = uow.graphs.load(metadata.id, metadata.graph_schema_version)
+        graph = uow.graphs.load(metadata.id)
         if graph is None:
             raise RuntimeError(f"Project {metadata.id} is missing graph settings")
         return ProjectDocument(
@@ -221,7 +212,6 @@ class ProjectService:
             description=metadata.description,
             created_at=metadata.created_at,
             updated_at=metadata.updated_at,
-            schema_version=metadata.graph_schema_version,
             execution_backend=metadata.execution_backend,
             keras_enabled=metadata.keras_enabled,
             current_revision=metadata.current_revision,
@@ -231,17 +221,3 @@ class ProjectService:
                 metadata.id, metadata.current_revision
             ),
         )
-
-    # -------------------------------------------------------------------------
-    def _resolve_execution_backend(self, requested: ExecutionBackend | None) -> ExecutionBackend:
-        if requested is not None:
-            return requested
-        available = {
-            backend for backend, status in self._backend_statuses.items() if status.available
-        }
-        if ExecutionBackend.PYTORCH in available:
-            return ExecutionBackend.PYTORCH
-        for backend in ExecutionBackend:
-            if backend in available:
-                return backend
-        return ExecutionBackend.PYTORCH

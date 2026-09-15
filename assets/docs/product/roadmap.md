@@ -8,4 +8,4 @@ Phase 3 covers extensibility. The first safe custom-node authoring layer is now 
 
 The remaining Phase 3 work is the trusted executable plugin model for artifact classes that cannot be represented by existing built-in manifests. That work must define signed package identity, deterministic ports and shape behavior, framework adapter capability, dependency isolation, security permissions, compatibility/version rules, and migration behavior. Repository code and arbitrary user Python/JavaScript must never bypass the canonical graph and validation layers.
 
-Phase 4 adds deployment and additional exporters such as ONNX, JAX or Flax, TensorFlow Lite, TorchScript, Core ML, and OpenVINO. Every phase must extend or materialize into the canonical graph rather than introduce a parallel executable representation.
+Phase 4 adds deployment and additional exporters such as ONNX, JAX or Flax, TensorFlow Lite, Core ML, and OpenVINO. Any future exporter must extend or materialize into the canonical graph rather than reintroduce a parallel executable representation.

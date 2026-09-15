@@ -112,7 +112,7 @@ def get_project_service(
     validator: ValidationService = Depends(get_validation_service),
     controller: RuntimeController = Depends(get_runtime_controller),
 ) -> ProjectService:
-    return ProjectService(uow_factory, validator, controller.backend_statuses)
+    return ProjectService(uow_factory, validator)
 
 ###############################################################################
 def get_keras_import_service(

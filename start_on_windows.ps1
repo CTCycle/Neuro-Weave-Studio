@@ -32,17 +32,9 @@ $script:CacheDir = Join-Path $AppDir 'tests\cache'
 $script:UvCacheDir = Join-Path $script:RuntimeCacheDir 'uv'
 $script:NpmCacheDir = Join-Path $script:RuntimeCacheDir 'npm'
 $script:PipCacheDir = Join-Path $script:RuntimeCacheDir 'pip'
-$script:LegacyUvCachePaths = @(
-    (Join-Path $script:RepoRoot '.uv-cache'),
-    (Join-Path $script:AppDir '.uv-cache'),
-    (Join-Path $script:ServerDir '.uv-cache'),
-    (Join-Path $script:ClientDir '.uv-cache'),
-    (Join-Path $script:AppDir 'tests\.uv-cache')
-)
 $script:PythonEggCacheDir = Join-Path $script:RuntimeCacheDir 'python-eggs'
 $script:PythonBytecodeCacheDir = Join-Path $script:CacheDir 'python-bytecode'
 $script:CoverageCacheDir = Join-Path $script:CacheDir 'coverage'
-$script:PytestBaseTempDir = Join-Path $script:CacheDir 'pytest-tmp'
 $script:PythonDir = Join-Path $RuntimeDir 'python'
 $script:UvDir = Join-Path $RuntimeDir 'uv'
 $script:NodeDir = Join-Path $RuntimeDir 'node'
@@ -234,7 +226,7 @@ function Clear-PythonEnvironment {
 function Set-LauncherEnvironment {
     New-Item -ItemType Directory -Path $script:RuntimeCacheDir, $script:CacheDir, $script:UvCacheDir, `
         $script:NpmCacheDir, $script:PipCacheDir, $script:PythonEggCacheDir, $script:PythonBytecodeCacheDir, `
-        $script:CoverageCacheDir, $script:PytestBaseTempDir -Force | Out-Null
+        $script:CoverageCacheDir -Force | Out-Null
     $env:UV_CACHE_DIR = $script:UvCacheDir
     $env:PIP_CACHE_DIR = $script:PipCacheDir
     $env:npm_config_cache = $script:NpmCacheDir
@@ -1772,27 +1764,9 @@ function Invoke-ClearApplicationCache {
     }
     Write-Status -Level STEP -Message 'Removing runtime, test, and tool caches plus generated artifacts.'
     $pythonCacheResult = Remove-PythonCaches
-    $legacyPaths = @(
-        (Join-Path $RepoRoot 'assets\cache'),
-        (Join-Path $script:RuntimeDir '.uv-cache'),
-        (Join-Path $RepoRoot '.pytest_cache'),
-        (Join-Path $RepoRoot '.ruff_cache'),
-        (Join-Path $RepoRoot '.mypy_cache'),
-        (Join-Path $script:AppDir '.pytest_cache'),
-        (Join-Path $script:AppDir '.ruff_cache'),
-        (Join-Path $script:AppDir 'tests\.pytest_cache'),
-        (Join-Path $script:AppDir 'tests\.ruff_cache'),
-        (Join-Path $script:AppDir 'tests\.mypy_cache'),
-        (Join-Path $script:ServerDir '.pytest_cache'),
-        (Join-Path $script:ServerDir '.ruff_cache'),
-        (Join-Path $script:ServerDir '.mypy_cache'),
-        (Join-Path $script:ClientDir '.angular'),
-        (Join-Path $script:ClientDir 'dist'),
-        (Join-Path $script:ClientDir 'coverage')
-    )
     $removedCount = [int]$pythonCacheResult.Removed
     $skippedCount = [int]$pythonCacheResult.Skipped
-    foreach ($target in @($script:RuntimeCacheDir, $script:CacheDir) + $legacyPaths + $script:LegacyUvCachePaths) {
+    foreach ($target in @($script:RuntimeCacheDir, $script:CacheDir)) {
         $result = Remove-PathBestEffort -Path $target
         $removedCount += $result.Removed
         $skippedCount += $result.Skipped
@@ -1826,11 +1800,8 @@ function Invoke-UninstallApplication {
         $script:NodeDir,
         $script:RuntimeCacheDir,
         $script:CacheDir,
-        (Join-Path $RepoRoot 'assets\cache'),
-        $script:LegacyUvCachePaths,
         $script:VenvDir,
         (Join-Path $script:ClientDir 'node_modules'),
-        (Join-Path $script:ClientDir 'dist'),
         $script:BackendInstallState
     )
     Write-Status -Level STEP -Message 'Removing generated runtimes, dependencies, and frontend build output.'

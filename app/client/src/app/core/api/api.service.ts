@@ -18,7 +18,7 @@ import type {
   ExportCapabilitiesResponse,
   ExportFormat,
   ExportOptions,
-  GraphPayload,
+  ModelGraph,
   JobResponse,
   KerasArchitectureImportResponse,
   MetadataResponse,
@@ -32,7 +32,6 @@ import type {
   ValidationResult,
   WorkerConfiguration,
 } from '../../domain/types'
-import { canonicalizeGraph } from '../../domain/graph-mapper'
 
 const API_BASE = '/api'
 const CONNECTION_CANDIDATE_BATCH_SIZE = 256
@@ -120,11 +119,11 @@ export class ApiService {
   createProject(payload: {
     name: string
     description: string
-    execution_backend?: ExecutionBackend | null
+    execution_backend: ExecutionBackend
     keras_enabled: boolean
-    graph: GraphPayload
+    graph: ModelGraph
   }): Promise<ProjectDocument> {
-    return this.request('/projects', 'POST', { ...payload, graph: canonicalizeGraph(payload.graph) })
+    return this.request('/projects', 'POST', payload)
   }
 
   updateProject(id: string, payload: {
@@ -132,10 +131,10 @@ export class ApiService {
     description: string
     execution_backend: ExecutionBackend
     keras_enabled: boolean
-    graph: GraphPayload
+    graph: ModelGraph
     expected_revision: number
   }): Promise<ProjectDocument> {
-    return this.request(`/projects/${id}`, 'PUT', { ...payload, graph: canonicalizeGraph(payload.graph) })
+    return this.request(`/projects/${id}`, 'PUT', payload)
   }
 
   duplicateProject(id: string, name?: string): Promise<ProjectDocument> {
@@ -171,20 +170,19 @@ export class ApiService {
     }
   }
 
-  validate(graph: GraphPayload, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ValidationResult> {
-    return this.request('/validation', 'POST', { graph: canonicalizeGraph(graph), execution_backend, keras_enabled })
+  validate(graph: ModelGraph, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ValidationResult> {
+    return this.request('/validation', 'POST', { graph, execution_backend, keras_enabled })
   }
 
-  validateConnection(graph: GraphPayload, connection: GraphPayload['edges'][number], execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ConnectionValidationResult> {
-    return this.request('/validation/connection', 'POST', { graph: canonicalizeGraph(graph), connection, execution_backend, keras_enabled })
+  validateConnection(graph: ModelGraph, connection: ModelGraph['edges'][number], execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ConnectionValidationResult> {
+    return this.request('/validation/connection', 'POST', { graph, connection, execution_backend, keras_enabled })
   }
 
-  async validateConnectionCandidates(graph: GraphPayload, connections: GraphPayload['edges'], execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<{ valid_connection_ids: string[] }> {
+  async validateConnectionCandidates(graph: ModelGraph, connections: ModelGraph['edges'], execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<{ valid_connection_ids: string[] }> {
     const valid_connection_ids: string[] = []
-    const canonicalGraph = canonicalizeGraph(graph)
     for (let offset = 0; offset < connections.length; offset += CONNECTION_CANDIDATE_BATCH_SIZE) {
       const response = await this.request<{ valid_connection_ids: string[] }>('/validation/connection-candidates', 'POST', {
-        graph: canonicalGraph,
+        graph,
         connections: connections.slice(offset, offset + CONNECTION_CANDIDATE_BATCH_SIZE),
         execution_backend,
         keras_enabled,
@@ -194,12 +192,12 @@ export class ApiService {
     return { valid_connection_ids }
   }
 
-  compile(graph: GraphPayload, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<CompilationResult> {
-    return this.request('/compilation', 'POST', { graph: canonicalizeGraph(graph), execution_backend, keras_enabled })
+  compile(graph: ModelGraph, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<CompilationResult> {
+    return this.request('/compilation', 'POST', { graph, execution_backend, keras_enabled })
   }
 
-  submitSmokeInference(project_id: string, graph: GraphPayload, worker: WorkerConfiguration): Promise<JobResponse> {
-    return this.request('/execution/jobs', 'POST', { operation: { type: 'smoke_inference', project_id, graph: canonicalizeGraph(graph) }, worker })
+  submitSmokeInference(project_id: string, graph: ModelGraph, worker: WorkerConfiguration): Promise<JobResponse> {
+    return this.request('/execution/jobs', 'POST', { operation: { type: 'smoke_inference', project_id, graph }, worker })
   }
 
   submitModelExport(project_id: string, format: ExportFormat, filename_stem: string, options: ExportOptions, worker: WorkerConfiguration): Promise<JobResponse> {
