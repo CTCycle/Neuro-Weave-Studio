@@ -11,6 +11,7 @@ from domain.tensor import Dimension, TensorSpec
 from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 
+
 ###############################################################################
 class ShapeInferenceError(ValueError):
     pass

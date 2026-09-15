@@ -5,15 +5,19 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
 from domain.exports import ExportConversion, ExportFormat, ExportOptions
 from domain.graph import (
     EdgeInstance,
+    JaxNativeConfiguration,
     ModelConfiguration,
     ModelGraph,
+    NativeCompilationConfiguration,
     NodeInstance,
     Position,
+    TensorFlowNativeConfiguration,
 )
 from domain.jobs import (
     JobResponse,
@@ -56,7 +60,9 @@ def _dense_graph(*, jit_compile: bool = False) -> ModelGraph:
         ],
         edges=[_edge("input-dense", "input", "dense"), _edge("dense-output", "dense", "output")],
         model_configuration=ModelConfiguration(
-            native={"tensorflow": {"jit_compile": jit_compile}},
+            native=NativeCompilationConfiguration(
+                tensorflow=TensorFlowNativeConfiguration(jit_compile=jit_compile),
+            ),
         ),
     )
 
@@ -126,7 +132,11 @@ def _native_jax_multi_input_graph() -> ModelGraph:
             _edge("concat-dense", "concat", "dense"),
             _edge("dense-output", "dense", "output"),
         ],
-        model_configuration=ModelConfiguration(native={"jax": {"jit_enabled": True}}),
+        model_configuration=ModelConfiguration(
+            native=NativeCompilationConfiguration(
+                jax=JaxNativeConfiguration(jit_enabled=True),
+            ),
+        ),
     )
 
 
@@ -283,11 +293,16 @@ def test_native_jax_onnx_export_uses_direct_jax2onnx_bridge(
 
 
 ###############################################################################
+def _missing_executable(_name: str) -> None:
+    return None
+
+
+###############################################################################
 def test_pytorch_compile_capability_requires_msvc_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
     import models.pytorch_worker as pytorch_worker_module
 
     monkeypatch.setattr(pytorch_worker_module.sys, "platform", "win32")
-    monkeypatch.setattr(pytorch_worker_module.shutil, "which", lambda name: None)
+    monkeypatch.setattr(pytorch_worker_module.shutil, "which", _missing_executable)
 
     assert pytorch_worker_module.PyTorchWorker().native_compilation_capabilities() == {
         "torch_compile": False

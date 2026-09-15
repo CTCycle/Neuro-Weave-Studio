@@ -1,0 +1,79 @@
+{
+  "nodes": [
+    {
+      "id": "math.stop_gradient",
+      "version": 1,
+      "display_name": "Stop Gradient",
+      "category": "mathematical",
+      "description": "Preserves the forward tensor while preventing gradient propagation through this path.",
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "operation",
+        "config": {}
+      },
+      "operation": {
+        "family": "unary",
+        "shape_behavior": "preserve",
+        "output_dtype": "same",
+        "arity": 1,
+        "variadic": false,
+        "arguments": [],
+        "keywords": []
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "symbol": "keras.ops.stop_gradient",
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "symbol": "tf.stop_gradient",
+          "notes": "Native TensorFlow export uses tf.stop_gradient directly."
+        },
+        "pytorch": {
+          "supported": true,
+          "symbol": "torch.detach",
+          "notes": "Native PyTorch export uses torch.detach directly."
+        },
+        "jax": {
+          "supported": true,
+          "symbol": "jax.lax.stop_gradient",
+          "notes": "Native JAX export uses jax.lax.stop_gradient directly."
+        }
+      },
+      "ui": {
+        "icon": "CircleOff",
+        "accent": "rose",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/mathematical_operations.md"
+    }
+  ]
+}

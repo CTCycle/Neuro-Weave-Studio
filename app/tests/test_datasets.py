@@ -2,14 +2,27 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from importlib import import_module
 from pathlib import Path
+from typing import Protocol, cast
 
 import numpy as np
-import pyarrow as pa
+import pytest
 from fastapi.testclient import TestClient
-from pyarrow import parquet
 
 from app import create_app
+
+
+class _PyArrowModule(Protocol):
+    def table(self, data: object) -> object: ...
+
+
+class _ParquetModule(Protocol):
+    def write_table(self, table: object, where: Path) -> None: ...
+
+
+pa = cast(_PyArrowModule, import_module("pyarrow"))
+parquet = cast(_ParquetModule, import_module("pyarrow.parquet"))
 
 
 ###############################################################################
@@ -345,7 +358,10 @@ def test_update_relink_refreshes_definition_and_inspection_snapshot(
 
 
 ###############################################################################
-def test_dataset_registration_survives_application_restart(tmp_path: Path, monkeypatch) -> None:
+def test_dataset_registration_survives_application_restart(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     database = tmp_path / "restart.db"
     source = tmp_path / "restart.csv"
     source.write_text("age,weight,diagnosis\n42,71,positive\n", encoding="utf-8")

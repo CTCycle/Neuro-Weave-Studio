@@ -18,6 +18,7 @@ from domain.graph import ModelGraph
 from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 from validation.output_resolution import input_nodes, output_selectors, resolved_outputs
 
+
 ###############################################################################
 class BackendWorker(Protocol):
     """Common contract implemented by one isolated execution-backend worker."""
