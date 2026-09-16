@@ -370,7 +370,7 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .catalog-page-header h1, .workspace-title-row h1 { margin: 6px 0 4px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.03em; }
 .catalog-page-header p, .workspace-title-row p { margin: 0; color: var(--muted); font-size: 12px; }
 .catalog-header-actions, .workspace-header-actions, .dialog-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.catalog-header-actions button, .catalog-header-actions a, .workspace-header-actions button, .workspace-header-actions a, .workflow-card button, .inference-controls button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 6px; padding: 0 12px; cursor: pointer; }
+.catalog-header-actions button, .catalog-header-actions a, .workspace-header-actions button, .workspace-header-actions a, .workflow-card button, .validation-controls button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 6px; padding: 0 12px; cursor: pointer; }
 .catalog-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .catalog-controls .search-field { flex: 1 1 260px; margin: 0; }
 .catalog-filter-label { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font: 500 9px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; letter-spacing: .08em; }
@@ -473,10 +473,10 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .generated-code-placeholder strong { color: var(--text); }
 .placeholder-glyph { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--cyan); }
 .backend-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid rgba(101,201,212,.34); border-radius: 999px; color: var(--cyan); background: rgba(101,201,212,.08); font: 500 9px 'IBM Plex Mono', Consolas, monospace; }
-.inference-controls { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 15px; margin-bottom: 12px; }
-.inference-controls .field { flex: 0 1 300px; margin: 0; }
-.inference-control-note { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; line-height: 1.4; }
-.inference-control-note svg { flex: 0 0 auto; color: var(--cyan); }
+.validation-controls { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 15px; margin-bottom: 12px; }
+.validation-controls .field { flex: 0 1 300px; margin: 0; }
+.validation-control-note { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+.validation-control-note svg { flex: 0 0 auto; color: var(--cyan); }
 .smoke-test-panel { min-height: 440px; display: grid; grid-template-rows: auto minmax(0, 1fr); padding: 15px; overflow: hidden; }
 .smoke-test-panel .smoke-test-content { padding-top: 14px; }
 .smoke-test-panel .smoke-test-state { padding-left: 0; }
@@ -638,8 +638,8 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
   .overview-grid, .workflow-grid, .metrics-grid { grid-template-columns: 1fr; }
   .overview-preview { min-height: 420px; }
   .overview-preview .canvas-shell { height: 340px; }
-  .inference-controls { align-items: stretch; flex-direction: column; }
-  .inference-controls .field { flex-basis: auto; }
+  .validation-controls { align-items: stretch; flex-direction: column; }
+  .validation-controls .field { flex-basis: auto; }
   .builder-toolbar { min-height: 42px; padding: 4px; }
   .builder-mobile-actions { display: flex; gap: 5px; }
   .builder-mobile-actions button { min-height: 28px; padding: 0 11px; border: 1px solid var(--border); border-radius: 0; background: var(--surface); color: var(--muted); cursor: pointer; }
@@ -682,7 +682,7 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
   .compilation-parameter-grid, .compilation-option-grid { grid-template-columns: 1fr; }
   .metrics-card-body.has-formula { grid-template-columns: 1fr; }
   .configuration-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .inference-controls { align-items: stretch; flex-direction: column; }
+  .validation-controls { align-items: stretch; flex-direction: column; }
   .environment-page .backend-status-grid { grid-template-columns: 1fr; }
 }
 
@@ -1043,7 +1043,7 @@ nw-graph-canvas { display: contents; }
 .compilation-page .panel,
 .metrics-section,
 .metrics-card,
-.inference-controls,
+.validation-controls,
 .smoke-test-panel,
 .model-export-page,
 .model-export-config {

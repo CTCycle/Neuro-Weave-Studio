@@ -439,7 +439,7 @@ export class ModelBuilderPageComponent {
       this.tabsStore.updateTab(tab.id, { projectId: project.id, name: project.name, description: project.description, executionBackend: project.execution_backend, kerasEnabled: project.keras_enabled, revision: project.current_revision, graph: session, savedBaseline: draftSnapshot(project.name, project.description, project.execution_backend, project.keras_enabled, graph), dirty: false })
       this.name.set(project.name); this.description.set(project.description); this.backend.set(project.execution_backend); this.kerasEnabled.set(project.keras_enabled); this.projectRevision.set(project.current_revision)
       await this.resources.refreshProjects()
-      this.notice.set(`Saved revision ${project.current_revision}. Open the model workspace to compile or run inference.`)
+      this.notice.set(`Saved revision ${project.current_revision}. Open the model workspace to compile or run functional validation.`)
       if (!tab.projectId) { this.initializedKey = `project:${project.id}`; await this.router.navigate(['/builder', project.id], { replaceUrl: true }) }
     } catch (reason) { this.notice.set(`Save failed: ${reason instanceof Error ? reason.message : String(reason)}`) } finally { this.busy.set(false) }
   }

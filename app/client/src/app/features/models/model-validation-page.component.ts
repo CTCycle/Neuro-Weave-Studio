@@ -8,16 +8,16 @@ import { pollJobUntilTerminal, terminalJobStates } from './job-polling'
 import { ModelWorkspaceState } from './model-workspace.state'
 
 @Component({
-  selector: 'nw-model-inference-page',
+  selector: 'nw-model-validation-page',
   standalone: true,
   imports: [RouterLink, LucideFlaskConical, LucideSquare],
   template: `
     @if (state.project(); as project) {
-      <div class="workflow-page inference-page"><div class="workflow-intro"><div><span class="eyebrow">INFERENCE</span><h2>Run a safe model check</h2><p>This workspace creates compatible dummy inputs and performs one forward pass. It never trains or updates weights.</p></div><div class="backend-selection-summary workflow-backend-summary"><span>Model backend preference</span>@if (worker(); as selection) { <strong>{{ selection.api }} · {{ selection.backend }} · {{ selection.device_id }}</strong> } @else { <a routerLink="/environment">Configure {{ project.execution_backend }} in Environment</a> }</div></div><section class="inference-controls panel"><div class="inference-control-note"><svg lucideFlaskConical [size]="18"></svg><span>Inference uses the model's persisted backend and its matching runtime preference. It never changes model data.</span></div><a class="secondary environment-link" routerLink="/environment">Configure runtime</a></section><section class="smoke-test-drawer panel"><div class="section-heading"><div><span class="eyebrow">SMOKE TEST</span><h3>One forward pass</h3></div>@if (job(); as current) { <span class="muted">{{ current.state }}</span> }</div><p class="muted">The worker returns input/output tensor shapes, device information, and parameter count.</p><div class="workflow-card-actions"><button class="primary" type="button" (click)="run()" [disabled]="busy()">{{ busy() ? 'Running…' : 'Run smoke test' }}</button>@if (busy()) { <button class="secondary" type="button" (click)="stop()"><svg lucideSquare [size]="14"></svg>Stop</button> }</div>@if (result(); as value) { <div class="smoke-result"><strong>Completed on {{ value.device_name }}</strong><span>{{ value.inputs.length }} inputs · {{ value.outputs.length }} outputs · {{ value.parameter_count }} parameters · {{ value.duration_ms }} ms</span></div> }@if (error()) { <div class="model-export-notice" role="alert">{{ error() }}</div> }</section></div>
+      <div class="workflow-page validation-page"><div class="workflow-intro"><div><span class="eyebrow">FUNCTIONAL VALIDATION</span><h2>Run a safe model check</h2><p>This workspace creates compatible dummy inputs and performs one forward pass. It never trains, updates weights, or serves user predictions.</p></div><div class="backend-selection-summary workflow-backend-summary"><span>Model backend preference</span>@if (worker(); as selection) { <strong>{{ selection.api }} · {{ selection.backend }} · {{ selection.device_id }}</strong> } @else { <a routerLink="/environment">Configure {{ project.execution_backend }} in Environment</a> }</div></div><section class="validation-controls panel"><div class="validation-control-note"><svg lucideFlaskConical [size]="18"></svg><span>Functional validation uses the model's persisted backend and its matching runtime preference. It never changes model data.</span></div><a class="secondary environment-link" routerLink="/environment">Configure runtime</a></section><section class="smoke-test-drawer panel"><div class="section-heading"><div><span class="eyebrow">FUNCTIONAL CHECK</span><h3>One forward pass</h3></div>@if (job(); as current) { <span class="muted">{{ current.state }}</span> }</div><p class="muted">The worker returns input/output tensor shapes, device information, and parameter count.</p><div class="workflow-card-actions"><button class="primary" type="button" (click)="run()" [disabled]="busy()">{{ busy() ? 'Running…' : 'Run functional validation' }}</button>@if (busy()) { <button class="secondary" type="button" (click)="stop()"><svg lucideSquare [size]="14"></svg>Stop</button> }</div>@if (result(); as value) { <div class="smoke-result"><strong>Completed on {{ value.device_name }}</strong><span>{{ value.inputs.length }} inputs · {{ value.outputs.length }} outputs · {{ value.parameter_count }} parameters · {{ value.duration_ms }} ms</span></div> }@if (error()) { <div class="model-export-notice" role="alert">{{ error() }}</div> }</section></div>
     }
   `,
 })
-export class ModelInferencePageComponent {
+export class ModelValidationPageComponent {
   readonly state = inject(ModelWorkspaceState)
   private readonly api = inject(ApiService)
   private readonly resources = inject(AppResourcesService)
@@ -67,12 +67,12 @@ export class ModelInferencePageComponent {
         worker = this.worker()
       }
       if (!worker) throw new Error('The selected runtime is unavailable. Check it in Environment and retry.')
-      let current = await this.api.submitSmokeInference(project.id, project.graph, worker)
+      let current = await this.api.submitFunctionalValidation(project.id, project.graph, worker)
       this.job.set(current)
       if (!terminalJobStates.has(current.state)) current = await pollJobUntilTerminal(current, (jobId) => this.api.getJob(jobId), (next) => this.job.set(next), { intervalMs: 250, timeoutMs: 60_000, isDestroyed: () => this.destroyRef.destroyed })
       if (this.destroyRef.destroyed) return
-      if (!terminalJobStates.has(current.state)) throw new Error('The inference worker did not reach a terminal state within 60 seconds. Refresh the page to inspect it.')
-      if (current.state !== 'succeeded') throw new Error(current.error?.message || 'The inference worker did not complete.')
+      if (!terminalJobStates.has(current.state)) throw new Error('The validation worker did not reach a terminal state within 60 seconds. Refresh the page to inspect it.')
+      if (current.state !== 'succeeded') throw new Error(current.error?.message || 'The validation worker did not complete.')
       const data = current.result || {}
       this.result.set({ device_name: String(data['device_name'] || worker.device_id), inputs: Array.isArray(data['inputs']) ? data['inputs'] : [], outputs: Array.isArray(data['outputs']) ? data['outputs'] : [], parameter_count: Number(data['parameter_count'] || 0), duration_ms: Number(data['duration_ms'] || 0) })
     } catch (reason) { if (!this.destroyRef.destroyed) this.error.set(reason instanceof Error ? reason.message : String(reason)) } finally { if (!this.destroyRef.destroyed) this.busy.set(false) }

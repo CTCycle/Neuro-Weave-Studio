@@ -1,6 +1,6 @@
 # Model Execution Profile
 
-Last updated: 2026-09-13
+Last updated: 2026-09-16
 
 ## Purpose
 
@@ -37,7 +37,7 @@ flowchart TD
   V --> K[Keras implementation]
   K --> B[model.execution_backend]
   B --> W[Isolated Keras worker]
-  W --> T[Dummy tensor smoke test or artifact export]
+  W --> T[Dummy tensor functional validation or artifact export]
 ```
 
 Keras compilation uses the Keras branch of the metadata-driven capability catalog. Optimizers, losses, metrics, initializers, regularizers, constraints, and trusted formula metadata are exposed through `/api/metadata`. Native compilation is independent of Keras: TensorFlow exposes `tf.function(jit_compile=...)`, PyTorch exposes `torch.compile(...)` options, and JAX exposes `jax.jit(...)`. Runtime/compiler availability is discovered on demand per API and unavailable runtimes show an explicit reason; matching discovery snapshots are validated and reused until their environment fingerprint changes. These settings do not add a training loop, checkpoint manager, or native optimizer runtime.
@@ -51,7 +51,7 @@ flowchart TD
   G[Canonical Graph] --> V[Static and shape validation]
   V --> N[Backend-specific native implementation]
   N --> S[Verified native source subset]
-  N --> U[Native runtime inference unavailable]
+  N --> U[Native prediction service unavailable]
 ```
 
 The node manifest is capability truth. A node can be present in the catalog while its selected implementation is marked export-limited or unsupported. The validation panel keeps static validation, source eligibility, and runtime availability distinct.
@@ -79,7 +79,7 @@ flowchart TD
   G[Graph plus execution profile] --> S[Static validation]
   S --> D{Static result}
   D -->|errors| P[Blocking diagnostics]
-  D -->|valid and Keras enabled| R[Keras runtime smoke or export]
+  D -->|valid and Keras enabled| R[Keras functional validation or export]
   D -->|valid and native| N[Native source and runtime boundary]
   R --> Q[Runtime diagnostics and verified artifact]
   N --> Q
@@ -107,7 +107,7 @@ flowchart LR
 
 ## .keras binary export
 
-Keras `.keras` binary export is available for Keras-enabled models with an operational persisted backend. The worker builds an initialized, untrained Keras model from the canonical graph, applies the validated Keras configuration, saves a temporary artifact, reloads it, runs an inference check, and publishes it only after the project revision is still current. Native binary/checkpoint formats use the raw native model where the artifact format requires an inspectable framework module; compiler caches are not claimed as serializable artifact state. Artifacts contain no trained weights.
+Keras `.keras` binary export is available for Keras-enabled models with an operational persisted backend. The worker builds an initialized, untrained Keras model from the canonical graph, applies the validated Keras configuration, saves a temporary artifact, reloads it, runs a forward-pass check, and publishes it only after the project revision is still current. Native binary/checkpoint formats use the raw native model where the artifact format requires an inspectable framework module; compiler caches are not claimed as serializable artifact state. Artifacts contain no trained weights.
 
 ```mermaid
 flowchart TD
@@ -115,7 +115,7 @@ flowchart TD
   K --> C[Compilation catalog]
   C --> W[Isolated worker]
   W --> A[Temporary .keras artifact]
-  A --> L[Reload and inference verification]
+  A --> L[Reload and forward-pass verification]
   L --> P[Atomic publish for current revision]
 ```
 
@@ -142,7 +142,7 @@ Future capabilities attach after static validation and the profile resolution bo
 ```mermaid
 flowchart TD
   P[Execution Profile] --> V[Static validation]
-  V --> C[Current source and Keras smoke paths]
+  V --> C[Current source and functional validation paths]
   V -. future .-> T[Training service]
   V -. future .-> I[Inference service]
   T --> D[Future datasets and checkpoints]
@@ -153,4 +153,4 @@ Training loops, dataset management, checkpoint management, experiment tracking, 
 
 ## Native PyTorch compilation helpers
 
-Native PyTorch profiles persist canonical `optimizer`, `optimizer_parameters`, `losses`, and `metrics` selectors alongside the backend compiler settings. The server-owned compilation catalog supplies trusted PyTorch adapters, task/target/activation contracts, and formula metadata; generated native source exposes `build_optimizer(model)`, `configured_losses()`, `configured_metrics()`, and `build_compilation(model)`. Runtime smoke verification instantiates the optimizer and evaluates configured helpers against synthetic contract-matched targets, but never calls an optimizer step or runs a training loop. This parity slice is validated for PyTorch and Keras-on-PyTorch; TensorFlow and JAX are not part of that validation scope.
+Native PyTorch profiles persist canonical `optimizer`, `optimizer_parameters`, `losses`, and `metrics` selectors alongside the backend compiler settings. The server-owned compilation catalog supplies trusted PyTorch adapters, task/target/activation contracts, and formula metadata; generated native source exposes `build_optimizer(model)`, `configured_losses()`, `configured_metrics()`, and `build_compilation(model)`. Runtime functional validation instantiates the optimizer and evaluates configured helpers against synthetic contract-matched targets, but never calls an optimizer step or runs a training loop. This parity slice is validated for PyTorch and Keras-on-PyTorch; TensorFlow and JAX are not part of that validation scope.
