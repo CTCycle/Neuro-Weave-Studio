@@ -56,7 +56,9 @@ export function validateGraphConnection(
   if (!conditionMatches(sourcePort.enabled_when, sourceNode.data.parameters)
     || !conditionMatches(targetPort.enabled_when, targetNode.data.parameters)) return rejected('disabled_port')
   const expectedKind = targetPort.kind === 'tensor_list' ? targetPort.element_kind ?? 'tensor' : targetPort.kind
-  if (sourcePort.kind !== expectedKind) return rejected('incompatible_kind')
+  const kindMatches = sourcePort.kind === expectedKind
+    || (sourcePort.kind === 'tensor_list' && targetPort.kind === 'tensor_list')
+  if (!kindMatches) return rejected('incompatible_kind')
   if (executionBackend !== undefined && kerasEnabled !== undefined
     && (!resolveImplementationCompatibility(sourceNode.data.manifest, executionBackend, kerasEnabled).available
       || !resolveImplementationCompatibility(targetNode.data.manifest, executionBackend, kerasEnabled).available)) return rejected('unsupported_profile')
