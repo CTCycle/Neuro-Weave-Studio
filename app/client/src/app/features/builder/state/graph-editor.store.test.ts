@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { emptyModelConfiguration } from '../../../domain/types'
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'
-import { isGraphConnectionValid, validateGraphConnection } from '../graph/graph-validation'
+import { connectionCandidates, isGraphConnectionValid, validateGraphConnection } from '../graph/graph-validation'
 import { GraphEditorStore, wouldCreateCycle } from './graph-editor.store'
 
 const manifest = {
@@ -171,6 +171,24 @@ describe('neutral graph editor store', () => {
     expect(isGraphConnectionValid([source, destination], [], connection)).toBe(true)
     expect(isGraphConnectionValid([source, destination], [{ id: 'existing', ...connection }], connection)).toBe(false)
     expect(isGraphConnectionValid([source, blockedDestination], [], { ...connection, target: 'blocked' })).toBe(false)
+  })
+
+  it('matches backend tensor-list connection semantics for candidate filtering', () => {
+    const listOutput = { ...manifest.outputs[0], kind: 'tensor_list' as const, element_kind: 'tensor' as const }
+    const tensorInput = { id: 'input', display_name: 'Tensor input', kind: 'tensor' as const, required: true, accepts_multiple: false, description: '' }
+    const listInput = { id: 'inputs', display_name: 'Tensor list input', kind: 'tensor_list' as const, element_kind: 'tensor' as const, required: true, accepts_multiple: true, description: '' }
+    const sourceList: EditorNode = { ...node('source-list'), data: { ...node('source-list').data, manifest: { ...manifest, id: 'source.list', inputs: [], outputs: [listOutput] } } }
+    const sourceTensor: EditorNode = { ...node('source-tensor'), data: { ...node('source-tensor').data, manifest: { ...manifest, id: 'source.tensor', inputs: [], outputs: [{ ...manifest.outputs[0], kind: 'tensor' as const }] } } }
+    const targetList: EditorNode = { ...node('target-list'), data: { ...node('target-list').data, manifest: { ...manifest, id: 'target.list', inputs: [listInput] } } }
+    const targetTensor: EditorNode = { ...node('target-tensor'), data: { ...node('target-tensor').data, manifest: { ...manifest, id: 'target.tensor', inputs: [tensorInput] } } }
+    const listToList = { source: 'source-list', sourceHandle: 'output', target: 'target-list', targetHandle: 'inputs' }
+    const tensorToList = { source: 'source-tensor', sourceHandle: 'output', target: 'target-list', targetHandle: 'inputs' }
+    const listToTensor = { source: 'source-list', sourceHandle: 'output', target: 'target-tensor', targetHandle: 'input' }
+
+    expect(validateGraphConnection([sourceList, targetList], [], listToList)).toMatchObject({ valid: true })
+    expect(connectionCandidates([sourceList, targetList], [], 'source-list', 'output')).toContainEqual(listToList)
+    expect(validateGraphConnection([sourceTensor, targetList], [], tensorToList)).toMatchObject({ valid: true })
+    expect(validateGraphConnection([sourceList, targetTensor], [], listToTensor)).toMatchObject({ valid: false, reason: 'incompatible_kind' })
   })
 
   it('allows output fan-out and supported multi-input connections', () => {
