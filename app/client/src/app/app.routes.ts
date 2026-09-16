@@ -20,7 +20,7 @@ export const routes: Routes = [
           { path: '', pathMatch: 'full', loadComponent: () => import('./features/models/model-overview-page.component').then((module) => module.ModelOverviewPageComponent) },
           { path: 'compilation', loadComponent: () => import('./features/models/model-compilation-page.component').then((module) => module.ModelCompilationPageComponent) },
           { path: 'export', loadComponent: () => import('./features/models/model-export-page.component').then((module) => module.ModelExportPageComponent) },
-          { path: 'inference', loadComponent: () => import('./features/models/model-inference-page.component').then((module) => module.ModelInferencePageComponent) },
+          { path: 'validation', loadComponent: () => import('./features/models/model-validation-page.component').then((module) => module.ModelValidationPageComponent) },
         ],
       },
       {

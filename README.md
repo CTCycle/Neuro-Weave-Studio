@@ -1,6 +1,6 @@
 # NeuroWeave Studio
 
-Last updated: 2026-09-01
+Last updated: 2026-09-16
 
 NeuroWeave Studio is a local-first visual editor for designing machine-learning model architectures without writing code. It uses a framework-independent graph schema, manifest-defined nodes, a FastAPI backend, and an Angular plus Foblex frontend.
 
@@ -14,7 +14,7 @@ The phrase “Django DP” in the original brief was treated as ambiguous and no
 - Drag-and-drop graph editing with typed ports, pan, zoom, minimap, selection, deletion, copy and paste, undo and redo, and automatic layout.
 - Client-side cycle prevention and connection checks.
 - Backend DAG validation, port validation, parameter validation, compatibility diagnostics, and representative tensor-shape propagation.
-- Inference-only model smoke tests with generated dummy tensors, isolated Keras workers, tensor metadata, parameter counts, and actionable runtime errors.
+- Functional model validation with generated dummy tensors, isolated backend workers, tensor metadata, parameter counts, and actionable runtime errors.
 - SQLite project persistence with immutable revision snapshots.
 - Project create, save, reopen, duplicate, delete, JSON import, and JSON export.
 - Keras-enabled source generation for the documented portable subset, using the model's persisted execution backend.
@@ -136,7 +136,7 @@ The Builder persists `execution_backend` and `keras_enabled` with the graph. Val
 
 Binary export creates an initialized but untrained `.keras` model. It is not a trained model, does not contain learned weights, and supports only the explicitly documented subset. With no operational backend, export is disabled and the API returns a structured unavailable-backend error. Keras architecture import accepts only standard `.keras` configuration metadata, creates a canonical graph, and warns that weights are not imported.
 
-The workspace **Smoke test** is a dry run for Keras-enabled models: it validates the saved graph, generates compatible zero-filled inputs, runs one inference pass, and reports tensor shapes, dtype, parameter count, device, and status. Native-only models retain static, shape, and source validation where supported, while native runtime inference remains explicitly unavailable. No path trains or updates weights.
+The workspace **Functional Validation** check is a dry run: it validates the saved graph, generates compatible zero-filled inputs, runs one synthetic forward pass, and reports tensor shapes, dtype, parameter count, device, and status. It does not accept user data, serve predictions, train, or update weights.
 
 ## Examples
 

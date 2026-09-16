@@ -442,17 +442,17 @@ test('retains incompatible drafts while disabling catalog, compilation, and expo
   }
 })
 
-test('polls a compatible smoke-test job to a verified result', async ({ page, request }) => {
+test('polls a compatible functional-validation job to a verified result', async ({ page, request }) => {
   test.setTimeout(120_000)
   const fixture = await createProject(request, `Angular compatibility smoke ${Date.now()}`)
   const evidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'backend-compatibility-consolidation')
   await mkdir(evidenceDir, { recursive: true })
   try {
-    await page.goto(`/models/${fixture.id}/inference`)
+    await page.goto(`/models/${fixture.id}/validation`)
     await expect(page.getByRole('heading', { name: 'Run a safe model check' })).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText(/keras · pytorch ·/i)).toBeVisible({ timeout: 75_000 })
     const submitResponse = page.waitForResponse((response) => response.url().includes('/api/execution/jobs') && response.request().method() === 'POST')
-    await page.getByRole('button', { name: 'Run smoke test', exact: true }).click()
+    await page.getByRole('button', { name: 'Run functional validation', exact: true }).click()
     const submitted = await submitResponse
     expect(submitted.ok()).toBeTruthy()
     const job = await submitted.json() as { id: string }
@@ -652,7 +652,7 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     await page.getByRole('button', { name: /Export artifact/ }).click()
     await expect((await download).suggestedFilename()).toMatch(/\.json$/)
 
-    await page.goto(`/models/${fixture.id}/inference`)
+    await page.goto(`/models/${fixture.id}/validation`)
     await expect(page.getByRole('heading', { name: 'Run a safe model check' })).toBeVisible()
 
     await page.getByRole('link', { name: 'Overview', exact: true }).click()

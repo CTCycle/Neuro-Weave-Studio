@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Last updated: 2026-09-13
+Last updated: 2026-09-16
 
 NeuroWeave's automated suite is intentionally risk-oriented. Tests exist for behavior whose failure can corrupt saved models, produce invalid generated models, violate execution safety, or break an important user workflow. Tooling layout, source-tree shape, presentation details, and framework behavior are not unit-tested merely to increase coverage.
 
@@ -17,7 +17,7 @@ Retained regression coverage focuses on:
 - generated Keras and native TensorFlow/PyTorch/JAX source with backend-specific compiler settings for representative graphs;
 - compilation rejection for invalid nodes/parameters, profile-derived compiler catalogs, unavailable compiler reasons, and native no-fallback source selection;
 - native TensorFlow/PyTorch/JAX parity for deterministic common-subset graphs, including representative multi-input/multi-output cases;
-- capability discovery, clean-break `model_export` submission, format option validation, bridge availability, artifact manifests, reload/inference verification, stale revisions, cancellation, conversion failure, and atomic publication;
+- capability discovery, clean-break `model_export` submission, format option validation, bridge availability, artifact manifests, reload/forward-pass verification, stale revisions, cancellation, conversion failure, and atomic publication;
 - runtime discovery is on demand per backend/API pair, skips absent framework packages, records a schema-versioned fingerprinted environment snapshot, deduplicates concurrent requests, bypasses the snapshot for explicit refresh, and invalidates matching results when package or environment identity changes;
 - binary Keras, native, ONNX, SafeTensors, and checkpoint export reload/restore coverage where the optional dependency is operational;
 - runtime preflight validation, device lease exclusivity, idempotent cancellation, and worker/workspace cleanup.
@@ -56,4 +56,4 @@ The repository reference path has two tiers. Hermetic tests stub the Hugging Fac
 
 The browser file-input test exercises Playwright's browser input path; it does not certify every native file chooser implementation. The accessibility baseline is not a substitute for full WCAG conformance or a screen-reader/assistive-technology matrix. When those environments are available, record the manual result under `assets/QA/` with browser, OS, assistive technology, and observed interaction details.
 
-The native compilation parity gate covers PyTorch and Keras-on-PyTorch representative dense, classification, recurrent, LSTM, and convolution graphs. It verifies catalog mappings, generated helper construction/evaluation, task/target/activation diagnostics, compilation summaries, forward shapes and dtypes, and supported native export reloads. Runtime evidence must state that helper verification is inference-only; TensorFlow and JAX validation remain out of scope for this gate. Browser acceptance uses the official launcher and records graph creation, validation, compilation, inference, export capability results, logs, network/console failures, and cleanup under `assets/QA/`.
+The native compilation parity gate covers PyTorch and Keras-on-PyTorch representative dense, classification, recurrent, LSTM, and convolution graphs. It verifies catalog mappings, generated helper construction/evaluation, task/target/activation diagnostics, compilation summaries, forward shapes and dtypes, and supported native export reloads. Runtime evidence must state that helper verification is synthetic forward-only; TensorFlow and JAX validation remain out of scope for this gate. Browser acceptance uses the official launcher and records graph creation, validation, compilation, functional validation, export capability results, logs, network/console failures, and cleanup under `assets/QA/`.

@@ -196,7 +196,7 @@ export class ApiService {
     return this.request('/compilation', 'POST', { graph, execution_backend, keras_enabled })
   }
 
-  submitSmokeInference(project_id: string, graph: ModelGraph, worker: WorkerConfiguration): Promise<JobResponse> {
+  submitFunctionalValidation(project_id: string, graph: ModelGraph, worker: WorkerConfiguration): Promise<JobResponse> {
     return this.request('/execution/jobs', 'POST', { operation: { type: 'smoke_inference', project_id, graph }, worker })
   }
 
