@@ -24,8 +24,8 @@ from api.routes import (
     metadata,
     metrics,
     projects,
-    validation,
     tensor_inspections,
+    validation,
 )
 from common import path as common_path
 from common.catalogs.loader import get_node_catalog

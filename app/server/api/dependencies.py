@@ -25,8 +25,8 @@ from services.metric_service import MetricService
 from services.project_service import ProjectService
 from services.runtime_controller import RuntimeController
 from services.runtime_service import RuntimeService
-from services.validation_service import ValidationService
 from services.tensor_inspection_service import TensorInspectionService
+from services.validation_service import ValidationService
 
 
 ###############################################################################

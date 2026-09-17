@@ -187,6 +187,7 @@ class JaxWorker:
                 compilation_catalog=compilation_catalog,
             )
         import keras
+
         from models import keras_worker
         from models.keras_runtime import compile_model
         return run_keras_inspection(

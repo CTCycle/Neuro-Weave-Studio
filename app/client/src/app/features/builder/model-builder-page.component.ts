@@ -170,16 +170,10 @@ export class ModelBuilderPageComponent {
     })
     effect(() => {
       const activeId = this.activeTabId()
-      const nodes = this.store.nodes()
-      const edges = this.store.edges()
+      this.store.draftRevision()
       this.store.modelConfiguration()
       this.store.exportSettings()
       this.store.futureTrainingConfiguration()
-      this.store.selectedNodeId()
-      this.store.selectedEdgeId()
-      this.store.copiedNodeIds()
-      this.store.past()
-      this.store.future()
       const metadata = { name: this.name(), description: this.description(), executionBackend: this.backend(), kerasEnabled: this.kerasEnabled() }
       if (!this.initialized() || !activeId) return
       const current = untracked(() => this.tabsStore.tabs().find((tab) => tab.id === activeId))
@@ -187,8 +181,6 @@ export class ModelBuilderPageComponent {
       const graph = untracked(() => this.store.captureEditorSession())
       const dirty = current.savedBaseline !== draftSnapshot(metadata.name, metadata.description, metadata.executionBackend, metadata.kerasEnabled, untracked(() => this.store.toGraph()))
       this.tabsStore.updateTab(activeId, { ...metadata, graph, dirty })
-      void nodes
-      void edges
     })
   }
 

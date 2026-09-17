@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import importlib
+import os
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -10,6 +13,30 @@ from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from models.native_runtime import build_native_model, forward_native
 
+REQUIRED_NATIVE_BACKEND_ENV = "NEURO_WEAVE_REQUIRED_NATIVE_BACKEND"
+
+
+###############################################################################
+def configured_native_backend() -> ExecutionBackend | None:
+    configured = os.getenv(REQUIRED_NATIVE_BACKEND_ENV, "").strip().lower()
+    if not configured:
+        return None
+    try:
+        return ExecutionBackend(configured)
+    except ValueError as exc:
+        valid_backends = ", ".join(backend.value for backend in ExecutionBackend)
+        raise ValueError(
+            f"{REQUIRED_NATIVE_BACKEND_ENV} must be one of {valid_backends}; received {configured!r}"
+        ) from exc
+
+
+###############################################################################
+def native_parity_backends() -> tuple[ExecutionBackend, ...]:
+    """Select the CI matrix backend or all optional runtimes for local runs."""
+
+    configured = configured_native_backend()
+    return (configured,) if configured is not None else tuple(ExecutionBackend)
+
 
 ###############################################################################
 def require_backend(backend: ExecutionBackend) -> None:
@@ -18,6 +45,15 @@ def require_backend(backend: ExecutionBackend) -> None:
         ExecutionBackend.PYTORCH: "torch",
         ExecutionBackend.JAX: "jax",
     }[backend]
+    if configured_native_backend() is backend:
+        try:
+            importlib.import_module(module_name)
+        except ImportError as exc:
+            pytest.fail(
+                f"Required {backend.value} runtime could not import {module_name!r}: {exc}",
+                pytrace=False,
+            )
+        return
     pytest.importorskip(module_name, reason=f"{backend.value} backend is not installed")
 
 ###############################################################################
@@ -71,8 +107,103 @@ def multi_io_graph() -> ModelGraph:
         ],
     )
 
+
 ###############################################################################
-@pytest.mark.parametrize("backend", list(ExecutionBackend))
+def chain_graph(
+    input_definition: str,
+    input_shape: list[int],
+    definition_id: str,
+    parameters: dict[str, Any] | None = None,
+) -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("input", input_definition, {"shape": input_shape, "dtype": "float32"}),
+            node("operation", definition_id, parameters),
+            node("output", "output.custom"),
+        ],
+        edges=[
+            edge("input-operation", "input", "operation"),
+            edge("operation-output", "operation", "output"),
+        ],
+    )
+
+
+###############################################################################
+def activation_graph() -> ModelGraph:
+    return chain_graph(
+        "input.tensor",
+        [4],
+        "layer.activation",
+        {"activation": "relu"},
+    )
+
+
+###############################################################################
+def cnn_graph() -> ModelGraph:
+    return chain_graph(
+        "input.image",
+        [8, 8, 1],
+        "conv.conv2d",
+        {
+            "filters": 2,
+            "kernel_size": [3, 3],
+            "strides": [2, 2],
+            "padding": "same",
+            "activation": "relu",
+            "data_format": "channels_last",
+            "dilation_rate": [1, 1],
+            "groups": 1,
+            "use_bias": True,
+        },
+    )
+
+
+###############################################################################
+def recurrent_graph() -> ModelGraph:
+    return chain_graph(
+        "input.sequence",
+        [6, 4],
+        "recurrent.lstm",
+        {"units": 3, "return_sequences": False},
+    )
+
+
+###############################################################################
+def reshape_flatten_graph() -> ModelGraph:
+    graph = chain_graph(
+        "input.tensor",
+        [2, 2],
+        "math.reshape",
+        {"target_shape": [4]},
+    )
+    graph.nodes.insert(2, node("flatten", "layer.flatten"))
+    graph.edges = [
+        edge("input-reshape", "input", "operation"),
+        edge("reshape-flatten", "operation", "flatten"),
+        edge("flatten-output", "flatten", "output"),
+    ]
+    return graph
+
+
+###############################################################################
+def merge_add_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("left", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            node("right", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            node("add", "merge.add"),
+            node("output", "output.custom"),
+        ],
+        edges=[
+            edge("left-add", "left", "add", "inputs"),
+            edge("right-add", "right", "add", "inputs"),
+            edge("add-output", "add", "output"),
+        ],
+    )
+
+
+###############################################################################
+@pytest.mark.parametrize("backend", native_parity_backends())
 def test_native_dense_values_are_deterministic_across_frameworks(
     backend: ExecutionBackend,
 ) -> None:
@@ -88,8 +219,45 @@ def test_native_dense_values_are_deterministic_across_frameworks(
         values, np.full((1, 3), 1 / 3, dtype=np.float32), rtol=1e-5, atol=1e-6
     )
 
+
 ###############################################################################
-@pytest.mark.parametrize("backend", list(ExecutionBackend))
+@pytest.mark.parametrize(
+    ("case_name", "graph_factory", "expected_shape"),
+    [
+        ("activation", activation_graph, (1, 4)),
+        ("cnn", cnn_graph, (1, 4, 4, 2)),
+        ("recurrent", recurrent_graph, (1, 3)),
+        # math.reshape is the supported native reshape operation; layer.reshape is not.
+        ("reshape_flatten", reshape_flatten_graph, (1, 4)),
+        ("merge_add", merge_add_graph, (1, 4)),
+    ],
+)
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_representative_cases(
+    case_name: str,
+    graph_factory: Callable[[], ModelGraph],
+    expected_shape: tuple[int, ...],
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    graph = graph_factory()
+    catalog = get_node_catalog()
+    for graph_node in graph.nodes:
+        mapping = catalog.get(graph_node.definition_id).implementations.get(backend.value)
+        assert mapping is not None and mapping.supported, (
+            f"{case_name} uses unsupported native {backend.value} node "
+            f"{graph_node.definition_id}"
+        )
+
+    outputs = forward_native(build_native_model(graph, backend))
+
+    assert len(outputs) == 1
+    value = to_numpy(outputs[0])
+    assert value.shape == expected_shape
+    assert value.dtype == np.float32
+
+###############################################################################
+@pytest.mark.parametrize("backend", native_parity_backends())
 def test_native_multi_input_multi_output_signatures_match(
     backend: ExecutionBackend,
 ) -> None:

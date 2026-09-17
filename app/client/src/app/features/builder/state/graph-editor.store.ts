@@ -9,6 +9,7 @@ import {
   type GraphEditorSession,
 } from '../../../domain/graph-mapper'
 import {
+  conditionMatches,
   emptyModelConfiguration,
   effectiveParameterDefault,
   parameterValueMatchesDefinition,
@@ -50,6 +51,7 @@ export class GraphEditorStore {
   readonly past = signal<EditorHistorySnapshot[]>([])
   readonly future = signal<EditorHistorySnapshot[]>([])
   readonly graphRevision = signal(0)
+  readonly draftRevision = signal(0)
   readonly shapeSummaries = signal<ShapeSummary[]>([])
   readonly shapeSummaryByNode = computed(() => new Map(this.shapeSummaries().map((summary) => [summary.node_id, summary])))
   readonly canUndo = computed(() => this.past().length > 0)
@@ -63,6 +65,7 @@ export class GraphEditorStore {
 
   private dragging = false
   private dragCheckpointed = false
+  private dragChanged = false
 
   setManifests(manifests: NodeManifest[]): void {
     this.manifests.set(manifests)
@@ -121,6 +124,7 @@ export class GraphEditorStore {
 
   invalidateDerivedState(): void {
     this.graphRevision.update((revision) => revision + 1)
+    this.draftRevision.update((revision) => revision + 1)
     this.shapeSummaries.set([])
   }
 
@@ -133,25 +137,39 @@ export class GraphEditorStore {
     if (this.dragging) return
     this.dragging = true
     this.dragCheckpointed = false
+    this.dragChanged = false
   }
 
   endDrag(): void {
+    if (!this.dragging) return
+    if (this.dragChanged) this.draftRevision.update((revision) => revision + 1)
     this.dragging = false
     this.dragCheckpointed = false
+    this.dragChanged = false
   }
 
   moveNodes(changes: readonly NodePositionChange[]): void {
     if (!changes.length) return
-    if (this.dragging && !this.dragCheckpointed) {
-      this.checkpoint()
-      this.dragCheckpointed = true
-    }
     const positions = new Map(changes.map((change) => [change.id, change.position]))
+    const changed = this.nodes().some((node) => {
+      if (node.locked) return false
+      const position = positions.get(node.id)
+      return Boolean(position && (position.x !== node.position.x || position.y !== node.position.y))
+    })
+    if (!changed) return
+    if (this.dragging) {
+      if (!this.dragCheckpointed) {
+        this.checkpoint()
+        this.dragCheckpointed = true
+      }
+      this.dragChanged = true
+    }
     this.nodes.update((nodes) => nodes.map((node) => {
       if (node.locked) return node
       const position = positions.get(node.id)
       return position ? { ...node, position: { ...position } } : node
     }))
+    if (!this.dragging) this.draftRevision.update((revision) => revision + 1)
   }
 
   addNode(manifest: NodeManifest, position: { x: number; y: number }): string | null {
@@ -685,22 +703,6 @@ function newId(prefix: string): string {
 
 function snapPosition(position: { x: number; y: number }): { x: number; y: number } {
   return { x: Math.round(position.x / 16) * 16, y: Math.round(position.y / 16) * 16 }
-}
-
-function conditionMatches(condition: Record<string, unknown>, parameters: Record<string, unknown>): boolean {
-  return Object.entries(condition).every(([parameterId, expected]) => {
-    const actual = parameters[parameterId]
-    if (typeof expected === 'object' && expected !== null && !Array.isArray(expected)) {
-      const rule = expected as Record<string, unknown>
-      if ('equals' in rule && !sameValue(actual, rule['equals'])) return false
-      if ('not_equals' in rule && sameValue(actual, rule['not_equals'])) return false
-      if ('in' in rule && Array.isArray(rule['in']) && !rule['in'].some((item) => sameValue(actual, item))) return false
-      if ('not_in' in rule && Array.isArray(rule['not_in']) && rule['not_in'].some((item) => sameValue(actual, item))) return false
-      return true
-    }
-    if (Array.isArray(expected)) return expected.some((item) => sameValue(actual, item))
-    return sameValue(actual, expected)
-  })
 }
 
 function sameValue(left: unknown, right: unknown): boolean {

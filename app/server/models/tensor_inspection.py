@@ -40,13 +40,13 @@ def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) ->
 
 
 def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any]:
-    return [port for port in manifest.outputs if _condition_matches(port.enabled_when, parameters)]
+    return [port for port in cast(list[Any], manifest.outputs) if _condition_matches(port.enabled_when, parameters)]
 
 
 def _flatten_symbolic(value: Any) -> list[Any]:
     if isinstance(value, (list, tuple)):
         flattened: list[Any] = []
-        for item in value:
+        for item in cast(list[Any] | tuple[Any, ...], value):
             flattened.extend(_flatten_symbolic(item))
         return flattened
     return [value]
@@ -64,35 +64,17 @@ def _concrete_shape(value: Any) -> list[int]:
     return result
 
 
-def _symbolic_shape(value: Any) -> list[int | None]:
-    shape = getattr(value, "shape", ())
-    result: list[int | None] = []
-    for dimension in shape:
-        try:
-            concrete = int(dimension)
-        except (TypeError, ValueError):
-            concrete = None
-        result.append(concrete if concrete is None or concrete > 0 else None)
-    return result
-
-
-def _dtype_name(value: Any) -> str:
-    dtype = getattr(value, "dtype", "float32")
-    name = str(getattr(dtype, "name", dtype))
-    return name.rsplit(".", 1)[-1]
-
-
 def _element_count(shape: list[int]) -> int:
     return math.prod(shape) if shape else 1
 
 
 def _json_value(value: Any) -> int | float | bool | str | None:
     if isinstance(value, (np.bool_, bool)):
-        return bool(value)
+        return bool(cast(Any, value))
     if isinstance(value, (np.integer, int)):
-        return int(value)
+        return int(cast(Any, value))
     if isinstance(value, (np.floating, float)):
-        numeric = float(value)
+        numeric = float(cast(Any, value))
         if math.isnan(numeric):
             return "NaN"
         if math.isinf(numeric):
@@ -270,7 +252,7 @@ def run_keras_tensor_inspection(
     order = topological_order(graph)
     if len(order) > MAX_INSPECTION_NODES:
         output_values = model(model_input, training=False)
-        outputs = list(output_values) if isinstance(output_values, (list, tuple)) else [output_values]
+        outputs: list[Any] = list(cast(list[Any] | tuple[Any, ...], output_values)) if isinstance(output_values, (list, tuple)) else [output_values]
         return outputs, {
             "available": False,
             "reason_code": "inspection_graph_too_large",
@@ -333,9 +315,9 @@ def run_keras_tensor_inspection(
     probe_outputs = [*final_symbols, *inspection_symbols]
     probe = keras_module.Model(inputs=model.inputs, outputs=probe_outputs, name="neuro_weave_tensor_probe")
     raw_values = probe(model_input, training=False)
-    execution_values = list(raw_values) if isinstance(raw_values, (list, tuple)) else [raw_values]
-    final_values = execution_values[: len(final_symbols)]
-    inspected_values = execution_values[len(final_symbols) :]
+    execution_values: list[Any] = list(cast(list[Any] | tuple[Any, ...], raw_values)) if isinstance(raw_values, (list, tuple)) else [raw_values]
+    final_values: list[Any] = execution_values[: len(final_symbols)]
+    inspected_values: list[Any] = execution_values[len(final_symbols) :]
 
     remaining_budget = MAX_SESSION_VALUE_ELEMENTS
     summaries_by_port: dict[tuple[str, str], dict[str, object]] = {}

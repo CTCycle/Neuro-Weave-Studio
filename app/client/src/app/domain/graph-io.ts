@@ -1,4 +1,4 @@
-import type { GraphNodeInstance, ModelGraph, NodeManifest, OutputBinding, PortDefinition } from './types'
+import { conditionMatches, type GraphNodeInstance, type ModelGraph, type NodeManifest, type OutputBinding, type PortDefinition } from './types'
 
 export interface GraphOutputSummary {
   node_id: string
@@ -158,25 +158,4 @@ function tensorOutputPorts(manifest: NodeManifest, parameters: Record<string, un
     ['tensor', 'tensor_list', 'mask', 'scalar'].includes(port.kind)
     && conditionMatches(port.enabled_when, parameters),
   )
-}
-
-function conditionMatches(condition: Record<string, unknown> | undefined, parameters: Record<string, unknown>): boolean {
-  if (!condition) return true
-  return Object.entries(condition).every(([parameterId, expected]) => {
-    const actual = parameters[parameterId]
-    if (typeof expected === 'object' && expected !== null && !Array.isArray(expected)) {
-      const rule = expected as Record<string, unknown>
-      if ('equals' in rule && !sameValue(actual, rule['equals'])) return false
-      if ('not_equals' in rule && sameValue(actual, rule['not_equals'])) return false
-      if ('in' in rule && Array.isArray(rule['in']) && !rule['in'].some((item) => sameValue(actual, item))) return false
-      if ('not_in' in rule && Array.isArray(rule['not_in']) && rule['not_in'].some((item) => sameValue(actual, item))) return false
-      return true
-    }
-    if (Array.isArray(expected)) return expected.some((item) => sameValue(actual, item))
-    return sameValue(actual, expected)
-  })
-}
-
-function sameValue(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right)
 }

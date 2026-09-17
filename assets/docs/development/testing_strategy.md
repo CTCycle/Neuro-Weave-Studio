@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Last updated: 2026-09-16
+Last updated: 2026-09-17
 
 NeuroWeave's automated suite is intentionally risk-oriented. Tests exist for behavior whose failure can corrupt saved models, produce invalid generated models, violate execution safety, or break an important user workflow. Tooling layout, source-tree shape, presentation details, and framework behavior are not unit-tested merely to increase coverage.
 
@@ -23,7 +23,7 @@ Retained regression coverage focuses on:
 - runtime preflight validation, device lease exclusivity, idempotent cancellation, and worker/workspace cleanup.
 - dataset metadata round trips, CRUD/restart persistence, no-content-copy guarantees, streamed CSV/TSV inspection, Parquet metadata, NPY/NPZ headers, image/text enumeration, exact composed mappings, role conflicts, subset bounds, and unavailable external sources.
 
-Real framework availability is conditional. Runtime tests skip when the required execution backend is not installed and operational. Controller lifecycle tests use deterministic fake worker processes so lease, cancellation, and cleanup behavior remains testable without optional ML frameworks.
+Real framework availability is conditional for local runs. Runtime tests skip when an optional execution backend is not installed and operational. The CI `native-parity` matrix installs exactly one of TensorFlow, PyTorch CPU, or JAX per job, sets `NEURO_WEAVE_REQUIRED_NATIVE_BACKEND`, and fails on an import failure instead of silently skipping the selected backend. Controller lifecycle tests use deterministic fake worker processes so lease, cancellation, and cleanup behavior remains testable without optional ML frameworks.
 
 ## Frontend
 
@@ -50,12 +50,12 @@ Backend changes should run pytest, Ruff, and Pyright. Frontend changes should ru
 
 Coverage percentage is not a release goal. Regression signal, business-risk protection, execution safety, and maintainability are the criteria for retaining tests.
 
-Backend-compatibility acceptance also records the six static profiles, strict verified-only node and parameter resolution, disabled editor actions, retained repair drafts, compilation/export rejection, and browser evidence in `assets/QA/backend-compatibility-consolidation.md`. Runtime-dependent TensorFlow and JAX claims remain unverified when the corresponding runtime or compiler is unavailable.
+Backend-compatibility acceptance also records the six static profiles, strict verified-only node and parameter resolution, disabled editor actions, retained repair drafts, compilation/export rejection, and browser evidence in `assets/QA/backend-compatibility-consolidation.md`. Runtime-dependent claims remain profile-specific: the native parity matrix verifies common-subset forward behavior for each installed backend, while compiler and export availability remain conditional on the selected runtime and toolchain.
 
 The repository reference path has two tiers. Hermetic tests stub the Hugging Face resolver and retain explicit outage and malformed-commit cases. The live backend round trip is opt-in with `NEURO_WEAVE_RUN_LIVE_REPOSITORY_TESTS=1`; the live Nodes UI round trip is opt-in with `NEURO_WEAVE_RUN_LIVE_REPOSITORY_E2E=1`. Both verify a public commit is pinned and that the definition remains reference-only. They are intentionally excluded from the offline default suite because external availability is not a deterministic CI dependency.
 
 The browser file-input test exercises Playwright's browser input path; it does not certify every native file chooser implementation. The accessibility baseline is not a substitute for full WCAG conformance or a screen-reader/assistive-technology matrix. When those environments are available, record the manual result under `assets/QA/` with browser, OS, assistive technology, and observed interaction details.
 
-The native compilation parity gate covers PyTorch and Keras-on-PyTorch representative dense, classification, recurrent, LSTM, and convolution graphs. It verifies catalog mappings, generated helper construction/evaluation, task/target/activation diagnostics, compilation summaries, forward shapes and dtypes, and supported native export reloads. Runtime evidence must state that helper verification is synthetic forward-only; TensorFlow and JAX validation remain out of scope for this gate. Browser acceptance uses the official launcher and records graph creation, validation, compilation, functional validation, export capability results, logs, network/console failures, and cleanup under `assets/QA/`.
+The native parity matrix covers TensorFlow, PyTorch, and JAX common-subset representative graphs, including dense, activation, convolutional, recurrent, reshape/flatten, merge/Add, and multi-input/multi-output cases. It verifies catalog mappings, native helper construction/evaluation, forward shapes and dtypes, and deterministic outputs; the helper verification is synthetic forward-only. The separate native compilation gate retains its PyTorch and Keras-on-PyTorch scope, while compiler and export checks remain conditional on installed toolchains. Browser acceptance uses the official launcher and records graph creation, validation, compilation, functional validation, export capability results, logs, network/console failures, and cleanup under `assets/QA/`.
 
 Tensor inspection coverage adds deterministic seeded-run checks, revision/validation/runtime fail-closed checks, one-pass node/port trace population, authoritative shape/dtype comparison, NaN/infinity-safe statistics, sampled/full labels, bounded slice/payload behavior, expiry/deletion/cancellation, and persistence-integrity assertions. Browser acceptance covers both Builder and overview entry points, keyboard context menus, node/branch navigation, multi-port selection, vector plot/histogram, rank-two heatmap, higher-rank slicing, the initialized-untrained warning, and bounded DOM/canvas element counts. Runtime-dependent claims are recorded per installed profile; unavailable or unsupported profiles must produce explicit reasons rather than fallback evidence.

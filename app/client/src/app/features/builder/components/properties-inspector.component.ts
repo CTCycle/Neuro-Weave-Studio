@@ -3,7 +3,7 @@ import { ReactiveFormsModule, UntypedFormControl, UntypedFormGroup } from '@angu
 import { LucideTrash2, LucideX } from '@lucide/angular'
 import type { EditorNode } from '../../../domain/editor.types'
 import type { ExecutionBackend, NodeManifest, ParameterCapability, ParameterDefinition, PortDefinition } from '../../../domain/types'
-import { effectiveParameterDefault, resolveImplementationCompatibility, resolveParameterCompatibility } from '../../../domain/types'
+import { conditionMatches, effectiveParameterDefault, resolveImplementationCompatibility, resolveParameterCompatibility } from '../../../domain/types'
 import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
 import { displayParameterValue, hasInvalidParameter, helpfulParameterDescription, isFiniteParameter, parameterOptions, parseParameterValue, type ParameterDraftValue } from '../graph/parameter-value'
 import { GraphEditorStore } from '../state/graph-editor.store'
@@ -341,23 +341,6 @@ function emptyQuantizationConfiguration(value: unknown): boolean {
   const emptyClass = className === null || className === undefined || String(className).trim() === ''
   const emptyConfig = config === null || config === undefined || (Array.isArray(config) && config.length === 0) || (typeof config === 'object' && !Array.isArray(config) && Object.keys(config as Record<string, unknown>).length === 0)
   return emptyClass && emptyConfig
-}
-
-function conditionMatches(condition: Record<string, unknown> | undefined, parameters: Record<string, unknown>): boolean {
-  if (!condition) return true
-  return Object.entries(condition).every(([parameterId, expected]) => {
-    const actual = parameters[parameterId]
-    if (typeof expected === 'object' && expected !== null && !Array.isArray(expected)) {
-      const rule = expected as Record<string, unknown>
-      if ('equals' in rule && !sameValue(actual, rule['equals'])) return false
-      if ('not_equals' in rule && sameValue(actual, rule['not_equals'])) return false
-      if ('in' in rule && Array.isArray(rule['in']) && !rule['in'].some((item) => sameValue(actual, item))) return false
-      if ('not_in' in rule && Array.isArray(rule['not_in']) && rule['not_in'].some((item) => sameValue(actual, item))) return false
-      return true
-    }
-    if (Array.isArray(expected)) return expected.some((item) => sameValue(actual, item))
-    return sameValue(actual, expected)
-  })
 }
 
 function sameValue(left: unknown, right: unknown): boolean { return JSON.stringify(left) === JSON.stringify(right) }

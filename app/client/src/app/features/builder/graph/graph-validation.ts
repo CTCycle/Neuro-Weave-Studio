@@ -1,5 +1,5 @@
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'
-import { resolveImplementationCompatibility, type ExecutionBackend } from '../../../domain/types'
+import { conditionMatches, resolveImplementationCompatibility, type ExecutionBackend } from '../../../domain/types'
 
 export interface GraphConnection {
   source: string
@@ -84,9 +84,9 @@ export function isGraphConnectionValid(
 
 /**
  * Returns cheap semantic candidates for Foblex connection snapping. The server
- * remains authoritative for inferred shape and execution-profile validation.
- * Cycle candidates stay in the prefilter so the authoritative batch check can
- * remove them together with other invalid candidates.
+ * remains authoritative for inferred shape and final connection validation.
+ * Cycle-compatible targets remain visible so a drop can reach the authoritative
+ * server check and return its cycle diagnostic to the user.
  */
 export function connectionCandidates(
   nodes: readonly EditorNode[],
@@ -133,28 +133,4 @@ export function wouldCreateCycle(
     stack.push(...(adjacency.get(current) ?? []))
   }
   return false
-}
-
-function conditionMatches(
-  condition: Record<string, unknown> | undefined,
-  parameters: Record<string, unknown>,
-): boolean {
-  if (!condition) return true
-  return Object.entries(condition).every(([parameterId, expected]) => {
-    const actual = parameters[parameterId]
-    if (typeof expected === 'object' && expected !== null && !Array.isArray(expected)) {
-      const rule = expected as Record<string, unknown>
-      if ('equals' in rule && !sameValue(actual, rule['equals'])) return false
-      if ('not_equals' in rule && sameValue(actual, rule['not_equals'])) return false
-      if ('in' in rule && Array.isArray(rule['in']) && !rule['in'].some((item) => sameValue(actual, item))) return false
-      if ('not_in' in rule && Array.isArray(rule['not_in']) && rule['not_in'].some((item) => sameValue(actual, item))) return false
-      return true
-    }
-    if (Array.isArray(expected)) return expected.some((item) => sameValue(actual, item))
-    return sameValue(actual, expected)
-  })
-}
-
-function sameValue(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right)
 }

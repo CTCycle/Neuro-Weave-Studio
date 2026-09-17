@@ -39,27 +39,38 @@ import type {
 
 const API_BASE = '/api'
 const CONNECTION_CANDIDATE_BATCH_SIZE = 256
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000
+const DATASET_OPERATION_TIMEOUT_MS = 60_000
+const ARCHITECTURE_IMPORT_TIMEOUT_MS = 60_000
+const ARTIFACT_DOWNLOAD_TIMEOUT_MS = 60_000
+
+interface RequestOptions {
+  timeoutMs?: number
+}
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient)
   private readonly jsonHeaders = new HttpHeaders({ 'Content-Type': 'application/json' })
 
-  private async request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+  private async request<T>(path: string, method = 'GET', body?: unknown, options: RequestOptions = {}): Promise<T> {
     try {
       return await firstValueFrom(this.http.request<T>(method, `${API_BASE}${path}`, {
         body,
         headers: this.jsonHeaders,
-        timeout: 10000,
+        timeout: options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
       }))
     } catch (error) {
       throw this.toApiError(error)
     }
   }
 
-  private async requestBlob(path: string): Promise<Blob> {
+  private async requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
     try {
-      return await firstValueFrom(this.http.get(`${API_BASE}${path}`, { responseType: 'blob', timeout: 10000 }))
+      return await firstValueFrom(this.http.get(`${API_BASE}${path}`, {
+        responseType: 'blob',
+        timeout: options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+      }))
     } catch (error) {
       throw this.toApiError(error)
     }
@@ -93,15 +104,15 @@ export class ApiService {
   }
 
   inspectDataset(payload: DatasetInspectionRequest): Promise<DatasetInspection> {
-    return this.request('/datasets/inspect', 'POST', payload)
+    return this.request('/datasets/inspect', 'POST', payload, { timeoutMs: DATASET_OPERATION_TIMEOUT_MS })
   }
 
   validateDataset(payload: DatasetDefinitionMutation): Promise<DatasetValidationResult> {
-    return this.request('/datasets/validate', 'POST', payload)
+    return this.request('/datasets/validate', 'POST', payload, { timeoutMs: DATASET_OPERATION_TIMEOUT_MS })
   }
 
   createDataset(payload: DatasetDefinitionMutation): Promise<DatasetDocument> {
-    return this.request('/datasets', 'POST', payload)
+    return this.request('/datasets', 'POST', payload, { timeoutMs: DATASET_OPERATION_TIMEOUT_MS })
   }
 
   getDataset(id: string): Promise<DatasetDocument> {
@@ -109,7 +120,7 @@ export class ApiService {
   }
 
   updateDataset(id: string, payload: DatasetDefinitionMutation): Promise<DatasetDocument> {
-    return this.request(`/datasets/${encodeURIComponent(id)}`, 'PUT', payload)
+    return this.request(`/datasets/${encodeURIComponent(id)}`, 'PUT', payload, { timeoutMs: DATASET_OPERATION_TIMEOUT_MS })
   }
 
   deleteDataset(id: string): Promise<void> {
@@ -166,7 +177,7 @@ export class ApiService {
         file,
         {
           headers: new HttpHeaders({ 'Content-Type': 'application/vnd.keras.zip' }),
-          timeout: 10000,
+          timeout: ARCHITECTURE_IMPORT_TIMEOUT_MS,
         },
       ))
     } catch (error) {
@@ -241,7 +252,7 @@ export class ApiService {
   }
 
   jobArtifact(jobId: string): Promise<Blob> {
-    return this.requestBlob(`/execution/jobs/${jobId}/artifact`)
+    return this.requestBlob(`/execution/jobs/${jobId}/artifact`, { timeoutMs: ARTIFACT_DOWNLOAD_TIMEOUT_MS })
   }
 
   metadata(): Promise<MetadataResponse> {
@@ -270,7 +281,7 @@ export class ApiService {
       include_files: includeFiles ? 'true' : 'false',
       extensions: extensions.join(','),
     })
-    return this.request(`/filesystem/browse?${query.toString()}`)
+    return this.request(`/filesystem/browse?${query.toString()}`, 'GET', undefined, { timeoutMs: DATASET_OPERATION_TIMEOUT_MS })
   }
 
   metrics(): Promise<MetricCatalogResponse> {
