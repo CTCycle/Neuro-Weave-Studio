@@ -7,7 +7,7 @@ import { ApiService } from '../../../core/api/api.service'
 import type { ExecutionBackend, ValidationDiagnostic, ValidationResult } from '../../../domain/types'
 import { GraphEditorStore } from '../state/graph-editor.store'
 import { TensorInspectionCoordinator } from '../../tensor-inspection/tensor-inspection.coordinator'
-import { connectionCandidates, wouldCreateCycle } from '../graph/graph-validation'
+import { connectionCandidates } from '../graph/graph-validation'
 import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, normalizeConnection, portOffset } from '../graph/foblex-graph.adapter'
 
 const NO_CONNECTION_TARGET_ID = '__neuro_weave_no_compatible_target__'
@@ -115,83 +115,27 @@ export class GraphCanvasComponent implements OnChanges {
     }
   }
 
-  private async refreshConnectionTargets(): Promise<void> {
+  private refreshConnectionTargets(): void {
     const nodes = this.store.nodes()
     const edges = this.store.edges()
-    const emptyTargets = new Map<string, string[]>()
-    const candidateTargets = new Map<string, { sourceKey: string; targetId: string; isCycle: boolean }>()
-    const candidates: Array<{
-      id: string
-      source_node_id: string
-      source_port_id: string
-      target_node_id: string
-      target_port_id: string
-    }> = []
-    let candidateIndex = 0
+    const targets = new Map<string, string[]>()
 
     for (const node of nodes) {
       for (const port of node.data.manifest.outputs) {
         const sourceKey = `${node.id}|${port.id}`
-        emptyTargets.set(sourceKey, this.noConnectionTargets)
-        for (const connection of connectionCandidates(
+        const targetIds = connectionCandidates(
           nodes,
           edges,
           node.id,
           port.id,
           this.executionBackend,
           this.kerasEnabled,
-        )) {
-          const id = `snap-${candidateIndex++}`
-          candidates.push({
-            id,
-            source_node_id: connection.source,
-            source_port_id: connection.sourceHandle,
-            target_node_id: connection.target,
-            target_port_id: connection.targetHandle,
-          })
-          candidateTargets.set(id, {
-            sourceKey,
-            targetId: connectorId(connection.target, 'input', connection.targetHandle),
-            isCycle: wouldCreateCycle(nodes, edges, connection.source, connection.target),
-          })
-        }
+        ).map((connection) => connectorId(connection.target, 'input', connection.targetHandle))
+        targets.set(sourceKey, targetIds.length ? targetIds : this.noConnectionTargets)
       }
     }
 
-    this.connectionTargetMap.set(emptyTargets)
-    if (this.readOnly || !candidates.length) return
-
-    const expectedRevision = this.store.graphRevision()
-    const expectedBackend = this.executionBackend
-    const expectedKeras = this.kerasEnabled
-    try {
-      const result = await this.api.validateConnectionCandidates(
-        this.store.toGraph(),
-        candidates,
-        expectedBackend,
-        expectedKeras,
-      )
-      if (expectedRevision !== this.store.graphRevision()
-        || expectedBackend !== this.executionBackend
-        || expectedKeras !== this.kerasEnabled) return
-
-      const validatedTargets = new Map<string, string[]>()
-      for (const sourceKey of emptyTargets.keys()) validatedTargets.set(sourceKey, [])
-      for (const id of result.valid_connection_ids) {
-        const candidate = candidateTargets.get(id)
-        if (!candidate) continue
-        validatedTargets.get(candidate.sourceKey)?.push(candidate.targetId)
-      }
-      for (const candidate of candidateTargets.values()) {
-        if (candidate.isCycle) validatedTargets.get(candidate.sourceKey)?.push(candidate.targetId)
-      }
-      for (const [sourceKey, targetIds] of validatedTargets) {
-        if (!targetIds.length) validatedTargets.set(sourceKey, this.noConnectionTargets)
-      }
-      this.connectionTargetMap.set(validatedTargets)
-    } catch {
-      // Keep all connectors non-snappable if authoritative validation is unavailable.
-    }
+    this.connectionTargetMap.set(targets)
   }
 
   private setConnectionFeedback(message: string | null): void {

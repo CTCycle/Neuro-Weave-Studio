@@ -74,6 +74,46 @@ jobs:
             app/tests/cache/
             .ci-logs/
 
+  native-parity:
+    name: Native parity (${{ matrix.backend }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: tensorflow
+            extra: tensorflow
+          - backend: pytorch
+            extra: torch-cpu
+          - backend: jax
+            extra: jax
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.14"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.0"
+          enable-cache: true
+          cache-dependency-glob: app/server/uv.lock
+      - name: Install native parity dependencies
+        run: >-
+          uv sync --locked --project app/server
+          --extra test
+          --extra ${{ matrix.extra }}
+      - name: Native parity subset
+        env:
+          NEURO_WEAVE_REQUIRED_NATIVE_BACKEND: ${{ matrix.backend }}
+          PYTEST_ADDOPTS: "--basetemp=${{ runner.temp }}/neuro-weave-native-pytest"
+        run: >-
+          uv run --project app/server python -m pytest
+          app/tests/test_native_parity.py -q
+          -k "native_dense_values_are_deterministic_across_frameworks or native_representative_cases or native_multi_input_multi_output_signatures_match"
+
   frontend:
     name: Angular quality, tests, build, and E2E
     runs-on: ubuntu-latest

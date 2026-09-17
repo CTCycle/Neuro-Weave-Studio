@@ -104,12 +104,81 @@ def test_validate_rejects_missing_columns_and_create_returns_structured_findings
 
     validation = client.post("/api/datasets/validate", json=payload)
     assert validation.status_code == 200
-    assert validation.json()["valid"] is False
-    assert any(item["code"] == "missing_columns" for item in validation.json()["validation"]["errors"])
+    validation_payload = validation.json()
+    assert validation_payload["valid"] is False
+    assert any(item["code"] == "missing_columns" for item in validation_payload["validation"]["errors"])
 
     created = client.post("/api/datasets", json=payload)
     assert created.status_code == 422
-    assert created.json()["detail"]["code"] == "dataset_definition_invalid"
+    detail = created.json()["detail"]
+    assert detail["code"] == "dataset_definition_invalid"
+    registration_validation = detail["validation"]
+    validation_payload["validation"]["checked_at"] = registration_validation["validation"]["checked_at"]
+    assert registration_validation == validation_payload
+
+
+###############################################################################
+def test_invalid_update_returns_complete_validation_without_mutating_registration(
+    client: TestClient, tmp_path: Path
+) -> None:
+    source = tmp_path / "patients.csv"
+    source.write_text("age,weight,diagnosis\n42,71,positive\n", encoding="utf-8")
+    created = client.post("/api/datasets", json=_tabular_payload(source))
+    assert created.status_code == 201
+    dataset_id = created.json()["id"]
+
+    payload = _tabular_payload(source)
+    payload["name"] = "Rejected update"
+    payload["input_definition"] = {
+        "bindings": [{"type": "columns", "source_id": "table", "columns": ["missing"]}]
+    }
+    validation = client.post("/api/datasets/validate", json=payload)
+    rejected = client.put(f"/api/datasets/{dataset_id}", json=payload)
+
+    assert validation.status_code == 200
+    assert rejected.status_code == 422
+    detail = rejected.json()["detail"]
+    assert detail["code"] == "dataset_definition_invalid"
+    registration_validation = detail["validation"]
+    validation_payload = validation.json()
+    validation_payload["validation"]["checked_at"] = registration_validation["validation"]["checked_at"]
+    assert registration_validation == validation_payload
+    assert client.get(f"/api/datasets/{dataset_id}").json()["name"] == "Patient outcomes"
+
+
+###############################################################################
+def test_text_folder_inspection_streams_exact_count_and_extensions(
+    client: TestClient, tmp_path: Path
+) -> None:
+    source = tmp_path / "text"
+    nested = source / "nested"
+    nested.mkdir(parents=True)
+    (source / "first.TXT").write_text("first", encoding="utf-8")
+    (source / "second.md").write_text("second", encoding="utf-8")
+    (nested / "third.jsonl").write_text("{}", encoding="utf-8")
+    (nested / "ignored.csv").write_text("value\n1\n", encoding="utf-8")
+
+    response = client.post(
+        "/api/datasets/inspect",
+        json={
+            "dataset_type": "text",
+            "sources": [
+                {
+                    "type": "text",
+                    "id": "text",
+                    "path": str(source),
+                    "path_kind": "folder",
+                    "recursive": True,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    inspection = response.json()
+    assert inspection["sample_count"] == 3
+    assert inspection["sources"][0]["sample_count"] == 3
+    assert inspection["sources"][0]["extensions"] == [".jsonl", ".md", ".txt"]
 
 
 ###############################################################################
@@ -244,8 +313,10 @@ def test_npz_inspection_exposes_keys_without_persisting_array_values(
     created = client.post("/api/datasets", json=payload)
 
     assert created.status_code == 201
-    assert {item["key"] for item in created.json()["inspection"]["sources"][0]["arrays"]} == {"features", "targets"}
-    assert "1.0" not in json.dumps(created.json())
+    assert created.json()["inspection"]["sources"][0]["arrays"] == [
+        {"key": "features", "shape": [3, 2], "dtype": "float32"},
+        {"key": "targets", "shape": [3], "dtype": "int64"},
+    ]
 
 
 ###############################################################################

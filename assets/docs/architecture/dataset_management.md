@@ -1,12 +1,12 @@
 # Dataset Management Architecture
 
-Last updated: 2026-09-10
+Last updated: 2026-09-17
 
 NeuroWeave datasets are persisted registrations of external data. A registration owns a typed definition and compact inspection/validation metadata; it never owns, uploads, copies, serializes, or deletes the referenced files, folders, images, tables, or arrays.
 
 ## Boundary and flow
 
-The dataset workflow is `Type -> Sources -> Input / output -> Samples -> Review and validation -> Register`. `DatasetWizardComponent` is a shared shell for create and edit/relink. It uses the existing `FilesystemBrowserComponent` and `/api/filesystem/browse` boundary, caches inspection only while the wizard is open, invalidates that result when a source or interpretation changes, and lets the server re-inspect during validation and registration.
+The dataset workflow is `Type -> Sources -> Input / output -> Samples -> Review and validation -> Register`. `DatasetWizardComponent` is a shared shell for create and edit/relink. It uses the existing `FilesystemBrowserComponent` and `/api/filesystem/browse` boundary, caches inspection only while the wizard is open, invalidates that result when a source or interpretation changes, and lets the registration endpoint re-inspect authoritatively before saving. The explicit `/api/datasets/validate` route remains available for consumers that need standalone validation.
 
 The enabled organizations are tabular, images, text, time series, array/tensor, and composed/multimodal. Auto Detect is represented in the capability registry as a disabled future option and is not a backend type. The registry owns source layouts, formats, labels, and future workspace capabilities so type behavior is not scattered across templates.
 

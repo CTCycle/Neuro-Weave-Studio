@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from typing import cast
 from uuid import UUID
 
 from common.catalogs.loader import get_node_catalog
@@ -100,12 +101,12 @@ class JobService:
             unsupported_inputs: list[tuple[str, str]] = []
             supported_dtypes = {"bool", "int32", "int64", "float16", "float32", "float64"}
             for node in input_nodes(project.graph, catalog):
-                shape = node.parameters.get("shape")
+                shape: object = node.parameters.get("shape")
                 if not isinstance(shape, list) or any(
                     not isinstance(dimension, int) or isinstance(dimension, bool) or dimension <= 0
-                    for dimension in shape
+                    for dimension in cast(list[object], shape)
                 ):
-                    unresolved_inputs.append((node.id, -1, shape))
+                    unresolved_inputs.append((node.id, -1, cast(object, shape)))
                 dtype = str(node.parameters.get("dtype", "float32"))
                 if dtype not in supported_dtypes:
                     unsupported_inputs.append((node.id, dtype))

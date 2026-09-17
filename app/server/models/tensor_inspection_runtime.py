@@ -6,7 +6,7 @@ import shutil
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 import numpy as np
@@ -70,6 +70,8 @@ def _sample(array: np.ndarray) -> tuple[np.ndarray, DataMode]:
 
 
 def _statistics(array: np.ndarray) -> tuple[TensorStatistics, TensorHistogram]:
+    bins: list[float]
+    counts: list[int]
     sample, mode = _sample(array)
     numeric = sample.astype(np.float64, copy=False)
     finite = np.isfinite(numeric)
@@ -116,14 +118,15 @@ def _statistics(array: np.ndarray) -> tuple[TensorStatistics, TensorHistogram]:
 
 def _port_items(value: Any) -> list[Any]:
     if isinstance(value, (list, tuple)):
-        return list(value)
+        return list(cast(list[Any] | tuple[Any, ...], value))
     return [value]
 
 
 def _trace_values(trace: Mapping[str, Any], node_id: str) -> dict[str, Any]:
     raw = trace.get(node_id, {})
     if isinstance(raw, Mapping):
-        return {str(key): value for key, value in raw.items()}
+        typed_raw = cast(Mapping[Any, Any], raw)
+        return {str(key): value for key, value in typed_raw.items()}
     return {"output": raw}
 
 

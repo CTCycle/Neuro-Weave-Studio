@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common'
 import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core'
 import type { OnChanges, SimpleChanges } from '@angular/core'
 import { LucideAlertTriangle, LucideCheck, LucideFilePlus2, LucideInfo, LucidePlus, LucideX } from '@lucide/angular'
+import { ApiError } from '../../core/api/api-error'
 import { ApiService } from '../../core/api/api.service'
 import { FilesystemBrowserComponent } from '../../shared/components/filesystem-browser.component'
 import type {
@@ -37,6 +38,31 @@ interface DatasetField {
   kind: 'column' | 'array' | 'image' | 'text' | 'folder_label'
   dtype?: string
   structural: boolean
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+export function extractDatasetValidation(reason: unknown): DatasetValidationResult | null {
+  if (!(reason instanceof ApiError) || reason.status !== 422 || !isRecord(reason.detail)) return null
+  if (reason.detail['code'] !== 'dataset_definition_invalid' || !isRecord(reason.detail['validation'])) return null
+
+  const result = reason.detail['validation']
+  const metadata = result['validation']
+  if (
+    typeof result['valid'] !== 'boolean'
+    || typeof result['sample_count'] !== 'number'
+    || typeof result['selected_sample_count'] !== 'number'
+    || (result['inspection'] !== null && !isRecord(result['inspection']))
+    || !isRecord(metadata)
+    || typeof metadata['status'] !== 'string'
+    || typeof metadata['checked_at'] !== 'string'
+    || !Array.isArray(metadata['errors'])
+    || !Array.isArray(metadata['warnings'])
+  ) return null
+
+  return result as unknown as DatasetValidationResult
 }
 
 @Component({
@@ -121,7 +147,7 @@ interface DatasetField {
             }
 
             @if (step() === 4) {
-              <div class="wizard-intro"><span class="eyebrow">REVIEW & VALIDATION</span><p>Review the lightweight definition before registration. The server will re-inspect the external sources before saving.</p></div>
+              <div class="wizard-intro"><span class="eyebrow">REVIEW & VALIDATION</span><p>Review the lightweight definition before registration. The registration request will re-inspect the external sources authoritatively before saving.</p></div>
               <div class="review-grid"><div><span>Name</span><strong>{{ name() }}</strong></div><div><span>Type</span><strong>{{ datasetTypeLabel() }}</strong></div><div><span>Sources</span><strong>{{ sources().length }} · {{ primaryPath() }}</strong></div><div><span>Samples</span><strong>{{ selectedSamples() | number }} selected of {{ availableSamples() | number }}</strong></div><div><span>Inputs</span><strong>{{ roleSummary('input') }}</strong></div><div><span>Outputs</span><strong>{{ roleSummary('output') }}</strong></div></div>
               <div class="copy-boundary"><svg lucideInfo [size]="15"></svg><span>Only dataset metadata, schema information, paths, role definitions, and the subset rule will be stored. Underlying source content stays in place.</span></div>
               @if (validation(); as result) { <div class="validation-result" [class.valid]="result.valid" [class.invalid]="!result.valid"><div class="validation-result-title">@if (result.valid) { <svg lucideCheck class="success-icon" [size]="16"></svg> } @else { <svg lucideAlertTriangle class="error-icon" [size]="16"></svg> }<strong>{{ result.valid ? 'Definition is valid' : 'Definition needs attention' }}</strong></div>@for (finding of result.validation.errors; track finding.code + finding.message) { <p><strong>{{ finding.code }}</strong> · {{ finding.message }}</p> }@for (finding of result.validation.warnings; track finding.code + finding.message) { <p class="warning-line"><strong>Warning</strong> · {{ finding.message }}</p> }</div> }
@@ -133,7 +159,7 @@ interface DatasetField {
             }
           </div>
 
-          <footer class="dialog-actions wizard-actions"><button class="secondary" type="button" (click)="step() === 0 ? close() : goTo(step() - 1)" [disabled]="busy()">{{ step() === 0 ? 'Cancel' : 'Back' }}</button>@if (step() < 4) { <button class="primary" type="button" [disabled]="busy() || !canContinue()" (click)="next()">{{ busy() ? 'Working…' : step() === 1 ? 'Inspect & continue' : 'Continue' }}</button> } @else if (step() === 4) { <button class="primary" type="button" [disabled]="busy() || !canValidate()" (click)="validateDefinition()">{{ busy() ? 'Validating…' : validation()?.valid ? 'Continue to registration' : 'Validate definition' }}</button> } @else { <button class="primary" type="button" [disabled]="busy() || !validation()?.valid" (click)="register()"><svg lucideFilePlus2 [size]="15"></svg>{{ busy() ? 'Registering…' : editing ? 'Save dataset changes' : 'Register dataset' }}</button> }</footer>
+          <footer class="dialog-actions wizard-actions"><button class="secondary" type="button" (click)="step() === 0 ? close() : goTo(step() - 1)" [disabled]="busy()">{{ step() === 0 ? 'Cancel' : 'Back' }}</button>@if (step() < 4) { <button class="primary" type="button" [disabled]="busy() || !canContinue()" (click)="next()">{{ busy() ? 'Working…' : step() === 1 ? 'Inspect & continue' : 'Continue' }}</button> } @else if (step() === 4) { <button class="primary" type="button" [disabled]="busy() || !canProceedToRegistration()" (click)="continueToRegistration()">Continue to registration</button> } @else { <button class="primary" type="button" [disabled]="busy()" (click)="register()"><svg lucideFilePlus2 [size]="15"></svg>{{ busy() ? 'Registering…' : editing ? 'Save dataset changes' : 'Register dataset' }}</button> }</footer>
         </section>
       </div>
       <nw-filesystem-browser [open]="browserOpen()" [title]="browserTitle()" [selectionMode]="browserMode()" [extensions]="browserExtensions()" (closed)="browserOpen.set(false)" (selected)="acceptPath($event)" />
@@ -231,7 +257,7 @@ export class DatasetWizardComponent implements OnChanges {
     return true
   }
 
-  canValidate(): boolean { return this.canContinue() && Boolean(this.inspection()) }
+  canProceedToRegistration(): boolean { return this.canContinue() && Boolean(this.inspection()) }
 
   async inspectSources(): Promise<boolean> {
     if (this.busy() || !this.sourcesReady()) return false
@@ -252,22 +278,13 @@ export class DatasetWizardComponent implements OnChanges {
     } finally { this.busy.set(false) }
   }
 
-  async validateDefinition(): Promise<void> {
-    if (this.busy() || !this.canValidate()) return
-    this.busy.set(true)
-    this.error.set(null)
-    try {
-      const result = await this.api.validateDataset(this.buildDefinition())
-      this.validation.set(result)
-      if (result.valid) this.goTo(5)
-    } catch (reason) {
-      this.error.set(reason instanceof Error ? reason.message : String(reason))
-    } finally { this.busy.set(false) }
+  continueToRegistration(): void {
+    if (this.busy() || !this.canProceedToRegistration()) return
+    this.goTo(5)
   }
 
   async register(): Promise<void> {
-    const result = this.validation()
-    if (this.busy() || !result?.valid) return
+    if (this.busy()) return
     this.busy.set(true)
     this.error.set(null)
     try {
@@ -277,7 +294,13 @@ export class DatasetWizardComponent implements OnChanges {
       this.saved.emit(document)
       this.close()
     } catch (reason) {
-      this.error.set(reason instanceof Error ? reason.message : String(reason))
+      const validation = extractDatasetValidation(reason)
+      if (validation) {
+        this.validation.set(validation)
+        this.error.set(null)
+      } else {
+        this.error.set(reason instanceof Error ? reason.message : String(reason))
+      }
       this.goTo(4)
     } finally { this.busy.set(false) }
   }

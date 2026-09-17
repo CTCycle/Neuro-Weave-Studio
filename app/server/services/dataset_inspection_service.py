@@ -186,12 +186,16 @@ class DatasetInspectionService:
     # -------------------------------------------------------------------------
     def _inspect_text(self, source: TextSource) -> TextInspection:
         path = self._validated_path(source.path, directory=source.path_kind == "folder")
-        paths = list(self._text_paths(path, source))
+        sample_count = 0
+        extensions: set[str] = set()
+        for item in self._text_paths(path, source):
+            sample_count += 1
+            extensions.add(item.suffix.casefold())
         return TextInspection(
             source_id=source.id,
             path=str(path),
-            sample_count=len(paths),
-            extensions=sorted({item.suffix.casefold() for item in paths}),
+            sample_count=sample_count,
+            extensions=sorted(extensions),
         )
 
     # -------------------------------------------------------------------------

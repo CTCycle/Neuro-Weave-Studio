@@ -989,7 +989,7 @@ export function resolveParameterCompatibility(
   }
 }
 
-function conditionMatches(
+export function conditionMatches(
   condition: Record<string, unknown> | undefined,
   parameters: Record<string, unknown>,
 ): boolean {

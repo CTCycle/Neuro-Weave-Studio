@@ -37,8 +37,8 @@ class TensorStatistics(BaseModel):
 
 class TensorHistogram(BaseModel):
     mode: DataMode
-    bins: list[float] = Field(default_factory=list)
-    counts: list[int] = Field(default_factory=list)
+    bins: list[float] = Field(default_factory=lambda: list[float]())
+    counts: list[int] = Field(default_factory=lambda: list[int]())
 
 
 class TensorDescriptor(BaseModel):
@@ -67,8 +67,8 @@ class TensorInspectionNode(BaseModel):
     successors: list[str] = Field(default_factory=list)
     inspectable: bool = True
     unavailable_reason: str | None = None
-    inputs: list[TensorDescriptor] = Field(default_factory=list)
-    outputs: list[TensorDescriptor] = Field(default_factory=list)
+    inputs: list[TensorDescriptor] = Field(default_factory=lambda: list[TensorDescriptor]())
+    outputs: list[TensorDescriptor] = Field(default_factory=lambda: list[TensorDescriptor]())
 
 
 class TensorInspectionSession(BaseModel):
@@ -91,8 +91,8 @@ class TensorInspectionViewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     tensor_id: str
-    fixed_indices: dict[int, int] = Field(default_factory=dict)
-    display_axes: list[int] = Field(default_factory=list, max_length=2)
+    fixed_indices: dict[int, int] = Field(default_factory=lambda: dict[int, int]())
+    display_axes: list[int] = Field(default_factory=lambda: list[int](), max_length=2)
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=256, ge=1, le=4096)
 

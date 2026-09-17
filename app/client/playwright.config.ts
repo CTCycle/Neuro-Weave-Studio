@@ -1,11 +1,19 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const configuredWorkers = process.env['PLAYWRIGHT_WORKERS']
+const workers = configuredWorkers
+  ? Number.parseInt(configuredWorkers, 10)
+  : 1
+const isCi = Boolean(process.env['CI'])
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
-  forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  forbidOnly: isCi,
+  retries: isCi ? 2 : 0,
+  // E2E workers share one SQLite database, so serial execution avoids write-lock races by default.
+  // Set PLAYWRIGHT_WORKERS when the backend/storage is isolated for parallel execution.
+  workers,
   reporter: 'line',
   use: {
     baseURL: 'http://127.0.0.1:6426',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ImplementationMapping, NodeManifest, ParameterDefinition } from './types'
-import { parameterValueMatchesDefinition, resolveImplementationCompatibility, resolveParameterCompatibility } from './types'
+import { conditionMatches, parameterValueMatchesDefinition, resolveImplementationCompatibility, resolveParameterCompatibility } from './types'
 
 const parameter: ParameterDefinition = {
   id: 'mode',
@@ -140,5 +140,13 @@ describe('profile compatibility resolver', () => {
       valueCompatible: false,
       reasonCode: 'invalid_parameter_value',
     })
+  })
+
+  it('evaluates all supported conditional rule forms consistently', () => {
+    expect(conditionMatches({ mode: { equals: 'fast' } }, { mode: 'fast' })).toBe(true)
+    expect(conditionMatches({ mode: { not_equals: 'auto' } }, { mode: 'fast' })).toBe(true)
+    expect(conditionMatches({ mode: { in: ['fast', 'safe'] } }, { mode: 'safe' })).toBe(true)
+    expect(conditionMatches({ mode: { not_in: ['auto', 'safe'] } }, { mode: 'fast' })).toBe(true)
+    expect(conditionMatches({ mode: ['fast', 'safe'] }, { mode: 'auto' })).toBe(false)
   })
 })

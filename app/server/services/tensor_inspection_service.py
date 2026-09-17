@@ -7,7 +7,7 @@ import time
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -33,9 +33,9 @@ def _json_safe(value: Any) -> Any:
             return "Infinity" if value > 0 else "-Infinity"
         return value
     if isinstance(value, list):
-        return [_json_safe(item) for item in value]
+        return [_json_safe(item) for item in cast(list[Any], value)]
     if isinstance(value, tuple):
-        return [_json_safe(item) for item in value]
+        return [_json_safe(item) for item in cast(tuple[Any, ...], value)]
     return value
 
 

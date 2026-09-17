@@ -20,8 +20,8 @@ from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 from models.worker_backend import (
     BackendWorker,
     empty_memory_metrics,
-    run_keras_smoke,
     run_keras_inspection,
+    run_keras_smoke,
     run_model_export,
     run_native_inspection,
     run_native_smoke,

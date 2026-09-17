@@ -364,4 +364,37 @@ describe('neutral graph editor store', () => {
     store.deleteSelected()
     expect(store.toGraph().output_bindings).toEqual([])
   })
+
+  it('does not dirty the draft for editor-only state and batches drag revisions', () => {
+    store = new GraphEditorStore()
+    store.restoreEditorSession({
+      nodes: [node('source')],
+      edges: [],
+      outputBindings: [],
+      modelConfiguration: emptyModelConfiguration(),
+      exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
+      futureTrainingConfiguration: {},
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      copiedNodeIds: [],
+      past: [],
+      future: [],
+    })
+    const initialDraftRevision = store.draftRevision()
+    const initialGraphRevision = store.graphRevision()
+
+    store.selectNode('source')
+    store.copySelected()
+    expect(store.draftRevision()).toBe(initialDraftRevision)
+
+    store.beginDrag()
+    store.moveNodes([{ id: 'source', position: { x: 16, y: 16 } }])
+    store.moveNodes([{ id: 'source', position: { x: 32, y: 32 } }])
+    expect(store.draftRevision()).toBe(initialDraftRevision)
+    expect(store.graphRevision()).toBe(initialGraphRevision)
+
+    store.endDrag()
+    expect(store.draftRevision()).toBe(initialDraftRevision + 1)
+    expect(store.nodes()[0].position).toEqual({ x: 32, y: 32 })
+  })
 })

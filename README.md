@@ -1,6 +1,6 @@
 # NeuroWeave Studio
 
-Last updated: 2026-09-16
+Last updated: 2026-09-17
 
 NeuroWeave Studio is a local-first visual editor for designing machine-learning model architectures without writing code. It uses a framework-independent graph schema, manifest-defined nodes, a FastAPI backend, and an Angular plus Foblex frontend.
 
@@ -18,7 +18,7 @@ The phrase “Django DP” in the original brief was treated as ambiguous and no
 - SQLite project persistence with immutable revision snapshots.
 - Project create, save, reopen, duplicate, delete, JSON import, and JSON export.
 - Keras-enabled source generation for the documented portable subset, using the model's persisted execution backend.
-- Native PyTorch source generation for its verified subset; native TensorFlow and JAX/Flax source capabilities remain unavailable until parity is proven.
+- Native TensorFlow, PyTorch, and JAX/Flax source generation for the verified catalog subset; native exports never fall back to Keras.
 - Optional uninitialized Keras `.keras` export for Keras-enabled models when the persisted backend is operational and the graph uses binary-export-supported nodes.
 - Source-only `.keras` architecture import through the allowlisted Keras configuration format; imported weights and custom code are never accepted.
 - MLP, convolutional classifier, LSTM, and Transformer encoder examples.
@@ -136,7 +136,7 @@ The Builder persists `execution_backend` and `keras_enabled` with the graph. Val
 
 Binary export creates an initialized but untrained `.keras` model. It is not a trained model, does not contain learned weights, and supports only the explicitly documented subset. With no operational backend, export is disabled and the API returns a structured unavailable-backend error. Keras architecture import accepts only standard `.keras` configuration metadata, creates a canonical graph, and warns that weights are not imported.
 
-The workspace **Functional Validation** check is a dry run: it validates the saved graph, generates compatible zero-filled inputs, runs one synthetic forward pass, and reports tensor shapes, dtype, parameter count, device, and status. It does not accept user data, serve predictions, train, or update weights.
+The workspace **Functional Validation** check is a dry run: it validates the saved graph, generates compatible zero-filled inputs, runs one synthetic forward pass, and reports tensor shapes, dtype, parameter count, device, and status. It does not accept user data, serve predictions, train, or update weights. Dataset registration stores external source definitions and bounded inspection metadata only; it never copies sample bytes or creates a training data pipeline. The Training page remains a session-only configuration draft and does not start workers, fit models, update weights, or persist training jobs.
 
 ## Examples
 
