@@ -3,19 +3,27 @@ from __future__ import annotations
 import re
 from uuid import UUID
 
+from common.catalogs.loader import get_node_catalog
 from configurations.settings import Settings
 from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity
 from domain.exports import SUPPORTED_ONNX_OPSETS, ExportFormat, ExportOptions, export_suffix
 from domain.graph import ProjectDocument
-from domain.jobs import JobResponse, JobSubmitRequest, ModelExportOperation, SmokeInferenceOperation
+from domain.jobs import (
+    JobResponse,
+    JobSubmitRequest,
+    ModelExportOperation,
+    SmokeInferenceOperation,
+    TensorInspectionOperation,
+)
 from domain.runtime import RuntimeApi, WorkerConfiguration
 from services.errors import CompilationRejectedError, ProjectNotFoundError
 from services.export_service import ExportService
 from services.project_service import ProjectService
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
+from validation.output_resolution import input_nodes
 
 
 ###############################################################################
@@ -55,6 +63,99 @@ class JobService:
             return self._controller.submit(
                 request,
                 graph=graph,
+                compilation_catalog=self._compilation_catalog_provider.get(),
+            )
+
+        if isinstance(request.operation, TensorInspectionOperation):
+            project = self._projects.get(request.operation.project_id)
+            if project is None:
+                raise ProjectNotFoundError(request.operation.project_id)
+            if project.current_revision != request.operation.project_revision:
+                raise CompilationRejectedError(
+                    [
+                        ValidationDiagnostic(
+                            code="revision_conflict",
+                            severity=DiagnosticSeverity.ERROR,
+                            message="Tensor inspection must target the current saved project revision",
+                            details={"requested_revision": request.operation.project_revision, "current_revision": project.current_revision},
+                        )
+                    ]
+                )
+            if project.validation_status.value != "valid":
+                raise CompilationRejectedError(
+                    [
+                        ValidationDiagnostic(
+                            code="model_not_valid",
+                            severity=DiagnosticSeverity.ERROR,
+                            message="Tensor inspection requires a successfully validated model revision",
+                        )
+                    ]
+                )
+            self._ensure_worker_matches_project(project, request.worker)
+            validation = self._validator.validate(project.graph, project.execution_backend, project.keras_enabled)
+            if not validation.valid:
+                raise CompilationRejectedError(validation.diagnostics)
+            catalog = get_node_catalog()
+            unresolved_inputs: list[tuple[str, int, object]] = []
+            unsupported_inputs: list[tuple[str, str]] = []
+            supported_dtypes = {"bool", "int32", "int64", "float16", "float32", "float64"}
+            for node in input_nodes(project.graph, catalog):
+                shape = node.parameters.get("shape")
+                if not isinstance(shape, list) or any(
+                    not isinstance(dimension, int) or isinstance(dimension, bool) or dimension <= 0
+                    for dimension in shape
+                ):
+                    unresolved_inputs.append((node.id, -1, shape))
+                dtype = str(node.parameters.get("dtype", "float32"))
+                if dtype not in supported_dtypes:
+                    unsupported_inputs.append((node.id, dtype))
+            if unresolved_inputs:
+                raise CompilationRejectedError(
+                    [
+                        ValidationDiagnostic(
+                            code="dynamic_dimension_unresolved",
+                            severity=DiagnosticSeverity.ERROR,
+                            message="Tensor inspection requires every input feature dimension to be resolved",
+                            details={"inputs": unresolved_inputs[:32]},
+                        )
+                    ]
+                )
+            if unsupported_inputs:
+                raise CompilationRejectedError(
+                    [
+                        ValidationDiagnostic(
+                            code="unsupported_dtype",
+                            severity=DiagnosticSeverity.ERROR,
+                            message="Tensor inspection supports only numeric, boolean, int32, and int64 input tensors",
+                            details={"inputs": unsupported_inputs[:32]},
+                        )
+                    ]
+                )
+            unresolved = [
+                (summary.node_id, port_id, index)
+                for summary in validation.shape_summaries
+                for port_id, spec in summary.outputs.items()
+                for index, dimension in enumerate(spec.shape)
+                if (dimension is None or not isinstance(dimension, int)) and index != 0
+            ]
+            if unresolved:
+                raise CompilationRejectedError(
+                    [
+                        ValidationDiagnostic(
+                            code="dynamic_dimension_unresolved",
+                            severity=DiagnosticSeverity.ERROR,
+                            message="Tensor inspection requires all non-batch tensor dimensions to be resolved",
+                            details={"dimensions": unresolved[:32]},
+                        )
+                    ]
+                )
+            return self._controller.submit(
+                request,
+                graph=project.graph,
+                project_revision=project.current_revision,
+                revision_checker=lambda: self._project_revision_is_current(
+                    project.id, project.current_revision
+                ),
                 compilation_catalog=self._compilation_catalog_provider.get(),
             )
 

@@ -1,6 +1,6 @@
 # Model Catalog, Builder, and Workspaces
 
-Last updated: 2026-09-16
+Last updated: 2026-09-17
 
 The model catalog is the application home at `/models`. It is a library of persisted models backed by the `Project` aggregate and `/api/projects` endpoints. Catalog cards are summary-only: they show name, description, updated time, revision, restrained backend/API metadata, graph-derived input/output and node/edge counts, flat validation/compilation indicators, and whether source exists for the current revision. Input counts use manifest semantic roles; output counts use the same explicit-or-inferred effective-output rules as validation. Search and compiled/validation segmented filters operate on that in-memory summary list. JSON project import and `.keras` architecture import are explicit catalog actions.
 
@@ -16,6 +16,8 @@ The model catalog is the application home at `/models`. It is a library of persi
 - `/metrics` keeps the server-owned built-in loss and metric catalog read-only, while allowing session-only custom definitions through a wizard that accepts direct LaTeX or a guided equation builder. Custom definitions are previewed with KaTeX and are not yet selectable in Compilation or Training.
 
 The selected model workspace header shows input/output counts alongside node/connection totals so model boundaries are visible without opening the Builder. Workspace management actions are deliberately explicit: the Export workflow downloads the persisted JSON bundle, duplicate opens the new model workspace, and deletion requires an in-app confirmation dialog.
+
+The overview preview and Builder share one application-level tensor inspector. From either surface, inspection starts only for the current saved valid revision and reports the selected runtime, deterministic seed, synthetic input description, and persistent warning that values are untrained initialized activations. Node switching, port selection, statistics, histograms, bounded values, and slices reuse one cached forward-pass session. Closing the modal cancels an active job and deletes its ephemeral session.
 
 Catalog/workspace data is separate from the editable Angular graph store. The store is initialized only for Builder routes, while workspace previews use the same node visuals and drafting-board styling in a read-only Foblex canvas with a scoped store. `BuilderTabsStore` holds independent sessions and saved baselines for each open tab; navigation is guarded when any tab is dirty, and users can stay or discard changes before leaving. Dataset registrations are owned by the backend and `AppResourcesService`/`DatasetWorkspaceState`; `ExperimentDraftsService` retains only session training and custom-equation bootstrap state.
 

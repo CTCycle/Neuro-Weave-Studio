@@ -221,6 +221,7 @@ def build_model(
     catalog: NodeCatalog | None = None,
     *,
     checkpoint: Callable[[], None] | None = None,
+    trace_outputs: dict[str, dict[str, Any]] | None = None,
 ) -> keras.Model:
     _checkpoint(checkpoint)
     prepare_runtime(graph)
@@ -847,6 +848,10 @@ def build_model(
             tensors[node_id] = result[0]
         else:
             port_tensors[(node_id, output_ports[0].id)] = result
+        if trace_outputs is not None:
+            trace_outputs[node_id] = {
+                port.id: port_tensors[(node_id, port.id)] for port in output_ports
+            }
 
     inputs = [tensors[node.id] for node in input_nodes(graph, catalog)]
     outputs = [

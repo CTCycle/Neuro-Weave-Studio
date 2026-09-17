@@ -9,7 +9,7 @@ import { GraphCanvasComponent } from '../../features/builder/components/graph-ca
   standalone: true,
   imports: [GraphCanvasComponent],
   providers: [GraphEditorStore],
-  template: `<div class="readonly-graph-preview"><nw-graph-canvas [readOnly]="true" [modelName]="project().name"></nw-graph-canvas></div>`,
+  template: `<div class="readonly-graph-preview"><nw-graph-canvas [readOnly]="true" [modelName]="project().name" [inspectionProjectId]="project().id" [inspectionRevision]="project().current_revision" [inspectionEnabled]="project().validation_status === 'valid'" [inspectionDisabledReason]="project().validation_status === 'valid' ? 'Tensor inspection is unavailable for this model.' : 'Save and validate this revision before inspecting.'"></nw-graph-canvas></div>`,
 })
 export class ReadOnlyGraphPreviewComponent {
   readonly project = input.required<ProjectDocument>()

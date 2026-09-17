@@ -26,6 +26,7 @@ from services.project_service import ProjectService
 from services.runtime_controller import RuntimeController
 from services.runtime_service import RuntimeService
 from services.validation_service import ValidationService
+from services.tensor_inspection_service import TensorInspectionService
 
 
 ###############################################################################
@@ -155,6 +156,12 @@ def get_job_service(
     compilation_catalog_provider: CompilationCatalogProvider = Depends(get_compilation_catalog_provider),
 ) -> JobService:
     return JobService(project_service, controller, settings, validator, exports, compilation_catalog_provider)
+
+###############################################################################
+def get_tensor_inspection_service(
+    settings: Settings = Depends(get_settings),
+) -> TensorInspectionService:
+    return TensorInspectionService(settings)
 
 
 ###############################################################################

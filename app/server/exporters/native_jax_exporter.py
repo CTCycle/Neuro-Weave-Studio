@@ -50,7 +50,7 @@ class NativeJaxSourceExporter(SourceExporter):
             "",
             "class GeneratedModel(nn.Module):",
             "    @nn.compact",
-            "    def __call__(self, inputs):",
+            "    def __call__(self, inputs, return_intermediates=False):",
         ]
         variables: dict[str, str] = {}
         for item in ir.ordered_nodes:
@@ -196,9 +196,13 @@ class NativeJaxSourceExporter(SourceExporter):
                 raise ValueError(f"No native JAX adapter registered for {definition}")
             variables[item.node_id] = name
         outputs = [variables[binding.node_id] for binding in ir.output_bindings]
-        lines.append(
-            f"        return {outputs[0] if len(outputs) == 1 else '(' + ', '.join(outputs) + ')'}"
-        )
+        result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
+        trace = "{" + ", ".join(
+            f"{item.node_id!r}: {{'output': {variables[item.node_id]}}}"
+            for item in ir.ordered_nodes
+        ) + "}"
+        lines.append(f"        if return_intermediates: return {result}, {trace}")
+        lines.append(f"        return {result}")
         jit_enabled = graph.model_configuration.native.jax.jit_enabled
         lines.extend(
             [

@@ -1,6 +1,6 @@
 # Tensor and Shape System
 
-Last updated: 2026-09-02
+Last updated: 2026-09-17
 
 Tensor Specification contains an ordered shape, data type, and optional name. A dimension is a positive integer, an unknown value, or a symbolic dimension. Rank is the number of dimensions. Tensor compatibility requires matching dtypes and ranks; unknown dimensions remain compatible unless a concrete contradiction is known. Shape inference never treats `-1` as a concrete positive dimension in persisted canonical output.
 
@@ -13,3 +13,7 @@ NeuroWeave distinguishes persisted feature shapes from runtime tensor shapes:
 Keras import follows the same contract. `input_shape` is already feature-only. For `batch_shape` and `batch_input_shape`, the first value is removed whether it is `None` or a concrete batch size; a concrete value is reported as a warning because batch sizing is runtime policy. The resulting feature rank selects tensor (rank 1), sequence (rank 2), or image (rank 3 or greater) input manifests. Missing, empty, non-positive, or otherwise malformed feature shapes are rejected instead of being double-batched.
 
 Quantization configuration is optional. Empty objects, including recursively empty placeholder objects, mean disabled configuration; nonempty nested values and meaningful scalar values such as `false` or `0` are preserved.
+
+## Inspection tensors
+
+The tensor-inspection contract extends a validated runtime shape with node identity, direction, port/item identity, dtype, full element count, storage mode (`full`, `sampled`, or `summary_only`), statistics scope, and histogram scope. A rank-zero value is shown as a scalar; rank one as a bounded vector; rank two as an indexed table/heatmap; higher ranks require explicit fixed-axis indices and up to two display axes. Axes are numeric unless a manifest supplies semantics. `element_count` always describes the complete tensor, while sampled statistics and views report their observed/sample mode and count separately. The API never serializes an unbounded activation.

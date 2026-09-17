@@ -15,6 +15,7 @@ from domain.runtime import DeviceLeaseStatus, WorkerConfiguration
 ###############################################################################
 class JobOperation(StrEnum):
     SMOKE_INFERENCE = "smoke_inference"
+    TENSOR_INSPECTION = "tensor_inspection"
     MODEL_EXPORT = "model_export"
 
 ###############################################################################
@@ -35,6 +36,16 @@ class SmokeInferenceOperation(BaseModel):
     project_id: UUID
     graph: ModelGraph
 
+
+###############################################################################
+class TensorInspectionOperation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal[JobOperation.TENSOR_INSPECTION] = JobOperation.TENSOR_INSPECTION
+    project_id: UUID
+    project_revision: int = Field(ge=1)
+    seed: int = Field(default=42, ge=0, le=2_147_483_647)
+
 ###############################################################################
 class ModelExportOperation(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -48,7 +59,7 @@ class ModelExportOperation(BaseModel):
 
 ###############################################################################
 JobOperationRequest = Annotated[
-    SmokeInferenceOperation | ModelExportOperation,
+    SmokeInferenceOperation | TensorInspectionOperation | ModelExportOperation,
     Field(discriminator="type"),
 ]
 

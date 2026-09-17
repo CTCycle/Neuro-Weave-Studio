@@ -29,6 +29,10 @@ import type {
   ProjectExportBundle,
   ProjectSummary,
   RuntimeDiscoveryResponse,
+  TensorInspectionNode,
+  TensorInspectionSession,
+  TensorInspectionViewRequest,
+  TensorInspectionViewResponse,
   ValidationResult,
   WorkerConfiguration,
 } from '../../domain/types'
@@ -198,6 +202,26 @@ export class ApiService {
 
   submitFunctionalValidation(project_id: string, graph: ModelGraph, worker: WorkerConfiguration): Promise<JobResponse> {
     return this.request('/execution/jobs', 'POST', { operation: { type: 'smoke_inference', project_id, graph }, worker })
+  }
+
+  submitTensorInspection(project_id: string, project_revision: number, seed: number, worker: WorkerConfiguration): Promise<JobResponse> {
+    return this.request('/execution/jobs', 'POST', { operation: { type: 'tensor_inspection', project_id, project_revision, seed }, worker })
+  }
+
+  tensorInspection(sessionId: string): Promise<TensorInspectionSession> {
+    return this.request(`/tensor-inspections/${encodeURIComponent(sessionId)}`)
+  }
+
+  tensorInspectionNode(sessionId: string, nodeId: string): Promise<TensorInspectionNode> {
+    return this.request(`/tensor-inspections/${encodeURIComponent(sessionId)}/nodes/${encodeURIComponent(nodeId)}`)
+  }
+
+  tensorInspectionView(sessionId: string, payload: TensorInspectionViewRequest): Promise<TensorInspectionViewResponse> {
+    return this.request(`/tensor-inspections/${encodeURIComponent(sessionId)}/view`, 'POST', payload)
+  }
+
+  deleteTensorInspection(sessionId: string): Promise<void> {
+    return this.request(`/tensor-inspections/${encodeURIComponent(sessionId)}`, 'DELETE')
   }
 
   submitModelExport(project_id: string, format: ExportFormat, filename_stem: string, options: ExportOptions, worker: WorkerConfiguration): Promise<JobResponse> {

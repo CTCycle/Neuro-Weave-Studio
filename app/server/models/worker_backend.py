@@ -6,9 +6,11 @@ import importlib
 import os
 import time
 from collections.abc import Callable
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, suppress
 from pathlib import Path
 from typing import Any, Protocol, cast
+
+import numpy as np
 
 from common.catalogs.loader import get_node_catalog
 from domain.compilation_catalog import CompilationCatalog
@@ -16,6 +18,7 @@ from domain.enums import ExecutionBackend, keras_backend_value
 from domain.exports import ExportFormat, ExportOptions
 from domain.graph import ModelGraph
 from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
+from models.tensor_inspection_runtime import persist_inspection
 from validation.output_resolution import input_nodes, output_selectors, resolved_outputs
 
 
@@ -52,6 +55,19 @@ class BackendWorker(Protocol):
         graph: ModelGraph,
         checkpoint: Callable[[], None],
         *,
+        compilation_catalog: CompilationCatalog | None = None,
+    ) -> dict[str, object]: ...
+
+    # -------------------------------------------------------------------------
+    def run_inspection(
+        self,
+        graph: ModelGraph,
+        checkpoint: Callable[[], None],
+        *,
+        seed: int,
+        project_id: str,
+        project_revision: int,
+        output_root: Path,
         compilation_catalog: CompilationCatalog | None = None,
     ) -> dict[str, object]: ...
 
@@ -171,6 +187,222 @@ def run_keras_smoke(
         "duration_ms": round((time.perf_counter() - started) * 1000, 1),
         "compilation": _configured_compilation_summary(graph, "keras"),
     }
+
+
+###############################################################################
+def _inspection_input_arrays(graph: ModelGraph, *, seed: int) -> list[np.ndarray]:
+    rng = np.random.default_rng(seed)
+    result: list[np.ndarray] = []
+    embedding_vocabularies = [
+        int(node.parameters.get("vocabulary_size", 0))
+        for node in graph.nodes
+        if node.definition_id == "layer.embedding"
+        and isinstance(node.parameters.get("vocabulary_size"), int)
+        and int(node.parameters.get("vocabulary_size", 0)) > 0
+    ]
+    embedding_upper_bound = min(embedding_vocabularies, default=16)
+    for node in input_nodes(graph, get_node_catalog()):
+        # ``RuntimeInputParameters.get`` deliberately exposes the runtime
+        # batch axis (``[None, *feature_shape]``).  Synthetic inspection
+        # inputs own that axis and must therefore validate the persisted
+        # feature shape from the underlying mapping instead of rejecting the
+        # expected placeholder ``None``.
+        shape_value = dict.get(node.parameters, "shape", [1])
+        if not isinstance(shape_value, list) or any(
+            not isinstance(value, int) or isinstance(value, bool) or value <= 0
+            for value in shape_value
+        ):
+            raise ValueError(
+                f"dynamic_dimension_unresolved: input node '{node.id}' has no fully resolved feature shape"
+            )
+        shape = [1, *[int(value) for value in shape_value]]
+        dtype = str(node.parameters.get("dtype", "float32"))
+        if dtype == "bool":
+            values = rng.random(shape) > 0.5
+        elif dtype.startswith("int"):
+            values = rng.integers(0, embedding_upper_bound, size=shape, dtype=np.int64)
+            if dtype == "int32":
+                values = values.astype(np.int32)
+            elif dtype != "int64":
+                raise ValueError(f"unsupported_dtype: input node '{node.id}' uses {dtype}")
+        elif dtype in {"float16", "float32", "float64"}:
+            values = rng.uniform(-1.0, 1.0, size=shape).astype(dtype)
+        else:
+            raise ValueError(f"unsupported_dtype: input node '{node.id}' uses {dtype}")
+        result.append(values)
+    return result
+
+
+###############################################################################
+def run_keras_inspection(
+    graph: ModelGraph,
+    *,
+    keras_module: Any,
+    build_model: Callable[..., Any],
+    compile_model: Callable[..., Any],
+    capabilities: dict[str, object],
+    scope: AbstractContextManager[Any],
+    synchronize: Callable[[list[Any]], None],
+    checkpoint: Callable[[], None],
+    seed: int,
+    project_id: str,
+    project_revision: int,
+    output_root: Path,
+    worker: WorkerConfiguration,
+    compilation_catalog: CompilationCatalog | None = None,
+) -> dict[str, object]:
+    checkpoint()
+    with suppress(Exception):
+        keras_module.utils.set_random_seed(seed)
+    # Keras normally reapplies the model's persisted random seed while it is
+    # being built.  Keep that persisted configuration untouched, but make an
+    # explicitly requested inspection seed authoritative for this ephemeral
+    # execution copy so reruns can be reproduced from the public contract.
+    inspection_graph = graph.model_copy(deep=True)
+    inspection_graph.model_configuration.keras.random_seed = seed
+    trace_outputs: dict[str, dict[str, Any]] = {}
+    with scope:
+        model = build_model(inspection_graph, checkpoint=checkpoint, trace_outputs=trace_outputs)
+        compile_model(model, inspection_graph, compilation_catalog=compilation_catalog)
+        arrays = _inspection_input_arrays(inspection_graph, seed=seed)
+        # Keep the Keras input structure explicit even for one-input models;
+        # passing the bare tensor makes Keras warn that the symbolic input
+        # list was flattened, while the values themselves are unchanged.
+        model_input: Any = arrays
+        probe_values: list[Any] = []
+        probe_keys: list[tuple[str, str, int | None]] = []
+        for node_id in [node.id for node in graph.nodes]:
+            for port_id, symbolic in trace_outputs.get(node_id, {}).items():
+                if isinstance(symbolic, (list, tuple)):
+                    for item_index, item in enumerate(symbolic):
+                        probe_values.append(item)
+                        probe_keys.append((node_id, port_id, item_index))
+                else:
+                    probe_values.append(symbolic)
+                    probe_keys.append((node_id, port_id, None))
+        if not probe_values:
+            raise RuntimeError(
+                "capture_unsupported: Keras inspection did not expose any node outputs"
+            )
+        probe = keras_module.Model(inputs=model.inputs, outputs=probe_values)
+        raw_values = probe(model_input, training=False)
+        actual_values = list(raw_values) if isinstance(raw_values, (list, tuple)) else [raw_values]
+        trace: dict[str, dict[str, Any]] = {}
+        for (node_id, port_id, item_index), value in zip(probe_keys, actual_values, strict=True):
+            node_trace = trace.setdefault(node_id, {})
+            if item_index is None:
+                node_trace[port_id] = value
+                continue
+            # A tensor-list port is represented as one manifest port with
+            # explicit item indices. Reassemble the list after the probe
+            # model flattens it into individual symbolic outputs.
+            items = node_trace.setdefault(port_id, [])
+            if not isinstance(items, list):
+                raise RuntimeError(
+                    f"capture_unsupported: Keras returned mixed values for output port '{port_id}'"
+                )
+            while len(items) <= item_index:
+                items.append(None)
+            items[item_index] = value
+        synchronize(actual_values)
+        result = persist_inspection(
+            graph,
+            project_id=project_id,
+            project_revision=project_revision,
+            backend=worker.backend,
+            api=worker.api,
+            worker=worker,
+            seed=seed,
+            input_description="Seeded batch-size-1 synthetic tensors: float values in [-1, 1]; integers use a safe non-negative range bounded by embedding vocabularies when applicable; booleans sampled at 0.5.",
+            trace=trace,
+            inputs=arrays,
+            output_root=output_root,
+        )
+        result.update({"status": "succeeded", "device_name": capabilities.get("device_name", "CPU"), "accelerator": capabilities.get("accelerator", "cpu")})
+        return result
+
+
+###############################################################################
+def run_native_inspection(
+    graph: ModelGraph,
+    *,
+    backend: ExecutionBackend,
+    capabilities: dict[str, object],
+    scope: AbstractContextManager[Any],
+    synchronize: Callable[[list[Any]], None],
+    checkpoint: Callable[[], None],
+    seed: int,
+    project_id: str,
+    project_revision: int,
+    output_root: Path,
+    worker: WorkerConfiguration,
+    compilation_catalog: CompilationCatalog | None = None,
+) -> dict[str, object]:
+    from models.native_runtime import build_native_model, forward_native_with_trace
+
+    native_configuration = getattr(graph.model_configuration.native, backend.value)
+    compiler_enabled = any(
+        bool(getattr(native_configuration, field, False))
+        for field in ("jit_compile", "compile_enabled", "jit_enabled")
+    )
+    # Instrumentation must observe the same backend without allowing an
+    # optimized wrapper to erase the trace contract. Build an isolated copy
+    # with only the relevant compiler switch disabled; the persisted graph and
+    # its execution profile remain unchanged and the session records the
+    # bypass explicitly.
+    inspection_graph = graph.model_copy(deep=True)
+    if compiler_enabled:
+        inspection_configuration = getattr(inspection_graph.model_configuration.native, backend.value)
+        for field in ("jit_compile", "compile_enabled", "jit_enabled"):
+            if hasattr(inspection_configuration, field):
+                setattr(inspection_configuration, field, False)
+
+    raw_arrays = _inspection_input_arrays(graph, seed=seed)
+    if backend is ExecutionBackend.PYTORCH:
+        import torch
+
+        inputs = [torch.as_tensor(value) for value in raw_arrays]
+    elif backend is ExecutionBackend.TENSORFLOW:
+        import tensorflow as tf
+
+        inputs = [tf.convert_to_tensor(value) for value in raw_arrays]
+    else:
+        import jax.numpy as jnp
+
+        inputs = [jnp.asarray(value) for value in raw_arrays]
+    with scope:
+        handle = build_native_model(
+            inspection_graph,
+            backend,
+            checkpoint=checkpoint,
+            compilation_catalog=compilation_catalog,
+            seed=seed,
+            zero_parameters=False,
+            input_values=inputs,
+        )
+        outputs, trace = forward_native_with_trace(handle)
+        synchronize(outputs)
+        # Compiled wrappers are optimized for the normal output contract and
+        # may not preserve the optional trace payload. The raw generated model
+        # still executes on the same backend and carries the same initialized
+        # parameters, so expose this observability choice in session metadata.
+        compiler_mode = "bypassed_for_inspection" if compiler_enabled else "normal"
+        result = persist_inspection(
+            graph,
+            project_id=project_id,
+            project_revision=project_revision,
+            backend=backend,
+            api=worker.api,
+            worker=worker,
+            seed=seed,
+            input_description="Seeded batch-size-1 synthetic tensors: float values in [-1, 1]; integers use a safe non-negative range bounded by embedding vocabularies when applicable; booleans sampled at 0.5.",
+            trace=trace,
+            inputs=inputs,
+            output_root=output_root,
+            compiler_mode=compiler_mode,
+        )
+        result.update({"status": "succeeded", "device_name": capabilities.get("device_name", "CPU"), "accelerator": capabilities.get("accelerator", "cpu")})
+        return result
 
 ###############################################################################
 def run_native_smoke(

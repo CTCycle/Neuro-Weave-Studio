@@ -25,6 +25,7 @@ from api.routes import (
     metrics,
     projects,
     validation,
+    tensor_inspections,
 )
 from common import path as common_path
 from common.catalogs.loader import get_node_catalog
@@ -165,6 +166,7 @@ def create_app() -> FastAPI:
     application.include_router(projects.router)
     application.include_router(datasets.router)
     application.include_router(validation.router)
+    application.include_router(tensor_inspections.router)
     application.include_router(compilation.router)
     application.include_router(execution.router)
     application.include_router(exports.router)

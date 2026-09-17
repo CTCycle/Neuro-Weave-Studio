@@ -4,6 +4,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { LucideActivity, LucideBox, LucideBrainCircuit, LucideCpu, LucideFolderOpen, LucideHammer, LucideSettings, LucideX } from '@lucide/angular'
 import { filter, map, startWith } from 'rxjs'
 import { AppResourcesService } from '../../core/state/app-resources.service'
+import { TensorInspectorModalComponent } from '../../features/tensor-inspection/tensor-inspector-modal.component'
 
 @Component({
   selector: 'nw-app-shell',
@@ -20,6 +21,7 @@ import { AppResourcesService } from '../../core/state/app-resources.service'
     LucideHammer,
     LucideSettings,
     LucideX,
+    TensorInspectorModalComponent,
   ],
   template: `
     <div class="app-shell" [class.builder-shell]="isBuilder()">
@@ -45,6 +47,7 @@ import { AppResourcesService } from '../../core/state/app-resources.service'
           <span>{{ error }}</span><svg lucideX [size]="14"></svg>
         </button>
       }
+      <nw-tensor-inspector-modal />
     </div>
   `,
   styles: [`
