@@ -47,6 +47,7 @@ from domain.jobs import (
     JobSubmitRequest,
     ModelExportOperation,
     SmokeInferenceOperation,
+    TensorInspectionOperation,
 )
 from domain.metadata import ExecutionBackendStatus
 from domain.runtime import (
@@ -123,6 +124,9 @@ class RuntimeController:
         self._server_root = Path(__file__).resolve().parents[1]
         self._job_root = settings.ml_job_root
         self._job_root.mkdir(parents=True, exist_ok=True)
+        self._inspection_root = settings.tensor_inspection_root
+        self._inspection_root.mkdir(parents=True, exist_ok=True)
+        self._sweep_inspection_sessions()
         self._lock = threading.RLock()
         self._jobs: dict[str, _JobRecord] = {}
         self._leases: dict[str, str] = {}
@@ -817,6 +821,13 @@ class RuntimeController:
                 operation = JobOperation.SMOKE_INFERENCE
                 if graph is None:
                     graph = request.operation.graph
+            elif isinstance(request.operation, TensorInspectionOperation):
+                operation = JobOperation.TENSOR_INSPECTION
+                if graph is None:
+                    raise RuntimeControllerError(
+                        "missing_graph_snapshot",
+                        "Tensor inspection submission requires a graph snapshot",
+                    )
             else:
                 operation = JobOperation.MODEL_EXPORT
                 if graph is None:
@@ -825,7 +836,8 @@ class RuntimeController:
                         "Model export submission requires a graph snapshot",
                     )
             device = self._validate_worker(request.worker)
-            self._validate_native_compiler(request.worker, graph)
+            if operation is not JobOperation.TENSOR_INSPECTION:
+                self._validate_native_compiler(request.worker, graph)
             lease_key = device.lease_key
             if lease_key in self._leases:
                 raise RuntimeControllerError(
@@ -872,6 +884,9 @@ class RuntimeController:
                 operation_payload["options"] = request.operation.options.model_dump(mode="json")
                 operation_payload["artifact_filename"] = artifact_filename
                 operation_payload["project_revision"] = project_revision
+            elif isinstance(request.operation, TensorInspectionOperation):
+                operation_payload["project_revision"] = request.operation.project_revision
+                operation_payload["seed"] = request.operation.seed
             self._write_json(
                 job_dir / "request.json",
                 {"operation": operation_payload, "worker": request.worker.model_dump(mode="json")},
@@ -1028,6 +1043,9 @@ class RuntimeController:
         # Probe workers have been terminated above.  Join the executor so no
         # discovery thread or child process survives application shutdown.
         self._discovery_executor.shutdown(wait=True, cancel_futures=True)
+        # Remove any expired or malformed ephemeral inspection bundles before
+        # the application exits so a restart never inherits stale activations.
+        self._sweep_inspection_sessions()
 
     # -------------------------------------------------------------------------
     def _validate_worker(self, worker: WorkerConfiguration) -> RuntimeDevice:
@@ -1208,6 +1226,16 @@ class RuntimeController:
                         record.state = JobState.SUCCEEDED
                         record.progress_phase = "completed"
                         record.progress_message = "Export completed and published"
+                        record.progress_percent = 100
+                    else:
+                        record.state = JobState.FAILED
+                elif record.operation is JobOperation.TENSOR_INSPECTION:
+                    record.progress_phase = "publishing"
+                    record.progress_message = "Publishing bounded inspection session"
+                    if self._publish_inspection(record):
+                        record.state = JobState.SUCCEEDED
+                        record.progress_phase = "completed"
+                        record.progress_message = "Tensor inspection session ready"
                         record.progress_percent = 100
                     else:
                         record.state = JobState.FAILED
@@ -1534,6 +1562,63 @@ class RuntimeController:
             shutil.rmtree(path, ignore_errors=True)
         except OSError:
             return
+
+    # -------------------------------------------------------------------------
+    def _publish_inspection(self, record: _JobRecord) -> bool:
+        if record.revision_checker is not None:
+            try:
+                if not record.revision_checker():
+                    record.error = JobError(
+                        code="revision_conflict",
+                        message="The project changed while the inspection was being generated",
+                    )
+                    return False
+            except Exception as exc:
+                record.error = JobError(code="revision_check_failed", message=str(exc))
+                return False
+        session_id = (record.result or {}).get("session_id")
+        if not isinstance(session_id, str) or not session_id.isalnum():
+            record.error = JobError(code="inspection_missing", message="Inspection worker returned no session")
+            return False
+        source = (record.job_dir / "inspection" / session_id).resolve()
+        if not source.is_dir() or source.parent != (record.job_dir / "inspection").resolve():
+            record.error = JobError(code="inspection_path_invalid", message="Inspection session path is invalid")
+            return False
+        destination = (self._inspection_root / session_id).resolve()
+        if destination.parent != self._inspection_root.resolve():
+            record.error = JobError(code="inspection_path_invalid", message="Inspection session path is invalid")
+            return False
+        try:
+            os.replace(source, destination)
+        except OSError as exc:
+            record.error = JobError(code="inspection_publish_failed", message=str(exc))
+            return False
+        record.result = {key: value for key, value in (record.result or {}).items() if key != "inspection_path"}
+        return True
+
+    # -------------------------------------------------------------------------
+    def _sweep_inspection_sessions(self) -> None:
+        now = time.time()
+        retained: list[tuple[float, Path]] = []
+        for path in self._inspection_root.iterdir():
+            if not path.is_dir():
+                continue
+            try:
+                payload = json.loads((path / "session.json").read_text(encoding="utf-8"))
+                expires = datetime.fromisoformat(str(payload.get("expires_at"))).timestamp()
+                if expires <= now:
+                    self._remove_job_workspace(path)
+                else:
+                    retained.append((expires, path))
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                self._remove_job_workspace(path)
+        # The filesystem root is deliberately bounded even when no API request
+        # has instantiated the service yet. Keep the three sessions with the
+        # furthest idle expiry; their metadata is still ephemeral and can be
+        # deleted explicitly by the modal.
+        retained.sort(key=lambda item: item[0], reverse=True)
+        for _, path in retained[3:]:
+            self._remove_job_workspace(path)
 
     # -------------------------------------------------------------------------
     def _sweep_orphaned_jobs(self) -> None:

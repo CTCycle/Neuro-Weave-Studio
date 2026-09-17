@@ -48,6 +48,9 @@ def build_native_model(
     *,
     checkpoint: Callable[[], None] | None = None,
     compilation_catalog: CompilationCatalog | None = None,
+    seed: int = 42,
+    zero_parameters: bool = True,
+    input_values: list[Any] | None = None,
 ) -> NativeModelHandle:
     _checkpoint(checkpoint)
     catalog = get_node_catalog()
@@ -67,6 +70,14 @@ def build_native_model(
     )
     if factory is None:
         raise RuntimeError(f"Native {backend.value} source did not define a model factory")
+    if backend is ExecutionBackend.PYTORCH:
+        import torch
+
+        torch.manual_seed(seed)
+    elif backend is ExecutionBackend.TENSORFLOW:
+        import tensorflow as tf
+
+        tf.random.set_seed(seed)
     model = cast(Any, factory)()
     compile_factory = module.__dict__.get("compile_model")
     execution_model = (
@@ -74,7 +85,7 @@ def build_native_model(
         if backend is ExecutionBackend.PYTORCH and callable(compile_factory)
         else model
     )
-    inputs = _dummy_inputs(graph, backend, ir.input_node_ids)
+    inputs = input_values if input_values is not None else _dummy_inputs(graph, backend, ir.input_node_ids)
     graph_inputs = input_nodes(graph, catalog)
     model_input: Any = (
         inputs[0]
@@ -94,8 +105,9 @@ def build_native_model(
     if backend is ExecutionBackend.PYTORCH:
         execution_model.eval()
         outputs = _as_list(execution_model(model_input))
-        _zero_pytorch_parameters(model)
-        outputs = _as_list(execution_model(model_input))
+        if zero_parameters:
+            _zero_pytorch_parameters(model)
+            outputs = _as_list(execution_model(model_input))
         compilation_factory = module.__dict__.get("build_compilation")
         if callable(compilation_factory):
             compilation = cast(Callable[[Any], dict[str, Any]], compilation_factory)(model)
@@ -104,8 +116,9 @@ def build_native_model(
     else:
         import jax
 
-        variables = model.init(jax.random.PRNGKey(0), model_input)
-        variables = _zero_jax_variables(variables)
+        variables = model.init(jax.random.PRNGKey(seed), model_input)
+        if zero_parameters:
+            variables = _zero_jax_variables(variables)
         apply_factory = module.__dict__.get("build_apply")
         apply_callable = (
             cast(Callable[[Any], Callable[[Any, Any], Any]], apply_factory)(model)
@@ -114,6 +127,9 @@ def build_native_model(
         )
         apply = apply_callable
         outputs = _as_list(apply_callable(variables, model_input))
+    if backend is ExecutionBackend.TENSORFLOW and not zero_parameters:
+        _initialize_tensorflow_parameters(model, seed)
+        outputs = _as_list(execution_model(model_input))
     _checkpoint(checkpoint)
     return NativeModelHandle(
         backend=backend,
@@ -137,6 +153,31 @@ def forward_native(handle: NativeModelHandle) -> list[Any]:
         return _as_list(handle.execution_model(handle.model_input))
     apply = handle.apply or handle.model.apply
     return _as_list(apply(handle.variables, handle.model_input))
+
+
+def forward_native_with_trace(handle: NativeModelHandle) -> tuple[list[Any], dict[str, dict[str, Any]]]:
+    """Run the generated native model once and retain canonical node outputs."""
+
+    if handle.backend is ExecutionBackend.PYTORCH:
+        import torch
+
+        # Inspection captures from the raw module when torch.compile is
+        # enabled, because the optimized wrapper cannot reliably preserve the
+        # optional trace structure. Keep the same inference/eval state and
+        # parameters while making that observability path explicit upstream.
+        handle.model.eval()
+        with torch.no_grad():
+            result = handle.model(handle.model_input, return_intermediates=True)
+    elif handle.backend is ExecutionBackend.TENSORFLOW:
+        result = handle.execution_model(handle.model_input, return_intermediates=True)
+    else:
+        apply = cast(Callable[..., Any], handle.apply or handle.model.apply)
+        result = apply(handle.variables, handle.model_input, return_intermediates=True)
+    if not isinstance(result, tuple) or len(result) != 2 or not isinstance(result[1], dict):
+        raise RuntimeError(
+            "capture_unsupported: the selected native backend cannot expose intermediate tensors"
+        )
+    return _as_list(result[0]), result[1]
 
 ###############################################################################
 def _dummy_inputs(
@@ -212,6 +253,32 @@ def _zero_jax_variables(variables: Any) -> Any:
         )
         flattened[path] = jnp.ones_like(value) if is_variance else jnp.zeros_like(value)
     return unflatten_dict(flattened)
+
+
+def _initialize_tensorflow_parameters(model: Any, seed: int) -> None:
+    """Give the native TensorFlow inspection path normal deterministic weights."""
+
+    import tensorflow as tf
+
+    for index, variable in enumerate(model.variables):
+        name = str(getattr(variable, "name", "")).lower()
+        if any(token in name for token in ("bias", "beta")):
+            variable.assign(tf.zeros_like(variable))
+        elif "gamma" in name:
+            variable.assign(tf.ones_like(variable))
+        else:
+            fan_in = max(int(variable.shape[0]) if variable.shape.rank else 1, 1)
+            fan_out = max(int(variable.shape[-1]) if variable.shape.rank else 1, 1)
+            limit = (6.0 / float(fan_in + fan_out)) ** 0.5
+            variable.assign(
+                tf.random.stateless_uniform(
+                    variable.shape,
+                    seed=[int(seed), index],
+                    minval=-limit,
+                    maxval=limit,
+                    dtype=variable.dtype,
+                )
+            )
 
 ###############################################################################
 def _flatten_jax_variables(variables: Any) -> list[Any]:

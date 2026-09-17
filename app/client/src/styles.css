@@ -531,6 +531,63 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .confirm-dialog { width: min(420px, 100%); padding: 22px; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
 .confirm-dialog h2 { margin: 7px 0; font-size: 19px; }
 .confirm-dialog p { color: var(--muted); font-size: 11px; line-height: 1.5; }
+
+/* Shared bounded tensor inspection surface.  Values stay in a scrollable,
+   capped region so a large activation can never expand the document. */
+.tensor-inspection-modal { width: min(980px, calc(100vw - 28px)); height: min(720px, calc(100vh - 28px)); max-height: calc(100dvh - 28px); display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); overflow: hidden; box-shadow: 0 24px 70px rgba(0,0,0,.52); }
+.tensor-inspector-header, .tensor-inspector-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.tensor-inspector-header h2 { margin: 4px 0 2px; font-size: 18px; }
+.tensor-inspector-header p { margin: 0; color: var(--muted); font: 10px 'IBM Plex Mono', Consolas, monospace; }
+.tensor-inspector-toolbar { align-items: center; flex-wrap: wrap; padding-block: 9px; }
+.tensor-inspector-toolbar label, .tensor-inspection-ports label { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font: 10px 'IBM Plex Mono', Consolas, monospace; }
+.tensor-inspector-toolbar select, .tensor-inspector-toolbar input, .tensor-inspection-ports select, .tensor-axis-controls input { min-width: 0; border: 1px solid var(--border); border-radius: 3px; background: #0c151b; color: var(--text); padding: 6px 7px; font: 10px 'IBM Plex Mono', Consolas, monospace; }
+.tensor-inspector-nav { display: inline-flex; gap: 5px; }
+.tensor-inspection-warning { margin: 10px 16px; padding: 8px 10px; border: 1px solid rgba(230,177,102,.5); background: rgba(230,177,102,.09); color: #f2c982; font-size: 10px; line-height: 1.45; }
+.tensor-inspection-loading, .tensor-inspection-error { margin: 16px; padding: 14px; border: 1px solid var(--border); color: var(--muted); }
+.tensor-inspection-error { border-color: rgba(237,155,145,.55); color: #ffb6ac; }
+.tensor-inspection-body { min-height: 0; display: grid; grid-template-columns: minmax(175px, 220px) minmax(0, 1fr); }
+.tensor-inspection-summary { min-width: 0; overflow: auto; padding: 14px 16px; border-right: 1px solid var(--border); }
+.tensor-inspection-ports { display: grid; gap: 8px; }
+.tensor-inspection-ports select { width: 100%; }
+.tensor-detail-list { display: grid; gap: 7px; margin: 16px 0 0; }
+.tensor-detail-list div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid rgba(58,82,98,.55); padding-bottom: 6px; }
+.tensor-detail-list dt { color: var(--muted); font: 9px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; }
+.tensor-detail-list dd { margin: 0; color: var(--text); font: 10px 'IBM Plex Mono', Consolas, monospace; text-align: right; overflow-wrap: anywhere; }
+.tensor-port-shapes { display: grid; gap: 7px; margin: 12px 0 0; }
+.tensor-port-shapes div { display: grid; gap: 3px; }
+.tensor-port-shapes dt { color: var(--muted); font: 9px 'IBM Plex Mono', Consolas, monospace; text-transform: uppercase; }
+.tensor-port-shapes dd { margin: 0; color: var(--text); font: 9px 'IBM Plex Mono', Consolas, monospace; overflow-wrap: anywhere; }
+.tensor-axis-controls { display: grid; gap: 7px; margin-top: 18px; }
+.tensor-axis-controls label { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font: 10px 'IBM Plex Mono', Consolas, monospace; }
+.tensor-axis-controls input { width: 72px; }
+.tensor-sampling-note { margin: 14px 0 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.tensor-inspection-main { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.tensor-view-tabs { display: flex; gap: 2px; overflow-x: auto; padding: 8px 12px 0; border-bottom: 1px solid var(--border); }
+.tensor-view-tabs button { flex: 0 0 auto; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); padding: 7px 9px 8px; font: 10px 'IBM Plex Mono', Consolas, monospace; cursor: pointer; }
+.tensor-view-tabs button.active, .tensor-view-tabs button:hover, .tensor-view-tabs button:focus-visible { border-bottom-color: var(--cyan); color: var(--cyan); outline: none; }
+.tensor-stat-grid { align-content: start; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; padding: 16px; overflow: auto; }
+.tensor-stat-grid > div { display: grid; gap: 4px; padding: 9px; border: 1px solid var(--border); background: rgba(12,20,27,.55); }
+.tensor-stat-grid span, .tensor-stat-grid small { color: var(--muted); font-size: 9px; }
+.tensor-stat-grid strong { font: 600 13px 'IBM Plex Mono', Consolas, monospace; }
+.tensor-stat-grid > small { grid-column: 1 / -1; }
+.tensor-values { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 14px 16px; }
+.tensor-value-meta { color: var(--muted); font: 9px 'IBM Plex Mono', Consolas, monospace; }
+.tensor-values pre { min-height: 0; max-height: 100%; overflow: auto; margin: 8px 0 0; padding: 12px; border: 1px solid var(--border); background: #091016; color: var(--text); font: 10px/1.5 'IBM Plex Mono', Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tensor-value-pagination { display: flex; justify-content: flex-end; gap: 6px; padding-top: 8px; }
+.tensor-histogram { min-height: 190px; display: grid; grid-template-columns: repeat(64, minmax(2px, 1fr)); align-items: end; gap: 2px; padding: 18px 16px; }
+.tensor-histogram span { min-height: 2px; background: linear-gradient(180deg, var(--cyan), rgba(101,201,212,.28)); }
+.tensor-histogram small { grid-column: 1 / -1; align-self: end; color: var(--muted); font-size: 9px; }
+.tensor-line-plot { width: calc(100% - 32px); height: auto; min-height: 200px; margin: 16px; padding: 10px; border: 1px solid var(--border); color: var(--cyan); background: #091016; }
+.tensor-heatmap { display: grid; grid-template-columns: repeat(64, minmax(2px, 1fr)); grid-auto-rows: minmax(2px, 1fr); align-content: start; max-height: 100%; overflow: auto; gap: 1px; padding: 16px; }
+.tensor-heatmap span { display: block; min-width: 2px; min-height: 2px; aspect-ratio: 1; }
+.tensor-scatter { display: grid; grid-template-rows: minmax(220px, 1fr) auto; min-height: 220px; padding: 16px; color: var(--muted); font-size: 10px; }
+.tensor-scatter-plot { width: 100%; height: 100%; min-height: 220px; border: 1px solid var(--border); background: #091016; color: var(--cyan); }
+.tensor-values-loading { display: grid; place-items: center; min-height: 200px; color: var(--muted); font-size: 10px; }
+@media (max-width: 700px) {
+  .tensor-inspection-modal { width: calc(100vw - 14px); height: calc(100dvh - 14px); max-height: calc(100dvh - 14px); }
+  .tensor-inspection-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); overflow: auto; }
+  .tensor-inspection-summary { border-right: 0; border-bottom: 1px solid var(--border); }
+}
 .dialog-actions { justify-content: flex-end; margin-top: 18px; }
 .dialog-actions button { min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
 .dialog-actions .danger-action { border-color: var(--error); background: var(--error); color: #1b0d0f; }

@@ -121,6 +121,19 @@ def run_job(
     if operation_type == "smoke_inference":
         result = worker.run_smoke(graph, model_checkpoint, compilation_catalog=compilation_catalog)
         context.checkpoint("validating", "Forward pass completed", 90)
+    elif operation_type == "tensor_inspection":
+        raw_seed = operation.get("seed")
+        raw_revision = operation.get("project_revision")
+        result = worker.run_inspection(
+            graph,
+            model_checkpoint,
+            seed=int(raw_seed) if isinstance(raw_seed, int) else 42,
+            project_id=str(operation.get("project_id")),
+            project_revision=int(raw_revision) if isinstance(raw_revision, int) else 1,
+            output_root=context.job_dir / "inspection",
+            compilation_catalog=compilation_catalog,
+        )
+        context.checkpoint("publishing", "Inspection session prepared", 95)
     elif operation_type == "model_export":
         export_format = ExportFormat(str(operation.get("format")))
         options = ExportOptions.model_validate(operation.get("options") or {})

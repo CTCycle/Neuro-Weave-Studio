@@ -84,12 +84,33 @@ def _run_job_process(job_dir: Path) -> None:
         )
         raise SystemExit(20) from exc
     except Exception as exc:
+        operation = payload.get("operation", {})
+        operation_type = operation.get("type") if isinstance(operation, dict) else None
+        error_code = "worker_failed"
+        if operation_type == "tensor_inspection":
+            # Preserve the stable inspection contract when a backend rejects
+            # a dtype, shape, or capture strategy.  Ordinary framework errors
+            # remain an explicit execution failure rather than an opaque
+            # generic worker failure.
+            detail = str(exc) or "Tensor inspection execution failed"
+            known_codes = {
+                "capture_unsupported",
+                "dynamic_dimension_unresolved",
+                "execution_failed",
+                "node_uninspectable",
+                "payload_limit",
+                "unsupported_dtype",
+            }
+            error_code = next(
+                (code for code in known_codes if detail.startswith(f"{code}:")),
+                "execution_failed",
+            )
         context.write_status(
             phase="failed",
             message=str(exc) or "Worker failed without a diagnostic",
             state="failed",
             error={
-                "code": "worker_failed",
+                "code": error_code,
                 "message": str(exc) or "Worker failed without a diagnostic",
                 "traceback": traceback.format_exc(limit=12),
             },

@@ -18,8 +18,10 @@ from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 from models.worker_backend import (
     BackendWorker,
     empty_memory_metrics,
+    run_keras_inspection,
     run_keras_smoke,
     run_model_export,
+    run_native_inspection,
     run_native_smoke,
 )
 
@@ -168,6 +170,35 @@ class TensorFlowWorker:
             synchronize=self.synchronize,
             checkpoint=checkpoint,
             compilation_catalog=compilation_catalog,
+        )
+
+    # -------------------------------------------------------------------------
+    def run_inspection(
+        self,
+        graph: ModelGraph,
+        checkpoint: Callable[[], None],
+        *,
+        seed: int,
+        project_id: str,
+        project_revision: int,
+        output_root: Path,
+        compilation_catalog: CompilationCatalog | None = None,
+    ) -> dict[str, object]:
+        if self._config is not None and self._config.api is RuntimeApi.NATIVE:
+            return run_native_inspection(
+                graph, backend=self.backend, capabilities=self.capabilities(), scope=self.device_scope(),
+                synchronize=self.synchronize, checkpoint=checkpoint, seed=seed, project_id=project_id,
+                project_revision=project_revision, output_root=output_root, worker=self._config,
+                compilation_catalog=compilation_catalog,
+            )
+        import keras
+        from models import keras_worker
+        from models.keras_runtime import compile_model
+        return run_keras_inspection(
+            graph, keras_module=keras, build_model=keras_worker.build_model, compile_model=compile_model,
+            capabilities=self.capabilities(), scope=self.device_scope(), synchronize=self.synchronize,
+            checkpoint=checkpoint, seed=seed, project_id=project_id, project_revision=project_revision,
+            output_root=output_root, worker=self._config, compilation_catalog=compilation_catalog,
         )
 
     # -------------------------------------------------------------------------

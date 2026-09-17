@@ -137,6 +137,12 @@ Weights, optimizer state, Lambda layers, custom layers, arbitrary Python objects
 
 ## Future training and inference extension
 
+## Validated tensor inspection
+
+Tensor inspection is a forward-only diagnostic job layered after static validation. It accepts only the current saved revision with successful current revalidation, resolves a verified matching runtime, and never substitutes another backend. The six targets are Keras over TensorFlow/PyTorch/JAX and native TensorFlow/PyTorch/JAX; an unavailable or untraceable profile returns a typed failure. Inputs are deterministic seeded synthetic tensors (default seed `42`, or the persisted non-null Keras seed), and initialized weights remain untrained. The session reports the exact profile, seed, input description, compiler mode, and `initialized_untrained` warning; it does not train, update, or persist model state.
+
+One instrumented pass populates all executable node/port records and is retained only in the bounded ephemeral inspection store. Navigation and slices read the same session rather than rerunning inference. Large activations receive summaries and deterministic samples; precise values are loaded through bounded slice requests when the full tensor fits the retention budget.
+
 Future capabilities attach after static validation and the profile resolution boundary. They do not require changing the model identity. Training can consume a validated Keras adapter plus a future dataset/checkpoint service; native runtime support can add a native adapter and worker implementation when parity is proven.
 
 ```mermaid

@@ -547,7 +547,7 @@ export interface ExportOptions {
   max_shard_size_gb?: number | null
 }
 
-export type JobOperation = 'smoke_inference' | 'model_export'
+export type JobOperation = 'smoke_inference' | 'tensor_inspection' | 'model_export'
 export type JobState = 'starting' | 'running' | 'stop_requested' | 'stopping' | 'succeeded' | 'terminated' | 'failed'
 
 export interface JobProgress {
@@ -596,6 +596,94 @@ export interface JobResponse {
   result?: Record<string, unknown> | null
   artifact?: ExportArtifactManifest | null
   error?: JobError | null
+}
+
+export type TensorStorageMode = 'full' | 'sampled' | 'summary_only'
+export type TensorDataMode = 'exact' | 'sampled' | 'downsampled'
+
+export interface TensorStatistics {
+  mode: TensorDataMode
+  count: number
+  minimum?: number | null
+  maximum?: number | null
+  mean?: number | null
+  standard_deviation?: number | null
+  median?: number | null
+  zero_proportion?: number | null
+  nan_count: number
+  infinite_count: number
+}
+
+export interface TensorHistogram {
+  mode: TensorDataMode
+  bins: number[]
+  counts: number[]
+}
+
+export interface TensorDescriptor {
+  id: string
+  storage_id: string
+  node_id: string
+  direction: 'input' | 'output'
+  port_id: string
+  item_index?: number | null
+  shape: number[]
+  dtype: string
+  element_count: number
+  storage_mode: TensorStorageMode
+  value_count: number
+  statistics?: TensorStatistics | null
+  histogram?: TensorHistogram | null
+}
+
+export interface TensorInspectionNode {
+  node_id: string
+  node_name: string
+  node_type: string
+  topological_index: number
+  depth: number
+  predecessors: string[]
+  successors: string[]
+  inspectable: boolean
+  unavailable_reason?: string | null
+  inputs: TensorDescriptor[]
+  outputs: TensorDescriptor[]
+}
+
+export interface TensorInspectionSession {
+  id: string
+  project_id: string
+  project_revision: number
+  execution_backend: ExecutionBackend
+  runtime_api: RuntimeApi
+  worker: WorkerConfiguration
+  seed: number
+  weight_source: 'initialized_untrained'
+  input_description: string
+  compiler_mode: 'normal' | 'bypassed_for_inspection'
+  created_at: string
+  expires_at: string
+  nodes: TensorInspectionNode[]
+}
+
+export interface TensorInspectionViewRequest {
+  tensor_id: string
+  fixed_indices?: Record<number, number>
+  display_axes?: number[]
+  offset?: number
+  limit?: number
+}
+
+export interface TensorInspectionViewResponse {
+  tensor_id: string
+  shape: number[]
+  dtype: string
+  display_axes: number[]
+  fixed_indices: Record<number, number>
+  values: unknown
+  view_shape: number[]
+  mode: TensorDataMode
+  total_values: number
 }
 
 export interface TensorExecutionInfo {

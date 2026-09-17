@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     log_file: Path = RUNTIME_LOG_ROOT / "backend.log"
     export_root: Path = RUNTIME_EXPORT_ROOT
     ml_job_root: Path = RUNTIME_ROOT / "ml-jobs"
+    tensor_inspection_root: Path = RUNTIME_ROOT / "tensor-inspections"
+    tensor_inspection_ttl_seconds: int = Field(default=600, ge=60, le=86_400)
     ml_worker_timeout_seconds: int = Field(default=300, ge=1, le=86_400)
     runtime_discovery_timeout_seconds: int = Field(default=60, ge=1, le=600)
     ml_cancel_grace_seconds: int = Field(default=5, ge=1, le=300)
@@ -60,6 +62,15 @@ class Settings(BaseSettings):
     @field_validator("ml_job_root", mode="before")
     @classmethod
     def resolve_relative_ml_job_root(cls, value: object) -> object:
+        if value is None:
+            return value
+        path = Path(str(value))
+        return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
+
+    # -------------------------------------------------------------------------
+    @field_validator("tensor_inspection_root", mode="before")
+    @classmethod
+    def resolve_relative_tensor_inspection_root(cls, value: object) -> object:
         if value is None:
             return value
         path = Path(str(value))

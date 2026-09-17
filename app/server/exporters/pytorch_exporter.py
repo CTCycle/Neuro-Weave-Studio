@@ -382,7 +382,7 @@ class PyTorchSourceExporter(SourceExporter):
         lines.extend(
             [
                 "",
-                "    def forward(self, inputs: Tensor | dict[str, Tensor]) -> Tensor | tuple[Tensor, ...]:",
+                "    def forward(self, inputs: Tensor | dict[str, Tensor], return_intermediates: bool = False) -> Tensor | tuple[Tensor, ...] | tuple[Tensor | tuple[Tensor, ...], dict[str, dict[str, Tensor]]]:",
             ]
         )
         variables: dict[str, str] = {}
@@ -534,6 +534,11 @@ class PyTorchSourceExporter(SourceExporter):
 
         outputs = [variables[binding.node_id] for binding in ir.output_bindings]
         result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
+        trace = "{" + ", ".join(
+            f"{item.node_id!r}: {{'output': {variables[item.node_id]}}}"
+            for item in ir.ordered_nodes
+        ) + "}"
+        lines.append(f"        if return_intermediates: return {result}, {trace}")
         lines.append(f"        return {result}")
         optimizer_parameters = {
             parameter.id: native.optimizer_parameters.get(parameter.id, parameter.default)

@@ -6,6 +6,7 @@ import type { EditorNode } from '../../../domain/editor.types'
 import { ApiService } from '../../../core/api/api.service'
 import type { ExecutionBackend, ValidationDiagnostic, ValidationResult } from '../../../domain/types'
 import { GraphEditorStore } from '../state/graph-editor.store'
+import { TensorInspectionCoordinator } from '../../tensor-inspection/tensor-inspection.coordinator'
 import { connectionCandidates, wouldCreateCycle } from '../graph/graph-validation'
 import { GRAPH_NODE_SIZE, connectorId, flowPositionFromDrop, graphFitPadding, normalizeConnection, portOffset } from '../graph/foblex-graph.adapter'
 
@@ -40,7 +41,7 @@ type NormalizedConnection = NonNullable<ReturnType<typeof normalizeConnection>>
       @if (readOnly && !store.nodes().length) { <div class="preview-empty">No renderable nodes in this revision.</div> }
       @if (!readOnly) { <div class="canvas-hint">Drop a node to build the model • Ctrl+L auto-layout</div> }
       @if (!readOnly && canvasMenu(); as menu) { <div class="canvas-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" [disabled]="!hasNodes()" [title]="hasNodes() ? 'Fit all nodes in the canvas' : 'Add a node before fitting the workflow'" (click)="fitView(); closeMenus()">Fit workflow to view</button><button type="button" role="menuitem" [disabled]="!hasNodes()" [title]="hasNodes() ? 'Arrange nodes using the workflow layout' : 'Add a node before applying a layout'" (click)="autoLayout(); closeMenus()">Auto layout</button><button type="button" role="menuitem" class="is-destructive" [disabled]="!hasNodes()" [title]="hasNodes() ? 'Remove all nodes and connections from the canvas' : 'The canvas is already empty'" (click)="requestReset(); closeMenus()">Reset canvas</button></div> }
-      @if (!readOnly && nodeMenu(); as menu) { <div class="canvas-context-menu node-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" [disabled]="!canDuplicate(menu.nodeId)" [title]="duplicateTitle(menu.nodeId)" (click)="duplicateWithDefaults(menu.nodeId); closeMenus()">Duplicate with defaults</button><button type="button" role="menuitem" [disabled]="!canDuplicate(menu.nodeId)" [title]="duplicateTitle(menu.nodeId)" (click)="duplicateExact(menu.nodeId); closeMenus()">Duplicate exact</button><button type="button" role="menuitem" (click)="copyNode(menu.nodeId); closeMenus()">Copy node</button><button type="button" role="menuitem" [disabled]="!hasParameters(menu.nodeId)" [title]="hasParameters(menu.nodeId) ? 'Restore node parameters to their framework defaults' : 'This node has no parameters to reset'" (click)="resetParameters(menu.nodeId); closeMenus()">Reset parameters</button><button type="button" role="menuitem" [disabled]="!hasConnections(menu.nodeId)" [title]="hasConnections(menu.nodeId) ? 'Remove every connection attached to this node' : 'This node has no connections to disconnect'" (click)="disconnectNode(menu.nodeId); closeMenus()">Disconnect all</button><button type="button" role="menuitem" [disabled]="isOutputActionDisabled(menu.nodeId)" [title]="outputActionTitle(menu.nodeId)" (click)="toggleOutput(menu.nodeId); closeMenus()">{{ outputActionLabel(menu.nodeId) }}</button><button type="button" role="menuitem" (click)="toggleLock(menu.nodeId); closeMenus()">{{ isLocked(menu.nodeId) ? 'Unlock node' : 'Lock node' }}</button><button type="button" role="menuitem" class="is-destructive" (click)="deleteNode(menu.nodeId); closeMenus()">Delete node</button></div> }
+      @if (nodeMenu(); as menu) { <div class="canvas-context-menu node-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (pointerdown)="$event.stopPropagation()"><button type="button" role="menuitem" [disabled]="!canInspectTensor()" [title]="inspectionTitle()" (click)="inspectTensor(menu.nodeId); closeMenus()">Inspect tensor</button>@if (!readOnly) { <button type="button" role="menuitem" [disabled]="!canDuplicate(menu.nodeId)" [title]="duplicateTitle(menu.nodeId)" (click)="duplicateWithDefaults(menu.nodeId); closeMenus()">Duplicate with defaults</button><button type="button" role="menuitem" [disabled]="!canDuplicate(menu.nodeId)" [title]="duplicateTitle(menu.nodeId)" (click)="duplicateExact(menu.nodeId); closeMenus()">Duplicate exact</button><button type="button" role="menuitem" (click)="copyNode(menu.nodeId); closeMenus()">Copy node</button><button type="button" role="menuitem" [disabled]="!hasParameters(menu.nodeId)" [title]="hasParameters(menu.nodeId) ? 'Restore node parameters to their framework defaults' : 'This node has no parameters to reset'" (click)="resetParameters(menu.nodeId); closeMenus()">Reset parameters</button><button type="button" role="menuitem" [disabled]="!hasConnections(menu.nodeId)" [title]="hasConnections(menu.nodeId) ? 'Remove every connection attached to this node' : 'This node has no connections to disconnect'" (click)="disconnectNode(menu.nodeId); closeMenus()">Disconnect all</button><button type="button" role="menuitem" [disabled]="isOutputActionDisabled(menu.nodeId)" [title]="outputActionTitle(menu.nodeId)" (click)="toggleOutput(menu.nodeId); closeMenus()">{{ outputActionLabel(menu.nodeId) }}</button><button type="button" role="menuitem" (click)="toggleLock(menu.nodeId); closeMenus()">{{ isLocked(menu.nodeId) ? 'Unlock node' : 'Lock node' }}</button><button type="button" role="menuitem" class="is-destructive" (click)="deleteNode(menu.nodeId); closeMenus()">Delete node</button> }</div> }
     </div>
   `,
 })
@@ -59,11 +60,16 @@ export class GraphCanvasComponent implements OnChanges {
   }
   get validation(): ValidationResult | null { return this.currentValidation }
   @Input() fullCanvas = false
+  @Input() inspectionProjectId: string | null = null
+  @Input() inspectionRevision: number | null = null
+  @Input() inspectionEnabled = false
+  @Input() inspectionDisabledReason = 'Save and validate this revision before inspecting.'
   @Output() readonly enterFocus = new EventEmitter<void>()
   @Output() readonly exitFocus = new EventEmitter<void>()
   @Output() readonly save = new EventEmitter<void>()
   @Output() readonly resetRequested = new EventEmitter<void>()
   readonly store = inject(GraphEditorStore)
+  private readonly tensorInspection = inject(TensorInspectionCoordinator)
   private readonly api = inject(ApiService)
   readonly minimapVisible = signal(true)
   readonly viewportLocked = signal(false)
@@ -206,14 +212,19 @@ export class GraphCanvasComponent implements OnChanges {
     this.canvasMenu.set(this.menuPosition(event))
   }
   openNodeMenu(event: MouseEvent, nodeId: string): void {
-    if (this.readOnly) return
     event.preventDefault()
     event.stopPropagation()
-    this.store.selectNode(nodeId)
+    if (!this.readOnly) this.store.selectNode(nodeId)
     this.canvasMenu.set(null)
     this.nodeMenu.set({ ...this.menuPosition(event), nodeId })
   }
   closeMenus(): void { this.canvasMenu.set(null); this.nodeMenu.set(null) }
+  canInspectTensor(): boolean { return Boolean(this.inspectionEnabled && this.inspectionProjectId && this.inspectionRevision !== null) }
+  inspectionTitle(): string { return this.canInspectTensor() ? 'Capture intermediate tensors for this saved revision' : this.inspectionDisabledReason }
+  inspectTensor(nodeId: string): void {
+    if (!this.canInspectTensor() || !this.inspectionProjectId || this.inspectionRevision === null) return
+    void this.tensorInspection.start({ projectId: this.inspectionProjectId, revision: this.inspectionRevision, nodeId })
+  }
   requestReset(): void { if (this.hasNodes()) this.resetRequested.emit() }
   autoLayout(): void { if (!this.hasNodes()) return; this.store.autoLayout(this.store.nodes(), this.store.edges()); if (!this.viewportLocked()) this.fitView() }
   duplicateWithDefaults(nodeId: string): void { this.store.duplicateWithDefaults(nodeId) }
@@ -290,6 +301,12 @@ export class GraphCanvasComponent implements OnChanges {
   selectNode(nodeId: string): void { if (!this.readOnly) this.store.selectNode(nodeId) }
   select(event: FSelectionChangeEvent): void { if (this.readOnly) return; if (event.connectionIds.length) this.store.selectEdge(event.connectionIds[0]); else if (event.nodeIds.length) this.store.selectNode(event.nodeIds[0]); else this.store.clearSelection() }
   handleNodeKeydown(event: KeyboardEvent, nodeId: string): void {
+    if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
+      event.preventDefault()
+      event.stopPropagation()
+      this.openKeyboardNodeMenu(event, nodeId)
+      return
+    }
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       this.selectNode(nodeId)
@@ -303,6 +320,20 @@ export class GraphCanvasComponent implements OnChanges {
     if (!direction) return
     event.preventDefault()
     this.focusNearestNode(nodeId, direction)
+  }
+  private openKeyboardNodeMenu(event: KeyboardEvent, nodeId: string): void {
+    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+    const shell = target?.closest('.canvas-shell') ?? target
+    const bounds = shell?.getBoundingClientRect()
+    const targetBounds = target?.getBoundingClientRect()
+    if (!bounds || !targetBounds) return
+    if (!this.readOnly) this.store.selectNode(nodeId)
+    this.canvasMenu.set(null)
+    this.nodeMenu.set({
+      x: Math.max(8, targetBounds.right - bounds.left),
+      y: Math.max(8, targetBounds.top - bounds.top),
+      nodeId,
+    })
   }
   async handlePortKeydown(event: KeyboardEvent, nodeId: string, direction: 'input' | 'output', portId: string): Promise<void> {
     if (event.key === 'Escape') {

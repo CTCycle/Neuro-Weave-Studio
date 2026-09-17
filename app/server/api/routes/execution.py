@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 
 from api.dependencies import get_job_service, get_runtime_controller
 from domain.enums import ExecutionBackend
-from domain.jobs import JobResponse, JobSubmitRequest
+from domain.jobs import JobResponse, JobSubmitRequest, TensorInspectionOperation
 from domain.runtime import RuntimeApi, RuntimeDiscoveryRequest, RuntimeDiscoveryResponse
 from services.errors import CompilationRejectedError, ProjectNotFoundError
 from services.job_service import JobService
@@ -52,10 +52,13 @@ def submit_job(
     try:
         return service.submit(payload)
     except CompilationRejectedError as exc:
+        stable_code = "model_validation_failed"
+        if isinstance(payload.operation, TensorInspectionOperation) and exc.diagnostics:
+            stable_code = exc.diagnostics[0].code
         raise HTTPException(
             status_code=422,
             detail={
-                "code": "model_validation_failed",
+                "code": stable_code,
                 "message": str(exc),
                 "diagnostics": [item.model_dump(mode="json") for item in exc.diagnostics],
             },
@@ -65,6 +68,16 @@ def submit_job(
             status_code=404, detail={"code": "project_not_found", "message": str(exc)}
         ) from exc
     except RuntimeControllerError as exc:
+        stable_code = exc.code
+        if isinstance(payload.operation, TensorInspectionOperation) and exc.code in {
+            "api_unavailable",
+            "backend_unavailable",
+            "runtime_discovery_pending",
+            "runtime_discovery_required",
+            "device_unavailable",
+            "native_compiler_unavailable",
+        }:
+            stable_code = "runtime_unavailable"
         status = (
             409
             if exc.code
@@ -81,7 +94,7 @@ def submit_job(
         )
         raise HTTPException(
             status_code=status,
-            detail={"code": exc.code, "message": str(exc), **exc.details},
+            detail={"code": stable_code, "message": str(exc), "reason_code": exc.code, **exc.details},
         ) from exc
 
 ###############################################################################
