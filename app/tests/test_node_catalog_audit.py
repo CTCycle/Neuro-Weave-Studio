@@ -292,5 +292,6 @@ def test_generated_sources_are_not_exported_as_model_inputs() -> None:
         assert ir.input_node_ids == ["input"]
         source = exporter.generate(graph, ir, catalog)
         assert expected_class in source
-        assert "keras.Input" in source
-        assert "name='generated'" not in source.split("keras.Input", 1)[1]
+        input_lines = [line for line in source.splitlines() if "keras.Input(" in line]
+        assert len(input_lines) == 1
+        assert "name='input'" in input_lines[0]
