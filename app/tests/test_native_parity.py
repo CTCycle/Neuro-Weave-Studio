@@ -203,6 +203,78 @@ def merge_add_graph() -> ModelGraph:
 
 
 ###############################################################################
+def average_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("left", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            node("right", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            node("average", "merge.average"),
+            node("output", "output.custom"),
+        ],
+        edges=[
+            edge("left-average", "left", "average", "inputs"),
+            edge("right-average", "right", "average", "inputs"),
+            edge("average-output", "average", "output"),
+        ],
+    )
+
+
+###############################################################################
+def index_graph() -> ModelGraph:
+    return chain_graph(
+        "input.tensor",
+        [4],
+        "math.index",
+        {"expression": "x[:, 1:3]"},
+    )
+
+
+###############################################################################
+def generated_source_graph(definition_id: str, parameters: dict[str, Any]) -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("input", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            node("generated", definition_id, parameters),
+            node("add", "merge.add"),
+            node("output", "output.custom"),
+        ],
+        edges=[
+            edge("input-add", "input", "add", "inputs"),
+            edge("generated-add", "generated", "add", "inputs"),
+            edge("add-output", "add", "output"),
+        ],
+    )
+
+
+###############################################################################
+def split_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("input", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            node("split", "merge.split", {"sections": 2, "axis": -1}),
+        ],
+        edges=[edge("input-split", "input", "split")],
+    )
+
+
+###############################################################################
+def detection_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("boxes", "input.tensor", {"shape": [2, 4], "dtype": "float32"}),
+            node("scores", "input.tensor", {"shape": [2], "dtype": "float32"}),
+            node("classes", "input.tensor", {"shape": [2], "dtype": "float32"}),
+            node("detection", "output.detection"),
+        ],
+        edges=[
+            edge("boxes-detection", "boxes", "detection", "boxes"),
+            edge("scores-detection", "scores", "detection", "scores"),
+            edge("classes-detection", "classes", "detection", "classes"),
+        ],
+    )
+
+
+###############################################################################
 @pytest.mark.parametrize("backend", native_parity_backends())
 def test_native_dense_values_are_deterministic_across_frameworks(
     backend: ExecutionBackend,
@@ -230,6 +302,8 @@ def test_native_dense_values_are_deterministic_across_frameworks(
         # math.reshape is the supported native reshape operation; layer.reshape is not.
         ("reshape_flatten", reshape_flatten_graph, (1, 4)),
         ("merge_add", merge_add_graph, (1, 4)),
+        ("merge_average", average_graph, (1, 4)),
+        ("safe_index", index_graph, (1, 2)),
     ],
 )
 @pytest.mark.parametrize("backend", native_parity_backends())
@@ -255,6 +329,64 @@ def test_native_representative_cases(
     value = to_numpy(outputs[0])
     assert value.shape == expected_shape
     assert value.dtype == np.float32
+
+###############################################################################
+@pytest.mark.parametrize("backend", native_parity_backends())
+@pytest.mark.parametrize(
+    ("definition_id", "parameters", "expected"),
+    [
+        (
+            "input.constant",
+            {"shape": [4], "value": 2.0, "dtype": "float32"},
+            np.full((1, 4), 2.0, dtype=np.float32),
+        ),
+        (
+            "input.parameter",
+            {
+                "shape": [4],
+                "initializer": "ones",
+                "dtype": "float32",
+                "trainable": True,
+            },
+            np.ones((1, 4), dtype=np.float32),
+        ),
+    ],
+)
+def test_native_generated_sources_are_internal_and_executable(
+    backend: ExecutionBackend,
+    definition_id: str,
+    parameters: dict[str, Any],
+    expected: np.ndarray,
+) -> None:
+    require_backend(backend)
+    handle = build_native_model(generated_source_graph(definition_id, parameters), backend)
+
+    assert [item.node_id for item in handle.inputs] == ["input"]
+    outputs = forward_native(handle)
+    assert len(outputs) == 1
+    np.testing.assert_allclose(to_numpy(outputs[0]), expected, rtol=1e-5, atol=1e-6)
+
+
+###############################################################################
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_split_returns_each_section(backend: ExecutionBackend) -> None:
+    require_backend(backend)
+    outputs = forward_native(build_native_model(split_graph(), backend))
+
+    assert len(outputs) == 2
+    assert [tuple(to_numpy(value).shape) for value in outputs] == [(1, 2), (1, 2)]
+
+
+###############################################################################
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_detection_preserves_named_output_ports(backend: ExecutionBackend) -> None:
+    require_backend(backend)
+    handle = build_native_model(detection_graph(), backend)
+    outputs = forward_native(handle)
+
+    assert [binding.port_id for binding in handle.outputs] == ["boxes", "scores", "classes"]
+    assert [tuple(to_numpy(value).shape) for value in outputs] == [(1, 2, 4), (1, 2), (1, 2)]
+
 
 ###############################################################################
 @pytest.mark.parametrize("backend", native_parity_backends())
