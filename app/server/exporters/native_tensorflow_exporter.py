@@ -193,7 +193,24 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             definition = item.definition_id
             name = item.variable_name
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
-            if definition == "layer.dense":
+            if definition == "input.parameter":
+                source_shape = params.get("shape", [1])
+                if not isinstance(source_shape, list):
+                    raise ValueError(f"TensorFlow parameter node {node.id} requires a list shape")
+                initializer = str(params.get("initializer", "zeros"))
+                dtype = str(params.get("dtype", "float32"))
+                if initializer == "zeros":
+                    initial_source = f"tf.zeros({source_shape!r}, dtype=tf.{dtype})"
+                elif initializer == "ones":
+                    initial_source = f"tf.ones({source_shape!r}, dtype=tf.{dtype})"
+                elif initializer == "random_normal":
+                    initial_source = f"tf.random.normal({source_shape!r}, dtype=tf.{dtype})"
+                else:
+                    raise ValueError(f"Unsupported TensorFlow parameter initializer: {initializer}")
+                lines.append(
+                    f"        self.{name}_parameter = tf.Variable({initial_source}, trainable={bool(params.get('trainable', True))!r}, name={name + '_parameter'!r})"
+                )
+            elif definition == "layer.dense":
                 input_features = self._static_dimension(source_spec, -1)
                 if input_features is None:
                     raise ValueError(
@@ -357,15 +374,40 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             ]
         )
         variables: dict[str, str] = {}
+        port_variables: dict[tuple[str, str], str] = {}
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
             definition = item.definition_id
             name = item.variable_name
             params = node.parameters
-            source_vars = [variables[source_id] for source_id in item.input_node_ids]
+            source_vars = [
+                port_variables[(binding.source_node_id, binding.source_port_id)]
+                for binding in item.input_bindings
+            ]
             source = source_vars[0] if source_vars else ""
             manifest = catalog.get(definition, node.definition_version)
-            if manifest.operation is not None:
+            if definition in {"input.constant", "input.parameter"}:
+                if not ir.input_node_ids:
+                    raise ValueError(
+                        f"Generated source node {node.id} requires at least one runtime model input for batch materialization"
+                    )
+                anchor = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{ir.input_node_ids[0]!r}]"
+                source_shape = params.get("shape", [1])
+                if not isinstance(source_shape, list):
+                    raise ValueError(f"Generated source node {node.id} requires a list shape")
+                if definition == "input.constant":
+                    dtype = str(params.get("dtype", "float32"))
+                    lines.append(
+                        f"        {name}_source = tf.fill({source_shape!r}, tf.cast({params.get('value', 0)!r}, tf.{dtype}))"
+                    )
+                    lines.append(
+                        f"        {name} = tf.repeat(tf.expand_dims({name}_source, 0), repeats=tf.shape({anchor})[0], axis=0)"
+                    )
+                else:
+                    lines.append(
+                        f"        {name} = tf.repeat(tf.expand_dims(self.{name}_parameter, 0), repeats=tf.shape({anchor})[0], axis=0)"
+                    )
+            elif manifest.operation is not None:
                 lines.append(
                     f"        {name} = {emit_operation_source(manifest, 'tensorflow', source_vars, params)}"
                 )
@@ -467,12 +509,34 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(
                     f"        {name} = tf.concat([{', '.join(source_vars)}], axis={int(params.get('axis', -1))!r})"
                 )
+            elif definition == "merge.split":
+                lines.append(
+                    f"        {name} = tf.split({source}, num_or_size_splits={int(params.get('sections', 2))!r}, axis={int(params.get('axis', -1))!r})"
+                )
+            elif definition == "output.detection":
+                lines.append(f"        {name} = ({', '.join(source_vars)})")
             elif manifest.semantic_role == "output_adapter":
                 lines.append(f"        {name} = {source}")
             else:
                 raise ValueError(f"No native TensorFlow adapter registered for {definition}")
-            variables[item.node_id] = name
-        outputs = [variables[binding.node_id] for binding in ir.output_bindings]
+            output_ports = [
+                port
+                for port in manifest.outputs
+                if all(
+                    (condition.get("equals") == params.get(parameter_id))
+                    if isinstance(condition, dict) and "equals" in condition
+                    else params.get(parameter_id) == condition
+                    for parameter_id, condition in port.enabled_when.items()
+                )
+            ]
+            if len(output_ports) > 1:
+                for index, port in enumerate(output_ports):
+                    port_variables[(item.node_id, port.id)] = f"{name}[{index}]"
+                variables[item.node_id] = f"{name}[0]"
+            else:
+                port_variables[(item.node_id, output_ports[0].id)] = name
+                variables[item.node_id] = name
+        outputs = [port_variables[(binding.node_id, binding.port_id)] for binding in ir.output_bindings]
         result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
         trace = "{" + ", ".join(
             f"{item.node_id!r}: {{'output': {variables[item.node_id]}}}"
