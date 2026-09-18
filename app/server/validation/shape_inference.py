@@ -564,6 +564,19 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                     "Input shape must include an unknown leading batch dimension"
                 )
             output = TensorSpec(shape=input_shape, dtype=parameters.get("dtype", DataType.FLOAT32))
+        elif rule == "generated_source":
+            shape = parameters.get("shape", [1])
+            if not isinstance(shape, list) or any(
+                not isinstance(value, int) or isinstance(value, bool) or value <= 0
+                for value in shape
+            ):
+                raise ShapeInferenceError("Generated source shape must contain positive integers")
+            feature_shape = cast(list[int], shape)
+            output = TensorSpec(
+                shape=[None, *feature_shape],
+                dtype=parameters.get("dtype", DataType.FLOAT32),
+            )
+            parameter_count = prod(feature_shape) if node.definition_id == "input.parameter" else 0
         elif rule == "identity":
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")
@@ -1068,6 +1081,13 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                     "Index shape cannot be inferred from a free-form expression"
                 )
             output = TensorSpec(shape=[None] * source.rank, dtype=source.dtype)
+        elif rule == "detection":
+            missing = [port for port in ("boxes", "scores", "classes") if port not in input_specs_by_port]
+            if missing:
+                raise ShapeInferenceError(
+                    f"{node_id} requires detection inputs: {', '.join(missing)}"
+                )
+            output = input_specs_by_port["boxes"]
         elif rule in {"output", "normalization", "dropout"}:
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")
@@ -1090,6 +1110,8 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 port.id: output if port.id == "output" else recurrent_state
                 for port in output_ports
             }
+        elif rule == "detection":
+            outputs = {port.id: input_specs_by_port[port.id] for port in output_ports}
         else:
             outputs = {port.id: output for port in output_ports}
         outputs_by_node[node_id] = outputs
