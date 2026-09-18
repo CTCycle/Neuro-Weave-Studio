@@ -238,7 +238,49 @@ class PyTorchSourceExporter(SourceExporter):
             name = item.variable_name
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
 
-            if definition == "input.parameter":
+            if definition == "layer.group_norm":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch GroupNorm node {node.id} requires an inferred input shape")
+                rank = source_spec.rank
+                axis = self._axis(params.get("axis", -1), rank)
+                channels = self._static_dimension(source_spec, axis)
+                if channels is None:
+                    raise ValueError(f"PyTorch GroupNorm node {node.id} requires a known channel dimension")
+                groups = int(params.get("groups", 32))
+                if groups <= 0 or channels % groups != 0:
+                    raise ValueError(f"PyTorch GroupNorm node {node.id} requires groups to divide channels")
+                if bool(params.get("scale", True)):
+                    lines.append(f"        self.{name}_gamma = nn.Parameter(torch.ones({channels!r}))")
+                else:
+                    lines.append(f"        self.register_parameter({name + '_gamma'!r}, None)")
+                if bool(params.get("center", True)):
+                    lines.append(f"        self.{name}_beta = nn.Parameter(torch.zeros({channels!r}))")
+                else:
+                    lines.append(f"        self.register_parameter({name + '_beta'!r}, None)")
+            elif definition == "layer.rms_norm":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch RMSNorm node {node.id} requires an inferred input shape")
+                axis = self._axis(params.get("axis", -1), source_spec.rank)
+                dimension = self._static_dimension(source_spec, axis)
+                if dimension is None:
+                    raise ValueError(f"PyTorch RMSNorm node {node.id} requires a known normalized dimension")
+                lines.append(f"        self.{name}_gamma = nn.Parameter(torch.ones({dimension!r}))")
+            elif definition == "layer.prelu":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch PReLU node {node.id} requires an inferred input shape")
+                shape = list(source_spec.shape)
+                shared_axes = params.get("shared_axes")
+                shared = set(shared_axes if isinstance(shared_axes, list) else [])
+                alpha_shape = [1]
+                for axis_index, dimension in enumerate(shape[1:], start=1):
+                    if axis_index in shared:
+                        alpha_shape.append(1)
+                    elif isinstance(dimension, int):
+                        alpha_shape.append(dimension)
+                    else:
+                        raise ValueError(f"PyTorch PReLU node {node.id} requires known non-shared dimensions")
+                lines.append(f"        self.{name}_alpha = nn.Parameter(torch.zeros({tuple(alpha_shape)!r}))")
+            elif definition == "input.parameter":
                 source_shape = params.get("shape", [1])
                 if not isinstance(source_shape, list):
                     raise ValueError(f"PyTorch parameter node {node.id} requires a list shape")
@@ -467,6 +509,53 @@ class PyTorchSourceExporter(SourceExporter):
                 expression = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{node.id!r}]"
                 lines.append(f"        {name} = {expression}")
                 variables[item.node_id] = name
+            elif definition == "layer.reshape":
+                target_shape = tuple(params.get("target_shape", [-1]))
+                lines.append(f"        {name} = torch.reshape({source}, ({source}.shape[0], *{target_shape!r}))")
+                variables[item.node_id] = name
+            elif definition == "layer.permute":
+                axes = tuple(int(value) for value in params.get("axes", [2, 1]))
+                permutation = (0, *axes)
+                lines.append(f"        {name} = {source}.permute{permutation!r}.contiguous()")
+                variables[item.node_id] = name
+            elif definition == "layer.repeat":
+                repeats = int(params.get("repeats", 2))
+                axis = int(params.get("axis", 1))
+                lines.append(f"        {name} = torch.repeat_interleave({source}, {repeats!r}, dim={axis!r})")
+                variables[item.node_id] = name
+            elif definition == "layer.unit_norm":
+                axis = int(params.get("axis", -1))
+                lines.append(f"        {name} = torch.nn.functional.normalize({source}, p=2.0, dim={axis!r}, eps=1e-12)")
+                variables[item.node_id] = name
+            elif definition == "layer.rms_norm":
+                axis = int(params.get("axis", -1))
+                epsilon = float(params.get("epsilon", 1e-6))
+                lines.append(f"        {name}_scale = torch.rsqrt(torch.mean(torch.square({source}), dim={axis!r}, keepdim=True) + {epsilon!r})")
+                lines.append(f"        {name} = {source} * {name}_scale")
+                lines.append(f"        {name}_shape = [1] * {name}.ndim")
+                lines.append(f"        {name}_shape[{axis!r}] = self.{name}_gamma.shape[0]")
+                lines.append(f"        {name} = {name} * self.{name}_gamma.reshape({name}_shape)")
+                variables[item.node_id] = name
+            elif definition == "layer.prelu":
+                lines.append(f"        {name} = torch.where({source} >= 0, {source}, self.{name}_alpha * {source})")
+                variables[item.node_id] = name
+            elif definition == "layer.group_norm":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch GroupNorm node {node.id} requires an inferred input shape")
+                rank = source_spec.rank
+                axis = self._axis(params.get("axis", -1), rank)
+                groups = int(params.get("groups", 32))
+                epsilon = float(params.get("epsilon", 0.001))
+                if axis != 1:
+                    permutation = (0, axis, *tuple(index for index in range(1, rank) if index != axis))
+                    inverse = tuple(permutation.index(index) for index in range(rank))
+                    lines.append(f"        {name}_input = {source}.permute{permutation!r}.contiguous()")
+                else:
+                    lines.append(f"        {name}_input = {source}")
+                lines.append(f"        {name} = torch.nn.functional.group_norm({name}_input, {groups!r}, self.{name}_gamma, self.{name}_beta, eps={epsilon!r})")
+                if axis != 1:
+                    lines.append(f"        {name} = {name}.permute{inverse!r}.contiguous()")
+                variables[item.node_id] = name
             elif definition in {
                 "layer.dense",
                 "layer.dropout",
@@ -579,7 +668,7 @@ class PyTorchSourceExporter(SourceExporter):
                 if not params.get("return_sequences", False):
                     lines.append(f"        {name} = {name}[:, -1, :]")
                 variables[item.node_id] = name
-            elif definition in {"merge.add", "merge.residual", "merge.skip"}:
+            elif definition in {"merge.add", "merge.residual", "merge.skip", "transformer.residual"}:
                 lines.append(f"        {name} = {' + '.join(source_vars)}")
                 variables[item.node_id] = name
             elif definition == "merge.concatenate":
@@ -592,6 +681,9 @@ class PyTorchSourceExporter(SourceExporter):
                 lines.append(
                     f"        {name} = list(torch.chunk({source}, {int(params.get('sections', 2))!r}, dim={int(params.get('axis', -1))!r}))"
                 )
+                variables[item.node_id] = name
+            elif definition == "transformer.attention_mask":
+                lines.append(f"        {name} = {source}")
                 variables[item.node_id] = name
             elif definition == "output.detection":
                 lines.append(f"        {name} = ({', '.join(source_vars)})")
