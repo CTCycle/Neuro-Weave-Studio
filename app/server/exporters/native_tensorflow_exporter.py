@@ -214,7 +214,53 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             definition = item.definition_id
             name = item.variable_name
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
-            if definition == "input.parameter":
+            if definition == "layer.group_norm":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow GroupNorm node {node.id} requires an inferred input shape")
+                axis = self._axis(params.get("axis", -1), source_spec.rank)
+                channels = self._static_dimension(source_spec, axis)
+                groups = int(params.get("groups", 32))
+                if channels is None or groups <= 0 or channels % groups != 0:
+                    raise ValueError(f"TensorFlow GroupNorm node {node.id} requires a known channel dimension divisible by groups")
+                lines.append(f"        self.{name}_axis = {axis!r}")
+                lines.append(f"        self.{name}_groups = {groups!r}")
+                lines.append(f"        self.{name}_epsilon = {float(params.get('epsilon', 0.001))!r}")
+                lines.append(
+                    f"        self.{name}_gamma = tf.Variable(tf.ones([{channels}], tf.float32), name={name + '_gamma'!r})"
+                    if bool(params.get("scale", True))
+                    else f"        self.{name}_gamma = None"
+                )
+                lines.append(
+                    f"        self.{name}_beta = tf.Variable(tf.zeros([{channels}], tf.float32), name={name + '_beta'!r})"
+                    if bool(params.get("center", True))
+                    else f"        self.{name}_beta = None"
+                )
+            elif definition == "layer.rms_norm":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow RMSNorm node {node.id} requires an inferred input shape")
+                axis = self._axis(params.get("axis", -1), source_spec.rank)
+                dimension = self._static_dimension(source_spec, axis)
+                if dimension is None:
+                    raise ValueError(f"TensorFlow RMSNorm node {node.id} requires a known normalized dimension")
+                lines.append(f"        self.{name}_axis = {axis!r}")
+                lines.append(f"        self.{name}_epsilon = {float(params.get('epsilon', 1e-6))!r}")
+                lines.append(f"        self.{name}_gamma = tf.Variable(tf.ones([{dimension}], tf.float32), name={name + '_gamma'!r})")
+            elif definition == "layer.prelu":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow PReLU node {node.id} requires an inferred input shape")
+                shape = cast(list[Any], source_spec.shape)
+                shared_axes = params.get("shared_axes")
+                shared = set(cast(list[int], shared_axes)) if isinstance(shared_axes, list) else set()
+                alpha_shape: list[int] = []
+                for axis_index, dimension in enumerate(shape[1:], start=1):
+                    if axis_index in shared:
+                        alpha_shape.append(1)
+                    elif isinstance(dimension, int):
+                        alpha_shape.append(dimension)
+                    else:
+                        raise ValueError(f"TensorFlow PReLU node {node.id} requires known non-shared dimensions")
+                lines.append(f"        self.{name}_alpha = tf.Variable(tf.zeros({alpha_shape!r}, tf.float32), name={name + '_alpha'!r})")
+            elif definition == "input.parameter":
                 source_shape = params.get("shape", [1])
                 if not isinstance(source_shape, list):
                     raise ValueError(f"TensorFlow parameter node {node.id} requires a list shape")
@@ -231,6 +277,50 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(
                     f"        self.{name}_parameter = tf.Variable({initial_source}, trainable={bool(params.get('trainable', True))!r}, name={name + '_parameter'!r})"
                 )
+            elif definition == "layer.reshape":
+                target_shape = tuple(params.get("target_shape", [-1]))
+                lines.append(f"        {name} = tf.reshape({source}, [tf.shape({source})[0], *{target_shape!r}])")
+            elif definition == "layer.permute":
+                axes = tuple(int(value) for value in params.get("axes", [2, 1]))
+                lines.append(f"        {name} = tf.transpose({source}, perm={(0, *axes)!r})")
+            elif definition == "layer.repeat":
+                repeats = int(params.get("repeats", 2))
+                axis = int(params.get("axis", 1))
+                lines.append(f"        {name} = tf.repeat({source}, repeats={repeats!r}, axis={axis!r})")
+            elif definition == "layer.unit_norm":
+                axis = int(params.get("axis", -1))
+                lines.append(f"        {name} = tf.math.l2_normalize({source}, axis={axis!r}, epsilon=1e-12)")
+            elif definition == "layer.rms_norm":
+                axis = int(params.get("axis", -1))
+                lines.append(f"        {name} = {source} * tf.math.rsqrt(tf.reduce_mean(tf.square({source}), axis={axis!r}, keepdims=True) + self.{name}_epsilon)")
+                lines.append(f"        {name}_shape = [1] * {name}.shape.rank")
+                lines.append(f"        {name}_shape[{axis!r}] = self.{name}_gamma.shape[0]")
+                lines.append(f"        {name} = {name} * tf.reshape(self.{name}_gamma, {name}_shape)")
+            elif definition == "layer.prelu":
+                lines.append(f"        {name} = tf.where({source} >= 0, {source}, self.{name}_alpha * {source})")
+            elif definition == "layer.group_norm":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow GroupNorm node {node.id} requires an inferred input shape")
+                rank = source_spec.rank
+                axis = self._axis(params.get("axis", -1), rank)
+                channels = self._static_dimension(source_spec, axis)
+                if channels is None:
+                    raise ValueError(f"TensorFlow GroupNorm node {node.id} requires known channels")
+                if axis != rank - 1:
+                    permutation = tuple(index for index in range(rank) if index != axis) + (axis,)
+                    inverse = tuple(permutation.index(index) for index in range(rank))
+                    lines.append(f"        {name}_input = tf.transpose({source}, {permutation!r})")
+                else:
+                    lines.append(f"        {name}_input = {source}")
+                lines.append(f"        {name}_shape = tf.shape({name}_input)")
+                lines.append(f"        {name}_grouped = tf.reshape({name}_input, tf.concat([{name}_shape[:-1], [{int(params.get('groups', 32))!r}, {channels // int(params.get('groups', 32))!r}]], axis=0))")
+                lines.append(f"        {name}_mean, {name}_variance = tf.nn.moments({name}_grouped, axes=list(range(1, {rank!r})), keepdims=True)")
+                lines.append(f"        {name}_grouped = ({name}_grouped - {name}_mean) * tf.math.rsqrt({name}_variance + self.{name}_epsilon)")
+                lines.append(f"        {name} = tf.reshape({name}_grouped, {name}_shape)")
+                lines.append(f"        if self.{name}_gamma is not None: {name} = {name} * self.{name}_gamma")
+                lines.append(f"        if self.{name}_beta is not None: {name} = {name} + self.{name}_beta")
+                if axis != rank - 1:
+                    lines.append(f"        {name} = tf.transpose({name}, {inverse!r})")
             elif definition == "layer.dense":
                 input_features = self._static_dimension(source_spec, -1)
                 if input_features is None:
@@ -406,6 +496,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 for binding in item.input_bindings
             ]
             source = source_vars[0] if source_vars else ""
+            source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
             manifest = catalog.get(definition, node.definition_version)
             if definition in {"input.constant", "input.parameter"}:
                 if not ir.input_node_ids:
@@ -524,7 +615,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(
                     f"        {name} = _gru({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, {bool(params.get('return_sequences', False))!r})"
                 )
-            elif definition in {"merge.add", "merge.residual", "merge.skip"}:
+            elif definition in {"merge.add", "merge.residual", "merge.skip", "transformer.residual"}:
                 lines.append(f"        {name} = tf.add_n([{', '.join(source_vars)}])")
             elif definition == "merge.concatenate":
                 lines.append(
@@ -534,6 +625,8 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(
                     f"        {name} = tf.split({source}, num_or_size_splits={int(params.get('sections', 2))!r}, axis={int(params.get('axis', -1))!r})"
                 )
+            elif definition == "transformer.attention_mask":
+                lines.append(f"        {name} = {source}")
             elif definition == "output.detection":
                 lines.append(f"        {name} = ({', '.join(source_vars)})")
             elif manifest.semantic_role == "output_adapter":
