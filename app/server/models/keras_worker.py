@@ -19,6 +19,51 @@ from validation.shape_inference import infer_shapes
 
 
 ###############################################################################
+class GeneratedConstant(layers.Layer):
+    def __init__(self, shape: list[int], value: Any, dtype: str, **kwargs: Any) -> None:
+        super().__init__(dtype=dtype, trainable=False, **kwargs)
+        self._source_shape = tuple(shape)
+        self._value = value
+
+    def call(self, anchor: Any) -> Any:
+        batch = keras.ops.shape(anchor)[0]
+        value = keras.ops.full(self._source_shape, self._value, dtype=self.compute_dtype)
+        value = keras.ops.expand_dims(value, axis=0)
+        return keras.ops.broadcast_to(value, (batch, *self._source_shape))
+
+
+###############################################################################
+class GeneratedParameter(layers.Layer):
+    def __init__(
+        self,
+        shape: list[int],
+        initializer: Any,
+        dtype: str,
+        trainable: bool,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(dtype=dtype, trainable=trainable, **kwargs)
+        self._source_shape = tuple(shape)
+        self._initializer = keras.initializers.get(initializer)
+        self._parameter_trainable = trainable
+
+    def build(self, input_shape: Any) -> None:
+        del input_shape
+        self.value = self.add_weight(
+            name="value",
+            shape=self._source_shape,
+            initializer=self._initializer,
+            trainable=self._parameter_trainable,
+            dtype=self.compute_dtype,
+        )
+
+    def call(self, anchor: Any) -> Any:
+        batch = keras.ops.shape(anchor)[0]
+        value = keras.ops.expand_dims(self.value, axis=0)
+        return keras.ops.broadcast_to(value, (batch, *self._source_shape))
+
+
+###############################################################################
 def _checkpoint(callback: Callable[[], None] | None) -> None:
     if callback is not None:
         callback()
@@ -232,6 +277,15 @@ def build_model(
     nodes = {node.id: node for node in graph.nodes}
     tensors: dict[str, Any] = {}
     port_tensors: dict[tuple[str, str], Any] = {}
+    runtime_inputs = input_nodes(graph, catalog)
+    for runtime_input in runtime_inputs:
+        shape = list(runtime_input.parameters.get("shape", [None, 1]))
+        feature_shape = shape[1:] if shape and shape[0] is None else shape
+        tensors[runtime_input.id] = keras.Input(
+            shape=feature_shape,
+            dtype=runtime_input.parameters.get("dtype", "float32"),
+            name=runtime_input.id,
+        )
     for node_id in topological_order(graph):
         _checkpoint(checkpoint)
         node = nodes[node_id]
@@ -247,7 +301,33 @@ def build_model(
         if manifest.semantic_role != "input" and source is None:
             raise RuntimeError(f"Node {node_id} requires an inbound connection")
         source = cast(Any, source)
-        if manifest.operation is not None:
+        if definition in {"input.constant", "input.parameter"}:
+            if not runtime_inputs:
+                raise RuntimeError(
+                    f"Generated source node {node_id} requires at least one runtime model input for batch materialization"
+                )
+            anchor = tensors[runtime_inputs[0].id]
+            source_shape = params.get("shape", [1])
+            if not isinstance(source_shape, list):
+                raise RuntimeError(f"Generated source node {node_id} requires a list shape")
+            integer_shape = [int(value) for value in source_shape]
+            dtype = str(params.get("dtype", "float32"))
+            if definition == "input.constant":
+                tensors[node_id] = GeneratedConstant(
+                    integer_shape,
+                    params.get("value", 0),
+                    dtype,
+                    name=node.id,
+                )(anchor)
+            else:
+                tensors[node_id] = GeneratedParameter(
+                    integer_shape,
+                    params.get("initializer", "zeros"),
+                    dtype,
+                    bool(params.get("trainable", True)),
+                    name=node.id,
+                )(anchor)
+        elif manifest.operation is not None:
             if manifest.operation.shape_behavior == "reshape":
                 tensors[node_id] = layers.Reshape(
                     target_shape=params.get("target_shape", [-1]), name=node.id
@@ -263,13 +343,8 @@ def build_model(
                     _keras_operation_functions(catalog),
                 )
         elif manifest.semantic_role == "input":
-            shape = list(params.get("shape", [None, 1]))
-            feature_shape = shape[1:] if shape and shape[0] is None else shape
-            tensors[node_id] = keras.Input(
-                shape=feature_shape,
-                dtype=params.get("dtype", "float32"),
-                name=node.id,
-            )
+            if node_id not in tensors:
+                raise RuntimeError(f"Runtime input {node_id} was not materialized")
         elif definition == "layer.dense":
             tensors[node_id] = layers.Dense(
                 params.get("units", 32),
@@ -693,6 +768,14 @@ def build_model(
             tensors[node_id] = layers.Add(name=node.id)(inputs)
         elif definition == "merge.concatenate":
             tensors[node_id] = layers.Concatenate(axis=params.get("axis", -1), name=node.id)(inputs)
+        elif definition == "merge.split":
+            tensors[node_id] = list(
+                keras.ops.split(
+                    source,
+                    int(params.get("sections", 2)),
+                    axis=int(params.get("axis", -1)),
+                )
+            )
         elif definition == "transformer.positional_encoding":
             source_shape = getattr(source, "shape", None)
             if incoming_edges:
@@ -826,6 +909,8 @@ def build_model(
             tensors[node_id] = current
         elif definition == "transformer.residual":
             tensors[node_id] = layers.Add(**_base_layer_kwargs(params), name=node.id)(inputs)
+        elif definition == "output.detection":
+            tensors[node_id] = tuple(inputs)
         elif definition == "transformer.attention_mask" or manifest.semantic_role == "output_adapter":
             tensors[node_id] = layers.Activation(
                 "linear", **_base_layer_kwargs(params), name=node.id
