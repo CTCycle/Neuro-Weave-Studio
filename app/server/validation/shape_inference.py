@@ -566,12 +566,15 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             output = TensorSpec(shape=input_shape, dtype=parameters.get("dtype", DataType.FLOAT32))
         elif rule == "generated_source":
             shape = parameters.get("shape", [1])
-            if not isinstance(shape, list) or any(
-                not isinstance(value, int) or isinstance(value, bool) or value <= 0
-                for value in shape
+            if not isinstance(shape, list):
+                raise ShapeInferenceError("Generated source shape must contain positive integers")
+            raw_shape = cast(list[Any], shape)
+            if any(
+                not isinstance(item, int) or isinstance(item, bool) or item <= 0
+                for item in raw_shape
             ):
                 raise ShapeInferenceError("Generated source shape must contain positive integers")
-            feature_shape = cast(list[int], shape)
+            feature_shape = cast(list[int], raw_shape)
             output = TensorSpec(
                 shape=[None, *feature_shape],
                 dtype=parameters.get("dtype", DataType.FLOAT32),
