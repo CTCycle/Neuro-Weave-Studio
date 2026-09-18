@@ -1148,8 +1148,14 @@ class ValidationService:
 
         input_nodes = catalog_input_nodes(graph, self._catalog)
         input_ids = {node.id for node in input_nodes}
+        source_ids = {
+            node.id
+            for node in graph.nodes
+            if manifests.get(node.id) is not None
+            and manifests[node.id].semantic_role == "input"
+        }
         output_ids = {item.node_id for item in effective_outputs}
-        input_reachable = reachable_nodes(graph, input_ids)
+        input_reachable = reachable_nodes(graph, source_ids)
         output_reachable = nodes_reaching(graph, output_ids)
         active_node_ids = input_reachable & output_reachable
         if input_ids and output_ids:
