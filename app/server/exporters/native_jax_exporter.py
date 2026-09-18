@@ -122,6 +122,87 @@ class NativeJaxSourceExporter(SourceExporter):
             elif manifest.semantic_role == "input":
                 expression = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{node.id!r}]"
                 lines.append(f"        {name} = {expression}")
+            elif definition == "layer.reshape":
+                target_shape = tuple(params.get("target_shape", [-1]))
+                lines.append(f"        {name} = jnp.reshape({source}, ({source}.shape[0], *{target_shape!r}))")
+            elif definition == "layer.permute":
+                axes = tuple(int(value) for value in params.get("axes", [2, 1]))
+                lines.append(f"        {name} = jnp.transpose({source}, {(0, *axes)!r})")
+            elif definition == "layer.repeat":
+                lines.append(
+                    f"        {name} = jnp.repeat({source}, {int(params.get('repeats', 2))!r}, axis={int(params.get('axis', 1))!r})"
+                )
+            elif definition == "layer.unit_norm":
+                axis = int(params.get("axis", -1))
+                lines.append(
+                    f"        {name}_norm = jnp.sqrt(jnp.sum(jnp.square({source}), axis={axis!r}, keepdims=True))"
+                )
+                lines.append(
+                    f"        {name} = {source} / jnp.maximum({name}_norm, jnp.asarray(1e-12, dtype={source}.dtype))"
+                )
+            elif definition == "layer.rms_norm":
+                axis = int(params.get("axis", -1))
+                epsilon = float(params.get("epsilon", 1e-6))
+                lines.append(
+                    f"        {name}_gamma = self.param({name + '_gamma'!r}, nn.initializers.ones_init(), ({source}.shape[{axis!r}],), {source}.dtype)"
+                )
+                lines.append(
+                    f"        {name} = {source} * jax.lax.rsqrt(jnp.mean(jnp.square({source}), axis={axis!r}, keepdims=True) + {epsilon!r})"
+                )
+                lines.append(f"        {name}_shape = [1] * {source}.ndim")
+                lines.append(f"        {name}_shape[{axis!r}] = {name}_gamma.shape[0]")
+                lines.append(f"        {name} = {name} * jnp.reshape({name}_gamma, {name}_shape)")
+            elif definition == "layer.prelu":
+                shared_axes = params.get("shared_axes")
+                shared_axes_values = tuple(shared_axes) if isinstance(shared_axes, list) else ()
+                lines.append(
+                    f"        {name}_alpha_shape = tuple(1 if axis in {shared_axes_values!r} else {source}.shape[axis] for axis in range(1, {source}.ndim))"
+                )
+                lines.append(
+                    f"        {name}_alpha = self.param({name + '_alpha'!r}, nn.initializers.zeros_init(), {name}_alpha_shape, {source}.dtype)"
+                )
+                lines.append(
+                    f"        {name} = jnp.where({source} >= 0, {source}, jnp.reshape({name}_alpha, (1, *{name}_alpha.shape)) * {source})"
+                )
+            elif definition == "layer.group_norm":
+                axis = int(params.get("axis", -1))
+                groups = int(params.get("groups", 32))
+                epsilon = float(params.get("epsilon", 0.001))
+                lines.append(f"        {name}_axis = {axis!r} if {axis!r} >= 0 else {source}.ndim + {axis!r}")
+                lines.append(
+                    f"        {name}_permutation = tuple(index for index in range({source}.ndim) if index != {name}_axis) + ({name}_axis,)"
+                )
+                lines.append(
+                    f"        {name}_inverse = tuple({name}_permutation.index(index) for index in range({source}.ndim))"
+                )
+                lines.append(f"        {name}_input = jnp.transpose({source}, {name}_permutation)")
+                lines.append(f"        {name}_channels = {name}_input.shape[-1]")
+                lines.append(
+                    f"        {name}_grouped = jnp.reshape({name}_input, (*{name}_input.shape[:-1], {groups!r}, {name}_channels // {groups!r}))"
+                )
+                lines.append(
+                    f"        {name}_axes = tuple(range(1, {name}_grouped.ndim - 2)) + ({name}_grouped.ndim - 1,)"
+                )
+                lines.append(
+                    f"        {name}_mean = jnp.mean({name}_grouped, axis={name}_axes, keepdims=True)"
+                )
+                lines.append(
+                    f"        {name}_variance = jnp.var({name}_grouped, axis={name}_axes, keepdims=True)"
+                )
+                lines.append(
+                    f"        {name} = jnp.reshape(({name}_grouped - {name}_mean) * jax.lax.rsqrt({name}_variance + {epsilon!r}), {name}_input.shape)"
+                )
+                if bool(params.get("scale", True)):
+                    lines.append(
+                        f"        {name}_gamma = self.param({name + '_gamma'!r}, nn.initializers.ones_init(), ({name}_channels,), {source}.dtype)"
+                    )
+                    lines.append(f"        {name} = {name} * {name}_gamma")
+                if bool(params.get("center", True)):
+                    lines.append(
+                        f"        {name}_beta = self.param({name + '_beta'!r}, nn.initializers.zeros_init(), ({name}_channels,), {source}.dtype)"
+                    )
+                    lines.append(f"        {name} = {name} + {name}_beta")
+                lines.append(f"        {name} = jnp.transpose({name}, {name}_inverse)")
             elif definition == "layer.dense":
                 lines.append(
                     f"        {name} = nn.Dense({int(params.get('units', 32))}, use_bias={bool(params.get('use_bias', True))!r}, name={name!r})({source})"
@@ -238,7 +319,7 @@ class NativeJaxSourceExporter(SourceExporter):
                 )
                 if not bool(params.get("return_sequences", False)):
                     lines.append(f"        {name} = {name}[:, -1, :]")
-            elif definition in {"merge.add", "merge.residual", "merge.skip"}:
+            elif definition in {"merge.add", "merge.residual", "merge.skip", "transformer.residual"}:
                 lines.append(f"        {name} = sum([{', '.join(source_vars)}])")
             elif definition == "merge.concatenate":
                 lines.append(
@@ -248,6 +329,8 @@ class NativeJaxSourceExporter(SourceExporter):
                 lines.append(
                     f"        {name} = list(jnp.split({source}, {int(params.get('sections', 2))!r}, axis={int(params.get('axis', -1))!r}))"
                 )
+            elif definition == "transformer.attention_mask":
+                lines.append(f"        {name} = {source}")
             elif definition == "output.detection":
                 lines.append(f"        {name} = ({', '.join(source_vars)})")
             elif manifest.semantic_role == "output_adapter":
