@@ -123,6 +123,10 @@ export class ApiService {
     return this.request(`/datasets/${encodeURIComponent(id)}`, 'PUT', payload, { timeoutMs: DATASET_OPERATION_TIMEOUT_MS })
   }
 
+  revalidateDataset(id: string): Promise<DatasetDocument> {
+    return this.request(`/datasets/${encodeURIComponent(id)}/validate`, 'POST', undefined, { timeoutMs: DATASET_OPERATION_TIMEOUT_MS })
+  }
+
   deleteDataset(id: string): Promise<void> {
     return this.request(`/datasets/${encodeURIComponent(id)}`, 'DELETE')
   }

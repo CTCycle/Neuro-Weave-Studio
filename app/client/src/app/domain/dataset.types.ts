@@ -87,6 +87,16 @@ export type DatasetSubsetDefinition =
   | { type: 'first_n'; count: number }
   | { type: 'range'; start: number; end: number }
 
+export type DatasetSplitStrategy = 'random' | 'sequential'
+
+export interface DatasetSplitDefinition {
+  strategy: DatasetSplitStrategy
+  train_fraction: number
+  validation_fraction: number
+  test_fraction: number
+  seed: number | null
+}
+
 export interface DatasetDefinitionMutation {
   name: string
   dataset_type: DatasetType
@@ -97,6 +107,7 @@ export interface DatasetDefinitionMutation {
   relationships: FileTableRelationship[]
   sequence_definition: TimeSeriesStructure | null
   subset_definition: DatasetSubsetDefinition
+  split_definition: DatasetSplitDefinition | null
 }
 
 export interface DatasetInspectionRequest {

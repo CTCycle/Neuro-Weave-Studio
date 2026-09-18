@@ -48,9 +48,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/datasets/dataset-workspace-page.component').then((module) => module.DatasetWorkspacePageComponent),
         children: [
           { path: '', pathMatch: 'full', loadComponent: () => import('./features/datasets/dataset-overview-page.component').then((module) => module.DatasetOverviewPageComponent) },
-          { path: 'structure', loadComponent: () => import('./features/datasets/dataset-structure-page.component').then((module) => module.DatasetStructurePageComponent) },
-          { path: 'processing', data: { mode: 'processing' }, loadComponent: () => import('./features/datasets/dataset-future-page.component').then((module) => module.DatasetFuturePageComponent) },
-          { path: 'split', data: { mode: 'split' }, loadComponent: () => import('./features/datasets/dataset-future-page.component').then((module) => module.DatasetFuturePageComponent) },
+          { path: 'validation', loadComponent: () => import('./features/datasets/dataset-validation-page.component').then((module) => module.DatasetValidationPageComponent) },
+          { path: 'io', loadComponent: () => import('./features/datasets/dataset-io-page.component').then((module) => module.DatasetIoPageComponent) },
+          { path: 'processing', loadComponent: () => import('./features/datasets/dataset-processing-page.component').then((module) => module.DatasetProcessingPageComponent) },
+          { path: 'split', loadComponent: () => import('./features/datasets/dataset-split-page.component').then((module) => module.DatasetSplitPageComponent) },
+          { path: 'structure', pathMatch: 'full', redirectTo: 'io' },
         ],
       },
       {

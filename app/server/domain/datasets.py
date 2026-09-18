@@ -170,6 +170,15 @@ DatasetSubsetDefinition = Annotated[
 
 
 ###############################################################################
+class DatasetSplitDefinition(DatasetModel):
+    strategy: Literal["random", "sequential"]
+    train_fraction: float
+    validation_fraction: float
+    test_fraction: float
+    seed: int | None = 42
+
+
+###############################################################################
 class DatasetDefinitionMutation(DatasetModel):
     name: str = Field(min_length=1, max_length=160)
     dataset_type: DatasetType
@@ -180,6 +189,7 @@ class DatasetDefinitionMutation(DatasetModel):
     relationships: list[DatasetRelationship] = Field(default_factory=list, max_length=1)  # pyright: ignore[reportUnknownVariableType]
     sequence_definition: TimeSeriesStructure | None = None
     subset_definition: DatasetSubsetDefinition = Field(default_factory=AllSamplesSubset)
+    split_definition: DatasetSplitDefinition | None = None
 
     # -------------------------------------------------------------------------
     @field_validator("name")
