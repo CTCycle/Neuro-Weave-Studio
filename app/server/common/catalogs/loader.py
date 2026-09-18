@@ -922,7 +922,7 @@ def _output_task_hint(node_id: str) -> str | None:
         "output.segmentation": "segmentation",
         "output.sequence": "sequence",
         "output.multi_head": "multi_output",
-        "output.detection_placeholder": "detection",
+        "output.detection": "detection",
         "output.custom": "generic",
     }.get(node_id)
 
