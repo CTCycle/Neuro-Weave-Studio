@@ -26,6 +26,7 @@ ParameterType = Literal[
     "expression",
 ]
 NodeRole = Literal["input", "operation", "output_adapter"]
+SourceKind = Literal["runtime_input", "constant", "trainable_parameter"]
 CapabilityStatus = Literal["verified", "unsupported", "unverified"]
 OperationFamily = Literal["unary", "binary", "elementwise", "reduction", "tensor"]
 OperationShapeBehavior = Literal[
@@ -55,6 +56,35 @@ _OPERATION_SYMBOL_PREFIXES = {
 }
 
 ###############################################################################
+class PortCardinality(BaseModel):
+    """Declarative cardinality for ports whose count is parameter-driven."""
+
+    kind: Literal["single", "parameter"] = "single"
+    parameter_id: str | None = None
+    minimum: int = Field(default=1, ge=1)
+    maximum: int = Field(default=64, ge=1)
+    id_pattern: str = "{id}"
+    display_name_pattern: str = "{display_name}"
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="after")
+    def validate_contract(self) -> PortCardinality:
+        if self.maximum < self.minimum:
+            raise ValueError("Port cardinality maximum must be at least its minimum")
+        if self.kind == "single":
+            if self.parameter_id is not None:
+                raise ValueError("Single-cardinality ports cannot declare a parameter")
+            return self
+        if not self.parameter_id:
+            raise ValueError("Parameter-cardinality ports must declare parameter_id")
+        if "{index}" not in self.id_pattern:
+            raise ValueError("Parameter-cardinality id_pattern must contain {index}")
+        if "{index}" not in self.display_name_pattern:
+            raise ValueError("Parameter-cardinality display_name_pattern must contain {index}")
+        return self
+
+
+###############################################################################
 class PortDefinition(BaseModel):
     id: str = Field(min_length=1, max_length=80)
     display_name: str
@@ -65,6 +95,7 @@ class PortDefinition(BaseModel):
     element_kind: PortKind | None = None
     description: str = ""
     enabled_when: dict[str, Any] = Field(default_factory=dict)
+    cardinality: PortCardinality = Field(default_factory=PortCardinality)
 
     # -------------------------------------------------------------------------
     @model_validator(mode="after")
@@ -81,8 +112,10 @@ class ParameterValueSchema(BaseModel):
 
     type: ParameterType
     item: ParameterValueSchema | None = None
+    items: list[ParameterValueSchema] = Field(default_factory=list)
     properties: dict[str, ParameterValueSchema] = Field(default_factory=dict)
     required_properties: list[str] = Field(default_factory=list)
+    nullable: bool = False
 
 ###############################################################################
 class ParameterDefinition(BaseModel):
@@ -103,6 +136,8 @@ class ParameterDefinition(BaseModel):
     required_when: dict[str, Any] = Field(default_factory=dict)
     framework_default: Any = None
     editor_default: Any = None
+    scope: Literal["authoring", "runtime", "internal"] = "authoring"
+    aliases: list[str] = Field(default_factory=list)
 
 ###############################################################################
 class ParameterCapability(BaseModel):
@@ -155,6 +190,7 @@ class ImplementationMapping(BaseModel):
     notes: str | None = None
     parameters: dict[str, ParameterCapability] = Field(default_factory=dict)
     variant_symbols: dict[str, str] = Field(default_factory=dict)
+    constructor_omissions: dict[str, str] = Field(default_factory=dict)
     execution_backends: dict[ExecutionBackend, bool] = Field(default_factory=dict)  # pyright: ignore[reportUnknownVariableType]
 
 ###############################################################################
@@ -177,6 +213,7 @@ class NodeManifest(BaseModel):
     category: str
     description: str
     semantic_role: NodeRole = "operation"
+    source_kind: SourceKind | None = None
     task_hint: str | None = None
     inputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     outputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]

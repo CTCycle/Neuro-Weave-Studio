@@ -6,7 +6,8 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
-CompilationParameterType = Literal["number", "integer", "boolean", "enum"]
+from domain.manifests import ParameterDefinition, ParameterValueSchema
+
 CompilationTask = Literal["regression", "binary_classification", "multiclass_classification"]
 TargetContract = Literal[
     "continuous_same_shape",
@@ -16,15 +17,9 @@ TargetContract = Literal[
     "probability_distribution_same_shape",
 ]
 
-###############################################################################
-class CompilationParameter(BaseModel):
-    id: str
-    label: str
-    type: CompilationParameterType
-    default: float | int | bool | str
-    description: str
-    options: list[str] = Field(default_factory=list)
-    constraints: dict[str, float | int | bool | str] = Field(default_factory=dict)
+# Compilation parameters use the canonical recursive node schema. This alias
+# keeps third-party imports source-compatible without retaining a second model.
+CompilationParameter = ParameterDefinition
 
 ###############################################################################
 class CompilationImplementation(BaseModel):
@@ -39,7 +34,7 @@ class CompilationOption(BaseModel):
     id: str
     label: str
     description: str
-    parameters: list[CompilationParameter] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    parameters: list[ParameterDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     formula: str | None = None
     implementations: dict[str, CompilationImplementation] = Field(default_factory=dict)
     supported_tasks: list[CompilationTask] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
@@ -90,15 +85,15 @@ def _number(
     *,
     minimum: float | None = None,
     maximum: float | None = None,
-) -> CompilationParameter:
+) -> ParameterDefinition:
     constraints: dict[str, float | int | bool | str] = {}
     if minimum is not None:
         constraints["min"] = minimum
     if maximum is not None:
         constraints["max"] = maximum
-    return CompilationParameter(
+    return ParameterDefinition(
         id=identifier,
-        label=label,
+        display_name=label,
         type="number",
         default=default,
         description=description,
@@ -253,7 +248,7 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     ),
                     CompilationParameter(
                         id="nesterov",
-                        label="Nesterov",
+                        display_name="Nesterov",
                         type="boolean",
                         default=False,
                         description="Use Nesterov momentum.",
@@ -291,7 +286,7 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     _number("epsilon", "Epsilon", 1e-7, "Numerical stability term.", minimum=0.0),
                     CompilationParameter(
                         id="centered",
-                        label="Centered",
+                        display_name="Centered",
                         type="boolean",
                         default=False,
                         description="Normalize gradients using their centered variance.",

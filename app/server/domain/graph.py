@@ -1,36 +1,36 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal, cast
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from common.timestamps import utc_now
+from domain.compilation_plan import (
+    CompilationObject,
+    CompilationPlan,
+    CompilerObject,
+    normalize_compilation_plan,
+)
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.tensor import TensorSpec
 
-GRAPH_SCHEMA_VERSION = 5
-PROJECT_BUNDLE_FORMAT_VERSION = 6
+GRAPH_SCHEMA_VERSION = 6
+PROJECT_BUNDLE_FORMAT_VERSION = 7
+
+
+###############################################################################
+def _mapping_value(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    keyword_values = getattr(value, "kwargs", None)
+    return dict(keyword_values) if isinstance(keyword_values, dict) else {}
 
 ###############################################################################
 class Position(BaseModel):
     x: float = Field(allow_inf_nan=False)
     y: float = Field(allow_inf_nan=False)
-
-###############################################################################
-class RuntimeInputParameters(dict[str, Any]):
-    """Persist feature-only input shapes while exposing a runtime batch axis."""
-
-    # -------------------------------------------------------------------------
-    def __getitem__(self, key: str) -> Any:
-        return _runtime_input_value(key, super().__getitem__(key))
-
-    # -------------------------------------------------------------------------
-    def get(self, key: str, default: Any = None) -> Any:
-        if key not in self:
-            return default
-        return _runtime_input_value(key, super().get(key))
 
 ###############################################################################
 class NodeInstance(BaseModel):
@@ -44,15 +44,11 @@ class NodeInstance(BaseModel):
 
     # -------------------------------------------------------------------------
     @model_validator(mode="after")
-    def normalize_runtime_parameters(self) -> NodeInstance:
+    def normalize_parameters(self) -> NodeInstance:
         parameters = dict(self.parameters)
         if _empty_quantization_config(parameters.get("quantization_config")):
             parameters.pop("quantization_config", None)
-        self.parameters = (
-            RuntimeInputParameters(parameters)
-            if self.definition_id.startswith("input.")
-            else parameters
-        )
+        self.parameters = parameters
         return self
 
     # -------------------------------------------------------------------------
@@ -76,43 +72,190 @@ class OutputBinding(BaseModel):
     port_id: str = Field(min_length=1, max_length=80)
 
 ###############################################################################
-class KerasCompilationConfiguration(BaseModel):
+class KerasProfileConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    optimizer: str = "adam"
-    optimizer_parameters: dict[str, Any] = Field(default_factory=lambda: {"learning_rate": 0.001})
-    losses: dict[str, str] = Field(default_factory=dict)
-    metrics: dict[str, list[str]] = Field(default_factory=dict)
-    default_initializer: str = "glorot_uniform"
-    default_regularizer: str = "none"
-    default_constraint: str = "none"
+    compilation: CompilationPlan = Field(default_factory=CompilationPlan)
     mixed_precision: bool = False
     random_seed: int | None = 42
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_fields(cls, value: Any) -> Any:
+        raw = _mapping_value(value)
+        if "compilation" not in raw:
+            raw["compilation"] = normalize_compilation_plan(raw)
+        for key in (
+            "optimizer",
+            "optimizer_parameters",
+            "losses",
+            "metrics",
+            "default_initializer",
+            "default_regularizer",
+            "default_constraint",
+        ):
+            raw.pop(key, None)
+        return raw
+
+    # Read-only compatibility accessors keep older callers source-compatible
+    # while all serialized and validated state is the normalized plan.
+    @property
+    def optimizer(self) -> str:
+        return self.compilation.optimizer.id
+
+    @property
+    def optimizer_parameters(self) -> dict[str, Any]:
+        return self.compilation.optimizer.parameters
+
+    @property
+    def losses(self) -> dict[str, str]:
+        return {key: value.id for key, value in self.compilation.losses.items()}
+
+    @property
+    def metrics(self) -> dict[str, list[str]]:
+        return {key: [value.id for value in values] for key, values in self.compilation.metrics.items()}
+
+    @property
+    def default_initializer(self) -> str:
+        return self.compilation.default_initializer.id
+
+    @property
+    def default_regularizer(self) -> str:
+        return self.compilation.default_regularizer.id if self.compilation.default_regularizer else "none"
+
+    @property
+    def default_constraint(self) -> str:
+        return self.compilation.default_constraint.id if self.compilation.default_constraint else "none"
+
+
+# The former name remains an import alias, not an independent model.
+KerasCompilationConfiguration = KerasProfileConfiguration
 
 ###############################################################################
 class TensorFlowNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    jit_compile: bool = False
+    compilation: CompilationPlan = Field(default_factory=CompilationPlan)
+    compiler: CompilerObject = Field(
+        default_factory=lambda: CompilerObject(
+            id="tensorflow_function", parameters={"jit_compile": False}
+        )
+    )
+    random_seed: int | None = 42
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_fields(cls, value: Any) -> Any:
+        raw = _mapping_value(value)
+        raw.setdefault("compilation", normalize_compilation_plan(raw))
+        for key in ("optimizer", "optimizer_parameters", "losses", "metrics"):
+            raw.pop(key, None)
+        jit_compile = raw.pop("jit_compile", None)
+        if "compiler" not in raw:
+            raw["compiler"] = CompilerObject(
+                id="tensorflow_function",
+                parameters={"jit_compile": bool(jit_compile) if jit_compile is not None else False},
+            )
+        return raw
+
+    @property
+    def jit_compile(self) -> bool:
+        return bool(self.compiler.parameters.get("jit_compile", False))
 
 ###############################################################################
 class PyTorchNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    optimizer: str = "adam"
-    optimizer_parameters: dict[str, Any] = Field(default_factory=lambda: {"learning_rate": 0.001})
-    losses: dict[str, str] = Field(default_factory=dict)
-    metrics: dict[str, list[str]] = Field(default_factory=dict)
-    compile_enabled: bool = False
-    mode: str = "default"
-    fullgraph: bool = False
-    dynamic: bool = False
+    compilation: CompilationPlan = Field(default_factory=CompilationPlan)
+    compiler: CompilerObject = Field(
+        default_factory=lambda: CompilerObject(
+            id="pytorch_compile",
+            parameters={"enabled": False, "mode": "default", "fullgraph": False, "dynamic": False},
+        )
+    )
+    random_seed: int | None = 42
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_fields(cls, value: Any) -> Any:
+        raw = _mapping_value(value)
+        raw.setdefault("compilation", normalize_compilation_plan(raw))
+        for key in ("optimizer", "optimizer_parameters", "losses", "metrics"):
+            raw.pop(key, None)
+        if "compiler" not in raw:
+            raw["compiler"] = CompilerObject(
+                id="pytorch_compile",
+                parameters={
+                    "enabled": bool(raw.pop("compile_enabled", False)),
+                    "mode": raw.pop("mode", "default"),
+                    "fullgraph": bool(raw.pop("fullgraph", False)),
+                    "dynamic": bool(raw.pop("dynamic", False)),
+                },
+            )
+        return raw
+
+    @property
+    def optimizer(self) -> str:
+        return self.compilation.optimizer.id
+
+    @property
+    def optimizer_parameters(self) -> dict[str, Any]:
+        return self.compilation.optimizer.parameters
+
+    @property
+    def losses(self) -> dict[str, str]:
+        return {key: value.id for key, value in self.compilation.losses.items()}
+
+    @property
+    def metrics(self) -> dict[str, list[str]]:
+        return {key: [value.id for value in values] for key, values in self.compilation.metrics.items()}
+
+    @property
+    def compile_enabled(self) -> bool:
+        return bool(self.compiler.parameters.get("enabled", False))
+
+    @property
+    def mode(self) -> str:
+        return str(self.compiler.parameters.get("mode", "default"))
+
+    @property
+    def fullgraph(self) -> bool:
+        return bool(self.compiler.parameters.get("fullgraph", False))
+
+    @property
+    def dynamic(self) -> bool:
+        return bool(self.compiler.parameters.get("dynamic", False))
 
 ###############################################################################
 class JaxNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    jit_enabled: bool = False
+    compilation: CompilationPlan = Field(default_factory=CompilationPlan)
+    compiler: CompilerObject = Field(
+        default_factory=lambda: CompilerObject(id="jax_jit", parameters={"enabled": False})
+    )
+    random_seed: int | None = 42
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_fields(cls, value: Any) -> Any:
+        raw = _mapping_value(value)
+        raw.setdefault("compilation", normalize_compilation_plan(raw))
+        for key in ("optimizer", "optimizer_parameters", "losses", "metrics"):
+            raw.pop(key, None)
+        if "compiler" not in raw:
+            raw["compiler"] = CompilerObject(
+                id="jax_jit", parameters={"enabled": bool(raw.pop("jit_enabled", False))}
+            )
+        return raw
+
+    @property
+    def jit_enabled(self) -> bool:
+        return bool(self.compiler.parameters.get("enabled", False))
 
 ###############################################################################
 class NativeCompilationConfiguration(BaseModel):
@@ -129,6 +272,15 @@ class ModelConfiguration(BaseModel):
     keras: KerasCompilationConfiguration = Field(default_factory=KerasCompilationConfiguration)
     native: NativeCompilationConfiguration = Field(default_factory=NativeCompilationConfiguration)
 
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_configuration(cls, value: Any) -> Any:
+        raw = _mapping_value(value)
+        raw.setdefault("keras", {})
+        raw.setdefault("native", {})
+        return raw
+
 ###############################################################################
 class ExportSettings(BaseModel):
     include_comments: bool = True
@@ -137,13 +289,21 @@ class ExportSettings(BaseModel):
 
 ###############################################################################
 class ModelGraph(BaseModel):
-    schema_version: Literal[5] = GRAPH_SCHEMA_VERSION
+    schema_version: Literal[6] = GRAPH_SCHEMA_VERSION
     nodes: list[NodeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     edges: list[EdgeInstance] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     output_bindings: list[OutputBinding] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     model_configuration: ModelConfiguration = Field(default_factory=ModelConfiguration)
     export_settings: ExportSettings = Field(default_factory=ExportSettings)
     future_training_configuration: dict[str, Any] = Field(default_factory=dict)
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_import_payload(cls, value: Any) -> Any:
+        from domain.serialization import normalize_graph_payload
+
+        return normalize_graph_payload(value)
 
     # -------------------------------------------------------------------------
     @model_validator(mode="after")
@@ -216,22 +376,23 @@ class ProjectDuplicateRequest(BaseModel):
 ###############################################################################
 class ProjectExportBundle(BaseModel):
     format: Literal["neuro-weave-project"] = "neuro-weave-project"
-    format_version: Literal[6] = PROJECT_BUNDLE_FORMAT_VERSION
+    format_version: Literal[7] = PROJECT_BUNDLE_FORMAT_VERSION
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_import_payload(cls, value: Any) -> Any:
+        from domain.serialization import normalize_bundle_payload
+
+        return normalize_bundle_payload(value)
 
 ###############################################################################
 class ShapeSummary(BaseModel):
     node_id: str
     outputs: dict[str, TensorSpec]
     parameter_count: int | None = None
-
-
-###############################################################################
-def _runtime_input_value(key: str, value: Any) -> Any:
-    if key == "shape" and isinstance(value, list):
-        return [None, *value]
-    return value
 
 
 ###############################################################################
