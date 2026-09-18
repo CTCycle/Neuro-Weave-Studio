@@ -11,7 +11,8 @@ from exporters.keras_exporter import KerasSourceExporter
 def test_catalog_contract_is_unique_and_round_trips() -> None:
     catalog = get_node_catalog()
 
-    assert len(catalog.manifests) >= 145
+    assert len(catalog.manifests) == 149
+    assert "output.detection_placeholder" not in {manifest.id for manifest in catalog.manifests}
     for manifest in catalog.manifests:
         assert len({port.id for port in manifest.inputs}) == len(manifest.inputs)
         assert len({port.id for port in manifest.outputs}) == len(manifest.outputs)
@@ -197,3 +198,99 @@ def test_every_supported_keras_node_has_a_source_adapter() -> None:
         )
         source = exporter.generate(graph, ir, catalog)
         assert "No Keras adapter registered" not in source
+
+
+###############################################################################
+def test_formerly_universal_gaps_are_explicitly_implemented() -> None:
+    catalog = get_node_catalog()
+    definition_ids = {
+        "input.constant",
+        "input.parameter",
+        "math.index",
+        "merge.average",
+        "merge.split",
+        "output.detection",
+    }
+
+    for definition_id in definition_ids:
+        manifest = catalog.get(definition_id)
+        for implementation in ("keras", "tensorflow", "pytorch", "jax"):
+            mapping = manifest.implementations[implementation]
+            assert mapping.supported, f"{definition_id} is not supported by {implementation}"
+            assert mapping.status.value == "verified"
+            assert mapping.symbol or mapping.adapter
+
+
+def _generated_source_graph(definition_id: str, parameters: dict[str, object]) -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            NodeInstance(
+                id="input",
+                definition_id="input.tensor",
+                position=Position(x=0, y=0),
+                parameters={"shape": [4], "dtype": "float32"},
+            ),
+            NodeInstance(
+                id="generated",
+                definition_id=definition_id,
+                position=Position(x=180, y=120),
+                parameters=parameters,
+            ),
+            NodeInstance(
+                id="add",
+                definition_id="merge.add",
+                position=Position(x=360, y=0),
+            ),
+            NodeInstance(
+                id="output",
+                definition_id="output.custom",
+                position=Position(x=540, y=0),
+            ),
+        ],
+        edges=[
+            EdgeInstance(
+                id="input-add",
+                source_node_id="input",
+                source_port_id="output",
+                target_node_id="add",
+                target_port_id="inputs",
+            ),
+            EdgeInstance(
+                id="generated-add",
+                source_node_id="generated",
+                source_port_id="output",
+                target_node_id="add",
+                target_port_id="inputs",
+            ),
+            EdgeInstance(
+                id="add-output",
+                source_node_id="add",
+                source_port_id="output",
+                target_node_id="output",
+                target_port_id="input",
+            ),
+        ],
+    )
+
+
+###############################################################################
+def test_generated_sources_are_not_exported_as_model_inputs() -> None:
+    catalog = get_node_catalog()
+    exporter = KerasSourceExporter()
+    cases = [
+        ("input.constant", {"shape": [4], "value": 1.0, "dtype": "float32"}, "GeneratedConstant"),
+        (
+            "input.parameter",
+            {"shape": [4], "initializer": "ones", "dtype": "float32", "trainable": True},
+            "GeneratedParameter",
+        ),
+    ]
+
+    for definition_id, parameters, expected_class in cases:
+        graph = _generated_source_graph(definition_id, parameters)
+        ir = compile_to_ir(graph, ExecutionBackend.PYTORCH, True, catalog, shape_summaries=[])
+        assert ir.input_node_ids == ["input"]
+        source = exporter.generate(graph, ir, catalog)
+        assert expected_class in source
+        assert "keras.Input" in source
+        assert "name='generated'" not in source.split("keras.Input", 1)[1]
