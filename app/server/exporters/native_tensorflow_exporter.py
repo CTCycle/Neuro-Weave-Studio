@@ -286,7 +286,14 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             elif definition == "layer.repeat":
                 repeats = int(params.get("repeats", 2))
                 axis = int(params.get("axis", 1))
-                lines.append(f"        {name} = tf.repeat({source}, repeats={repeats!r}, axis={axis!r})")
+                if axis == 1 and source_spec is not None and source_spec.rank == 2:
+                    lines.append(
+                        f"        {name} = tf.repeat(tf.expand_dims({source}, axis=1), repeats={repeats!r}, axis=1)"
+                    )
+                else:
+                    lines.append(
+                        f"        {name} = tf.repeat({source}, repeats={repeats!r}, axis={axis!r})"
+                    )
             elif definition == "layer.unit_norm":
                 axis = int(params.get("axis", -1))
                 lines.append(f"        {name} = tf.math.l2_normalize({source}, axis={axis!r}, epsilon=1e-12)")
