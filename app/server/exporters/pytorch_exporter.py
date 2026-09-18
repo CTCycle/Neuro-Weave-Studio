@@ -92,6 +92,27 @@ class PyTorchSourceExporter(SourceExporter):
 
     # -------------------------------------------------------------------------
     @staticmethod
+    def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
+        for parameter_id, expected in condition.items():
+            actual = parameters.get(parameter_id)
+            if isinstance(expected, dict):
+                if "equals" in expected and actual != expected["equals"]:
+                    return False
+                if "not_equals" in expected and actual == expected["not_equals"]:
+                    return False
+                if "in" in expected and actual not in expected["in"]:
+                    return False
+                if "not_in" in expected and actual in expected["not_in"]:
+                    return False
+            elif isinstance(expected, list):
+                if actual not in expected:
+                    return False
+            elif actual != expected:
+                return False
+        return True
+
+    # -------------------------------------------------------------------------
+    @staticmethod
     def _channel_permutation(rank: int) -> tuple[int, ...]:
         if rank == 3:
             return (0, 2, 1)
@@ -217,7 +238,25 @@ class PyTorchSourceExporter(SourceExporter):
             name = item.variable_name
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
 
-            if definition == "layer.dense":
+            if definition == "input.parameter":
+                source_shape = params.get("shape", [1])
+                if not isinstance(source_shape, list):
+                    raise ValueError(f"PyTorch parameter node {node.id} requires a list shape")
+                initializer = str(params.get("initializer", "zeros"))
+                dtype = str(params.get("dtype", "float32"))
+                dtype_source = f"torch.{dtype}"
+                if initializer == "zeros":
+                    initial_source = f"torch.zeros({tuple(source_shape)!r}, dtype={dtype_source})"
+                elif initializer == "ones":
+                    initial_source = f"torch.ones({tuple(source_shape)!r}, dtype={dtype_source})"
+                elif initializer == "random_normal":
+                    initial_source = f"torch.randn({tuple(source_shape)!r}, dtype={dtype_source})"
+                else:
+                    raise ValueError(f"Unsupported PyTorch parameter initializer: {initializer}")
+                lines.append(
+                    f"        self.{name}_parameter = nn.Parameter({initial_source}, requires_grad={bool(params.get('trainable', True))!r})"
+                )
+            elif definition == "layer.dense":
                 input_features = self._static_dimension(source_spec, -1)
                 units = int(params.get("units", 32))
                 bias = bool(params.get("use_bias", True))
@@ -386,17 +425,40 @@ class PyTorchSourceExporter(SourceExporter):
             ]
         )
         variables: dict[str, str] = {}
+        port_variables: dict[tuple[str, str], str] = {}
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
             definition = item.definition_id
             name = item.variable_name
-            source_vars = [variables[source_id] for source_id in item.input_node_ids]
+            source_vars = [
+                port_variables[(binding.source_node_id, binding.source_port_id)]
+                for binding in item.input_bindings
+            ]
             source = source_vars[0] if source_vars else ""
             params = node.parameters
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
 
             manifest = catalog.get(definition, node.definition_version)
-            if manifest.operation is not None:
+            if definition in {"input.constant", "input.parameter"}:
+                if not ir.input_node_ids:
+                    raise ValueError(
+                        f"Generated source node {node.id} requires at least one runtime model input for batch materialization"
+                    )
+                anchor = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{ir.input_node_ids[0]!r}]"
+                source_shape = params.get("shape", [1])
+                if not isinstance(source_shape, list):
+                    raise ValueError(f"Generated source node {node.id} requires a list shape")
+                if definition == "input.constant":
+                    dtype = str(params.get("dtype", "float32"))
+                    lines.append(
+                        f"        {name} = torch.full(({anchor}.shape[0], *{tuple(source_shape)!r}), {params.get('value', 0)!r}, dtype=torch.{dtype}, device={anchor}.device)"
+                    )
+                else:
+                    lines.append(
+                        f"        {name} = self.{name}_parameter.unsqueeze(0).expand({anchor}.shape[0], *self.{name}_parameter.shape)"
+                    )
+                variables[item.node_id] = name
+            elif manifest.operation is not None:
                 lines.append(
                     f"        {name} = {emit_operation_source(manifest, 'pytorch', source_vars, params)}"
                 )
@@ -526,13 +588,34 @@ class PyTorchSourceExporter(SourceExporter):
                     f"        {name} = torch.cat([{', '.join(source_vars)}], dim={axis!r})"
                 )
                 variables[item.node_id] = name
+            elif definition == "merge.split":
+                lines.append(
+                    f"        {name} = list(torch.chunk({source}, {int(params.get('sections', 2))!r}, dim={int(params.get('axis', -1))!r}))"
+                )
+                variables[item.node_id] = name
+            elif definition == "output.detection":
+                lines.append(f"        {name} = ({', '.join(source_vars)})")
+                variables[item.node_id] = name
             elif manifest.semantic_role == "output_adapter":
                 lines.append(f"        {name} = {source}")
                 variables[item.node_id] = name
             else:
                 raise ValueError(f"No PyTorch adapter registered for {definition}")
 
-        outputs = [variables[binding.node_id] for binding in ir.output_bindings]
+            output_ports = [
+                port
+                for port in manifest.outputs
+                if self._condition_matches(port.enabled_when, params)
+            ]
+            if len(output_ports) > 1:
+                for index, port in enumerate(output_ports):
+                    port_variables[(item.node_id, port.id)] = f"{name}[{index}]"
+                variables[item.node_id] = f"{name}[0]"
+            else:
+                port_variables[(item.node_id, output_ports[0].id)] = name
+                variables[item.node_id] = name
+
+        outputs = [port_variables[(binding.node_id, binding.port_id)] for binding in ir.output_bindings]
         result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
         trace = "{" + ", ".join(
             f"{item.node_id!r}: {{'output': {variables[item.node_id]}}}"
