@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import ast
-from math import ceil, floor, prod
+from math import ceil, floor, isfinite, prod
 from typing import Any, cast
 
 from common.catalogs.loader import NodeCatalog
 from domain.enums import DataType
 from domain.graph import ModelGraph, ShapeSummary
+from domain.ports import materialized_outputs
 from domain.tensor import Dimension, TensorSpec
 from validation.graph_utils import ordered_incoming_edges, topological_order
-from validation.safe_expression import SafeExpressionError, validate_safe_expression
+from validation.safe_expression import (
+    SafeExpressionError,
+    normalize_index_expression,
+    validate_safe_expression,
+)
 
 
 ###############################################################################
@@ -41,9 +46,50 @@ def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) ->
 def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any]:
     return [
         port
-        for port in manifest.outputs
+        for port in materialized_outputs(manifest, parameters)
         if _condition_matches(port.enabled_when, parameters)
     ]
+
+
+###############################################################################
+def _source_shape(value: object, parameter_id: str) -> list[int]:
+    if not isinstance(value, list) or not value:
+        raise ShapeInferenceError(f"Parameter '{parameter_id}' must be a non-empty shape")
+    dimensions = cast(list[Any], value)
+    if any(
+        not isinstance(dimension, int) or isinstance(dimension, bool) or dimension <= 0
+        for dimension in dimensions
+    ):
+        raise ShapeInferenceError(f"Parameter '{parameter_id}' must contain positive integers")
+    return [int(dimension) for dimension in dimensions]
+
+
+###############################################################################
+def _constant_value_shape(value: object) -> list[int]:
+    if isinstance(value, bool):
+        return []
+    if isinstance(value, int | float):
+        if isinstance(value, float) and not isfinite(value):
+            raise ShapeInferenceError("Constant values must be finite")
+        return []
+    if not isinstance(value, list) or not value:
+        raise ShapeInferenceError("Constant value must be a scalar or a non-empty nested list")
+    nested = [_constant_value_shape(item) for item in value]
+    if any(shape != nested[0] for shape in nested[1:]):
+        raise ShapeInferenceError("Constant value must have a rectangular nested shape")
+    return [len(value), *nested[0]]
+
+
+###############################################################################
+def _constant_value_is_broadcastable(value: object, target_shape: list[int]) -> bool:
+    value_shape = _constant_value_shape(value)
+    if len(value_shape) > len(target_shape):
+        return False
+    aligned_target = target_shape[-len(value_shape) :] if value_shape else []
+    return all(
+        value_dimension in {1, target_dimension}
+        for value_dimension, target_dimension in zip(value_shape, aligned_target, strict=True)
+    )
 
 ###############################################################################
 def _int_parameter(parameters: dict[str, Any], key: str, default: int | None = None) -> int:
@@ -539,7 +585,7 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
         manifest = catalog.get(node.definition_id, node.definition_version)
         input_specs: list[TensorSpec] = []
         input_specs_by_port: dict[str, TensorSpec] = {}
-        for edge in ordered_incoming_edges(graph, node_id, manifest):
+        for edge in ordered_incoming_edges(graph, node_id, manifest, node.parameters):
             source_outputs = outputs_by_node.get(edge.source_node_id, {})
             source_spec = source_outputs.get(edge.source_port_id)
             if source_spec is not None:
@@ -550,20 +596,52 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
         parameters = node.parameters
         output: TensorSpec
         parameter_count: int | None = 0
+        output_overrides: dict[str, TensorSpec] | None = None
 
         if manifest.operation is not None:
             output = _operation_shape(node_id, manifest, input_specs, parameters)
             parameter_count = 0
         elif rule == "input":
-            shape = parameters.get("shape", [None, 1])
+            shape = parameters.get("shape", [1])
             if not isinstance(shape, list):
                 raise ShapeInferenceError("Input shape must be a list")
-            input_shape = cast(list[Any], shape)
-            if not input_shape or input_shape[0] is not None:
-                raise ShapeInferenceError(
-                    "Input shape must include an unknown leading batch dimension"
+            authored_shape = cast(list[Any], shape)
+            if manifest.source_kind == "runtime_input":
+                input_shape = (
+                    authored_shape
+                    if authored_shape and authored_shape[0] is None
+                    else [None, *authored_shape]
                 )
-            output = TensorSpec(shape=input_shape, dtype=parameters.get("dtype", DataType.FLOAT32))
+                if len(input_shape) < 2:
+                    raise ShapeInferenceError("Runtime input shape must contain at least one feature dimension")
+                if any(
+                    not isinstance(dimension, int | type(None))
+                    or isinstance(dimension, bool)
+                    or (isinstance(dimension, int) and dimension <= 0)
+                    for dimension in input_shape
+                ):
+                    raise ShapeInferenceError("Runtime input shape must contain positive dimensions")
+                output = TensorSpec(
+                    shape=input_shape,
+                    dtype=parameters.get("dtype", DataType.FLOAT32),
+                )
+            else:
+                raise ShapeInferenceError(f"Source node '{node_id}' must use a constant or parameter shape rule")
+        elif rule in {"constant", "parameter"}:
+            source_shape = _source_shape(parameters.get("shape", [1]), "shape")
+            if rule == "constant":
+                value = parameters.get("value", 0)
+                if not _constant_value_is_broadcastable(value, source_shape):
+                    raise ShapeInferenceError("Constant value is not broadcastable to its declared shape")
+                parameter_count = 0
+            else:
+                parameter_count = (
+                    prod(source_shape) if bool(parameters.get("trainable", True)) else 0
+                )
+            output = TensorSpec(
+                shape=source_shape,
+                dtype=parameters.get("dtype", DataType.FLOAT32),
+            )
         elif rule == "identity":
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")
@@ -1064,11 +1142,47 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 raise ShapeInferenceError(f"{node_id} requires an input")
             source = input_specs[0]
             if node.definition_id == "math.index":
-                raise ShapeInferenceError(
-                    "Index shape cannot be inferred from a free-form expression"
-                )
-            output = TensorSpec(shape=[None] * source.rank, dtype=source.dtype)
-        elif rule in {"output", "normalization", "dropout"}:
+                expression = parameters.get("expression", ":")
+                if not isinstance(expression, str):
+                    raise ShapeInferenceError("Expression must be a string")
+                expression = normalize_index_expression(expression)
+                output = _slice_expression_shape(source, expression)
+            else:
+                output = TensorSpec(shape=[None] * source.rank, dtype=source.dtype)
+        elif rule == "output":
+            if node.definition_id == "output.detection":
+                boxes = input_specs_by_port.get("boxes")
+                scores = input_specs_by_port.get("scores")
+                classes = input_specs_by_port.get("classes")
+                if boxes is None or scores is None or classes is None:
+                    raise ShapeInferenceError("Detection output requires boxes, scores, and classes")
+                if boxes.rank < 2 or boxes.shape[-1] != 4:
+                    raise ShapeInferenceError("Detection boxes must end in coordinate width 4")
+                if scores.rank < 2 or classes.rank < 2:
+                    raise ShapeInferenceError("Detection scores and classes must have batch and detection dimensions")
+                if any(
+                    isinstance(left, int)
+                    and isinstance(right, int)
+                    and left != right
+                    for left, right in (
+                        (boxes.shape[0], scores.shape[0]),
+                        (boxes.shape[0], classes.shape[0]),
+                        (boxes.shape[1], scores.shape[1]),
+                        (boxes.shape[1], classes.shape[1]),
+                    )
+                ):
+                    raise ShapeInferenceError("Detection tensors must agree on batch and detection dimensions")
+                if scores.dtype not in {DataType.FLOAT16, DataType.FLOAT32, DataType.FLOAT64}:
+                    raise ShapeInferenceError("Detection scores must use a floating-point dtype")
+                if classes.dtype not in {DataType.INT32, DataType.INT64}:
+                    raise ShapeInferenceError("Detection classes must use an integer dtype")
+                output_overrides = {"boxes": boxes, "scores": scores, "classes": classes}
+                output = boxes
+            else:
+                if not input_specs:
+                    raise ShapeInferenceError(f"{node_id} requires an input")
+                output = input_specs[0]
+        elif rule in {"normalization", "dropout"}:
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")
             output = input_specs[0]
@@ -1091,7 +1205,7 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 for port in output_ports
             }
         else:
-            outputs = {port.id: output for port in output_ports}
+            outputs = output_overrides or {port.id: output for port in output_ports}
         outputs_by_node[node_id] = outputs
         summaries.append(
             ShapeSummary(node_id=node_id, outputs=outputs, parameter_count=parameter_count)

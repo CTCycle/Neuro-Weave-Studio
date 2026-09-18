@@ -76,3 +76,75 @@ class GeluActivation(layers.Layer):
     # -------------------------------------------------------------------------
     def get_config(self) -> dict[str, Any]:
         return super().get_config()
+
+###############################################################################
+@keras.saving.register_keras_serializable(package="NeuroWeave")
+class ConstantSource(layers.Layer):
+    """Serializable constant graph source that is not a public model input."""
+
+    def __init__(
+        self,
+        shape: list[int],
+        value: Any,
+        value_dtype: str = "float32",
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.source_shape = list(shape)
+        self.source_value = value
+        self.value_dtype = value_dtype
+
+    def call(self, anchor: Any = None) -> Any:
+        value = keras.ops.cast(
+            keras.ops.convert_to_tensor(self.source_value), self.value_dtype
+        )
+        return keras.ops.broadcast_to(value, self.source_shape)
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            **super().get_config(),
+            "shape": self.source_shape,
+            "value": self.source_value,
+            "value_dtype": self.value_dtype,
+        }
+
+###############################################################################
+@keras.saving.register_keras_serializable(package="NeuroWeave")
+class ParameterSource(layers.Layer):
+    """Serializable tracked source parameter with explicit trainability."""
+
+    def __init__(
+        self,
+        shape: list[int],
+        initializer: Any = "zeros",
+        value_dtype: str = "float32",
+        trainable: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(trainable=trainable, **kwargs)
+        self.source_shape = list(shape)
+        self.source_initializer = initializer
+        self.value_dtype = value_dtype
+
+    def build(self, input_shape: Any = None) -> None:
+        del input_shape
+        self.source_value = self.add_weight(
+            name="value",
+            shape=self.source_shape,
+            initializer=keras.initializers.get(self.source_initializer),
+            dtype=self.value_dtype,
+            trainable=self.trainable,
+        )
+
+    def call(self, anchor: Any = None) -> Any:
+        del anchor
+        return self.source_value
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            **super().get_config(),
+            "shape": self.source_shape,
+            "initializer": self.source_initializer,
+            "value_dtype": self.value_dtype,
+            "trainable": self.trainable,
+        }

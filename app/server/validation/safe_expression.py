@@ -101,6 +101,15 @@ class SafeExpressionError(ValueError):
     pass
 
 ###############################################################################
+def normalize_index_expression(expression: str) -> str:
+    """Normalize the compact index form ``:, 1:3`` to ``x[:, 1:3]``."""
+
+    value = expression.strip()
+    if not value:
+        raise SafeExpressionError("Expression cannot be empty")
+    return value if value.startswith("x") else f"x[{value}]"
+
+###############################################################################
 def validate_safe_expression(expression: str) -> None:
     if not expression.strip():
         raise SafeExpressionError("Expression cannot be empty")

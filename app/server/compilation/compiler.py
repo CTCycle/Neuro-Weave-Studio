@@ -33,7 +33,7 @@ def compile_to_ir(
     for node_id in topological_order(graph):
         node = nodes[node_id]
         manifest = catalog.get(node.definition_id, node.definition_version)
-        incoming_edges = ordered_incoming_edges(graph, node_id, manifest)
+        incoming_edges = ordered_incoming_edges(graph, node_id, manifest, node.parameters)
         input_node_ids = [edge.source_node_id for edge in incoming_edges]
         input_bindings = [
             InputBinding(

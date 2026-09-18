@@ -24,6 +24,7 @@ from domain.manifests import (
     ParameterDefinition,
     ParameterValueSchema,
 )
+from domain.ports import materialized_inputs, materialized_outputs
 from domain.tensor import TensorSpec
 from validation.compile_configuration import validate_model_configuration
 from validation.graph_utils import (
@@ -242,7 +243,7 @@ def _shape_error_is_pending(
         port.required
         and _condition_matches(port.enabled_when, node.parameters)
         and port.id not in incoming_ports
-        for port in manifest.inputs
+        for port in materialized_inputs(manifest, node.parameters)
     ):
         return True
     return manifest.shape_rule.kind in {"merge_same", "concatenate"} and len(incoming) < 2
@@ -324,11 +325,19 @@ class ValidationService:
             return ConnectionValidationResult(valid=False, diagnostics=diagnostics)
 
         source_port = next(
-            (port for port in source_manifest.outputs if port.id == connection.source_port_id),
+            (
+                port
+                for port in materialized_outputs(source_manifest, source.parameters)
+                if port.id == connection.source_port_id
+            ),
             None,
         )
         target_port = next(
-            (port for port in target_manifest.inputs if port.id == connection.target_port_id),
+            (
+                port
+                for port in materialized_inputs(target_manifest, target.parameters)
+                if port.id == connection.target_port_id
+            ),
             None,
         )
         if source_port is None or target_port is None:
@@ -521,7 +530,7 @@ class ValidationService:
                 (summary for summary in target_summaries if summary.node_id == target.id),
                 None,
             )
-            if target_shape is None and target_manifest.inputs:
+            if target_shape is None and materialized_inputs(target_manifest, target.parameters):
                 diagnostics.append(
                     ValidationDiagnostic(
                         code="shape_unknown",
@@ -920,10 +929,20 @@ class ValidationService:
             if source_manifest is None or target_manifest is None:
                 continue
             source_port = next(
-                (port for port in source_manifest.outputs if port.id == edge.source_port_id), None
+                (
+                    port
+                    for port in materialized_outputs(source_manifest, source.parameters)
+                    if port.id == edge.source_port_id
+                ),
+                None,
             )
             target_port = next(
-                (port for port in target_manifest.inputs if port.id == edge.target_port_id), None
+                (
+                    port
+                    for port in materialized_inputs(target_manifest, target.parameters)
+                    if port.id == edge.target_port_id
+                ),
+                None,
             )
             if source_port is None or target_port is None:
                 diagnostics.append(
@@ -1003,7 +1022,7 @@ class ValidationService:
                 )
 
         for node_id, manifest in manifests.items():
-            for port in manifest.inputs:
+            for port in materialized_inputs(manifest, nodes[node_id].parameters):
                 if (
                     port.required
                     and _condition_matches(
@@ -1215,13 +1234,17 @@ class ValidationService:
                     source_port = next(
                         (
                             port
-                            for port in source_manifest.outputs
+                            for port in materialized_outputs(source_manifest, source.parameters)
                             if port.id == edge.source_port_id
                         ),
                         None,
                     )
                     target_port = next(
-                        (port for port in target_manifest.inputs if port.id == edge.target_port_id),
+                        (
+                            port
+                            for port in materialized_inputs(target_manifest, target.parameters)
+                            if port.id == edge.target_port_id
+                        ),
                         None,
                     )
                     source_spec = shape_by_port.get((edge.source_node_id, edge.source_port_id))

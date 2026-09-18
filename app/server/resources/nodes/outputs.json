@@ -326,7 +326,7 @@
           "kind": "tensor",
           "required": true,
           "accepts_multiple": false,
-          "rank": 3
+          "rank": null
         },
         {
           "id": "classes",
@@ -334,7 +334,7 @@
           "kind": "tensor",
           "required": true,
           "accepts_multiple": false,
-          "rank": 3
+          "rank": null
         }
       ],
       "outputs": [
@@ -352,7 +352,7 @@
           "kind": "tensor",
           "required": true,
           "accepts_multiple": false,
-          "rank": 3
+          "rank": null
         },
         {
           "id": "classes",
@@ -360,7 +360,7 @@
           "kind": "tensor",
           "required": true,
           "accepts_multiple": false,
-          "rank": 3
+          "rank": null
         }
       ],
       "parameters": [],

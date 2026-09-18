@@ -4,6 +4,7 @@ from collections import defaultdict, deque
 
 from domain.graph import EdgeInstance, ModelGraph
 from domain.manifests import NodeManifest
+from domain.ports import materialized_inputs
 
 
 ###############################################################################
@@ -96,6 +97,7 @@ def ordered_incoming_edges(
     graph: ModelGraph,
     node_id: str,
     manifest: NodeManifest,
+    parameters: dict[str, object] | None = None,
 ) -> list[EdgeInstance]:
     """Return inbound edges in the node contract's port order.
 
@@ -105,7 +107,10 @@ def ordered_incoming_edges(
     opposite order.
     """
 
-    port_order = {port.id: index for index, port in enumerate(manifest.inputs)}
+    port_order = {
+        port.id: index
+        for index, port in enumerate(materialized_inputs(manifest, parameters))
+    }
     return sorted(
         incoming_edges(graph).get(node_id, []),
         key=lambda edge: (
