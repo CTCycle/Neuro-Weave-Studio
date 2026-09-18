@@ -429,10 +429,14 @@ def evaluate_safe_index_expression(expression: str, value: Any) -> Any:
             and not isinstance(node.value, bool)
         ):
             return int(node.value)
-        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
-            if isinstance(node.operand, ast.Constant) and isinstance(node.operand.value, int):
-                value = int(node.operand.value)
-                return value if isinstance(node.op, ast.UAdd) else -value
+        if (
+            isinstance(node, ast.UnaryOp)
+            and isinstance(node.op, (ast.UAdd, ast.USub))
+            and isinstance(node.operand, ast.Constant)
+            and isinstance(node.operand.value, int)
+        ):
+            value = int(node.operand.value)
+            return value if isinstance(node.op, ast.UAdd) else -value
         raise OperationEmissionError("Index expressions may contain only integer literals and slices")
 
     try:
