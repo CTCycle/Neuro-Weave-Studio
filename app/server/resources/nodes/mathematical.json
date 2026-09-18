@@ -673,25 +673,25 @@
       },
       "implementations": {
         "keras": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "supported": true,
+          "adapter": "index",
           "execution_backends": {
-            "tensorflow": false,
-            "pytorch": false,
-            "jax": false
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
           }
         },
         "tensorflow": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "adapter": "index"
         },
         "pytorch": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "adapter": "index"
         },
         "jax": {
-          "supported": false,
-          "notes": "Native JAX implementation is not available for this node."
+          "supported": true,
+          "adapter": "index"
         }
       },
       "ui": {

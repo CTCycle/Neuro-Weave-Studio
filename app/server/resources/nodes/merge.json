@@ -283,25 +283,25 @@
       },
       "implementations": {
         "keras": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "supported": true,
+          "adapter": "average",
           "execution_backends": {
-            "tensorflow": false,
-            "pytorch": false,
-            "jax": false
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
           }
         },
         "tensorflow": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "adapter": "average"
         },
         "pytorch": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "adapter": "average"
         },
         "jax": {
-          "supported": false,
-          "notes": "Native JAX implementation is not available for this node."
+          "supported": true,
+          "adapter": "average"
         }
       },
       "ui": {
@@ -849,12 +849,20 @@
       ],
       "outputs": [
         {
-          "id": "outputs",
-          "display_name": "Outputs",
-          "kind": "tensor_list",
+          "id": "output_{index}",
+          "display_name": "Output {index}",
+          "kind": "tensor",
           "required": true,
           "accepts_multiple": false,
-          "rank": null
+          "rank": null,
+          "cardinality": {
+            "kind": "parameter",
+            "parameter_id": "sections",
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "output_{index}",
+            "display_name_pattern": "Output {index}"
+          }
         }
       ],
       "parameters": [
@@ -883,25 +891,25 @@
       },
       "implementations": {
         "keras": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "supported": true,
+          "adapter": "split",
           "execution_backends": {
-            "tensorflow": false,
-            "pytorch": false,
-            "jax": false
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
           }
         },
         "tensorflow": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "adapter": "split"
         },
         "pytorch": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "adapter": "split"
         },
         "jax": {
-          "supported": false,
-          "notes": "Native JAX implementation is not available for this node."
+          "supported": true,
+          "adapter": "split"
         }
       },
       "ui": {

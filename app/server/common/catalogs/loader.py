@@ -907,6 +907,12 @@ def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
     category = str(item.get("category", ""))
     if category == "inputs":
         item.setdefault("semantic_role", "input")
+        if node_id == "input.constant":
+            item.setdefault("source_kind", "constant")
+        elif node_id == "input.parameter":
+            item.setdefault("source_kind", "trainable_parameter")
+        else:
+            item.setdefault("source_kind", "runtime_input")
     elif category == "outputs":
         item.setdefault("semantic_role", "output_adapter")
         item.setdefault("task_hint", _output_task_hint(node_id))
@@ -922,7 +928,7 @@ def _output_task_hint(node_id: str) -> str | None:
         "output.segmentation": "segmentation",
         "output.sequence": "sequence",
         "output.multi_head": "multi_output",
-        "output.detection_placeholder": "detection",
+        "output.detection": "detection",
         "output.custom": "generic",
     }.get(node_id)
 

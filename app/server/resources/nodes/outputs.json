@@ -306,29 +306,61 @@
       "documentation_ref": "assets/docs/nodes/manifest_specification.md"
     },
     {
-      "id": "output.detection_placeholder",
+      "id": "output.detection",
       "version": 1,
-      "display_name": "Object Detection Head Placeholder",
+      "display_name": "Object Detection Output",
       "category": "outputs",
-      "description": "Object Detection Head Placeholder operation.",
+      "description": "Semantic object detection output carrying boxes, scores, and classes.",
       "inputs": [
         {
-          "id": "input",
-          "display_name": "Input",
+          "id": "boxes",
+          "display_name": "Boxes",
           "kind": "tensor",
           "required": true,
           "accepts_multiple": false,
-          "rank": null
+          "rank": 3
+        },
+        {
+          "id": "scores",
+          "display_name": "Scores",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        },
+        {
+          "id": "classes",
+          "display_name": "Classes",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
         }
       ],
       "outputs": [
         {
-          "id": "output",
-          "display_name": "Output",
+          "id": "boxes",
+          "display_name": "Boxes",
           "kind": "tensor",
           "required": true,
           "accepts_multiple": false,
-          "rank": null
+          "rank": 3
+        },
+        {
+          "id": "scores",
+          "display_name": "Scores",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
+        },
+        {
+          "id": "classes",
+          "display_name": "Classes",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3
         }
       ],
       "parameters": [],
@@ -338,25 +370,25 @@
       },
       "implementations": {
         "keras": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "supported": true,
+          "adapter": "detection",
           "execution_backends": {
-            "tensorflow": false,
-            "pytorch": false,
-            "jax": false
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
           }
         },
         "tensorflow": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "adapter": "detection"
         },
         "pytorch": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "adapter": "detection"
         },
         "jax": {
-          "supported": false,
-          "notes": "Native JAX implementation is not available for this node."
+          "supported": true,
+          "adapter": "detection"
         }
       },
       "ui": {
