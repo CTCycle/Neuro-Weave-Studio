@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from common.catalogs.loader import get_node_catalog
 from compilation.compiler import compile_to_ir
 from domain.enums import ExecutionBackend
@@ -217,11 +219,11 @@ def test_formerly_universal_gaps_are_explicitly_implemented() -> None:
         for implementation in ("keras", "tensorflow", "pytorch", "jax"):
             mapping = manifest.implementations[implementation]
             assert mapping.supported, f"{definition_id} is not supported by {implementation}"
-            assert mapping.status.value == "verified"
+            assert mapping.status == "verified"
             assert mapping.symbol or mapping.adapter
 
 
-def _generated_source_graph(definition_id: str, parameters: dict[str, object]) -> ModelGraph:
+def _generated_source_graph(definition_id: str, parameters: dict[str, Any]) -> ModelGraph:
     return ModelGraph(
         nodes=[
             NodeInstance(
