@@ -61,6 +61,11 @@ class NativeJaxSourceExporter(SourceExporter):
         del compilation_catalog
         catalog = catalog or get_node_catalog()
         nodes = {node.id: node for node in graph.nodes}
+        summaries = {
+            summary.node_id: next(iter(summary.outputs.values()))
+            for summary in ir.shape_summaries
+            if summary.outputs
+        }
         lines = [
             "from __future__ import annotations",
             "",
@@ -85,6 +90,7 @@ class NativeJaxSourceExporter(SourceExporter):
                 for binding in item.input_bindings
             ]
             source = source_vars[0] if source_vars else ""
+            source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
             manifest = catalog.get(definition, node.definition_version)
             if definition in {"input.constant", "input.parameter"}:
                 if not ir.input_node_ids:
@@ -129,9 +135,16 @@ class NativeJaxSourceExporter(SourceExporter):
                 axes = tuple(int(value) for value in params.get("axes", [2, 1]))
                 lines.append(f"        {name} = jnp.transpose({source}, {(0, *axes)!r})")
             elif definition == "layer.repeat":
-                lines.append(
-                    f"        {name} = jnp.repeat({source}, {int(params.get('repeats', 2))!r}, axis={int(params.get('axis', 1))!r})"
-                )
+                repeats = int(params.get("repeats", 2))
+                axis = int(params.get("axis", 1))
+                if axis == 1 and source_spec is not None and source_spec.rank == 2:
+                    lines.append(
+                        f"        {name} = jnp.repeat(jnp.expand_dims({source}, axis=1), {repeats!r}, axis=1)"
+                    )
+                else:
+                    lines.append(
+                        f"        {name} = jnp.repeat({source}, {repeats!r}, axis={axis!r})"
+                    )
             elif definition == "layer.unit_norm":
                 axis = int(params.get("axis", -1))
                 lines.append(
