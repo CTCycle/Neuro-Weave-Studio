@@ -521,7 +521,14 @@ class PyTorchSourceExporter(SourceExporter):
             elif definition == "layer.repeat":
                 repeats = int(params.get("repeats", 2))
                 axis = int(params.get("axis", 1))
-                lines.append(f"        {name} = torch.repeat_interleave({source}, {repeats!r}, dim={axis!r})")
+                if axis == 1 and source_spec is not None and source_spec.rank == 2:
+                    lines.append(
+                        f"        {name} = torch.repeat_interleave({source}.unsqueeze(1), {repeats!r}, dim=1)"
+                    )
+                else:
+                    lines.append(
+                        f"        {name} = torch.repeat_interleave({source}, {repeats!r}, dim={axis!r})"
+                    )
                 variables[item.node_id] = name
             elif definition == "layer.unit_norm":
                 axis = int(params.get("axis", -1))
