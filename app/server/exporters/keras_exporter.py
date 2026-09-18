@@ -14,8 +14,10 @@ from domain.compilation_catalog import (
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
+from domain.ports import materialized_outputs
 from exporters.base import SourceExporter
 from validation.output_resolution import output_selectors, resolved_outputs
+from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
 
 ###############################################################################
@@ -46,6 +48,13 @@ class KerasSourceExporter(SourceExporter):
             elif actual != expected:
                 return False
         return True
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _index_expression(value: object) -> str:
+        expression = normalize_index_expression(value if isinstance(value, str) else ":")
+        validate_safe_expression(expression)
+        return expression
 
     # -------------------------------------------------------------------------
     @classmethod
@@ -376,6 +385,46 @@ class KerasSourceExporter(SourceExporter):
                     "        return super().get_config()",
                 ]
             )
+        if any(node.definition_id == "input.constant" for node in graph.nodes):
+            lines.extend(
+                [
+                    "",
+                    "",
+                    "@keras.saving.register_keras_serializable(package='NeuroWeave')",
+                    "class ConstantSource(layers.Layer):",
+                    "    def __init__(self, shape, value, value_dtype='float32', **kwargs):",
+                    "        super().__init__(**kwargs)",
+                    "        self.source_shape = list(shape)",
+                    "        self.source_value = value",
+                    "        self.value_dtype = value_dtype",
+                    "    def call(self, anchor=None):",
+                    "        value = keras.ops.cast(keras.ops.convert_to_tensor(self.source_value), self.value_dtype)",
+                    "        return keras.ops.broadcast_to(value, self.source_shape)",
+                    "    def get_config(self):",
+                    "        return {**super().get_config(), 'shape': self.source_shape, 'value': self.source_value, 'value_dtype': self.value_dtype}",
+                    "",
+                ]
+            )
+        if any(node.definition_id == "input.parameter" for node in graph.nodes):
+            lines.extend(
+                [
+                    "",
+                    "@keras.saving.register_keras_serializable(package='NeuroWeave')",
+                    "class ParameterSource(layers.Layer):",
+                    "    def __init__(self, shape, initializer='zeros', value_dtype='float32', trainable=True, **kwargs):",
+                    "        super().__init__(trainable=trainable, **kwargs)",
+                    "        self.source_shape = list(shape)",
+                    "        self.source_initializer = initializer",
+                    "        self.value_dtype = value_dtype",
+                    "    def build(self, input_shape=None):",
+                    "        self.source_value = self.add_weight(name='value', shape=self.source_shape, initializer=keras.initializers.get(self.source_initializer), dtype=self.value_dtype, trainable=self.trainable)",
+                    "    def call(self, anchor=None):",
+                    "        return self.source_value",
+                    "    def get_config(self):",
+                    "        return {**super().get_config(), 'shape': self.source_shape, 'initializer': self.source_initializer, 'value_dtype': self.value_dtype, 'trainable': self.trainable}",
+                    "",
+                ]
+            )
         lines.extend(self._custom_formula_functions(graph, compilation_catalog))
         lines.extend(["", "", "def build_model() -> keras.Model:"])
         if graph.model_configuration.keras.random_seed is not None:
@@ -403,12 +452,51 @@ class KerasSourceExporter(SourceExporter):
                 lines.append(
                     f"    {variable} = {emit_operation_source(manifest, 'keras', inputs, parameters)}"
                 )
-            elif manifest.semantic_role == "input":
-                shape = list(parameters.get("shape", [None, 1]))
+            elif manifest.source_kind == "runtime_input":
+                shape = list(parameters.get("shape", [1]))
                 feature_shape = shape[1:] if shape and shape[0] is None else shape
                 lines.append(
                     f"    {variable} = keras.Input(shape={feature_shape!r}, name={node.id!r}, dtype={parameters.get('dtype', 'float32')!r})"
                 )
+            elif definition == "input.constant":
+                anchor = next(
+                    (
+                        variables[prior.id]
+                        for prior in graph.nodes
+                        if prior.id in variables and catalog.get(prior.definition_id, prior.definition_version).source_kind == "runtime_input"
+                    ),
+                    None,
+                )
+                invocation = f"({anchor})" if anchor is not None else "()"
+                lines.append(
+                    f"    {variable} = ConstantSource(shape={parameters.get('shape', [1])!r}, value={parameters.get('value', 0)!r}, value_dtype={parameters.get('dtype', 'float32')!r}, name={node.id!r}){invocation}"
+                )
+            elif definition == "input.parameter":
+                anchor = next(
+                    (
+                        variables[prior.id]
+                        for prior in graph.nodes
+                        if prior.id in variables and catalog.get(prior.definition_id, prior.definition_version).source_kind == "runtime_input"
+                    ),
+                    None,
+                )
+                invocation = f"({anchor})" if anchor is not None else "()"
+                lines.append(
+                    f"    {variable} = ParameterSource(shape={parameters.get('shape', [1])!r}, initializer={parameters.get('initializer', 'zeros')!r}, value_dtype={parameters.get('dtype', 'float32')!r}, trainable={parameters.get('trainable', True)!r}, name={node.id!r}){invocation}"
+                )
+            elif definition == "math.index":
+                expression = self._index_expression(parameters.get("expression", ":"))
+                lines.append(f"    {variable} = {expression.replace('x', source, 1)}")
+            elif definition == "merge.average":
+                lines.append(
+                    f"    {variable} = keras.ops.sum(keras.ops.stack([{', '.join(inputs)}], axis=0), axis=0) / {len(inputs)!r}"
+                )
+            elif definition == "merge.split":
+                lines.append(
+                    f"    {variable} = keras.ops.split({source}, {int(parameters.get('sections', 2))!r}, axis={int(parameters.get('axis', -1))!r})"
+                )
+            elif definition == "output.detection":
+                lines.append(f"    {variable} = [{', '.join(inputs)}]")
             elif definition == "layer.dense":
                 kwargs = self._constructor_kwargs(
                     parameters,
@@ -1473,7 +1561,7 @@ class KerasSourceExporter(SourceExporter):
 
             output_ports = [
                 port
-                for port in manifest.outputs
+                for port in materialized_outputs(manifest, parameters)
                 if self._condition_matches(port.enabled_when, parameters)
             ]
             if not output_ports:

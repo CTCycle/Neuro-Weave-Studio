@@ -6,7 +6,9 @@ from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
 from domain.compilation_catalog import CompilationCatalog
 from domain.graph import ModelGraph
+from domain.ports import materialized_outputs
 from exporters.base import SourceExporter
+from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
 
 ###############################################################################
@@ -27,6 +29,13 @@ class NativeJaxSourceExporter(SourceExporter):
             }[value]
         except KeyError as exc:
             raise ValueError(f"No native JAX activation adapter registered for {value}") from exc
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _index_expression(value: object) -> str:
+        expression = normalize_index_expression(value if isinstance(value, str) else ":")
+        validate_safe_expression(expression)
+        return expression
 
     # -------------------------------------------------------------------------
     def generate(
@@ -53,21 +62,59 @@ class NativeJaxSourceExporter(SourceExporter):
             "    def __call__(self, inputs, return_intermediates=False):",
         ]
         variables: dict[str, str] = {}
+        port_variables: dict[tuple[str, str], str] = {}
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
             definition = item.definition_id
             name = item.variable_name
             params = node.parameters
-            source_vars = [variables[source_id] for source_id in item.input_node_ids]
+            source_vars = [
+                port_variables[(binding.source_node_id, binding.source_port_id)]
+                for binding in item.input_bindings
+            ]
             source = source_vars[0] if source_vars else ""
             manifest = catalog.get(definition, node.definition_version)
             if manifest.operation is not None:
                 lines.append(
                     f"        {name} = {emit_operation_source(manifest, 'jax', source_vars, params)}"
                 )
-            elif manifest.semantic_role == "input":
+            elif manifest.source_kind == "runtime_input":
                 expression = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{node.id!r}]"
                 lines.append(f"        {name} = {expression}")
+            elif definition == "input.constant":
+                lines.append(
+                    f"        {name} = jnp.broadcast_to(jnp.asarray({params.get('value', 0)!r}, dtype=jnp.dtype({params.get('dtype', 'float32')!r})), {tuple(params.get('shape', [1]))!r})"
+                )
+            elif definition == "input.parameter":
+                shape = tuple(params.get("shape", [1]))
+                dtype = params.get("dtype", "float32")
+                initializer = params.get("initializer", "zeros")
+                init_name = {
+                    "ones": "ones",
+                    "random_normal": "normal",
+                    "normal": "normal",
+                    "random_uniform": "uniform",
+                    "uniform": "uniform",
+                }.get(initializer if isinstance(initializer, str) else "zeros", "zeros")
+                if bool(params.get("trainable", True)):
+                    lines.append(
+                        f"        {name} = self.param({name!r}, nn.initializers.{init_name}(), {shape!r}, jnp.dtype({dtype!r}))"
+                    )
+                else:
+                    lines.append(
+                        f"        {name} = self.variable('constants', {name!r}, lambda: jnp.zeros({shape!r}, dtype=jnp.dtype({dtype!r}))).value"
+                    )
+            elif definition == "math.index":
+                expression = self._index_expression(params.get("expression", ":"))
+                lines.append(f"        {name} = {expression.replace('x', source, 1)}")
+            elif definition == "merge.average":
+                lines.append(f"        {name} = jnp.stack([{', '.join(source_vars)}], axis=0).sum(axis=0) / {len(source_vars)!r}")
+            elif definition == "merge.split":
+                lines.append(
+                    f"        {name} = jnp.split({source}, {int(params.get('sections', 2))!r}, axis={int(params.get('axis', -1))!r})"
+                )
+            elif definition == "output.detection":
+                lines.append(f"        {name} = ({', '.join(source_vars)})")
             elif definition == "layer.dense":
                 lines.append(
                     f"        {name} = nn.Dense({int(params.get('units', 32))}, use_bias={bool(params.get('use_bias', True))!r}, name={name!r})({source})"
@@ -194,13 +241,34 @@ class NativeJaxSourceExporter(SourceExporter):
                 lines.append(f"        {name} = {source}")
             else:
                 raise ValueError(f"No native JAX adapter registered for {definition}")
-            variables[item.node_id] = name
-        outputs = [variables[binding.node_id] for binding in ir.output_bindings]
+            output_ports = list(materialized_outputs(manifest, params))
+            if len(output_ports) > 1:
+                for index, port in enumerate(output_ports):
+                    port_variables[(item.node_id, port.id)] = f"{name}[{index}]"
+                variables[item.node_id] = f"{name}[0]"
+            else:
+                port_variables[(item.node_id, output_ports[0].id)] = name
+                variables[item.node_id] = name
+        outputs = [port_variables[(binding.node_id, binding.port_id)] for binding in ir.output_bindings]
         result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
-        trace = "{" + ", ".join(
-            f"{item.node_id!r}: {{'output': {variables[item.node_id]}}}"
-            for item in ir.ordered_nodes
-        ) + "}"
+        trace_entries: list[str] = []
+        for trace_item in ir.ordered_nodes:
+            trace_manifest = catalog.get(
+                trace_item.definition_id,
+                nodes[trace_item.node_id].definition_version,
+            )
+            trace_ports = ", ".join(
+                f"{port.id!r}: {port_variables[(trace_item.node_id, port.id)]}"
+                for port in materialized_outputs(
+                    trace_manifest,
+                    nodes[trace_item.node_id].parameters,
+                )
+                if (trace_item.node_id, port.id) in port_variables
+            )
+            trace_entries.append(
+                f"{trace_item.node_id!r}: {{'outputs': {{{trace_ports}}}}}"
+            )
+        trace = "{" + ", ".join(trace_entries) + "}"
         lines.append(f"        if return_intermediates: return {result}, {trace}")
         lines.append(f"        return {result}")
         jit_enabled = graph.model_configuration.native.jax.jit_enabled

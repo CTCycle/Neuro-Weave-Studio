@@ -9,9 +9,15 @@ import keras
 from keras import layers
 
 from common.catalogs.loader import NodeCatalog, get_node_catalog
-from common.catalogs.operation_emitter import apply_runtime_operation
+from common.catalogs.operation_emitter import apply_runtime_operation, evaluate_safe_index_expression
 from domain.graph import ModelGraph
-from models.keras_layers import GeluActivation, SinusoidalPositionalEncoding
+from domain.ports import materialized_outputs
+from models.keras_layers import (
+    ConstantSource,
+    GeluActivation,
+    ParameterSource,
+    SinusoidalPositionalEncoding,
+)
 from models.keras_runtime import layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.output_resolution import input_nodes, resolved_outputs
@@ -56,7 +62,7 @@ def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) ->
 def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any]:
     return [
         port
-        for port in manifest.outputs
+        for port in materialized_outputs(manifest, parameters)
         if _condition_matches(port.enabled_when, parameters)
     ]
 
@@ -236,7 +242,7 @@ def build_model(
         _checkpoint(checkpoint)
         node = nodes[node_id]
         manifest = catalog.get(node.definition_id, node.definition_version)
-        incoming_edges = ordered_incoming_edges(graph, node_id, manifest)
+        incoming_edges = ordered_incoming_edges(graph, node_id, manifest, node.parameters)
         inputs = [
             port_tensors[(edge.source_node_id, edge.source_port_id)]
             for edge in incoming_edges
@@ -244,7 +250,7 @@ def build_model(
         source = inputs[0] if inputs else None
         params = node.parameters
         definition = node.definition_id
-        if manifest.semantic_role != "input" and source is None:
+        if manifest.source_kind is None and source is None:
             raise RuntimeError(f"Node {node_id} requires an inbound connection")
         source = cast(Any, source)
         if manifest.operation is not None:
@@ -262,14 +268,65 @@ def build_model(
                     params,
                     _keras_operation_functions(catalog),
                 )
-        elif manifest.semantic_role == "input":
-            shape = list(params.get("shape", [None, 1]))
+        elif manifest.source_kind == "runtime_input":
+            shape = list(params.get("shape", [1]))
             feature_shape = shape[1:] if shape and shape[0] is None else shape
             tensors[node_id] = keras.Input(
                 shape=feature_shape,
                 dtype=params.get("dtype", "float32"),
                 name=node.id,
             )
+        elif definition == "input.constant":
+            anchor = next(
+                (
+                    tensors[prior.id]
+                    for prior in graph.nodes
+                    if prior.id in tensors
+                    and catalog.get(prior.definition_id, prior.definition_version).source_kind
+                    == "runtime_input"
+                ),
+                None,
+            )
+            layer = ConstantSource(
+                shape=list(params.get("shape", [1])),
+                value=params.get("value", 0),
+                value_dtype=params.get("dtype", "float32"),
+                name=node.id,
+            )
+            tensors[node_id] = layer(anchor) if anchor is not None else layer()
+        elif definition == "input.parameter":
+            anchor = next(
+                (
+                    tensors[prior.id]
+                    for prior in graph.nodes
+                    if prior.id in tensors
+                    and catalog.get(prior.definition_id, prior.definition_version).source_kind
+                    == "runtime_input"
+                ),
+                None,
+            )
+            layer = ParameterSource(
+                shape=list(params.get("shape", [1])),
+                initializer=params.get("initializer", "zeros"),
+                value_dtype=params.get("dtype", "float32"),
+                trainable=bool(params.get("trainable", True)),
+                name=node.id,
+            )
+            tensors[node_id] = layer(anchor) if anchor is not None else layer()
+        elif definition == "math.index":
+            tensors[node_id] = evaluate_safe_index_expression(
+                str(params.get("expression", ":")), source
+            )
+        elif definition == "merge.average":
+            tensors[node_id] = keras.ops.sum(keras.ops.stack(inputs, axis=0), axis=0) / len(inputs)
+        elif definition == "merge.split":
+            tensors[node_id] = keras.ops.split(
+                source,
+                int(params.get("sections", 2)),
+                axis=int(params.get("axis", -1)),
+            )
+        elif definition == "output.detection":
+            tensors[node_id] = list(inputs)
         elif definition == "layer.dense":
             tensors[node_id] = layers.Dense(
                 params.get("units", 32),

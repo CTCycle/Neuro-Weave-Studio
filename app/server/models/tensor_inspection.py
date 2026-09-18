@@ -356,7 +356,7 @@ def run_keras_tensor_inspection(
         node = node_by_id[node_id]
         manifest = catalog.get(node.definition_id, node.definition_version)
         inputs: list[dict[str, object]] = []
-        for edge in ordered_incoming_edges(graph, node_id, manifest):
+        for edge in ordered_incoming_edges(graph, node_id, manifest, node.parameters):
             source = summaries_by_port.get((edge.source_node_id, edge.source_port_id))
             if source is None:
                 inputs.append(

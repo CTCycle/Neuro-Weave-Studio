@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from common.catalogs.loader import NodeCatalog
 from domain.graph import ModelGraph, NodeInstance, OutputBinding, ShapeSummary
 from domain.manifests import NodeManifest, PortDefinition
+from domain.ports import materialized_outputs
 from domain.tensor import TensorSpec
 
 if TYPE_CHECKING:
@@ -33,7 +34,7 @@ def is_effective_output(output: ResolvedOutput) -> bool:
     return bool(
         output.node is not None
         and output.manifest is not None
-        and output.manifest.semantic_role != "input"
+        and output.manifest.source_kind != "runtime_input"
         and output.port is not None
         and _condition_matches(output.port.enabled_when, output.node.parameters)
         and output.port.kind.value in {"tensor", "tensor_list", "mask", "scalar"}
@@ -61,7 +62,7 @@ def input_nodes(graph: ModelGraph, catalog: NodeCatalog) -> list[NodeInstance]:
             manifest = catalog.get(node.definition_id, node.definition_version)
         except KeyError:
             continue
-        if manifest.semantic_role == "input":
+        if manifest.source_kind == "runtime_input":
             result.append(node)
     return result
 
@@ -93,7 +94,7 @@ def _tensor_output_ports(
     effective_parameters = parameters or {}
     return (
         port
-        for port in manifest.outputs
+        for port in materialized_outputs(manifest, effective_parameters)
         if _condition_matches(port.enabled_when, effective_parameters)
         if port.kind.value in {"tensor", "tensor_list", "mask", "scalar"}
     )
@@ -124,7 +125,7 @@ def inferred_output_bindings(graph: ModelGraph, catalog: NodeCatalog) -> list[Ou
             manifest = catalog.get(node.definition_id, node.definition_version)
         except KeyError:
             continue
-        if manifest.semantic_role == "input":
+        if manifest.source_kind == "runtime_input":
             continue
         for port in _tensor_output_ports(manifest, node.parameters):
             if (node.id, port.id) not in connected_ports:
@@ -154,7 +155,14 @@ def resolved_outputs(graph: ModelGraph, catalog: NodeCatalog) -> list[ResolvedOu
             except KeyError:
                 manifest = None
             if manifest is not None:
-                port = next((item for item in manifest.outputs if item.id == binding.port_id), None)
+                port = next(
+                    (
+                        item
+                        for item in materialized_outputs(manifest, node.parameters)
+                        if item.id == binding.port_id
+                    ),
+                    None,
+                )
         result.append(
             ResolvedOutput(
                 binding=binding,

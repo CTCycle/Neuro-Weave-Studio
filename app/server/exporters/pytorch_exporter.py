@@ -12,10 +12,12 @@ from domain.compilation_catalog import (
     get_compilation_catalog,
 )
 from domain.graph import ModelGraph
+from domain.ports import materialized_outputs
 from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 from validation.output_resolution import output_selectors, resolved_outputs
+from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
 
 ###############################################################################
@@ -89,6 +91,13 @@ class PyTorchSourceExporter(SourceExporter):
             }[value]
         except KeyError as exc:
             raise ValueError(f"No PyTorch activation adapter registered for {value}") from exc
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _index_expression(value: object) -> str:
+        expression = normalize_index_expression(value if isinstance(value, str) else ":")
+        validate_safe_expression(expression)
+        return expression
 
     # -------------------------------------------------------------------------
     @staticmethod
@@ -205,6 +214,15 @@ class PyTorchSourceExporter(SourceExporter):
             "        layer.bias_ih_l0[hidden_size:2 * hidden_size].fill_(1.0)",
             "",
             "",
+            "def _initialize(shape, initializer, dtype):",
+            "    identifier = initializer.get('id', 'zeros') if isinstance(initializer, dict) else initializer",
+            "    if identifier in (None, 'zeros'): return torch.zeros(shape, dtype=dtype)",
+            "    if identifier == 'ones': return torch.ones(shape, dtype=dtype)",
+            "    if identifier in ('random_normal', 'normal'): return torch.randn(shape, dtype=dtype)",
+            "    if identifier in ('random_uniform', 'uniform'): return torch.rand(shape, dtype=dtype)",
+            "    return torch.zeros(shape, dtype=dtype)",
+            "",
+            "",
             "class GeneratedModel(nn.Module):",
             "    def __init__(self) -> None:",
             "        super().__init__()",
@@ -217,7 +235,25 @@ class PyTorchSourceExporter(SourceExporter):
             name = item.variable_name
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
 
-            if definition == "layer.dense":
+            if definition == "input.constant":
+                shape = params.get("shape", [1])
+                dtype = params.get("dtype", "float32")
+                value = params.get("value", 0)
+                lines.append(
+                    f"        self.register_buffer({name!r}, torch.as_tensor({value!r}, dtype=getattr(torch, {dtype!r})).expand({tuple(shape)!r}))"
+                )
+            elif definition == "input.parameter":
+                shape = params.get("shape", [1])
+                dtype = params.get("dtype", "float32")
+                initializer = params.get("initializer", "zeros")
+                expression = f"_initialize({tuple(shape)!r}, {initializer!r}, getattr(torch, {dtype!r}))"
+                if bool(params.get("trainable", True)):
+                    lines.append(
+                        f"        self.{name} = nn.Parameter({expression}, requires_grad=True)"
+                    )
+                else:
+                    lines.append(f"        self.register_buffer({name!r}, {expression})")
+            elif definition == "layer.dense":
                 input_features = self._static_dimension(source_spec, -1)
                 units = int(params.get("units", 32))
                 bias = bool(params.get("use_bias", True))
@@ -386,11 +422,15 @@ class PyTorchSourceExporter(SourceExporter):
             ]
         )
         variables: dict[str, str] = {}
+        port_variables: dict[tuple[str, str], str] = {}
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
             definition = item.definition_id
             name = item.variable_name
-            source_vars = [variables[source_id] for source_id in item.input_node_ids]
+            source_vars = [
+                port_variables[(binding.source_node_id, binding.source_port_id)]
+                for binding in item.input_bindings
+            ]
             source = source_vars[0] if source_vars else ""
             params = node.parameters
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
@@ -401,9 +441,27 @@ class PyTorchSourceExporter(SourceExporter):
                     f"        {name} = {emit_operation_source(manifest, 'pytorch', source_vars, params)}"
                 )
                 variables[item.node_id] = name
-            elif manifest.semantic_role == "input":
+            elif manifest.source_kind == "runtime_input":
                 expression = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{node.id!r}]"
                 lines.append(f"        {name} = {expression}")
+                variables[item.node_id] = name
+            elif definition in {"input.constant", "input.parameter"}:
+                lines.append(f"        {name} = self.{name}")
+                variables[item.node_id] = name
+            elif definition == "math.index":
+                expression = self._index_expression(params.get("expression", ":"))
+                lines.append(f"        {name} = {expression.replace('x', source, 1)}")
+                variables[item.node_id] = name
+            elif definition == "merge.average":
+                lines.append(f"        {name} = torch.stack([{', '.join(source_vars)}], dim=0).sum(dim=0) / {len(source_vars)!r}")
+                variables[item.node_id] = name
+            elif definition == "merge.split":
+                lines.append(
+                    f"        {name} = torch.tensor_split({source}, {int(params.get('sections', 2))!r}, dim={int(params.get('axis', -1))!r})"
+                )
+                variables[item.node_id] = name
+            elif definition == "output.detection":
+                lines.append(f"        {name} = ({', '.join(source_vars)})")
                 variables[item.node_id] = name
             elif definition in {
                 "layer.dense",
@@ -532,12 +590,45 @@ class PyTorchSourceExporter(SourceExporter):
             else:
                 raise ValueError(f"No PyTorch adapter registered for {definition}")
 
-        outputs = [variables[binding.node_id] for binding in ir.output_bindings]
+            output_ports = [
+                port
+                for port in materialized_outputs(manifest, params)
+                if not port.enabled_when
+                or all(
+                    params.get(key) in expected
+                    if isinstance(expected, list)
+                    else params.get(key) == expected
+                    for key, expected in port.enabled_when.items()
+                )
+            ]
+            if len(output_ports) > 1:
+                for index, port in enumerate(output_ports):
+                    port_variables[(item.node_id, port.id)] = f"{name}[{index}]"
+                variables[item.node_id] = f"{name}[0]"
+            else:
+                port_variables[(item.node_id, output_ports[0].id)] = name
+                variables[item.node_id] = name
+
+        outputs = [port_variables[(binding.node_id, binding.port_id)] for binding in ir.output_bindings]
         result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
-        trace = "{" + ", ".join(
-            f"{item.node_id!r}: {{'output': {variables[item.node_id]}}}"
-            for item in ir.ordered_nodes
-        ) + "}"
+        trace_entries: list[str] = []
+        for trace_item in ir.ordered_nodes:
+            trace_manifest = catalog.get(
+                trace_item.definition_id,
+                nodes[trace_item.node_id].definition_version,
+            )
+            trace_ports = ", ".join(
+                f"{port.id!r}: {port_variables[(trace_item.node_id, port.id)]}"
+                for port in materialized_outputs(
+                    trace_manifest,
+                    nodes[trace_item.node_id].parameters,
+                )
+                if (trace_item.node_id, port.id) in port_variables
+            )
+            trace_entries.append(
+                f"{trace_item.node_id!r}: {{'outputs': {{{trace_ports}}}}}"
+            )
+        trace = "{" + ", ".join(trace_entries) + "}"
         lines.append(f"        if return_intermediates: return {result}, {trace}")
         lines.append(f"        return {result}")
         optimizer_parameters = {

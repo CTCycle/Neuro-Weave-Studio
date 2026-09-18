@@ -8,8 +8,10 @@ from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
 from domain.compilation_catalog import CompilationCatalog
 from domain.graph import ModelGraph
+from domain.ports import materialized_outputs
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
+from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
 
 ###############################################################################
@@ -56,6 +58,33 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         if axis < 0 or axis >= rank:
             raise ValueError(f"Normalization axis {value} is outside rank {rank}")
         return axis
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _index_expression(value: object) -> str:
+        expression = normalize_index_expression(value if isinstance(value, str) else ":")
+        validate_safe_expression(expression)
+        return expression
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _condition_matches(condition: dict[str, object], parameters: dict[str, object]) -> bool:
+        for parameter_id, expected in condition.items():
+            actual = parameters.get(parameter_id)
+            if isinstance(expected, dict):
+                if "equals" in expected and actual != expected["equals"]:
+                    return False
+                if "not_equals" in expected and actual == expected["not_equals"]:
+                    return False
+                if "in" in expected and actual not in expected["in"]:
+                    return False
+                if "not_in" in expected and actual in expected["not_in"]:
+                    return False
+            elif isinstance(expected, list) and actual not in expected:
+                return False
+            elif not isinstance(expected, (dict, list)) and actual != expected:
+                return False
+        return True
 
     # -------------------------------------------------------------------------
     @classmethod
@@ -182,6 +211,15 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             "    return sequence if return_sequences else sequence[:, -1, :]",
             "",
             "",
+            "def _initialize(shape, initializer, dtype):",
+            "    identifier = initializer.get('id', 'zeros') if isinstance(initializer, dict) else initializer",
+            "    if identifier in (None, 'zeros'): return tf.zeros(shape, dtype=dtype)",
+            "    if identifier == 'ones': return tf.ones(shape, dtype=dtype)",
+            "    if identifier in ('random_normal', 'normal'): return tf.random.normal(shape, dtype=dtype)",
+            "    if identifier in ('random_uniform', 'uniform'): return tf.random.uniform(shape, dtype=dtype)",
+            "    return tf.zeros(shape, dtype=dtype)",
+            "",
+            "",
             "class GeneratedModel(tf.Module):",
             "    def __init__(self) -> None:",
             "        super().__init__(name='neuro_weave_model')",
@@ -193,7 +231,21 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             definition = item.definition_id
             name = item.variable_name
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
-            if definition == "layer.dense":
+            if definition == "input.constant":
+                shape = params.get("shape", [1])
+                dtype = params.get("dtype", "float32")
+                value = params.get("value", 0)
+                lines.append(
+                    f"        self.{name} = tf.broadcast_to(tf.cast(tf.convert_to_tensor({value!r}), {dtype!r}), {shape!r})"
+                )
+            elif definition == "input.parameter":
+                shape = params.get("shape", [1])
+                dtype = params.get("dtype", "float32")
+                initializer = params.get("initializer", "zeros")
+                lines.append(
+                    f"        self.{name} = tf.Variable(_initialize({shape!r}, {initializer!r}, {dtype!r}), trainable={bool(params.get('trainable', True))!r}, name={name!r})"
+                )
+            elif definition == "layer.dense":
                 input_features = self._static_dimension(source_spec, -1)
                 if input_features is None:
                     raise ValueError(
@@ -357,21 +409,38 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             ]
         )
         variables: dict[str, str] = {}
+        port_variables: dict[tuple[str, str], str] = {}
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
             definition = item.definition_id
             name = item.variable_name
             params = node.parameters
-            source_vars = [variables[source_id] for source_id in item.input_node_ids]
+            source_vars = [
+                port_variables[(binding.source_node_id, binding.source_port_id)]
+                for binding in item.input_bindings
+            ]
             source = source_vars[0] if source_vars else ""
             manifest = catalog.get(definition, node.definition_version)
             if manifest.operation is not None:
                 lines.append(
                     f"        {name} = {emit_operation_source(manifest, 'tensorflow', source_vars, params)}"
                 )
-            elif manifest.semantic_role == "input":
+            elif manifest.source_kind == "runtime_input":
                 expression = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{node.id!r}]"
                 lines.append(f"        {name} = {expression}")
+            elif definition in {"input.constant", "input.parameter"}:
+                lines.append(f"        {name} = self.{name}")
+            elif definition == "math.index":
+                expression = self._index_expression(params.get("expression", ":"))
+                lines.append(f"        {name} = {expression.replace('x', source, 1)}")
+            elif definition == "merge.average":
+                lines.append(f"        {name} = tf.add_n([{', '.join(source_vars)}]) / {len(source_vars)!r}")
+            elif definition == "merge.split":
+                lines.append(
+                    f"        {name} = tf.split({source}, num_or_size_splits={int(params.get('sections', 2))!r}, axis={int(params.get('axis', -1))!r})"
+                )
+            elif definition == "output.detection":
+                lines.append(f"        {name} = ({', '.join(source_vars)})")
             elif definition == "layer.dense":
                 lines.append(f"        {name} = tf.matmul({source}, self.{name}_kernel)")
                 lines.append(
@@ -471,13 +540,38 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(f"        {name} = {source}")
             else:
                 raise ValueError(f"No native TensorFlow adapter registered for {definition}")
-            variables[item.node_id] = name
-        outputs = [variables[binding.node_id] for binding in ir.output_bindings]
+            output_ports = [
+                port
+                for port in materialized_outputs(manifest, params)
+                if self._condition_matches(port.enabled_when, params)
+            ]
+            if len(output_ports) > 1:
+                for index, port in enumerate(output_ports):
+                    port_variables[(item.node_id, port.id)] = f"{name}[{index}]"
+                variables[item.node_id] = f"{name}[0]"
+            else:
+                port_variables[(item.node_id, output_ports[0].id)] = name
+                variables[item.node_id] = name
+        outputs = [port_variables[(binding.node_id, binding.port_id)] for binding in ir.output_bindings]
         result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
-        trace = "{" + ", ".join(
-            f"{item.node_id!r}: {{'output': {variables[item.node_id]}}}"
-            for item in ir.ordered_nodes
-        ) + "}"
+        trace_entries: list[str] = []
+        for trace_item in ir.ordered_nodes:
+            trace_manifest = catalog.get(
+                trace_item.definition_id,
+                nodes[trace_item.node_id].definition_version,
+            )
+            trace_ports = ", ".join(
+                f"{port.id!r}: {port_variables[(trace_item.node_id, port.id)]}"
+                for port in materialized_outputs(
+                    trace_manifest,
+                    nodes[trace_item.node_id].parameters,
+                )
+                if (trace_item.node_id, port.id) in port_variables
+            )
+            trace_entries.append(
+                f"{trace_item.node_id!r}: {{'outputs': {{{trace_ports}}}}}"
+            )
+        trace = "{" + ", ".join(trace_entries) + "}"
         lines.append(f"        if return_intermediates: return {result}, {trace}")
         lines.append(f"        return {result}")
         lines.extend(

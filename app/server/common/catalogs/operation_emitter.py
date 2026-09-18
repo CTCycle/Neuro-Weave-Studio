@@ -5,7 +5,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any, cast
 
 from domain.manifests import ImplementationMapping, NodeManifest
-from validation.safe_expression import validate_safe_expression
+from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
 
 ###############################################################################
@@ -399,6 +399,46 @@ def evaluate_safe_expression(
         raise OperationEmissionError(f"Expression element '{type(node).__name__}' is not allowed")
 
     return evaluate(tree)
+
+###############################################################################
+def evaluate_safe_index_expression(expression: str, value: Any) -> Any:
+    """Apply a validated literal-only tensor index without dynamic evaluation."""
+
+    canonical = normalize_index_expression(expression)
+    validate_safe_expression(canonical)
+    tree = ast.parse(canonical, mode="eval")
+    if not isinstance(tree.body, ast.Subscript):
+        raise OperationEmissionError("Index expression must select from the input tensor")
+    if not isinstance(tree.body.value, ast.Name) or tree.body.value.id != "x":
+        raise OperationEmissionError("Only the input tensor may be indexed")
+
+    def literal(node: ast.AST) -> object:
+        if isinstance(node, ast.Slice):
+            return slice(
+                literal(node.lower) if node.lower is not None else None,
+                literal(node.upper) if node.upper is not None else None,
+                literal(node.step) if node.step is not None else None,
+            )
+        if isinstance(node, ast.Tuple):
+            return tuple(literal(item) for item in node.elts)
+        if isinstance(node, ast.Constant) and node.value is Ellipsis:
+            return Ellipsis
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, int)
+            and not isinstance(node.value, bool)
+        ):
+            return int(node.value)
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            if isinstance(node.operand, ast.Constant) and isinstance(node.operand.value, int):
+                value = int(node.operand.value)
+                return value if isinstance(node.op, ast.UAdd) else -value
+        raise OperationEmissionError("Index expressions may contain only integer literals and slices")
+
+    try:
+        return value[literal(tree.body.slice)]
+    except (IndexError, TypeError, ValueError) as exc:
+        raise OperationEmissionError(str(exc)) from exc
 
 ###############################################################################
 def apply_runtime_operation(
