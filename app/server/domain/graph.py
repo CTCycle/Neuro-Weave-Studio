@@ -50,7 +50,7 @@ class NodeInstance(BaseModel):
             parameters.pop("quantization_config", None)
         self.parameters = (
             RuntimeInputParameters(parameters)
-            if self.definition_id.startswith("input.")
+            if _is_runtime_input_definition(self.definition_id)
             else parameters
         )
         return self
@@ -146,6 +146,29 @@ class ModelGraph(BaseModel):
     future_training_configuration: dict[str, Any] = Field(default_factory=dict)
 
     # -------------------------------------------------------------------------
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_node_ids(cls, value: Any) -> Any:
+        """Normalize removed design-only node identifiers at the graph boundary."""
+
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        raw_nodes = data.get("nodes")
+        if not isinstance(raw_nodes, list):
+            return data
+        nodes: list[Any] = []
+        for raw_node in raw_nodes:
+            if isinstance(raw_node, dict) and raw_node.get("definition_id") == "output.detection_placeholder":
+                normalized = dict(raw_node)
+                normalized["definition_id"] = "output.custom"
+                nodes.append(normalized)
+            else:
+                nodes.append(raw_node)
+        data["nodes"] = nodes
+        return data
+
+    # -------------------------------------------------------------------------
     @model_validator(mode="after")
     def unique_ids(self) -> ModelGraph:
         nodes = self.nodes  # pyright: ignore[reportUnknownVariableType]
@@ -226,6 +249,13 @@ class ShapeSummary(BaseModel):
     outputs: dict[str, TensorSpec]
     parameter_count: int | None = None
 
+
+###############################################################################
+def _is_runtime_input_definition(definition_id: str) -> bool:
+    return definition_id.startswith("input.") and definition_id not in {
+        "input.constant",
+        "input.parameter",
+    }
 
 ###############################################################################
 def _runtime_input_value(key: str, value: Any) -> Any:
