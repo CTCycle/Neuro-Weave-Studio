@@ -488,7 +488,7 @@
       "version": 1,
       "display_name": "Constant",
       "category": "inputs",
-      "description": "Constant operation.",
+      "description": "Generate a constant tensor inside the model without exposing a runtime model input.",
       "inputs": [],
       "outputs": [
         {
@@ -520,33 +520,53 @@
           "required": false,
           "options": [],
           "constraints": {}
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": "float32",
+          "required": false,
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+            "bool"
+          ],
+          "constraints": {}
         }
       ],
       "shape_rule": {
-        "kind": "input",
+        "kind": "generated_source",
         "config": {}
       },
       "implementations": {
         "keras": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "supported": true,
+          "status": "verified",
+          "adapter": "constant_source",
           "execution_backends": {
-            "tensorflow": false,
-            "pytorch": false,
-            "jax": false
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
           }
         },
         "tensorflow": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "status": "verified",
+          "adapter": "constant_source"
         },
         "pytorch": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "status": "verified",
+          "adapter": "constant_source"
         },
         "jax": {
-          "supported": false,
-          "notes": "Native JAX implementation is not available for this node."
+          "supported": true,
+          "status": "verified",
+          "adapter": "constant_source"
         }
       },
       "ui": {
@@ -556,14 +576,15 @@
         "height": 120
       },
       "deprecated": false,
-      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md",
+      "runtime_input": false
     },
     {
       "id": "input.parameter",
       "version": 1,
       "display_name": "Parameter",
       "category": "inputs",
-      "description": "Parameter operation.",
+      "description": "Generate a trainable parameter tensor inside the model without exposing a runtime model input.",
       "inputs": [],
       "outputs": [
         {
@@ -590,42 +611,63 @@
         {
           "id": "initializer",
           "display_name": "Initializer",
-          "type": "enum",
+          "type": "initializer",
           "default": "zeros",
           "required": false,
+          "constraints": {}
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": "float32",
+          "required": false,
           "options": [
-            "zeros",
-            "ones",
-            "random_normal"
+            "float16",
+            "float32",
+            "float64"
           ],
+          "constraints": {}
+        },
+        {
+          "id": "trainable",
+          "display_name": "Trainable",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "options": [],
           "constraints": {}
         }
       ],
       "shape_rule": {
-        "kind": "input",
+        "kind": "generated_source",
         "config": {}
       },
       "implementations": {
         "keras": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "supported": true,
+          "status": "verified",
+          "adapter": "parameter_source",
           "execution_backends": {
-            "tensorflow": false,
-            "pytorch": false,
-            "jax": false
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
           }
         },
         "tensorflow": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "status": "verified",
+          "adapter": "parameter_source"
         },
         "pytorch": {
-          "supported": false,
-          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP."
+          "supported": true,
+          "status": "verified",
+          "adapter": "parameter_source"
         },
         "jax": {
-          "supported": false,
-          "notes": "Native JAX implementation is not available for this node."
+          "supported": true,
+          "status": "verified",
+          "adapter": "parameter_source"
         }
       },
       "ui": {
@@ -635,7 +677,8 @@
         "height": 120
       },
       "deprecated": false,
-      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md",
+      "runtime_input": false
     }
   ]
 }
