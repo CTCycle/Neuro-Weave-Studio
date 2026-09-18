@@ -29,6 +29,27 @@ class NativeJaxSourceExporter(SourceExporter):
             raise ValueError(f"No native JAX activation adapter registered for {value}") from exc
 
     # -------------------------------------------------------------------------
+    @staticmethod
+    def _condition_matches(condition: dict[str, object], parameters: dict[str, object]) -> bool:
+        for parameter_id, expected in condition.items():
+            actual = parameters.get(parameter_id)
+            if isinstance(expected, dict):
+                if "equals" in expected and actual != expected["equals"]:
+                    return False
+                if "not_equals" in expected and actual == expected["not_equals"]:
+                    return False
+                if "in" in expected and actual not in expected["in"]:
+                    return False
+                if "not_in" in expected and actual in expected["not_in"]:
+                    return False
+            elif isinstance(expected, list):
+                if actual not in expected:
+                    return False
+            elif actual != expected:
+                return False
+        return True
+
+    # -------------------------------------------------------------------------
     def generate(
         self,
         graph: ModelGraph,
@@ -53,15 +74,48 @@ class NativeJaxSourceExporter(SourceExporter):
             "    def __call__(self, inputs, return_intermediates=False):",
         ]
         variables: dict[str, str] = {}
+        port_variables: dict[tuple[str, str], str] = {}
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
             definition = item.definition_id
             name = item.variable_name
             params = node.parameters
-            source_vars = [variables[source_id] for source_id in item.input_node_ids]
+            source_vars = [
+                port_variables[(binding.source_node_id, binding.source_port_id)]
+                for binding in item.input_bindings
+            ]
             source = source_vars[0] if source_vars else ""
             manifest = catalog.get(definition, node.definition_version)
-            if manifest.operation is not None:
+            if definition in {"input.constant", "input.parameter"}:
+                if not ir.input_node_ids:
+                    raise ValueError(
+                        f"Generated source node {node.id} requires at least one runtime model input for batch materialization"
+                    )
+                anchor = "inputs" if len(ir.input_node_ids) == 1 else f"inputs[{ir.input_node_ids[0]!r}]"
+                source_shape = params.get("shape", [1])
+                if not isinstance(source_shape, list):
+                    raise ValueError(f"Generated source node {node.id} requires a list shape")
+                dtype = str(params.get("dtype", "float32"))
+                if definition == "input.constant":
+                    lines.append(
+                        f"        {name}_source = jnp.full({tuple(source_shape)!r}, {params.get('value', 0)!r}, dtype=jnp.{dtype})"
+                    )
+                else:
+                    initializer = str(params.get("initializer", "zeros"))
+                    initializer_source = {
+                        "zeros": "nn.initializers.zeros_init()",
+                        "ones": "nn.initializers.ones_init()",
+                        "random_normal": "nn.initializers.normal()",
+                    }.get(initializer)
+                    if initializer_source is None:
+                        raise ValueError(f"Unsupported JAX parameter initializer: {initializer}")
+                    lines.append(
+                        f"        {name}_source = self.param({name + '_parameter'!r}, {initializer_source}, {tuple(source_shape)!r}, jnp.{dtype})"
+                    )
+                lines.append(
+                    f"        {name} = jnp.repeat(jnp.expand_dims({name}_source, 0), {anchor}.shape[0], axis=0)"
+                )
+            elif manifest.operation is not None:
                 lines.append(
                     f"        {name} = {emit_operation_source(manifest, 'jax', source_vars, params)}"
                 )
@@ -190,12 +244,29 @@ class NativeJaxSourceExporter(SourceExporter):
                 lines.append(
                     f"        {name} = jnp.concatenate([{', '.join(source_vars)}], axis={int(params.get('axis', -1))!r})"
                 )
+            elif definition == "merge.split":
+                lines.append(
+                    f"        {name} = list(jnp.split({source}, {int(params.get('sections', 2))!r}, axis={int(params.get('axis', -1))!r}))"
+                )
+            elif definition == "output.detection":
+                lines.append(f"        {name} = ({', '.join(source_vars)})")
             elif manifest.semantic_role == "output_adapter":
                 lines.append(f"        {name} = {source}")
             else:
                 raise ValueError(f"No native JAX adapter registered for {definition}")
-            variables[item.node_id] = name
-        outputs = [variables[binding.node_id] for binding in ir.output_bindings]
+            output_ports = [
+                port
+                for port in manifest.outputs
+                if self._condition_matches(port.enabled_when, params)
+            ]
+            if len(output_ports) > 1:
+                for index, port in enumerate(output_ports):
+                    port_variables[(item.node_id, port.id)] = f"{name}[{index}]"
+                variables[item.node_id] = f"{name}[0]"
+            else:
+                port_variables[(item.node_id, output_ports[0].id)] = name
+                variables[item.node_id] = name
+        outputs = [port_variables[(binding.node_id, binding.port_id)] for binding in ir.output_bindings]
         result = outputs[0] if len(outputs) == 1 else "(" + ", ".join(outputs) + ")"
         trace = "{" + ", ".join(
             f"{item.node_id!r}: {{'output': {variables[item.node_id]}}}"
