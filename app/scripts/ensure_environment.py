@@ -9,7 +9,7 @@ SERVER_ROOT = Path(__file__).resolve().parents[1] / "server"
 if str(SERVER_ROOT) not in sys.path:
     sys.path.insert(0, str(SERVER_ROOT))
 
-from configurations.environment import ensure_environment_file
+from configurations.environment import ensure_environment_file  # noqa: E402
 
 
 if __name__ == "__main__":

@@ -1,23 +1,10 @@
 # Python
-__pycache__/
-*.py[cod]
 *.egg-info/
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
 .venv/
 venv/
 
-# Runtime/download caches and test/tool caches are kept in their owning areas.
-runtimes/cache/
-app/tests/cache/
-
 # Frontend
 node_modules/
-dist/
-coverage/
-.angular/
-*.tsbuildinfo
 
 # Runtime data
 *.db
@@ -37,6 +24,7 @@ artifacts/
 logs/
 app/resources/runtime/
 assets/QA/
+# Repository-managed runtime data and the canonical cache root.
 runtimes/
 *.lock
 !app/server/uv.lock

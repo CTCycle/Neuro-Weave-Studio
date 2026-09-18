@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node tools/dev-server.mjs",
     "build": "ng build",
-    "lint": "eslint . --max-warnings 0 --cache --cache-location ../tests/cache/eslint/",
+    "lint": "eslint . --max-warnings 0 --cache --cache-location ../../runtimes/cache/eslint/",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",

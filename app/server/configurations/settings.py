@@ -6,9 +6,11 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from common.path import (
+    CACHE_ROOT,
     DATABASE_PATH,
     ENV_FILE,
     REPOSITORY_ROOT,
+    RUNTIME_DISCOVERY_CACHE_PATH,
     RUNTIME_EXPORT_ROOT,
     RUNTIME_LOG_ROOT,
     RUNTIME_ROOT,
@@ -38,7 +40,7 @@ class Settings(BaseSettings):
     ml_cancel_grace_seconds: int = Field(default=5, ge=1, le=300)
     ml_terminate_grace_seconds: int = Field(default=5, ge=1, le=300)
     ml_job_history_limit: int = Field(default=100, ge=10, le=1_000)
-    runtime_discovery_path: Path = RUNTIME_ROOT / "environment-discovery.json"
+    runtime_discovery_path: Path = RUNTIME_DISCOVERY_CACHE_PATH
 
     # -------------------------------------------------------------------------
     @field_validator("export_root", mode="before")
@@ -84,6 +86,19 @@ class Settings(BaseSettings):
             return value
         path = Path(str(value))
         return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
+
+    # -------------------------------------------------------------------------
+    @field_validator("runtime_discovery_path")
+    @classmethod
+    def validate_runtime_discovery_cache_path(cls, value: Path) -> Path:
+        path = value.resolve()
+        try:
+            path.relative_to(CACHE_ROOT.resolve())
+        except ValueError as error:
+            raise ValueError(
+                f"runtime_discovery_path must be beneath the canonical cache root {CACHE_ROOT}"
+            ) from error
+        return path
 
     # -------------------------------------------------------------------------
     @property

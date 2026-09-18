@@ -12,7 +12,7 @@
           "builder": "@angular/build:application",
           "options": {
             "outputPath": {
-              "base": "../tests/cache/frontend-dist",
+              "base": "../../runtimes/cache/frontend-dist",
               "browser": ""
             },
             "index": "src/index.html",
@@ -50,6 +50,11 @@
     }
   },
   "cli": {
-    "analytics": false
+    "analytics": false,
+    "cache": {
+      "enabled": true,
+      "environment": "all",
+      "path": "../../runtimes/cache/angular"
+    }
   }
 }

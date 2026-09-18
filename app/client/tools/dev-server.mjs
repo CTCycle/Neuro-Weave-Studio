@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const cacheRoot = path.resolve(clientRoot, '../tests/cache')
+const cacheRoot = path.resolve(clientRoot, '../../runtimes/cache')
 const settings = await readSettings(path.resolve(clientRoot, '../../settings/.env'))
 const environment = { ...settings, ...process.env }
 const apiHost = normalizeConnectHost(environment.FASTAPI_HOST || '127.0.0.1')

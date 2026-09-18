@@ -73,3 +73,23 @@ def test_launcher_rejects_invalid_ports_and_optional_backend_setup_can_reuse_sta
     assert "valid TCP port between 1 and 65535" in port
     assert "Test-Path -LiteralPath $venvPython" in launcher
     assert "Backend setup is already complete; reused the recorded environment" in optional_setup
+
+
+###############################################################################
+def test_launcher_routes_generated_data_to_the_canonical_cache_root() -> None:
+    launcher = launcher_source()
+    environment = function_body(launcher, "Set-LauncherEnvironment", "Invoke-DownloadAndExtract")
+    clear_cache = function_body(launcher, "Invoke-ClearApplicationCache", "Confirm-LauncherAction")
+    test_suite = function_body(launcher, "Invoke-TestSuite", "Get-GitCommand")
+
+    assert "$script:CacheDir = Join-Path $script:RuntimeDir 'cache'" in launcher
+    assert "RuntimeCacheDir" not in launcher
+    assert "app\\tests\\cache" not in launcher
+    assert "assets\\QA" not in launcher
+    assert "$env:PYTHONPYCACHEPREFIX = $script:PythonBytecodeCacheDir" in environment
+    assert "$env:RUFF_CACHE_DIR = $script:RuffCacheDir" in environment
+    assert "$env:PLAYWRIGHT_BROWSERS_PATH = $script:PlaywrightBrowsersDir" in environment
+    assert "Remove-CanonicalCacheRoot -Path $script:CacheDir" in clear_cache
+    assert "Set-LauncherEnvironment" in clear_cache
+    assert "Ensure-PlaywrightBrowser" in test_suite
+    assert "playwright install chromium" in launcher

@@ -1,4 +1,9 @@
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig, devices } from '@playwright/test'
+
+const playwrightCacheRoot = fileURLToPath(new URL('../../runtimes/cache/playwright/', import.meta.url))
+process.env['PLAYWRIGHT_BROWSERS_PATH'] = join(playwrightCacheRoot, 'browsers')
 
 const configuredWorkers = process.env['PLAYWRIGHT_WORKERS']
 const workers = configuredWorkers
@@ -15,6 +20,7 @@ export default defineConfig({
   // Set PLAYWRIGHT_WORKERS when the backend/storage is isolated for parallel execution.
   workers,
   reporter: 'line',
+  outputDir: join(playwrightCacheRoot, 'test-results'),
   use: {
     baseURL: 'http://127.0.0.1:6426',
     trace: 'retain-on-failure',
