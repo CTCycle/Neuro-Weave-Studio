@@ -71,6 +71,27 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         return axes
 
     # -------------------------------------------------------------------------
+    @staticmethod
+    def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
+        for parameter_id, expected in condition.items():
+            actual = parameters.get(parameter_id)
+            if isinstance(expected, dict):
+                if "equals" in expected and actual != expected["equals"]:
+                    return False
+                if "not_equals" in expected and actual == expected["not_equals"]:
+                    return False
+                if "in" in expected and actual not in expected["in"]:
+                    return False
+                if "not_in" in expected and actual in expected["not_in"]:
+                    return False
+            elif isinstance(expected, list):
+                if actual not in expected:
+                    return False
+            elif actual != expected:
+                return False
+        return True
+
+    # -------------------------------------------------------------------------
     def generate(
         self,
         graph: ModelGraph,
@@ -522,12 +543,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             output_ports = [
                 port
                 for port in manifest.outputs
-                if all(
-                    (condition.get("equals") == params.get(parameter_id))
-                    if isinstance(condition, dict) and "equals" in condition
-                    else params.get(parameter_id) == condition
-                    for parameter_id, condition in port.enabled_when.items()
-                )
+                if self._condition_matches(port.enabled_when, params)
             ]
             if len(output_ports) > 1:
                 for index, port in enumerate(output_ports):
