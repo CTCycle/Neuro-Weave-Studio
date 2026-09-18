@@ -13,7 +13,7 @@ import { ModalGuardDirective } from './modal-guard.directive'
   template: `
     @if (open) {
       <div class="browser-backdrop" nwModalGuard (click)="close()">
-        <section class="browser-dialog panel" role="dialog" aria-modal="true" aria-labelledby="filesystem-browser-title" (click)="$event.stopPropagation()">
+        <section class="browser-dialog panel" role="dialog" aria-modal="true" aria-labelledby="filesystem-browser-title" (click)="$event.stopPropagation()" (keydown.escape)="close()">
           <header>
             <div><span class="eyebrow">LOCAL FILESYSTEM</span><h2 id="filesystem-browser-title">{{ title }}</h2></div>
             <button class="icon-button" type="button" aria-label="Close filesystem explorer" (click)="close()"><svg lucideX [size]="16"></svg></button>

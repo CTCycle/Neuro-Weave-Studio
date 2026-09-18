@@ -41,6 +41,18 @@ def validate_dataset(
 
 
 ###############################################################################
+@router.post("/{dataset_id}/validate", response_model=DatasetDocument)
+def revalidate_dataset(
+    dataset_id: UUID,
+    service: DatasetService = Depends(get_dataset_service),
+) -> DatasetDocument:
+    dataset = service.revalidate(dataset_id)
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return dataset
+
+
+###############################################################################
 @router.get("", response_model=DatasetListResponse)
 def list_datasets(service: DatasetService = Depends(get_dataset_service)) -> DatasetListResponse:
     return service.list()

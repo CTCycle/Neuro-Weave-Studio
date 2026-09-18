@@ -36,7 +36,7 @@ Frontend tests are deliberately limited to state and interaction contracts that 
 - Model Export page capability grouping, explicit disabled reasons, format-specific options, job polling, cancellation, retry, and verified download;
 - Builder compatibility guards for catalog actions, disabled inspector controls, profile-switch retention/diagnostics, every store mutation path, and atomic custom-template materialization;
 - Builder keeps graph save/validation separate from Compilation configuration and source generation, while CodePreview remains inspection/copy-only there.
-- dataset capability choices, disabled Auto Detect, persisted resource refresh, wizard role/subset/validation transitions, catalog selection/deletion, unavailable-source rendering, and future-only Processing/Split routes.
+- dataset capability choices, disabled Auto Detect, persisted resource refresh, wizard role/subset/validation transitions, catalog selection/deletion, unavailable-source rendering, and durable Overview/Validation/I/O/Processing/Split workspace routes.
 - browser file-input import of a `.keras` architecture, including persisted project retrieval and downstream route navigation;
 - exact runtime device/memory-policy local-storage round trips after a browser reload, using native select change events;
 - keyboard graph traversal, source/target port activation, authoritative connection validation, and accessible status feedback;

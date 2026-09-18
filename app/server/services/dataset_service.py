@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 from datetime import datetime
 from pathlib import Path
@@ -21,6 +22,7 @@ from domain.datasets import (
     DatasetInspectionRequest,
     DatasetListResponse,
     DatasetRoleDefinition,
+    DatasetSplitDefinition,
     DatasetSummary,
     DatasetType,
     DatasetValidationFinding,
@@ -85,6 +87,7 @@ class DatasetService:
         errors.extend(self._validate_bindings(payload, inspection))
         sample_count = self._resolve_sample_count(payload, inspection, errors)
         selected_count = self._validate_subset(payload, sample_count, errors)
+        errors.extend(self._validate_split(payload.split_definition))
         if sample_count == 0:
             errors.append(
                 DatasetValidationFinding(
@@ -150,7 +153,28 @@ class DatasetService:
         dataset_id: UUID,
         payload: DatasetDefinitionMutation,
     ) -> DatasetDocument | None:
+        with self._uow_factory() as uow:
+            record = uow.datasets.get(dataset_id)
+            if record is None:
+                return None
+            registered_type = record.dataset_type
         result = self.validate(payload)
+        if registered_type != payload.dataset_type.value:
+            result = self._validation_result(
+                result.validation.checked_at,
+                result.inspection,
+                result.sample_count,
+                result.selected_sample_count,
+                [
+                    *result.validation.errors,
+                    DatasetValidationFinding(
+                        code="dataset_type_immutable",
+                        message="Dataset type cannot change after registration; register a new dataset instead",
+                        details={"registered": registered_type, "requested": payload.dataset_type.value},
+                    ),
+                ],
+                result.validation.warnings,
+            )
         if not result.valid or result.inspection is None:
             raise DatasetDefinitionInvalidError(result)
         payload = self._normalize_payload(payload, result.inspection)
@@ -180,6 +204,29 @@ class DatasetService:
             uow.datasets.delete(record)
             uow.commit()
             return True
+
+    # -------------------------------------------------------------------------
+    def revalidate(self, dataset_id: UUID) -> DatasetDocument | None:
+        """Reinspect a stored definition and persist the live validation state."""
+        with self._uow_factory() as uow:
+            record = uow.datasets.get(dataset_id)
+            if record is None:
+                return None
+
+            payload = DatasetDefinitionMutation.model_validate(record.definition_json)
+            result = self.validate(payload)
+            if result.inspection is not None:
+                payload = self._normalize_payload(payload, result.inspection)
+                record.definition_json = payload.model_dump(mode="json")
+                record.sample_count = result.sample_count
+                record.selected_sample_count = result.selected_sample_count
+                record.inspection_json = result.inspection.model_dump(mode="json")
+
+            record.validation_status = result.validation.status.value
+            record.validation_json = result.validation.model_dump(mode="json")
+            record.updated_at = utc_now()
+            uow.commit()
+            return self._document(record)
 
     # -------------------------------------------------------------------------
     def _validate_layout(self, payload: DatasetDefinitionMutation) -> list[DatasetValidationFinding]:
@@ -218,6 +265,44 @@ class DatasetService:
                 DatasetValidationFinding(
                     code="invalid_relationship_count",
                     message="This source layout requires exactly one file-to-table relationship" if needs_relationship else "This source layout does not use a relationship",
+                )
+            )
+        return errors
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _validate_split(
+        split: DatasetSplitDefinition | None,
+    ) -> list[DatasetValidationFinding]:
+        if split is None:
+            return []
+
+        errors: list[DatasetValidationFinding] = []
+        fractions = {
+            "train": split.train_fraction,
+            "validation": split.validation_fraction,
+            "test": split.test_fraction,
+        }
+        if any(not math.isfinite(value) or value < 0 or value > 1 for value in fractions.values()):
+            errors.append(
+                DatasetValidationFinding(
+                    code="invalid_split_fraction",
+                    message="Train, validation, and test fractions must be between 0 and 1",
+                )
+            )
+        elif not math.isclose(sum(fractions.values()), 1.0, rel_tol=0.0, abs_tol=1e-6):
+            errors.append(
+                DatasetValidationFinding(
+                    code="split_fractions_not_one",
+                    message="Train, validation, and test fractions must sum to 1",
+                    details={"sum": sum(fractions.values())},
+                )
+            )
+        if split.strategy == "random" and (split.seed is None or split.seed < 0):
+            errors.append(
+                DatasetValidationFinding(
+                    code="invalid_split_seed",
+                    message="Random splits require a non-negative deterministic seed",
                 )
             )
         return errors

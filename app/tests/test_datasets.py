@@ -147,6 +147,27 @@ def test_invalid_update_returns_complete_validation_without_mutating_registratio
 
 
 ###############################################################################
+def test_update_keeps_registered_dataset_type_immutable(client: TestClient, tmp_path: Path) -> None:
+    source = tmp_path / "type-stable.csv"
+    source.write_text("age,weight,diagnosis\n42,71,positive\n", encoding="utf-8")
+    created = client.post("/api/datasets", json=_tabular_payload(source))
+    assert created.status_code == 201
+    dataset_id = created.json()["id"]
+
+    changed = _tabular_payload(source)
+    changed["dataset_type"] = "time_series"
+    changed["name"] = "Changed type"
+    rejected = client.put(f"/api/datasets/{dataset_id}", json=changed)
+
+    assert rejected.status_code == 422
+    errors = rejected.json()["detail"]["validation"]["validation"]["errors"]
+    assert any(item["code"] == "dataset_type_immutable" for item in errors)
+    persisted = client.get(f"/api/datasets/{dataset_id}").json()
+    assert persisted["dataset_type"] == "tabular"
+    assert persisted["name"] == "Patient outcomes"
+
+
+###############################################################################
 def test_text_folder_inspection_streams_exact_count_and_extensions(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -179,6 +200,132 @@ def test_text_folder_inspection_streams_exact_count_and_extensions(
     assert inspection["sample_count"] == 3
     assert inspection["sources"][0]["sample_count"] == 3
     assert inspection["sources"][0]["extensions"] == [".jsonl", ".md", ".txt"]
+
+
+###############################################################################
+def test_text_file_registration_and_text_table_composed_mapping(
+    client: TestClient, tmp_path: Path
+) -> None:
+    text_file = tmp_path / "notes.jsonl"
+    text_file.write_text('{"text":"one"}\n', encoding="utf-8")
+    text_payload: dict[str, object] = {
+        "name": "Text file",
+        "dataset_type": "text",
+        "sources": [
+            {
+                "type": "text",
+                "id": "text",
+                "path": str(text_file),
+                "path_kind": "file",
+                "recursive": False,
+            }
+        ],
+        "input_definition": {"bindings": [{"type": "text", "source_id": "text"}]},
+        "output_definition": {"bindings": []},
+        "metadata_definition": {"bindings": []},
+        "relationships": [],
+        "sequence_definition": None,
+        "subset_definition": {"type": "all"},
+    }
+
+    text_created = client.post("/api/datasets", json=text_payload)
+
+    assert text_created.status_code == 201
+    assert text_created.json()["sample_count"] == 1
+    assert text_created.json()["inspection"]["sources"][0]["extensions"] == [".jsonl"]
+
+    text_folder = tmp_path / "documents"
+    text_folder.mkdir()
+    (text_folder / "first.md").write_text("first", encoding="utf-8")
+    (text_folder / "second.txt").write_text("second", encoding="utf-8")
+    table = tmp_path / "document-labels.csv"
+    table.write_text("filename,label\nfirst.md,one\nsecond.txt,two\n", encoding="utf-8")
+    composed_payload: dict[str, object] = {
+        "name": "Text labels",
+        "dataset_type": "composed",
+        "sources": [
+            {
+                "type": "text",
+                "id": "documents",
+                "path": str(text_folder),
+                "path_kind": "folder",
+                "recursive": True,
+            },
+            _table_source(table, "labels"),
+        ],
+        "input_definition": {
+            "bindings": [
+                {"type": "text", "source_id": "documents"},
+                {"type": "columns", "source_id": "labels", "columns": ["label"]},
+            ]
+        },
+        "output_definition": {"bindings": []},
+        "metadata_definition": {"bindings": []},
+        "relationships": [
+            {
+                "type": "file_table",
+                "file_source_id": "documents",
+                "file_key": "filename",
+                "table_source_id": "labels",
+                "table_key_column": "filename",
+            }
+        ],
+        "sequence_definition": None,
+        "subset_definition": {"type": "all"},
+    }
+
+    composed_created = client.post("/api/datasets", json=composed_payload)
+
+    assert composed_created.status_code == 201
+    assert composed_created.json()["sample_count"] == 2
+
+
+###############################################################################
+def test_tsv_time_series_registration_preserves_structural_columns(
+    client: TestClient, tmp_path: Path
+) -> None:
+    source = tmp_path / "events.tsv"
+    source.write_text(
+        "timestamp\tgroup\tvalue\tlabel\n2026-01-01\ta\t1\tlow\n2026-01-02\ta\t2\thigh\n",
+        encoding="utf-8",
+    )
+    payload = _tabular_payload(source)
+    payload["name"] = "Events"
+    payload["dataset_type"] = "time_series"
+    payload["sources"] = [{**_table_source(source), "format": "tsv", "delimiter": "\t"}]
+    payload["input_definition"] = {
+        "bindings": [{"type": "columns", "source_id": "table", "columns": ["value"]}]
+    }
+    payload["output_definition"] = {
+        "bindings": [{"type": "columns", "source_id": "table", "columns": ["label"]}]
+    }
+    payload["sequence_definition"] = {"timestamp_column": "timestamp", "group_column": "group"}
+
+    created = client.post("/api/datasets", json=payload)
+
+    assert created.status_code == 201
+    assert created.json()["format"] == "TSV"
+    assert created.json()["sample_count"] == 2
+    assert created.json()["sequence_definition"] == payload["sequence_definition"]
+
+
+###############################################################################
+def test_source_extension_mismatch_is_blocking(
+    client: TestClient, tmp_path: Path
+) -> None:
+    source = tmp_path / "patients.csv"
+    source.write_text("age,diagnosis\n42,positive\n", encoding="utf-8")
+    payload = _tabular_payload(source)
+    payload["sources"] = [{**_table_source(source), "format": "tsv", "delimiter": "\t"}]
+
+    validation = client.post("/api/datasets/validate", json=payload)
+
+    assert validation.status_code == 200
+    assert validation.json()["valid"] is False
+    assert any(
+        item["code"] == "source_inspection_failed"
+        for item in validation.json()["validation"]["errors"]
+    )
 
 
 ###############################################################################
@@ -449,3 +596,109 @@ def test_dataset_registration_survives_application_restart(
         listed = second.get("/api/datasets")
         assert listed.status_code == 200
         assert listed.json()["datasets"][0]["name"] == "Patient outcomes"
+
+
+###############################################################################
+def test_split_definition_is_typed_persisted_and_validated(
+    client: TestClient, tmp_path: Path
+) -> None:
+    source = tmp_path / "split.csv"
+    source.write_text("age,weight,diagnosis\n42,71,positive\n50,80,negative\n61,90,positive\n72,95,negative\n", encoding="utf-8")
+    payload = _tabular_payload(source)
+    payload["split_definition"] = {
+        "strategy": "random",
+        "train_fraction": 0.8,
+        "validation_fraction": 0.1,
+        "test_fraction": 0.1,
+        "seed": 17,
+    }
+
+    created = client.post("/api/datasets", json=payload)
+
+    assert created.status_code == 201
+    assert created.json()["split_definition"] == payload["split_definition"]
+
+    payload["split_definition"] = {
+        "strategy": "random",
+        "train_fraction": 0.7,
+        "validation_fraction": 0.1,
+        "test_fraction": 0.1,
+        "seed": 17,
+    }
+    invalid = client.post("/api/datasets/validate", json=payload)
+
+    assert invalid.status_code == 200
+    assert invalid.json()["valid"] is False
+    assert any(item["code"] == "split_fractions_not_one" for item in invalid.json()["validation"]["errors"])
+
+
+###############################################################################
+def test_revalidation_persists_invalid_schema_and_recovers(
+    client: TestClient, tmp_path: Path
+) -> None:
+    source = tmp_path / "revalidate.csv"
+    source.write_text("age,weight,diagnosis\n42,71,positive\n50,80,negative\n", encoding="utf-8")
+    payload = _tabular_payload(source)
+    dataset_id = client.post("/api/datasets", json=payload).json()["id"]
+
+    source.write_text("age,diagnosis\n42,positive\n50,negative\n", encoding="utf-8")
+    invalid = client.post(f"/api/datasets/{dataset_id}/validate")
+
+    assert invalid.status_code == 200
+    assert invalid.json()["validation"]["status"] == "invalid"
+    assert any(item["code"] == "missing_columns" for item in invalid.json()["validation"]["errors"])
+    assert invalid.json()["sample_count"] == 2
+
+    source.write_text("age,weight,diagnosis\n42,71,positive\n50,80,negative\n61,90,positive\n", encoding="utf-8")
+    repaired = client.post(f"/api/datasets/{dataset_id}/validate")
+
+    assert repaired.status_code == 200
+    assert repaired.json()["validation"]["status"] == "valid"
+    assert repaired.json()["sample_count"] == 3
+    assert repaired.json()["selected_sample_count"] == 3
+
+
+###############################################################################
+def test_revalidation_preserves_previous_inspection_when_source_is_unavailable(
+    client: TestClient, tmp_path: Path
+) -> None:
+    source = tmp_path / "preserve.csv"
+    source.write_text("feature\n1\n2\n", encoding="utf-8")
+    payload = _tabular_payload(source)
+    payload["input_definition"] = {"bindings": [{"type": "columns", "source_id": "table", "columns": ["feature"]}]}
+    payload["output_definition"] = {"bindings": []}
+    created = client.post("/api/datasets", json=payload).json()
+    source.unlink()
+
+    revalidated = client.post(f"/api/datasets/{created['id']}/validate")
+
+    assert revalidated.status_code == 200
+    document = revalidated.json()
+    assert document["validation"]["status"] == "invalid"
+    assert document["inspection"]["sample_count"] == 2
+    assert document["sample_count"] == 2
+
+
+###############################################################################
+def test_legacy_definition_without_split_definition_remains_loadable(
+    client: TestClient, tmp_path: Path
+) -> None:
+    source = tmp_path / "legacy.csv"
+    source.write_text("feature\n1\n", encoding="utf-8")
+    payload = _tabular_payload(source)
+    payload["input_definition"] = {"bindings": [{"type": "columns", "source_id": "table", "columns": ["feature"]}]}
+    payload["output_definition"] = {"bindings": []}
+    created = client.post("/api/datasets", json=payload).json()
+    database = tmp_path / "test.db"
+    with sqlite3.connect(database) as connection:
+        raw_definition = connection.execute("SELECT definition_json FROM datasets").fetchone()
+        assert raw_definition is not None
+        definition = json.loads(raw_definition[0])
+        definition.pop("split_definition", None)
+        connection.execute("UPDATE datasets SET definition_json = ?", (json.dumps(definition),))
+        connection.commit()
+
+    loaded = client.get(f"/api/datasets/{created['id']}")
+
+    assert loaded.status_code == 200
+    assert loaded.json()["split_definition"] is None

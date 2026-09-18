@@ -8,31 +8,19 @@ import { LucideBox, LucideCpu } from '@lucide/angular'
   imports: [RouterLink, LucideBox, LucideCpu],
   template: `
     <div class="settings-page">
-      <header class="catalog-page-header">
-        <div><span class="eyebrow page-eyebrow">APPLICATION</span><h1>Settings</h1><p>Manage installation-wide NeuroWeave configuration and shared authoring resources.</p></div>
-      </header>
-
-      <section class="settings-list panel">
-        <a class="settings-row" routerLink="/nodes">
-          <span class="settings-icon"><svg lucideBox [size]="17"></svg></span>
-          <span class="settings-copy"><strong>Node library</strong><span>Inspect built-in node contracts and manage reusable custom node definitions.</span></span>
-          <span class="settings-meta">Authoring</span>
-        </a>
-        <a class="settings-row" routerLink="/environment">
-          <span class="settings-icon"><svg lucideCpu [size]="17"></svg></span>
-          <span class="settings-copy"><strong>Runtime environment</strong><span>Configure and inspect installation-wide execution backends, devices, and runtime capabilities.</span></span>
-          <span class="settings-meta">Runtime</span>
-        </a>
-      </section>
-
-      <section class="settings-note">
-        <span class="eyebrow">SCOPE</span>
-        <p>Global settings apply to this local NeuroWeave installation. Model-specific compilation and graph settings remain inside each model workspace.</p>
-      </section>
+      <header class="settings-header"><span class="eyebrow page-eyebrow">APPLICATION</span><h1>Settings</h1><p>Application-level preferences will live here as they become real, editable runtime features.</p></header>
+      <div class="settings-layout">
+        <nav class="settings-nav" aria-label="Settings sections"><a href="/settings#application-general" class="active" aria-current="location">Application<span>General</span></a><a href="/settings#related-management">Related management<span>Installation resources</span></a></nav>
+        <div class="settings-content">
+          <section id="application-general" class="settings-section"><div class="section-heading"><span class="eyebrow">APPLICATION</span><h2>General</h2><p>There are no editable application-level settings defined yet.</p></div><div class="empty-setting"><strong>No application preferences</strong><span>This section is intentionally minimal until a concrete, typed setting with useful persistence is introduced.</span></div></section>
+          <section id="related-management" class="settings-section related-section"><div class="section-heading"><span class="eyebrow">RELATED MANAGEMENT</span><h2>Installation resources</h2><p>These are separate management surfaces, not editable application settings.</p></div><div class="management-links"><a class="management-row" routerLink="/nodes"><span class="management-icon"><svg lucideBox [size]="17"></svg></span><span><strong>Node Library</strong><small>Inspect built-in node contracts and manage reusable custom node definitions.</small></span><span class="management-meta">Authoring</span></a><a class="management-row" routerLink="/environment"><span class="management-icon"><svg lucideCpu [size]="17"></svg></span><span><strong>Runtime Environment</strong><small>Inspect installation-wide execution backends, devices, and runtime capabilities.</small></span><span class="management-meta">Runtime</span></a></div></section>
+          <p class="settings-boundary">Environment variables, <code>.env</code> files, ports, hosts, database paths, logs, job roots, and launcher configuration remain outside this page.</p>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
-    .settings-page{display:grid;gap:18px;max-width:980px}.settings-list{overflow:hidden}.settings-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:16px 18px;border-bottom:1px solid var(--border);color:var(--text);text-decoration:none}.settings-row:last-child{border-bottom:0}.settings-row:hover{background:var(--surface-2)}.settings-icon{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--cyan)}.settings-copy{display:grid;gap:4px}.settings-copy strong{font-size:11px}.settings-copy span{color:var(--muted);font-size:9px;line-height:1.45}.settings-meta{color:var(--muted);font:500 8px 'IBM Plex Mono',Consolas,monospace;text-transform:uppercase}.settings-note{display:grid;gap:6px;padding:2px 2px 0}.settings-note p{margin:0;color:var(--muted);font-size:10px;line-height:1.55}@media(max-width:650px){.settings-row{grid-template-columns:auto minmax(0,1fr)}.settings-meta{grid-column:2}}
+    :host{display:block}.settings-page{display:grid;gap:24px;max-width:1180px}.settings-header{display:grid;gap:6px}.settings-header h1{margin:0}.settings-header p{max-width:650px;margin:0;color:var(--muted);font-size:11px;line-height:1.5}.settings-layout{display:grid;grid-template-columns:190px minmax(0,760px);gap:48px;align-items:start}.settings-nav{position:sticky;top:18px;display:grid;gap:2px;border-left:1px solid var(--border)}.settings-nav a{display:grid;gap:4px;padding:10px 12px;border-left:2px solid transparent;color:var(--muted);text-decoration:none;font-size:10px}.settings-nav a:hover,.settings-nav a.active{border-left-color:var(--cyan);color:var(--text);background:rgba(101,201,212,.06)}.settings-nav a span{color:var(--muted);font-size:8px}.settings-content{display:grid;gap:34px;min-width:0}.settings-section{display:grid;gap:16px;scroll-margin-top:20px}.section-heading{display:grid;gap:5px;padding-bottom:14px;border-bottom:1px solid var(--border)}.section-heading h2{margin:0;font-size:16px}.section-heading p{margin:0;color:var(--muted);font-size:10px;line-height:1.45}.empty-setting{display:grid;gap:5px;padding:2px 0 3px}.empty-setting strong{font-size:11px}.empty-setting span{color:var(--muted);font-size:10px;line-height:1.5}.related-section{padding-top:2px}.management-links{display:grid;gap:0}.management-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--border);color:var(--text);text-decoration:none}.management-row:first-child{border-top:1px solid var(--border)}.management-row:hover .management-icon{border-color:var(--cyan);color:var(--cyan)}.management-row>span:nth-child(2){display:grid;gap:4px}.management-row strong{font-size:11px}.management-row small{color:var(--muted);font-size:9px;line-height:1.45}.management-icon{display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--border);border-radius:5px;color:var(--muted)}.management-meta{color:var(--muted);font:500 8px 'IBM Plex Mono',Consolas,monospace;text-transform:uppercase}.settings-boundary{margin:0;padding-top:12px;border-top:1px solid var(--border);color:var(--muted);font-size:9px;line-height:1.5}.settings-boundary code{color:var(--text);font-size:9px}@media(max-width:800px){.settings-layout{grid-template-columns:1fr;gap:22px}.settings-nav{position:static;display:flex;overflow:auto;border-left:0;border-bottom:1px solid var(--border)}.settings-nav a{min-width:max-content;border-left:0;border-bottom:2px solid transparent}.settings-nav a:hover,.settings-nav a.active{border-left:0;border-bottom-color:var(--cyan)}}@media(max-width:520px){.settings-page{gap:18px}.settings-content{gap:25px}.management-row{grid-template-columns:auto minmax(0,1fr)}.management-meta{grid-column:2}}
   `],
 })
 export class SettingsPageComponent {}

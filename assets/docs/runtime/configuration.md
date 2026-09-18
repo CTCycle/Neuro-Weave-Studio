@@ -1,8 +1,10 @@
 # Configuration
 
-Last updated: 2026-08-31
+Last updated: 2026-09-17
 
 Configuration is loaded through `pydantic-settings` from inherited environment variables and `settings/.env`. Inherited process variables take precedence, which allows isolated QA databases without changing the local file. The launcher never prints environment values.
+
+This launch/runtime configuration remains outside the Angular Settings workspace. The Settings page does not expose or edit `.env`, inherited environment variables, database paths, ports, hosts, logging, job roots, timeouts, runtime-discovery paths, or equivalent environment-backed values. There is no speculative settings API or duplicate SQLite settings store for these fields.
 
 Database settings are SQLite-only and use `DATABASE_SQLITE_PATH` and `DATABASE_CONNECT_TIMEOUT`.
 

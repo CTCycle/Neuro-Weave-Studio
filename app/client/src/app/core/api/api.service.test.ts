@@ -18,6 +18,7 @@ describe('ApiService dataset request timeouts', () => {
     await service.validateDataset({} as never)
     await service.createDataset({} as never)
     await service.updateDataset('dataset-1', {} as never)
+    await service.revalidateDataset('dataset-1')
 
     expect(request.mock.calls[0][2]).toEqual(expect.objectContaining({ timeout: 10_000 }))
     for (const call of request.mock.calls.slice(1)) {

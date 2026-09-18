@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core'
 import { ApiService } from '../../core/api/api.service'
 import { AppResourcesService } from '../../core/state/app-resources.service'
-import type { DatasetDocument } from '../../domain/dataset.types'
+import type { DatasetDefinitionMutation, DatasetDocument } from '../../domain/dataset.types'
 
 @Injectable()
 export class DatasetWorkspaceState {
@@ -28,6 +28,24 @@ export class DatasetWorkspaceState {
     const current = this.dataset()
     if (!current) throw new Error('Dataset is not loaded')
     const next = await this.api.getDataset(current.id)
+    this.dataset.set(next)
+    await this.resources.refreshDatasets()
+    return next
+  }
+
+  async updateDefinition(payload: DatasetDefinitionMutation): Promise<DatasetDocument> {
+    const current = this.dataset()
+    if (!current) throw new Error('Dataset is not loaded')
+    const next = await this.api.updateDataset(current.id, payload)
+    this.dataset.set(next)
+    await this.resources.refreshDatasets()
+    return next
+  }
+
+  async revalidate(): Promise<DatasetDocument> {
+    const current = this.dataset()
+    if (!current) throw new Error('Dataset is not loaded')
+    const next = await this.api.revalidateDataset(current.id)
     this.dataset.set(next)
     await this.resources.refreshDatasets()
     return next
