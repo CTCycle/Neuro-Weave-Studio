@@ -1386,6 +1386,21 @@
             "pytorch": true,
             "jax": true
           }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_group_norm"
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_group_norm"
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_group_norm"
         }
       }
     },
@@ -1412,6 +1427,21 @@
             "pytorch": true,
             "jax": true
           }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_permute"
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_permute"
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_permute"
         }
       }
     },
@@ -1425,6 +1455,21 @@
             "pytorch": true,
             "jax": true
           }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_repeat"
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_repeat"
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_repeat"
         }
       }
     },
@@ -1438,6 +1483,21 @@
             "pytorch": true,
             "jax": true
           }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_reshape"
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_reshape"
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_reshape"
         }
       }
     },
@@ -1555,6 +1615,21 @@
             "pytorch": true,
             "jax": true
           }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_transformer_attention_mask"
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_transformer_attention_mask"
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_transformer_attention_mask"
         }
       }
     },
@@ -1620,6 +1695,21 @@
             "pytorch": true,
             "jax": true
           }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_transformer_residual"
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_transformer_residual"
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_transformer_residual"
         }
       }
     },
@@ -2488,6 +2578,63 @@
           "supported": true,
           "status": "verified",
           "adapter": "split"
+        }
+      }
+    },
+    "layer.rms_norm": {
+      "implementations": {
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_rms_norm"
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_rms_norm"
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_rms_norm"
+        }
+      }
+    },
+    "layer.prelu": {
+      "implementations": {
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_prelu"
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_prelu"
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_prelu"
+        }
+      }
+    },
+    "layer.unit_norm": {
+      "implementations": {
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_unit_norm"
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_unit_norm"
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "adapter": "native_layer_unit_norm"
         }
       }
     }
