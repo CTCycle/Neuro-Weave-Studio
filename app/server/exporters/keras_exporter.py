@@ -320,6 +320,42 @@ class KerasSourceExporter(SourceExporter):
             "import keras",
             "from keras import layers",
         ]
+        if any(node.definition_id in {"input.constant", "input.parameter"} for node in graph.nodes):
+            lines.extend(
+                [
+                    "",
+                    "",
+                    "@keras.saving.register_keras_serializable(package='NeuroWeave')",
+                    "class GeneratedConstant(layers.Layer):",
+                    "    def __init__(self, shape, value, dtype='float32', **kwargs):",
+                    "        super().__init__(dtype=dtype, trainable=False, **kwargs)",
+                    "        self.source_shape = tuple(shape)",
+                    "        self.source_value = value",
+                    "    def call(self, anchor):",
+                    "        batch = keras.ops.shape(anchor)[0]",
+                    "        value = keras.ops.full(self.source_shape, self.source_value, dtype=self.compute_dtype)",
+                    "        return keras.ops.repeat(keras.ops.expand_dims(value, 0), batch, axis=0)",
+                    "    def get_config(self):",
+                    "        return {**super().get_config(), 'shape': list(self.source_shape), 'value': self.source_value}",
+                    "",
+                    "",
+                    "@keras.saving.register_keras_serializable(package='NeuroWeave')",
+                    "class GeneratedParameter(layers.Layer):",
+                    "    def __init__(self, shape, initializer='zeros', dtype='float32', trainable=True, **kwargs):",
+                    "        super().__init__(dtype=dtype, trainable=trainable, **kwargs)",
+                    "        self.source_shape = tuple(shape)",
+                    "        self.initializer = keras.initializers.get(initializer)",
+                    "        self.parameter_trainable = bool(trainable)",
+                    "    def build(self, input_shape):",
+                    "        del input_shape",
+                    "        self.value = self.add_weight(name='value', shape=self.source_shape, initializer=self.initializer, trainable=self.parameter_trainable, dtype=self.compute_dtype)",
+                    "    def call(self, anchor):",
+                    "        batch = keras.ops.shape(anchor)[0]",
+                    "        return keras.ops.repeat(keras.ops.expand_dims(self.value, 0), batch, axis=0)",
+                    "    def get_config(self):",
+                    "        return {**super().get_config(), 'shape': list(self.source_shape), 'initializer': keras.initializers.serialize(self.initializer), 'trainable': self.parameter_trainable}",
+                ]
+            )
         if any(node.definition_id == "transformer.positional_encoding" for node in graph.nodes):
             lines.extend(
                 [
@@ -387,6 +423,15 @@ class KerasSourceExporter(SourceExporter):
 
         variables: dict[str, str] = {}
         port_variables: dict[tuple[str, str], str] = {}
+        for input_node_id in ir.input_node_ids:
+            input_node = nodes[input_node_id]
+            input_variable = next(item.variable_name for item in ir.ordered_nodes if item.node_id == input_node_id)
+            shape = list(input_node.parameters.get("shape", [None, 1]))
+            feature_shape = shape[1:] if shape and shape[0] is None else shape
+            lines.append(
+                f"    {input_variable} = keras.Input(shape={feature_shape!r}, name={input_node.id!r}, dtype={input_node.parameters.get('dtype', 'float32')!r})"
+            )
+            variables[input_node_id] = input_variable
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
             parameters = node.parameters
@@ -399,16 +444,30 @@ class KerasSourceExporter(SourceExporter):
             source = inputs[0] if inputs else ""
             definition = item.definition_id
             manifest = catalog.get(definition, node.definition_version)
-            if manifest.operation is not None:
+            if definition in {"input.constant", "input.parameter"}:
+                if not ir.input_node_ids:
+                    raise ValueError(
+                        f"Generated source node {node.id} requires at least one runtime model input for batch materialization"
+                    )
+                anchor = variables[ir.input_node_ids[0]]
+                source_shape = parameters.get("shape", [1])
+                if not isinstance(source_shape, list):
+                    raise ValueError(f"Generated source node {node.id} requires a list shape")
+                if definition == "input.constant":
+                    lines.append(
+                        f"    {variable} = GeneratedConstant(shape={source_shape!r}, value={parameters.get('value', 0)!r}, dtype={parameters.get('dtype', 'float32')!r}, name={node.id!r})({anchor})"
+                    )
+                else:
+                    lines.append(
+                        f"    {variable} = GeneratedParameter(shape={source_shape!r}, initializer={parameters.get('initializer', 'zeros')!r}, dtype={parameters.get('dtype', 'float32')!r}, trainable={bool(parameters.get('trainable', True))!r}, name={node.id!r})({anchor})"
+                    )
+            elif manifest.operation is not None:
                 lines.append(
                     f"    {variable} = {emit_operation_source(manifest, 'keras', inputs, parameters)}"
                 )
             elif manifest.semantic_role == "input":
-                shape = list(parameters.get("shape", [None, 1]))
-                feature_shape = shape[1:] if shape and shape[0] is None else shape
-                lines.append(
-                    f"    {variable} = keras.Input(shape={feature_shape!r}, name={node.id!r}, dtype={parameters.get('dtype', 'float32')!r})"
-                )
+                if item.node_id not in variables:
+                    raise ValueError(f"Runtime input {node.id} was not materialized")
             elif definition == "layer.dense":
                 kwargs = self._constructor_kwargs(
                     parameters,
@@ -1149,6 +1208,10 @@ class KerasSourceExporter(SourceExporter):
                 lines.append(
                     f"    {variable} = layers.Concatenate(axis={parameters.get('axis', -1)!r}, name={node.id!r})([{', '.join(inputs)}])"
                 )
+            elif definition == "merge.split":
+                lines.append(
+                    f"    {variable} = list(keras.ops.split({source}, {int(parameters.get('sections', 2))!r}, axis={int(parameters.get('axis', -1))!r}))"
+                )
             elif definition == "transformer.positional_encoding":
                 lines.append(
                     f"    {variable} = SinusoidalPositionalEncoding(sequence_length={source}.shape[1], feature_dim={source}.shape[2], name={node.id!r})({source})"
@@ -1464,6 +1527,8 @@ class KerasSourceExporter(SourceExporter):
                 lines.append(
                     f"    {variable} = layers.Add({self._constructor_kwargs(parameters, graph, {'name': node.id})})([{', '.join(inputs)}])"
                 )
+            elif definition == "output.detection":
+                lines.append(f"    {variable} = ({', '.join(inputs)})")
             elif definition == "transformer.attention_mask" or manifest.semantic_role == "output_adapter":
                 lines.append(
                     f"    {variable} = layers.Activation('linear', {self._constructor_kwargs(parameters, graph, {'name': node.id})})({source})"
