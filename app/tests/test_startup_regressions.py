@@ -218,7 +218,7 @@ def test_preview_server_serves_spa_root_without_crashing() -> None:
     repository_root = Path(__file__).resolve().parents[2]
     node = repository_root / "runtimes" / "node" / "node.exe"
     preview = repository_root / "app" / "client" / "tools" / "preview-server.mjs"
-    index = repository_root / "app" / "tests" / "cache" / "frontend-dist" / "index.html"
+    index = repository_root / "runtimes" / "cache" / "frontend-dist" / "index.html"
     if not node.is_file() or not preview.is_file() or not index.is_file():
         pytest.skip("official frontend preview prerequisites are not installed")
 

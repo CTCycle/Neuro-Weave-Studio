@@ -15,6 +15,14 @@ concurrency:
 
 env:
   PYTHONPATH: app
+  UV_CACHE_DIR: ${{ github.workspace }}/runtimes/cache/uv
+  PIP_CACHE_DIR: ${{ github.workspace }}/runtimes/cache/pip
+  npm_config_cache: ${{ github.workspace }}/runtimes/cache/npm
+  PYTHONPYCACHEPREFIX: ${{ github.workspace }}/runtimes/cache/python-bytecode
+  PYTHON_EGG_CACHE: ${{ github.workspace }}/runtimes/cache/python-eggs
+  COVERAGE_FILE: ${{ github.workspace }}/runtimes/cache/coverage/.coverage
+  RUFF_CACHE_DIR: ${{ github.workspace }}/runtimes/cache/ruff
+  PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/runtimes/cache/playwright/browsers
 
 jobs:
   backend:
@@ -31,8 +39,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
           version: "0.12.0"
-          enable-cache: true
-          cache-dependency-glob: app/server/uv.lock
+          enable-cache: false
       - name: Install locked QA dependencies
         run: >-
           uv sync --locked --project app/server
@@ -57,7 +64,6 @@ jobs:
         if: ${{ always() && !cancelled() }}
         env:
           NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-ml
-          PYTEST_ADDOPTS: "--basetemp=${{ runner.temp }}/neuro-weave-pytest"
         run: |
           mkdir -p .ci-logs
           set -o pipefail
@@ -71,7 +77,10 @@ jobs:
           if-no-files-found: ignore
           include-hidden-files: true
           path: |
-            app/tests/cache/
+            runtimes/cache/pytest/
+            runtimes/cache/pytest-tmp/
+            runtimes/cache/python-bytecode/
+            runtimes/cache/ruff/
             .ci-logs/
 
   native-parity:
@@ -98,8 +107,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
           version: "0.12.0"
-          enable-cache: true
-          cache-dependency-glob: app/server/uv.lock
+          enable-cache: false
       - name: Install native parity dependencies
         run: >-
           uv sync --locked --project app/server
@@ -108,7 +116,6 @@ jobs:
       - name: Native parity subset
         env:
           NEURO_WEAVE_REQUIRED_NATIVE_BACKEND: ${{ matrix.backend }}
-          PYTEST_ADDOPTS: "--basetemp=${{ runner.temp }}/neuro-weave-native-pytest"
         run: >-
           uv run --project app/server python -m pytest
           app/tests/test_native_parity.py -q
@@ -124,8 +131,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22.23.1"
-          cache: npm
-          cache-dependency-path: app/client/package-lock.json
       - name: Install locked dependencies
         working-directory: app/client
         run: npm ci --no-audit --no-fund
@@ -157,7 +162,7 @@ jobs:
           DATABASE_SQLITE_PATH: ${{ runner.temp }}/neuro-weave-e2e.db
           NEURO_WEAVE_EXPORT_ROOT: ${{ runner.temp }}/neuro-weave-e2e-exports
           NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-e2e-jobs
-          NEURO_WEAVE_RUNTIME_DISCOVERY_PATH: ${{ runner.temp }}/neuro-weave-e2e-discovery.json
+          NEURO_WEAVE_RUNTIME_DISCOVERY_PATH: ${{ github.workspace }}/runtimes/cache/e2e-discovery.json
         run: |
           mkdir -p "${{ runner.temp }}/neuro-weave-e2e-logs"
           nohup uv run --project app/server uvicorn app:create_app --factory --host 127.0.0.1 --port 8000 > "${{ runner.temp }}/neuro-weave-e2e-logs/backend.log" 2>&1 &
@@ -232,8 +237,12 @@ jobs:
           if-no-files-found: ignore
           include-hidden-files: true
           path: |
-            app/client/coverage/
-            app/tests/cache/frontend-dist/
-            app/tests/cache/eslint/
+            runtimes/cache/coverage/
+            runtimes/cache/angular/
+            runtimes/cache/eslint/
+            runtimes/cache/frontend-dist/
+            runtimes/cache/playwright/test-results/
+            runtimes/cache/typescript/
+            runtimes/cache/vite/
             .ci-logs/
             ${{ runner.temp }}/neuro-weave-e2e-logs/

@@ -57,9 +57,9 @@ The launcher menu provides these actions:
 - Uninstall application
 - Exit
 
-The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. Option 2 installs or repairs dependencies and rebuilds the frontend; option 3 rebuilds only the frontend from current source using the existing frontend dependencies; option 1 reuses the existing build and never rebuilds it automatically. If `app/tests/cache/frontend-dist/index.html` is missing, run the standalone rebuild before launching. **Check for updates** performs a read-only remote status check, while **Update application** requires a non-detached, clean checkout of `main` and runs `git pull --ff-only origin main`; it never switches branches or modifies local changes. **Remove all data** deletes generated database/runtime/export/job/log data while preserving application files, settings, runtimes, dependencies, caches, and build output. Use `.\start_on_windows.ps1 -Action RebuildFrontend` to run the standalone rebuild directly. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, waits for both readiness checks, opens the frontend in the default browser when possible, and then closes the initial PowerShell menu while leaving the independent application process roots running. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening.
+The launcher prepares the repository-local Python, uv, and Node.js runtimes only when they are missing or unusable. Option 2 installs or repairs dependencies and rebuilds the frontend; option 3 rebuilds only the frontend from current source using the existing frontend dependencies; option 1 reuses the existing build and never rebuilds it automatically. If `runtimes/cache/frontend-dist/index.html` is missing, run the standalone rebuild before launching. **Check for updates** performs a read-only remote status check, while **Update application** requires a non-detached, clean checkout of `main` and runs `git pull --ff-only origin main`; it never switches branches or modifies local changes. **Remove all data** deletes generated database/runtime/export/job/log data while preserving application files, settings, runtimes, dependencies, caches, and build output. Use `.\start_on_windows.ps1 -Action RebuildFrontend` to run the standalone rebuild directly. It starts the backend at `http://127.0.0.1:8000` and the frontend at `http://127.0.0.1:5173`, waits for both readiness checks, opens the frontend in the default browser when possible, and then closes the initial PowerShell menu while leaving the independent application process roots running. Use `.\start_on_windows.ps1 -Action Launch -NoBrowser` to skip automatic browser opening.
 
-`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/database.db`. Alembic owns schema creation and evolution: installation, explicit initialization, and every backend startup migrate a missing or current-schema database to the current head. Existing databases without the current Alembic history are unsupported and are rejected without unversioned-schema adoption or mutation. Keras is core and is installed with the base application. Optional TensorFlow, PyTorch, and JAX installation is explicit through `.\start_on_windows.ps1 -Action ManageBackends`; the interactive prompt offers numbered PyTorch GPU/CUDA and CPU-only choices, along with TensorFlow/JAX CPU-only and all-backend configurations. The launcher reports native-Windows CPU limitations for TensorFlow/JAX and verifies actual worker capability after installation. Runtime/download caches are under `runtimes/cache`; pytest cache and temporary test directories are under `assets/QA`; Ruff, Angular frontend build output, TypeScript metadata, Python bytecode, coverage, Playwright traces, and lint caches are under `app/tests/cache`.
+`settings/.env` is created from `settings/.env.example` on first launcher or direct backend startup and is never overwritten. The default SQLite database is `app/resources/database.db`. Alembic owns schema creation and evolution: installation, explicit initialization, and every backend startup migrate a missing or current-schema database to the current head. Existing databases without the current Alembic history are unsupported and are rejected without unversioned-schema adoption or mutation. Keras is core and is installed with the base application. Optional TensorFlow, PyTorch, and JAX installation is explicit through `.\start_on_windows.ps1 -Action ManageBackends`; the interactive prompt offers numbered PyTorch GPU/CUDA and CPU-only choices, along with TensorFlow/JAX CPU-only and all-backend configurations. The launcher reports native-Windows CPU limitations for TensorFlow/JAX and verifies actual worker capability after installation. All runtime/download, application, frontend, tooling, pytest, and temporary test caches are under `runtimes/cache`; persistent application data remains under `app/resources/runtime`.
 
 Set `BACKEND_LOGS_VISIBLE=false` in `settings/.env` to keep backend output in the runtime log files instead of opening a dedicated terminal; the default is `true`.
 
@@ -67,12 +67,15 @@ Set `BACKEND_LOGS_VISIBLE=false` in `settings/.env` to keep backend output in th
 
 ```powershell
 cd app/server
-$runtimeCacheRoot = (Resolve-Path ../..).Path + '\\runtimes\\cache'
-$toolCacheRoot = (Resolve-Path ../..).Path + '\\app\\tests\\cache'
-$env:UV_CACHE_DIR = $runtimeCacheRoot + '\\uv'
-$env:PIP_CACHE_DIR = $runtimeCacheRoot + '\\pip'
-$env:PYTHONPYCACHEPREFIX = $toolCacheRoot + '\\python-bytecode'
-$env:COVERAGE_FILE = $toolCacheRoot + '\\coverage\\.coverage'
+$cacheRoot = (Resolve-Path ../..).Path + '\\runtimes\\cache'
+$env:UV_CACHE_DIR = $cacheRoot + '\\uv'
+$env:PIP_CACHE_DIR = $cacheRoot + '\\pip'
+$env:npm_config_cache = $cacheRoot + '\\npm'
+$env:PYTHONPYCACHEPREFIX = $cacheRoot + '\\python-bytecode'
+$env:PYTHON_EGG_CACHE = $cacheRoot + '\\python-eggs'
+$env:COVERAGE_FILE = $cacheRoot + '\\coverage\\.coverage'
+$env:RUFF_CACHE_DIR = $cacheRoot + '\\ruff'
+$env:PLAYWRIGHT_BROWSERS_PATH = $cacheRoot + '\\playwright\\browsers'
 $env:PYTHONPATH = (Get-Location).Path
 uv sync --extra test
 uv run uvicorn app:create_app --factory --reload --port 8000

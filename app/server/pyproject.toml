@@ -87,7 +87,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-cache-dir = "../tests/cache/ruff"
+cache-dir = "../../runtimes/cache/ruff"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
@@ -95,7 +95,7 @@ ignore = ["B008", "E501"]
 
 [tool.pyright]
 include = [".", "../scripts", "../tests"]
-exclude = [".venv", "__pycache__", ".pytest_cache", ".ruff_cache"]
+exclude = [".venv"]
 typeCheckingMode = "strict"
 pythonVersion = "3.13"
 venvPath = "."

@@ -1,7 +1,8 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": []
+    "types": [],
+    "tsBuildInfoFile": "../../runtimes/cache/typescript/tsconfig.app.tsbuildinfo"
   },
   "files": ["src/main.ts"],
   "include": ["src/**/*.d.ts"]

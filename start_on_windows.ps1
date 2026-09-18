@@ -27,14 +27,23 @@ $script:ClientDir = Join-Path $AppDir 'client'
 $script:ScriptsDir = Join-Path $AppDir 'scripts'
 $script:EnvironmentBootstrap = Join-Path $ScriptsDir 'ensure_environment.py'
 $script:RuntimeDir = Join-Path $RepoRoot 'runtimes'
-$script:RuntimeCacheDir = Join-Path $script:RuntimeDir 'cache'
-$script:CacheDir = Join-Path $AppDir 'tests\cache'
-$script:UvCacheDir = Join-Path $script:RuntimeCacheDir 'uv'
-$script:NpmCacheDir = Join-Path $script:RuntimeCacheDir 'npm'
-$script:PipCacheDir = Join-Path $script:RuntimeCacheDir 'pip'
-$script:PythonEggCacheDir = Join-Path $script:RuntimeCacheDir 'python-eggs'
+$script:CacheDir = Join-Path $script:RuntimeDir 'cache'
+$script:UvCacheDir = Join-Path $script:CacheDir 'uv'
+$script:NpmCacheDir = Join-Path $script:CacheDir 'npm'
+$script:PipCacheDir = Join-Path $script:CacheDir 'pip'
+$script:PythonEggCacheDir = Join-Path $script:CacheDir 'python-eggs'
 $script:PythonBytecodeCacheDir = Join-Path $script:CacheDir 'python-bytecode'
 $script:CoverageCacheDir = Join-Path $script:CacheDir 'coverage'
+$script:PytestCacheDir = Join-Path $script:CacheDir 'pytest'
+$script:PytestTempDir = Join-Path $script:CacheDir 'pytest-tmp'
+$script:RuffCacheDir = Join-Path $script:CacheDir 'ruff'
+$script:EslintCacheDir = Join-Path $script:CacheDir 'eslint'
+$script:ViteCacheDir = Join-Path $script:CacheDir 'vite'
+$script:TypescriptCacheDir = Join-Path $script:CacheDir 'typescript'
+$script:AngularCacheDir = Join-Path $script:CacheDir 'angular'
+$script:FrontendDistDir = Join-Path $script:CacheDir 'frontend-dist'
+$script:PlaywrightCacheDir = Join-Path $script:CacheDir 'playwright'
+$script:PlaywrightBrowsersDir = Join-Path $script:PlaywrightCacheDir 'browsers'
 $script:PythonDir = Join-Path $RuntimeDir 'python'
 $script:UvDir = Join-Path $RuntimeDir 'uv'
 $script:NodeDir = Join-Path $RuntimeDir 'node'
@@ -44,7 +53,7 @@ $script:DefaultDatabasePath = Join-Path $script:ResourceDir 'database.db'
 $script:UserDataRuntimeDir = Join-Path $script:ResourceDir 'runtime'
 $script:LogDir = Join-Path $script:UserDataRuntimeDir 'logs'
 $script:BackendInstallState = Join-Path $AppDir 'resources\runtime\backend-installation.json'
-$script:FrontendDistIndex = Join-Path $script:CacheDir 'frontend-dist\index.html'
+$script:FrontendDistIndex = Join-Path $script:FrontendDistDir 'index.html'
 $script:GitRemote = 'origin'
 $script:GitMainBranch = 'main'
 $script:PythonVersion = '3.13.14'
@@ -224,15 +233,19 @@ function Clear-PythonEnvironment {
 }
 
 function Set-LauncherEnvironment {
-    New-Item -ItemType Directory -Path $script:RuntimeCacheDir, $script:CacheDir, $script:UvCacheDir, `
-        $script:NpmCacheDir, $script:PipCacheDir, $script:PythonEggCacheDir, $script:PythonBytecodeCacheDir, `
-        $script:CoverageCacheDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $script:CacheDir, $script:UvCacheDir, $script:NpmCacheDir, `
+        $script:PipCacheDir, $script:PythonEggCacheDir, $script:PythonBytecodeCacheDir, `
+        $script:CoverageCacheDir, $script:PytestCacheDir, $script:PytestTempDir, $script:RuffCacheDir, `
+        $script:EslintCacheDir, $script:ViteCacheDir, $script:TypescriptCacheDir, $script:AngularCacheDir, `
+        $script:FrontendDistDir, $script:PlaywrightCacheDir, $script:PlaywrightBrowsersDir -Force | Out-Null
     $env:UV_CACHE_DIR = $script:UvCacheDir
     $env:PIP_CACHE_DIR = $script:PipCacheDir
     $env:npm_config_cache = $script:NpmCacheDir
     $env:PYTHONPYCACHEPREFIX = $script:PythonBytecodeCacheDir
     $env:PYTHON_EGG_CACHE = $script:PythonEggCacheDir
     $env:COVERAGE_FILE = Join-Path $script:CoverageCacheDir '.coverage'
+    $env:RUFF_CACHE_DIR = $script:RuffCacheDir
+    $env:PLAYWRIGHT_BROWSERS_PATH = $script:PlaywrightBrowsersDir
     $env:UV_PROJECT_ENVIRONMENT = $script:VenvDir
     $env:UV_LINK_MODE = 'copy'
     $nodePath = [IO.Path]::GetFullPath($script:NodeDir).TrimEnd('\')
@@ -268,6 +281,7 @@ function Invoke-DownloadAndExtract {
 
 function Ensure-PortableRuntimes {
     New-Item -ItemType Directory -Path $script:RuntimeDir, $script:PythonDir, $script:UvDir, $script:NodeDir -Force | Out-Null
+    Set-LauncherEnvironment
     if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
         throw 'The pinned NeuroWeave Node.js runtime is x64; ARM64 Windows is not supported by this launcher.'
     }
@@ -763,6 +777,17 @@ function Invoke-FrontendRebuild {
     Ensure-PortableRuntimes
     Import-DotEnv
     Invoke-FrontendBuild
+}
+
+function Ensure-PlaywrightBrowser {
+    $npm = Get-Npm
+    Set-LauncherEnvironment
+    Push-Location $script:ClientDir
+    try {
+        Write-Step 'Ensuring Chromium is installed under the canonical Playwright cache.'
+        & $npm exec -- playwright install chromium
+        if ($LASTEXITCODE -ne 0) { throw "Playwright Chromium installation failed with exit code $LASTEXITCODE." }
+    } finally { Pop-Location }
 }
 
 function Assert-BackendManagementEnvironmentStopped {
@@ -1350,6 +1375,7 @@ function Invoke-TestSuite {
         if ($LASTEXITCODE -ne 0) { throw "Frontend tests failed with exit code $LASTEXITCODE." }
         & $npm run build
         if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE." }
+        Ensure-PlaywrightBrowser
         & $npm run e2e
         if ($LASTEXITCODE -ne 0) { throw "Frontend E2E failed with exit code $LASTEXITCODE." }
     } finally { Pop-Location }
@@ -1618,8 +1644,20 @@ function Remove-PythonCaches {
     )
     $cachePaths = @()
     foreach ($root in $roots) {
-        if (Test-Path -LiteralPath $root) {
-            $cachePaths += @(Get-ChildItem -LiteralPath $root -Directory -Filter '__pycache__' -Recurse -Force -ErrorAction SilentlyContinue)
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+        $pending = [Collections.Generic.Stack[string]]::new()
+        $pending.Push([IO.Path]::GetFullPath($root))
+        while ($pending.Count -gt 0) {
+            $current = $pending.Pop()
+            $children = @(Get-ChildItem -LiteralPath $current -Directory -Force -ErrorAction SilentlyContinue)
+            foreach ($child in $children) {
+                if ($child.Name -eq '__pycache__') {
+                    $cachePaths += $child
+                    continue
+                }
+                if ($child.Name -in @('.venv', 'node_modules', 'runtimes')) { continue }
+                $pending.Push($child.FullName)
+            }
         }
     }
     $cachePaths = @($cachePaths |
@@ -1727,7 +1765,12 @@ function Remove-LauncherPath {
             }
             if ($WhatIf) { continue }
             try {
-                Remove-Item -LiteralPath $candidate.FullName -Force -Confirm:$false -ErrorAction Stop
+                if ($candidate.PSIsContainer) {
+                    Remove-Item -LiteralPath $candidate.FullName -Recurse -Force -Confirm:$false -ErrorAction Stop
+                }
+                else {
+                    Remove-Item -LiteralPath $candidate.FullName -Force -Confirm:$false -ErrorAction Stop
+                }
                 [void]$removedPaths.Add($candidate.FullName)
                 $result.Removed++
             }
@@ -1757,6 +1800,24 @@ function Remove-PathBestEffort([string]$Path) {
     }
 }
 
+function Remove-CanonicalCacheRoot([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path -ErrorAction SilentlyContinue)) {
+        return [pscustomobject]@{ Removed = 0; Skipped = 0 }
+    }
+    try {
+        Remove-Item -LiteralPath $Path -Recurse -Force -Confirm:$false -ErrorAction Stop
+        return [pscustomobject]@{ Removed = 1; Skipped = 0 }
+    }
+    catch {
+        Write-Warn "Skipped locked or inaccessible cache root: $Path ($($_.Exception.Message))"
+        $partial = Remove-LauncherPath -Path $Path -Activity "NeuroWeave: remove cache contents"
+        return [pscustomobject]@{
+            Removed = $partial.Removed
+            Skipped = $partial.Skipped + $partial.EnumerationErrors.Count
+        }
+    }
+}
+
 function Invoke-ClearApplicationCache {
     if (-not (Confirm-LauncherAction -Prompt 'This removes runtime, test, and tool caches. Continue?')) {
         Write-Warn 'Cache cleanup cancelled.'
@@ -1766,12 +1827,10 @@ function Invoke-ClearApplicationCache {
     $pythonCacheResult = Remove-PythonCaches
     $removedCount = [int]$pythonCacheResult.Removed
     $skippedCount = [int]$pythonCacheResult.Skipped
-    foreach ($target in @($script:RuntimeCacheDir, $script:CacheDir)) {
-        $result = Remove-PathBestEffort -Path $target
-        $removedCount += $result.Removed
-        $skippedCount += $result.Skipped
-    }
-    New-Item -ItemType Directory -Path $script:RuntimeCacheDir, $script:CacheDir -Force | Out-Null
+    $cacheResult = Remove-CanonicalCacheRoot -Path $script:CacheDir
+    $removedCount += $cacheResult.Removed
+    $skippedCount += $cacheResult.Skipped
+    Set-LauncherEnvironment
     Write-Status -Level SUCCESS -Message "Caches cleared ($removedCount item$(if ($removedCount -eq 1) { '' } else { 's' }) removed; $skippedCount locked or inaccessible item$(if ($skippedCount -eq 1) { '' } else { 's' }) skipped)."
 }
 
@@ -1798,7 +1857,6 @@ function Invoke-UninstallApplication {
         $script:PythonDir,
         $script:UvDir,
         $script:NodeDir,
-        $script:RuntimeCacheDir,
         $script:CacheDir,
         $script:VenvDir,
         (Join-Path $script:ClientDir 'node_modules'),
@@ -1817,7 +1875,7 @@ function Invoke-UninstallApplication {
     $pythonCacheResult = Remove-PythonCaches
     $removedCount += $pythonCacheResult.Removed
     $skippedCount += $pythonCacheResult.Skipped
-    New-Item -ItemType Directory -Path $script:RuntimeDir, $script:RuntimeCacheDir, $script:CacheDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $script:RuntimeDir, $script:CacheDir -Force | Out-Null
     Write-Status -Level SUCCESS -Message "Application dependencies removed ($removedCount item$(if ($removedCount -eq 1) { '' } else { 's' }) removed; $skippedCount locked or inaccessible item$(if ($skippedCount -eq 1) { '' } else { 's' }) skipped). Settings, lockfiles, database files, and exports were preserved."
 }
 

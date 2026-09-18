@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['node_modules/**', '.angular/**', '../tests/cache/**', 'out-tsc/**', 'dist/**']
+    ignores: ['node_modules/**', '../../runtimes/cache/**']
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

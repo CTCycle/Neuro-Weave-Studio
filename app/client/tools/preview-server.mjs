@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { request as httpRequest } from 'node:http'
 
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const distRoot = path.resolve(clientRoot, '../tests/cache/frontend-dist')
+const distRoot = path.resolve(clientRoot, '../../runtimes/cache/frontend-dist')
 const settings = await readSettings(path.resolve(clientRoot, '../../settings/.env'))
 const environment = { ...settings, ...process.env }
 const apiHost = normalizeConnectHost(environment.FASTAPI_HOST || '127.0.0.1')
