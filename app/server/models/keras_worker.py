@@ -29,7 +29,7 @@ class GeneratedConstant(layers.Layer):
         batch = keras.ops.shape(anchor)[0]
         value = keras.ops.full(self._source_shape, self._value, dtype=self.compute_dtype)
         value = keras.ops.expand_dims(value, axis=0)
-        return keras.ops.broadcast_to(value, (batch, *self._source_shape))
+        return keras.ops.repeat(value, batch, axis=0)
 
 
 ###############################################################################
@@ -60,7 +60,7 @@ class GeneratedParameter(layers.Layer):
     def call(self, anchor: Any) -> Any:
         batch = keras.ops.shape(anchor)[0]
         value = keras.ops.expand_dims(self.value, axis=0)
-        return keras.ops.broadcast_to(value, (batch, *self._source_shape))
+        return keras.ops.repeat(value, batch, axis=0)
 
 
 ###############################################################################
