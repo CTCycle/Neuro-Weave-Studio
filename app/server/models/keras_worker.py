@@ -769,13 +769,15 @@ def build_model(
         elif definition == "merge.concatenate":
             tensors[node_id] = layers.Concatenate(axis=params.get("axis", -1), name=node.id)(inputs)
         elif definition == "merge.split":
-            tensors[node_id] = list(
+            split_values = cast(
+                list[Any],
                 keras.ops.split(
                     source,
                     int(params.get("sections", 2)),
                     axis=int(params.get("axis", -1)),
-                )
+                ),
             )
+            tensors[node_id] = split_values
         elif definition == "transformer.positional_encoding":
             source_shape = getattr(source, "shape", None)
             if incoming_edges:
