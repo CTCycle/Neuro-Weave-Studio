@@ -61,7 +61,7 @@ def input_nodes(graph: ModelGraph, catalog: NodeCatalog) -> list[NodeInstance]:
             manifest = catalog.get(node.definition_id, node.definition_version)
         except KeyError:
             continue
-        if manifest.semantic_role == "input":
+        if manifest.semantic_role == "input" and manifest.runtime_input:
             result.append(node)
     return result
 
