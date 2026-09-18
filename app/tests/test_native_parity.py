@@ -203,6 +203,34 @@ def merge_add_graph() -> ModelGraph:
 
 
 ###############################################################################
+def transformer_residual_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("left", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            node("right", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            node("residual", "transformer.residual"),
+            node("output", "output.custom"),
+        ],
+        edges=[
+            edge("left-residual", "left", "residual", "inputs"),
+            edge("right-residual", "right", "residual", "inputs"),
+            edge("residual-output", "residual", "output"),
+        ],
+    )
+
+
+###############################################################################
+def attention_mask_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("mask", "input.mask", {"shape": [4], "dtype": "bool"}),
+            node("attention-mask", "transformer.attention_mask"),
+        ],
+        edges=[edge("mask-attention-mask", "mask", "attention-mask")],
+    )
+
+
+###############################################################################
 def average_graph() -> ModelGraph:
     return ModelGraph(
         nodes=[
@@ -304,6 +332,46 @@ def test_native_dense_values_are_deterministic_across_frameworks(
         ("merge_add", merge_add_graph, (1, 4)),
         ("merge_average", average_graph, (1, 4)),
         ("safe_index", index_graph, (1, 2)),
+        (
+            "reshape_layer",
+            lambda: chain_graph("input.tensor", [2, 2], "layer.reshape", {"target_shape": [4]}),
+            (1, 4),
+        ),
+        (
+            "permute_layer",
+            lambda: chain_graph("input.tensor", [2, 3], "layer.permute", {"axes": [2, 1]}),
+            (1, 3, 2),
+        ),
+        (
+            "repeat_layer",
+            lambda: chain_graph(
+                "input.tensor", [4], "layer.repeat", {"repeats": 3, "axis": 1}
+            ),
+            (1, 3, 4),
+        ),
+        (
+            "group_norm",
+            lambda: chain_graph(
+                "input.tensor",
+                [2, 2, 4],
+                "layer.group_norm",
+                {"groups": 2, "axis": -1, "epsilon": 0.001},
+            ),
+            (1, 2, 2, 4),
+        ),
+        (
+            "rms_norm",
+            lambda: chain_graph("input.tensor", [4], "layer.rms_norm", {"axis": -1}),
+            (1, 4),
+        ),
+        ("prelu", lambda: chain_graph("input.tensor", [4], "layer.prelu"), (1, 4)),
+        (
+            "unit_norm",
+            lambda: chain_graph("input.tensor", [4], "layer.unit_norm", {"axis": -1}),
+            (1, 4),
+        ),
+        ("transformer_residual", transformer_residual_graph, (1, 4)),
+        ("attention_mask", attention_mask_graph, (1, 4)),
     ],
 )
 @pytest.mark.parametrize("backend", native_parity_backends())
