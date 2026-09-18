@@ -236,6 +236,10 @@ def emit_operation_source(
         if not isinstance(expression, str):
             raise OperationEmissionError("Safe mathematical expression must be a string")
         return _safe_expression_source(expression, inputs[0], backend)
+    if mapping.adapter == "mean_inputs":
+        if len(inputs) < 2:
+            raise OperationEmissionError("Average requires at least two inputs")
+        return f"(({ ' + '.join(inputs) }) / {len(inputs)!r})"
 
     symbol = _symbol(mapping, parameters)
     if operation.family in {"binary", "elementwise"}:
@@ -420,6 +424,13 @@ def apply_runtime_operation(
         if not isinstance(expression, str):
             raise OperationEmissionError("Safe mathematical expression must be a string")
         return evaluate_safe_expression(expression, inputs[0], functions, implementation_key)
+    if mapping.adapter == "mean_inputs":
+        if len(inputs) < 2:
+            raise OperationEmissionError("Average requires at least two inputs")
+        result = inputs[0]
+        for value in inputs[1:]:
+            result = result + value
+        return result / len(inputs)
     symbol = _symbol(mapping, parameters)
     function = functions.get(symbol)
     if function is None:
