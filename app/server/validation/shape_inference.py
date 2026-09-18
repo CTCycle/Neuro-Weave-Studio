@@ -591,7 +591,20 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 raise ShapeInferenceError(
                     "Only sinusoidal positional encoding is supported by the Keras runtime"
                 )
-            if node.definition_id == "conv.padding":
+            if node.definition_id == "layer.repeat":
+                repeats = _int_parameter(parameters, "repeats", 2)
+                axis = _normalize_axis(_int_parameter(parameters, "axis", 1), source.rank)
+                if axis == 1 and source.rank == 2:
+                    output = TensorSpec(
+                        shape=[source.shape[0], repeats, source.shape[1]],
+                        dtype=source.dtype,
+                    )
+                else:
+                    shape = list(source.shape)
+                    if isinstance(shape[axis], int):
+                        shape[axis] = int(shape[axis]) * repeats
+                    output = TensorSpec(shape=shape, dtype=source.dtype)
+            elif node.definition_id == "conv.padding":
                 output = _spatial_transform(source, parameters, "padding", "pad")
             elif node.definition_id == "conv.cropping":
                 output = _spatial_transform(source, parameters, "cropping", "crop")
