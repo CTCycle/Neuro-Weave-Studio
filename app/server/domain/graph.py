@@ -153,14 +153,15 @@ class ModelGraph(BaseModel):
 
         if not isinstance(value, dict):
             return value
-        data = dict(value)
-        raw_nodes = data.get("nodes")
-        if not isinstance(raw_nodes, list):
+        data = cast(dict[str, Any], value)
+        raw_nodes_value = data.get("nodes")
+        if not isinstance(raw_nodes_value, list):
             return data
+        raw_nodes = cast(list[Any], raw_nodes_value)
         nodes: list[Any] = []
         for raw_node in raw_nodes:
             if isinstance(raw_node, dict) and raw_node.get("definition_id") == "output.detection_placeholder":
-                normalized = dict(raw_node)
+                normalized = cast(dict[str, Any], raw_node).copy()
                 normalized["definition_id"] = "output.custom"
                 nodes.append(normalized)
             else:
