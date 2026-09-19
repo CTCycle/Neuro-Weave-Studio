@@ -8,6 +8,7 @@ from domain.compilation_catalog import CompilationCatalog
 from domain.graph import ModelGraph
 from domain.ports import materialized_outputs
 from exporters.base import SourceExporter
+from validation.parameter_values import condition_matches
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
 
@@ -241,7 +242,11 @@ class NativeJaxSourceExporter(SourceExporter):
                 lines.append(f"        {name} = {source}")
             else:
                 raise ValueError(f"No native JAX adapter registered for {definition}")
-            output_ports = list(materialized_outputs(manifest, params))
+            output_ports = [
+                port
+                for port in materialized_outputs(manifest, params)
+                if condition_matches(port.enabled_when, params)
+            ]
             if len(output_ports) > 1:
                 for index, port in enumerate(output_ports):
                     port_variables[(item.node_id, port.id)] = f"{name}[{index}]"
@@ -263,6 +268,7 @@ class NativeJaxSourceExporter(SourceExporter):
                     trace_manifest,
                     nodes[trace_item.node_id].parameters,
                 )
+                if condition_matches(port.enabled_when, nodes[trace_item.node_id].parameters)
                 if (trace_item.node_id, port.id) in port_variables
             )
             trace_entries.append(
