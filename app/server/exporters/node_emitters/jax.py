@@ -91,6 +91,11 @@ def build_registry() -> NodeEmitterRegistry:
         "prelu": _simple,
         "rms_norm": _simple,
         "unit_norm": _simple,
+        "pool_nd": _simple,
+        "global_pool_nd": _simple,
+        "upsampling": _simple,
+        "padding": _simple,
+        "cropping": _simple,
         "safe_expression": _simple,
     }.items():
         registry.register(adapter, emitter)

@@ -234,6 +234,18 @@ def test_native_shape_layer_mappings_are_declarative() -> None:
         "layer.prelu": {"tensorflow": "prelu", "pytorch": "prelu", "jax": "prelu"},
         "layer.rms_norm": {"tensorflow": "rms_norm", "pytorch": "rms_norm", "jax": "rms_norm"},
         "layer.unit_norm": {"tensorflow": "unit_norm", "pytorch": "unit_norm", "jax": "unit_norm"},
+        "conv.max_pool1d": {"tensorflow": "pool_nd", "pytorch": "pool_nd", "jax": "pool_nd"},
+        "conv.max_pool2d": {"tensorflow": "pool_nd", "pytorch": "pool_nd", "jax": "pool_nd"},
+        "conv.max_pool3d": {"tensorflow": "pool_nd", "pytorch": "pool_nd", "jax": "pool_nd"},
+        "conv.average_pool1d": {"tensorflow": "pool_nd", "pytorch": "pool_nd", "jax": "pool_nd"},
+        "conv.average_pool2d": {"tensorflow": "pool_nd", "pytorch": "pool_nd", "jax": "pool_nd"},
+        "conv.average_pool3d": {"tensorflow": "pool_nd", "pytorch": "pool_nd", "jax": "pool_nd"},
+        "conv.global_pool1d": {"tensorflow": "global_pool_nd", "pytorch": "global_pool_nd", "jax": "global_pool_nd"},
+        "conv.global_pool2d": {"tensorflow": "global_pool_nd", "pytorch": "global_pool_nd", "jax": "global_pool_nd"},
+        "conv.global_pool3d": {"tensorflow": "global_pool_nd", "pytorch": "global_pool_nd", "jax": "global_pool_nd"},
+        "conv.upsampling": {"tensorflow": "upsampling", "pytorch": "upsampling", "jax": "upsampling"},
+        "conv.padding": {"tensorflow": "padding", "pytorch": "padding", "jax": "padding"},
+        "conv.cropping": {"tensorflow": "cropping", "pytorch": "cropping", "jax": "cropping"},
     }
 
     for node_id, adapters in expected.items():

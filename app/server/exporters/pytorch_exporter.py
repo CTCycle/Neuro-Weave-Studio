@@ -59,6 +59,41 @@ class PyTorchSourceExporter(SourceExporter):
 
     # -------------------------------------------------------------------------
     @staticmethod
+    def _spatial_values(
+        parameters: dict[str, Any],
+        key: str,
+        dimensions: int,
+        default: list[int],
+    ) -> tuple[int, ...]:
+        value = parameters.get(key, default)
+        if value is None:
+            value = default
+        if not isinstance(value, list) or len(value) != dimensions:
+            raise ValueError(f"PyTorch {key} expects {dimensions} values")
+        values = cast(list[Any], value)
+        if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in values):
+            raise ValueError(f"PyTorch {key} expects positive integer values")
+        return tuple(int(item) for item in values)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _spatial_pairs(parameters: dict[str, Any], key: str, dimensions: int) -> tuple[tuple[int, int], ...]:
+        value = parameters.get(key)
+        if not isinstance(value, list) or len(value) != dimensions:
+            raise ValueError(f"PyTorch {key} expects {dimensions} pairs")
+        pairs: list[tuple[int, int]] = []
+        for item in cast(list[Any], value):
+            if (
+                not isinstance(item, list)
+                or len(item) != 2
+                or any(not isinstance(entry, int) or isinstance(entry, bool) or entry < 0 for entry in item)
+            ):
+                raise ValueError(f"PyTorch {key} expects non-negative pairs")
+            pairs.append((int(item[0]), int(item[1])))
+        return tuple(pairs)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
     def _axis(value: object, rank: int) -> int:
         if not isinstance(value, int) or isinstance(value, bool):
             raise ValueError("PyTorch normalization expects an integer axis")
@@ -226,6 +261,71 @@ class PyTorchSourceExporter(SourceExporter):
             "    total = max((output_length - 1) * stride + effective_kernel - length, 0)",
             "    left = total // 2",
             "    return F.pad(value, (left, total - left), value=fill_value)",
+            "",
+            "",
+            "def _same_pad_nd(value: Tensor, kernel_size: tuple[int, ...], stride: tuple[int, ...], fill_value: float = 0.0) -> Tensor:",
+            "    pairs = []",
+            "    dimensions = len(kernel_size)",
+            "    for index in range(dimensions):",
+            "        size = value.shape[-dimensions + index]",
+            "        output_size = (size + stride[index] - 1) // stride[index]",
+            "        total = max((output_size - 1) * stride[index] + kernel_size[index] - size, 0)",
+            "        left = total // 2",
+            "        pairs.append((left, total - left))",
+            "    padding = [item for pair in reversed(pairs) for item in pair]",
+            "    return F.pad(value, padding, value=fill_value)",
+            "",
+            "",
+            "def _pool_nd(value: Tensor, pool_size: tuple[int, ...], strides: tuple[int, ...], padding: str, data_format: str, mode: str) -> Tensor:",
+            "    dimensions = len(pool_size)",
+            "    channels_last = data_format == 'channels_last'",
+            "    if channels_last:",
+            "        value = value.permute((0, dimensions + 1, *range(1, dimensions + 1))).contiguous()",
+            "    if padding == 'same':",
+            "        value = _same_pad_nd(value, pool_size, strides, float('-inf') if mode == 'max' else 0.0)",
+            "    operation = getattr(F, f'{mode}_pool{dimensions}d')",
+            "    current = operation(value, kernel_size=pool_size, stride=strides, padding=0)",
+            "    if channels_last:",
+            "        current = current.permute((0, *range(2, dimensions + 2), 1)).contiguous()",
+            "    return current",
+            "",
+            "",
+            "def _global_pool_nd(value: Tensor, dimensions: int, data_format: str, mode: str, keepdims: bool) -> Tensor:",
+            "    channels_last = data_format == 'channels_last'",
+            "    if channels_last:",
+            "        value = value.permute((0, dimensions + 1, *range(1, dimensions + 1))).contiguous()",
+            "    axes = tuple(range(2, dimensions + 2))",
+            "    current = value.mean(dim=axes, keepdim=keepdims) if mode == 'average' else torch.amax(value, dim=axes, keepdim=keepdims)",
+            "    if channels_last and keepdims:",
+            "        current = current.permute((0, *range(2, dimensions + 2), 1)).contiguous()",
+            "    return current.reshape(current.shape[0], current.shape[1]) if not keepdims else current",
+            "",
+            "",
+            "def _upsample_nd(value: Tensor, size: tuple[int, ...], data_format: str, interpolation: str) -> Tensor:",
+            "    dimensions = len(size)",
+            "    channels_last = data_format == 'channels_last'",
+            "    if channels_last:",
+            "        value = value.permute((0, dimensions + 1, *range(1, dimensions + 1))).contiguous()",
+            "    target = tuple(value.shape[-dimensions + index] * size[index] for index in range(dimensions))",
+            "    if interpolation == 'bilinear' and dimensions == 2:",
+            "        current = F.interpolate(value, size=target, mode='bilinear', align_corners=False)",
+            "    else:",
+            "        current = F.interpolate(value, size=target, mode='nearest')",
+            "    if channels_last:",
+            "        current = current.permute((0, *range(2, dimensions + 2), 1)).contiguous()",
+            "    return current",
+            "",
+            "",
+            "def _pad_nd(value: Tensor, pairs: tuple[tuple[int, int], ...], data_format: str) -> Tensor:",
+            "    dimensions = len(pairs)",
+            "    channels_last = data_format == 'channels_last'",
+            "    if channels_last:",
+            "        value = value.permute((0, dimensions + 1, *range(1, dimensions + 1))).contiguous()",
+            "    padding = [item for pair in reversed(pairs) for item in pair]",
+            "    current = F.pad(value, padding)",
+            "    if channels_last:",
+            "        current = current.permute((0, *range(2, dimensions + 2), 1)).contiguous()",
+            "    return current",
             "",
             "",
             "def _set_lstm_forget_bias(layer: nn.LSTM) -> None:",
@@ -451,17 +551,6 @@ class PyTorchSourceExporter(SourceExporter):
                 lines.append(
                     f"        self.{name} = {module}({constructor}, kernel_size={kernel_size!r}, stride={strides!r}, padding=0, dilation={dilation!r}, groups={groups!r}, bias={bias!r})"
                 )
-            elif definition == "conv.max_pool2d":
-                pool_size = self._spatial_tuple(params, "pool_size", [2, 2])
-                strides_value = params.get("strides")
-                strides = (
-                    pool_size
-                    if strides_value is None
-                    else self._spatial_tuple(params, "strides", [2, 2])
-                )
-                lines.append(
-                    f"        self.{name} = nn.MaxPool2d(kernel_size={pool_size!r}, stride={strides!r}, padding=0)"
-                )
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"PyTorch recurrent node {node.id} requires a rank-3 input")
@@ -679,29 +768,77 @@ class PyTorchSourceExporter(SourceExporter):
                 if activation != "linear":
                     lines.append(f"        {name} = ({self._activation(str(activation))})({name})")
                 variables[item.node_id] = name
-            elif definition == "conv.max_pool2d":
-                data_format = str(params.get("data_format", "channels_last"))
-                pool_size = self._spatial_tuple(params, "pool_size", [2, 2])
+            elif definition in {
+                "conv.max_pool1d",
+                "conv.max_pool2d",
+                "conv.max_pool3d",
+                "conv.average_pool1d",
+                "conv.average_pool2d",
+                "conv.average_pool3d",
+            }:
+                dimensions = int(definition[-2])
+                pool_size = self._spatial_values(params, "pool_size", dimensions, [2] * dimensions)
                 strides_value = params.get("strides")
                 strides = (
                     pool_size
                     if strides_value is None
-                    else self._spatial_tuple(params, "strides", [2, 2])
+                    else self._spatial_values(params, "strides", dimensions, list(pool_size))
                 )
                 padding = str(params.get("padding", "valid"))
-                pool_input = f"{name}_input"
-                lines.append(f"        {pool_input} = {source}")
+                data_format = str(params.get("data_format", "channels_last"))
+                mode = "max" if definition.startswith("conv.max") else "avg"
+                lines.append(
+                    f"        {name} = _pool_nd({source}, {pool_size!r}, {strides!r}, {padding!r}, {data_format!r}, {mode!r})"
+                )
+                variables[item.node_id] = name
+            elif definition in {
+                "conv.global_pool1d",
+                "conv.global_pool2d",
+                "conv.global_pool3d",
+            }:
+                dimensions = int(definition[-2])
+                mode = str(params.get("mode", "average"))
+                data_format = str(params.get("data_format", "channels_last"))
+                keepdims = bool(params.get("keepdims", False))
+                lines.append(
+                    f"        {name} = _global_pool_nd({source}, {dimensions!r}, {data_format!r}, {mode!r}, {keepdims!r})"
+                )
+                variables[item.node_id] = name
+            elif definition == "conv.upsampling":
+                dimensions = int(params.get("dimensions", 2))
+                size = self._spatial_values(params, "size", dimensions, [2] * dimensions)
+                data_format = str(params.get("data_format", "channels_last"))
+                interpolation = str(params.get("interpolation", "nearest"))
+                lines.append(
+                    f"        {name} = _upsample_nd({source}, {size!r}, {data_format!r}, {interpolation!r})"
+                )
+                variables[item.node_id] = name
+            elif definition == "conv.padding":
+                dimensions = int(params.get("dimensions", 2))
+                pairs = self._spatial_pairs(params, "padding", dimensions)
+                data_format = str(params.get("data_format", "channels_last"))
+                lines.append(f"        {name} = _pad_nd({source}, {pairs!r}, {data_format!r})")
+                variables[item.node_id] = name
+            elif definition == "conv.cropping":
+                dimensions = int(params.get("dimensions", 2))
+                pairs = self._spatial_pairs(params, "cropping", dimensions)
+                data_format = str(params.get("data_format", "channels_last"))
+                current = f"{name}_current"
+                lines.append(f"        {current} = {source}")
                 if data_format == "channels_last":
                     lines.append(
-                        f"        {pool_input} = {pool_input}.permute(0, 3, 1, 2).contiguous()"
+                        f"        {current} = {current}.permute((0, {dimensions + 1}, *range(1, {dimensions + 1}))).contiguous()"
                     )
-                if padding == "same":
-                    lines.append(
-                        f"        {pool_input} = _same_pad_2d({pool_input}, {pool_size!r}, {strides!r}, {(1, 1)!r}, float('-inf'))"
-                    )
-                lines.append(f"        {name} = self.{name}({pool_input})")
+                slices = ["slice(None)"] * (dimensions + 2)
+                for index, (before, after) in enumerate(pairs, start=2):
+                    slices[index] = f"slice({before}, {-after if after else 'None'})"
+                lines.append(f"        {current} = {current}[({', '.join(slices)},)]")
                 if data_format == "channels_last":
-                    lines.append(f"        {name} = {name}.permute(0, 2, 3, 1).contiguous()")
+                    lines.append(
+                        f"        {name} = {current}.permute((0, *range(2, {dimensions + 2}), 1)).contiguous()"
+                    )
+                else:
+                    lines.append(f"        {name} = {current}")
                 variables[item.node_id] = name
             elif definition == "layer.activation":
                 lines.append(
