@@ -274,6 +274,9 @@ class CustomMetricDefinitionRecord(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     formula_latex: Mapped[str] = mapped_column(Text, nullable=False)
     expression_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    capabilities_json: Mapped[dict[str, object]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
 

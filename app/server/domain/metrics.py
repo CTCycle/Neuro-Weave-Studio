@@ -25,6 +25,7 @@ class MetricDefinitionResponse(BaseModel):
     can_delete: bool
     supported_tasks: list[CompilationTask] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     target_contract: TargetContract | None = None
+    capabilities: dict[str, bool] = Field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

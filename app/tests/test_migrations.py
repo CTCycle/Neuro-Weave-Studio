@@ -10,12 +10,11 @@ from typing import Any, cast
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.engine import Connection
-
 from configurations.settings import DatabaseSettings
 from repositories import initializer
 from repositories.initializer import HEAD_REVISION, initialize_database
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import Connection
 
 
 ###############################################################################
@@ -218,8 +217,19 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
                 {"id": project_id},
             ).scalar_one()
             migrated = json.loads(migrated) if isinstance(migrated, str) else migrated
-            assert migrated["keras"]["optimizer_parameters"] == {"learning_rate": 0.002}
-            assert migrated["native"]["pytorch"]["compile_enabled"] is False
+            assert migrated["keras"]["compilation"]["optimizer"] == {
+                "id": "adam",
+                "parameters": {"learning_rate": 0.002},
+            }
+            assert migrated["native"]["pytorch"]["compiler"] == {
+                "id": "pytorch_compile",
+                "parameters": {
+                    "enabled": False,
+                    "mode": "default",
+                    "fullgraph": False,
+                    "dynamic": False,
+                },
+            }
             migrated_snapshot = connection.execute(
                 text("SELECT graph_snapshot_json FROM project_revisions WHERE project_id = :id"),
                 {"id": project_id},
@@ -229,9 +239,12 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
                 if isinstance(migrated_snapshot, str)
                 else migrated_snapshot
             )
-            assert migrated_snapshot["schema_version"] == 5
+            assert migrated_snapshot["schema_version"] == 6
             assert migrated_snapshot["output_bindings"] == []
-            assert migrated_snapshot["model_configuration"]["native"]["jax"]["jit_enabled"] is False
+            assert migrated_snapshot["model_configuration"]["native"]["jax"]["compiler"] == {
+                "id": "jax_jit",
+                "parameters": {"enabled": False},
+            }
             migrated_input = migrated_snapshot["nodes"][0]
             assert migrated_input["parameters"]["shape"] == [8]
             assert "quantization_config" not in migrated_input["parameters"]

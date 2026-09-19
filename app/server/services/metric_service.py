@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from common.timestamps import utc_now
 from domain.compilation_catalog import CompilationCatalogProvider, CompilationOption
-from domain.metric_formula import MetricFormulaError, parse_metric_formula
+from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
 from domain.metrics import (
     MetricCatalogResponse,
     MetricDefinitionCreate,
@@ -63,6 +63,7 @@ class MetricService:
                 description=payload.description.strip(),
                 formula_latex=payload.formula.strip(),
                 expression_json=parsed.to_json(),
+                capabilities_json=_capabilities(parsed),
                 created_at=now,
                 updated_at=now,
             )
@@ -89,6 +90,7 @@ class MetricService:
             record.description = payload.description.strip()
             record.formula_latex = payload.formula.strip()
             record.expression_json = parsed.to_json()
+            record.capabilities_json = _capabilities(parsed)
             record.updated_at = utc_now()
             usages = uow.metrics.referencing_projects(metric_id)
             if usages:
@@ -139,6 +141,7 @@ class MetricService:
             can_edit=True,
             can_delete=True,
             supported_tasks=["regression", "binary_classification", "multiclass_classification"],
+            capabilities=dict(record.capabilities_json),
             created_at=record.created_at,
             updated_at=record.updated_at,
         )
@@ -158,6 +161,10 @@ class MetricService:
             can_delete=option.can_delete,
             supported_tasks=option.supported_tasks,
             target_contract=option.target_contract,
+            capabilities={
+                backend: bool(mapping.supported)
+                for backend, mapping in option.implementations.items()
+            },
             created_at=option.created_at,
             updated_at=option.updated_at,
         )
@@ -182,3 +189,18 @@ def _parse(formula: str):
         return parse_metric_formula(formula)
     except MetricFormulaError:
         raise
+
+
+def _capabilities(parsed: object) -> dict[str, bool]:
+    return {
+        backend: _can_emit(parsed, backend)
+        for backend in ("keras", "tensorflow", "pytorch", "jax")
+    }
+
+
+def _can_emit(parsed: object, backend: str) -> bool:
+    try:
+        emit_metric_formula(parsed, backend)  # type: ignore[arg-type]
+    except MetricFormulaError:
+        return False
+    return True
