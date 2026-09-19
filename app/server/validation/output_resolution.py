@@ -67,6 +67,20 @@ def input_nodes(graph: ModelGraph, catalog: NodeCatalog) -> list[NodeInstance]:
     return result
 
 ###############################################################################
+def source_nodes(graph: ModelGraph, catalog: NodeCatalog) -> list[NodeInstance]:
+    """Return all graph sources, including non-public constant and parameter nodes."""
+
+    result: list[NodeInstance] = []
+    for node in graph.nodes:
+        try:
+            manifest = catalog.get(node.definition_id, node.definition_version)
+        except KeyError:
+            continue
+        if manifest.source_kind is not None:
+            result.append(node)
+    return result
+
+###############################################################################
 def _condition_matches(condition: dict[str, object], parameters: dict[str, object]) -> bool:
     for parameter_id, expected in condition.items():
         actual = parameters.get(parameter_id)

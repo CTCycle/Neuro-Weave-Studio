@@ -34,6 +34,10 @@ def condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> 
 
 ###############################################################################
 def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
+    if value is None:
+        return schema.nullable
+    if schema.recursive and isinstance(value, list):
+        return all(_value_matches_schema(schema, item) for item in value)
     if schema.type == "object":
         if not isinstance(value, dict):
             return False

@@ -49,6 +49,7 @@ export type ParameterType =
 export interface ParameterValueSchema {
   type: ParameterType
   nullable?: boolean
+  recursive?: boolean
   item?: ParameterValueSchema | null
   properties?: Record<string, ParameterValueSchema>
   required_properties?: string[]
@@ -1031,7 +1032,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function valueMatchesSchema(schema: ParameterValueSchema, value: unknown): boolean {
-  if (value === null) return false
+  if (value === null) return Boolean(schema.nullable)
+  if (schema.recursive && Array.isArray(value)) return value.every((item) => valueMatchesSchema(schema, item))
   if (schema.type === 'object') {
     if (!isRecord(value)) return false
     if ((schema.required_properties ?? []).some((key) => !Object.prototype.hasOwnProperty.call(value, key))) return false
