@@ -522,6 +522,30 @@ def test_native_loss_helpers_cover_remaining_catalog_variants(
     [
         ("multiclass_classification", "top_k_categorical_accuracy", {"k": 2}),
         ("multiclass_classification", "sparse_top_k_categorical_accuracy", {"k": 2}),
+        (
+            "binary_classification",
+            "precision",
+            {"threshold": 0.35, "top_k": None, "class_id": None},
+        ),
+        (
+            "binary_classification",
+            "recall",
+            {"threshold": 0.65, "top_k": None, "class_id": None},
+        ),
+        (
+            "binary_classification",
+            "auc",
+            {
+                "num_thresholds": 11,
+                "curve": "PR",
+                "summation_method": "majoring",
+                "thresholds": [0.2, 0.5, 0.8],
+                "multi_label": False,
+                "num_labels": None,
+                "label_weights": None,
+                "from_logits": False,
+            },
+        ),
         ("binary_classification", "true_positives", {"threshold": 0.4}),
         ("binary_classification", "true_negatives", {"threshold": 0.4}),
         ("binary_classification", "false_positives", {"threshold": 0.4}),

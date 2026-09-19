@@ -6,7 +6,7 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
-from domain.manifests import ParameterDefinition
+from domain.manifests import ParameterDefinition, ParameterValueSchema
 
 CompilationTask = Literal["regression", "binary_classification", "multiclass_classification"]
 TargetContract = Literal[
@@ -109,6 +109,65 @@ def _boolean(
         type="boolean",
         default=default,
         description=description,
+    )
+
+
+def _integer(
+    identifier: str,
+    label: str,
+    default: int | None,
+    description: str,
+    *,
+    minimum: int | None = None,
+    maximum: int | None = None,
+    nullable: bool = False,
+) -> ParameterDefinition:
+    constraints: dict[str, int | bool | str] = {}
+    if minimum is not None:
+        constraints["min"] = minimum
+    if maximum is not None:
+        constraints["max"] = maximum
+    return ParameterDefinition(
+        id=identifier,
+        display_name=label,
+        type="integer",
+        default=default,
+        nullable=nullable,
+        description=description,
+        constraints=constraints,
+    )
+
+
+def _enum(
+    identifier: str,
+    label: str,
+    default: str,
+    options: list[str],
+    description: str,
+) -> ParameterDefinition:
+    return ParameterDefinition(
+        id=identifier,
+        display_name=label,
+        type="enum",
+        default=default,
+        options=options,
+        description=description,
+    )
+
+
+def _number_list(
+    identifier: str,
+    label: str,
+    description: str,
+) -> ParameterDefinition:
+    return ParameterDefinition(
+        id=identifier,
+        display_name=label,
+        type="list",
+        default=None,
+        nullable=True,
+        description=description,
+        value_schema=ParameterValueSchema(type="number"),
     )
 
 ###############################################################################
@@ -717,6 +776,33 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 supported_tasks=["binary_classification", "multiclass_classification"],
                 target_contract="binary_same_shape",
                 formula=r"\operatorname{Precision}=\frac{TP}{TP+FP}",
+                parameters=[
+                    _number(
+                        "threshold",
+                        "Threshold",
+                        0.5,
+                        "Positive prediction threshold.",
+                        minimum=0.0,
+                        maximum=1.0,
+                    ),
+                    _integer(
+                        "top_k",
+                        "Top-k",
+                        None,
+                        "Optional number of highest-scoring predictions to treat as positive.",
+                        minimum=1,
+                        nullable=True,
+                    ),
+                    _integer(
+                        "class_id",
+                        "Class ID",
+                        None,
+                        "Optional class index for a class-specific metric.",
+                        minimum=0,
+                        nullable=True,
+                    ),
+                ],
+                keras_parameter_mapping={"threshold": "thresholds"},
             ),
             _mapped_option(
                 "recall",
@@ -727,6 +813,33 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 supported_tasks=["binary_classification", "multiclass_classification"],
                 target_contract="binary_same_shape",
                 formula=r"\operatorname{Recall}=\frac{TP}{TP+FN}",
+                parameters=[
+                    _number(
+                        "threshold",
+                        "Threshold",
+                        0.5,
+                        "Positive prediction threshold.",
+                        minimum=0.0,
+                        maximum=1.0,
+                    ),
+                    _integer(
+                        "top_k",
+                        "Top-k",
+                        None,
+                        "Optional number of highest-scoring predictions to treat as positive.",
+                        minimum=1,
+                        nullable=True,
+                    ),
+                    _integer(
+                        "class_id",
+                        "Class ID",
+                        None,
+                        "Optional class index for a class-specific metric.",
+                        minimum=0,
+                        nullable=True,
+                    ),
+                ],
+                keras_parameter_mapping={"threshold": "thresholds"},
             ),
             _mapped_option(
                 "auc",
@@ -737,6 +850,63 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 supported_tasks=["binary_classification", "multiclass_classification"],
                 target_contract="binary_same_shape",
                 formula=r"\operatorname{AUC}=\Pr(\hat p^+>\hat p^-)+\frac{1}{2}\Pr(\hat p^+=\hat p^-)",
+                parameters=[
+                    _integer(
+                        "num_thresholds",
+                        "Number of thresholds",
+                        200,
+                        "Number of thresholds used to approximate the curve.",
+                        minimum=1,
+                    ),
+                    _enum(
+                        "curve",
+                        "Curve",
+                        "ROC",
+                        ["ROC", "PR"],
+                        "Curve family used for the area calculation.",
+                    ),
+                    _enum(
+                        "summation_method",
+                        "Summation method",
+                        "interpolation",
+                        ["interpolation", "minoring", "majoring"],
+                        "How adjacent curve points are integrated.",
+                    ),
+                    _number_list(
+                        "thresholds",
+                        "Thresholds",
+                        "Optional explicit threshold values for the curve.",
+                    ),
+                    _boolean(
+                        "multi_label",
+                        "Multi-label",
+                        False,
+                        "Whether each final-axis label is evaluated independently.",
+                    ),
+                    _integer(
+                        "num_labels",
+                        "Number of labels",
+                        None,
+                        "Optional label count for multi-label predictions.",
+                        minimum=1,
+                        nullable=True,
+                    ),
+                    ParameterDefinition(
+                        id="label_weights",
+                        display_name="Label weights",
+                        type="list",
+                        default=None,
+                        nullable=True,
+                        description="Optional weights for each multi-label AUC.",
+                        value_schema=ParameterValueSchema(type="number"),
+                    ),
+                    _boolean(
+                        "from_logits",
+                        "From logits",
+                        False,
+                        "Whether predictions should be passed through a sigmoid first.",
+                    ),
+                ],
             ),
             _mapped_option(
                 "true_positives",
