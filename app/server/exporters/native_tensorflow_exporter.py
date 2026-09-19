@@ -371,6 +371,36 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             "    return sequence if return_sequences else sequence[:, -1, :]",
             "",
             "",
+            "def _simple_rnn(value, kernel, bias, units, return_sequences):",
+            "    initial = tf.zeros([tf.shape(value)[0], units], value.dtype)",
+            "    def step(hidden, current):",
+            "        state = tf.matmul(tf.concat([current, hidden], axis=-1), kernel)",
+            "        if bias is not None: state = state + bias",
+            "        return tf.tanh(state)",
+            "    hidden_sequence = tf.scan(step, tf.transpose(value, [1, 0, 2]), initializer=initial)",
+            "    sequence = tf.transpose(hidden_sequence, [1, 0, 2])",
+            "    return sequence if return_sequences else sequence[:, -1, :]",
+            "",
+            "",
+            "def _recurrent(value, cell, kernel, bias, units, return_sequences):",
+            "    if cell == 'simple_rnn': return _simple_rnn(value, kernel, bias, units, return_sequences)",
+            "    if cell == 'lstm': return _lstm(value, kernel, bias, units, return_sequences)",
+            "    if cell == 'gru': return _gru(value, kernel, bias, units, return_sequences)",
+            "    raise ValueError(f'Unsupported recurrent cell: {cell}')",
+            "",
+            "",
+            "def _bidirectional(value, cell, forward_kernel, forward_bias, backward_kernel, backward_bias, units, merge_mode, return_sequences):",
+            "    forward = _recurrent(value, cell, forward_kernel, forward_bias, units, True)",
+            "    backward = _recurrent(tf.reverse(value, axis=[1]), cell, backward_kernel, backward_bias, units, True)",
+            "    backward = tf.reverse(backward, axis=[1])",
+            "    if merge_mode == 'sum': merged = forward + backward",
+            "    elif merge_mode == 'mul': merged = forward * backward",
+            "    elif merge_mode == 'ave': merged = (forward + backward) / 2.0",
+            "    elif merge_mode == 'concat': merged = tf.concat([forward, backward], axis=-1)",
+            "    else: raise ValueError(f'Unsupported bidirectional merge mode: {merge_mode}')",
+            "    return merged if return_sequences else merged[:, -1, :]",
+            "",
+            "",
             "def _initialize(shape, initializer, dtype):",
             "    identifier = initializer.get('id', 'zeros') if isinstance(initializer, dict) else initializer",
             "    if identifier in (None, 'zeros'): return tf.zeros(shape, dtype=dtype)",
@@ -700,6 +730,93 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     if bool(params.get("use_bias", True))
                     else f"        self.{name}_bias = None"
                 )
+            elif definition in {
+                "recurrent.simple_rnn",
+                "recurrent.bidirectional",
+                "recurrent.stack",
+            }:
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"TensorFlow recurrent node {node.id} requires a rank-3 input")
+                input_size = self._static_dimension(source_spec, -1)
+                if input_size is None:
+                    raise ValueError(
+                        f"Recurrent node {node.id} requires a known feature dimension"
+                    )
+                if (
+                    params.get("activation", "tanh") != "tanh"
+                    or params.get("recurrent_activation", "sigmoid") != "sigmoid"
+                ):
+                    raise ValueError(
+                        "Native TensorFlow recurrent export supports tanh/sigmoid only"
+                    )
+                if (
+                    float(params.get("dropout", 0.0)) != 0.0
+                    or float(params.get("recurrent_dropout", 0.0)) != 0.0
+                ):
+                    raise ValueError("TensorFlow recurrent export does not support recurrent dropout")
+                if (
+                    params.get("go_backwards", False)
+                    or params.get("stateful", False)
+                    or params.get("unroll", False)
+                ):
+                    raise ValueError(
+                        "TensorFlow recurrent export does not support go_backwards, stateful, or unroll"
+                    )
+                units = int(params.get("units", 64))
+                cell = (
+                    "simple_rnn"
+                    if definition == "recurrent.simple_rnn"
+                    else str(params.get("cell", "lstm"))
+                )
+                if cell not in {"simple_rnn", "lstm", "gru"}:
+                    raise ValueError(f"Unsupported recurrent cell: {cell}")
+                if definition == "recurrent.bidirectional":
+                    merge_mode = str(params.get("merge_mode", "concat"))
+                    if merge_mode not in {"sum", "mul", "concat", "ave"}:
+                        raise ValueError(f"Unsupported bidirectional merge mode: {merge_mode}")
+                    if params.get("return_state", False):
+                        raise ValueError("TensorFlow bidirectional export does not expose recurrent state ports")
+                if definition == "recurrent.stack":
+                    if str(params.get("merge_mode", "concat")) != "concat":
+                        raise ValueError("Recurrent stack merge_mode must remain concat")
+                    if params.get("return_state", False):
+                        raise ValueError("TensorFlow recurrent stack does not expose recurrent state ports")
+                gate_count = {"simple_rnn": 1, "lstm": 4, "gru": 3}[cell]
+                bias = bool(params.get("use_bias", True))
+                if definition == "recurrent.simple_rnn":
+                    lines.append(
+                        f"        self.{name}_kernel = tf.Variable(tf.zeros([{input_size + units}, {units}], tf.float32), name={name + '_kernel'!r})"
+                    )
+                    lines.append(
+                        f"        self.{name}_bias = tf.Variable(tf.zeros([{units}], tf.float32), name={name + '_bias'!r})"
+                        if bias
+                        else f"        self.{name}_bias = None"
+                    )
+                elif definition == "recurrent.bidirectional":
+                    for direction in ("forward", "backward"):
+                        lines.append(
+                            f"        self.{name}_{direction}_kernel = tf.Variable(tf.zeros([{input_size + units}, {units * gate_count}], tf.float32), name={name + '_' + direction + '_kernel'!r})"
+                        )
+                        lines.append(
+                            f"        self.{name}_{direction}_bias = tf.Variable(tf.zeros([{units * gate_count}], tf.float32), name={name + '_' + direction + '_bias'!r})"
+                            if bias
+                            else f"        self.{name}_{direction}_bias = None"
+                        )
+                else:
+                    layers = int(params.get("layers", 2))
+                    if layers < 1:
+                        raise ValueError("Recurrent stack layers must be positive")
+                    layer_input_size = input_size
+                    for layer_index in range(layers):
+                        lines.append(
+                            f"        self.{name}_layer{layer_index}_kernel = tf.Variable(tf.zeros([{layer_input_size + units}, {units * gate_count}], tf.float32), name={name + '_layer' + str(layer_index) + '_kernel'!r})"
+                        )
+                        lines.append(
+                            f"        self.{name}_layer{layer_index}_bias = tf.Variable(tf.zeros([{units * gate_count}], tf.float32), name={name + '_layer' + str(layer_index) + '_bias'!r})"
+                            if bias
+                            else f"        self.{name}_layer{layer_index}_bias = None"
+                        )
+                        layer_input_size = units
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"TensorFlow recurrent node {node.id} requires a rank-3 input")
@@ -1009,6 +1126,41 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 for index, (before, after) in zip(spatial_indices, pairs, strict=True):
                     slices[index] = f"slice({before}, {-after if after else 'None'})"
                 lines.append(f"        {name} = {source}[({', '.join(slices)},)]")
+            elif definition == "recurrent.simple_rnn":
+                return_sequences = bool(params.get("return_sequences", False))
+                return_state = bool(params.get("return_state", False))
+                if return_state and return_sequences:
+                    sequence_name = f"{name}_sequence"
+                    lines.append(
+                        f"        {sequence_name} = _simple_rnn({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, True)"
+                    )
+                    lines.append(
+                        f"        {name} = ({sequence_name}, {sequence_name}[:, -1, :])"
+                    )
+                else:
+                    lines.append(
+                        f"        {name} = _simple_rnn({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, {return_sequences!r})"
+                    )
+                    if return_state:
+                        lines.append(f"        {name} = ({name}, {name})")
+            elif definition == "recurrent.bidirectional":
+                lines.append(
+                    f"        {name} = _bidirectional({source}, {str(params.get('cell', 'lstm'))!r}, self.{name}_forward_kernel, self.{name}_forward_bias, self.{name}_backward_kernel, self.{name}_backward_bias, {int(params.get('units', 64))}, {str(params.get('merge_mode', 'concat'))!r}, {bool(params.get('return_sequences', False))!r})"
+                )
+            elif definition == "recurrent.stack":
+                cell = str(params.get("cell", "lstm"))
+                layers = int(params.get("layers", 2))
+                current = source
+                for layer_index in range(layers):
+                    layer_name = f"{name}_layer{layer_index}"
+                    layer_return_sequences = layer_index < layers - 1 or bool(
+                        params.get("return_sequences", False)
+                    )
+                    lines.append(
+                        f"        {layer_name} = _recurrent({current}, {cell!r}, self.{layer_name}_kernel, self.{layer_name}_bias, {int(params.get('units', 64))}, {layer_return_sequences!r})"
+                    )
+                    current = layer_name
+                lines.append(f"        {name} = {current}")
             elif definition == "recurrent.lstm":
                 lines.append(
                     f"        {name} = _lstm({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, {bool(params.get('return_sequences', False))!r})"

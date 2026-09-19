@@ -250,6 +250,9 @@ def test_native_shape_layer_mappings_are_declarative() -> None:
         "conv.depthwise": {"tensorflow": "depthwise", "pytorch": "depthwise", "jax": "depthwise"},
         "conv.separable": {"tensorflow": "separable", "pytorch": "separable", "jax": "separable"},
         "conv.transposed": {"tensorflow": "transposed", "pytorch": "transposed", "jax": "transposed"},
+        "recurrent.simple_rnn": {"tensorflow": "simple_rnn", "pytorch": "simple_rnn", "jax": "simple_rnn"},
+        "recurrent.bidirectional": {"tensorflow": "bidirectional", "pytorch": "bidirectional", "jax": "bidirectional"},
+        "recurrent.stack": {"tensorflow": "stack", "pytorch": "stack", "jax": "stack"},
     }
 
     for node_id, adapters in expected.items():

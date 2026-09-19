@@ -217,6 +217,29 @@ def recurrent_graph() -> ModelGraph:
 
 
 ###############################################################################
+def recurrent_wrapper_graph(
+    definition_id: str,
+    parameters: dict[str, Any],
+) -> ModelGraph:
+    return chain_graph("input.sequence", [6, 4], definition_id, parameters)
+
+
+###############################################################################
+def simple_rnn_state_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("input", "input.sequence", {"shape": [6, 4], "dtype": "float32"}),
+            node(
+                "operation",
+                "recurrent.simple_rnn",
+                {"units": 3, "return_sequences": True, "return_state": True},
+            ),
+        ],
+        edges=[edge("input-operation", "input", "operation")],
+    )
+
+
+###############################################################################
 def reshape_flatten_graph() -> ModelGraph:
     graph = chain_graph(
         "input.tensor",
@@ -433,11 +456,34 @@ def test_native_dense_values_are_deterministic_across_frameworks(
                     "dilation_rate": [1, 1],
                     "use_bias": True,
                 },
-            ),
-            (1, 10, 10, 2),
+        ),
+        (1, 10, 10, 2),
         ),
         ("cnn", cnn_graph, (1, 4, 4, 2)),
         ("recurrent", recurrent_graph, (1, 3)),
+        (
+            "simple_rnn",
+            lambda: recurrent_wrapper_graph(
+                "recurrent.simple_rnn", {"units": 3, "return_sequences": False}
+            ),
+            (1, 3),
+        ),
+        (
+            "bidirectional",
+            lambda: recurrent_wrapper_graph(
+                "recurrent.bidirectional",
+                {"cell": "simple_rnn", "units": 3, "merge_mode": "concat"},
+            ),
+            (1, 6),
+        ),
+        (
+            "stack",
+            lambda: recurrent_wrapper_graph(
+                "recurrent.stack",
+                {"cell": "simple_rnn", "units": 3, "layers": 2},
+            ),
+            (1, 3),
+        ),
         ("reshape_flatten", reshape_flatten_graph, (1, 4)),
         ("merge_add", merge_add_graph, (1, 4)),
     ],
@@ -469,12 +515,121 @@ def test_native_representative_cases(
 
 ###############################################################################
 @pytest.mark.parametrize(
+    ("definition_id", "parameters", "expected_shape"),
+    [
+        (
+            "recurrent.bidirectional",
+            {"cell": "simple_rnn", "units": 3, "merge_mode": "sum"},
+            (1, 3),
+        ),
+        (
+            "recurrent.bidirectional",
+            {"cell": "simple_rnn", "units": 3, "merge_mode": "mul"},
+            (1, 3),
+        ),
+        (
+            "recurrent.bidirectional",
+            {"cell": "simple_rnn", "units": 3, "merge_mode": "ave"},
+            (1, 3),
+        ),
+        (
+            "recurrent.bidirectional",
+            {"cell": "simple_rnn", "units": 3, "merge_mode": "concat", "return_sequences": True},
+            (1, 6, 6),
+        ),
+    ],
+)
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_bidirectional_merge_modes(
+    definition_id: str,
+    parameters: dict[str, Any],
+    expected_shape: tuple[int, ...],
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    outputs = forward_native(
+        build_native_model(recurrent_wrapper_graph(definition_id, parameters), backend)
+    )
+
+    assert len(outputs) == 1
+    assert to_numpy(outputs[0]).shape == expected_shape
+
+
+###############################################################################
+@pytest.mark.parametrize(
+    ("definition_id", "cell"),
+    [
+        ("recurrent.bidirectional", "simple_rnn"),
+        ("recurrent.bidirectional", "lstm"),
+        ("recurrent.bidirectional", "gru"),
+        ("recurrent.stack", "simple_rnn"),
+        ("recurrent.stack", "lstm"),
+        ("recurrent.stack", "gru"),
+    ],
+)
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_recurrent_wrapper_cells(
+    definition_id: str,
+    cell: str,
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    parameters: dict[str, Any] = {"cell": cell, "units": 3}
+    if definition_id == "recurrent.stack":
+        parameters["layers"] = 2
+    outputs = forward_native(
+        build_native_model(recurrent_wrapper_graph(definition_id, parameters), backend)
+    )
+
+    assert len(outputs) == 1
+    expected_width = 6 if definition_id == "recurrent.bidirectional" else 3
+    assert to_numpy(outputs[0]).shape == (1, expected_width)
+
+
+###############################################################################
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_simple_rnn_state_port_matches_sequence_output(
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    outputs = forward_native(build_native_model(simple_rnn_state_graph(), backend))
+
+    assert len(outputs) == 2
+    sequence = to_numpy(outputs[0])
+    hidden_state = to_numpy(outputs[1])
+    assert sequence.shape == (1, 6, 3)
+    assert hidden_state.shape == (1, 3)
+    np.testing.assert_allclose(hidden_state, sequence[:, -1, :])
+
+
+###############################################################################
+@pytest.mark.parametrize(
     ("definition_id", "parameters", "expected_parameter_count"),
     [
         ("layer.group_norm", {"groups": 2}, 8),
         ("layer.prelu", {}, 4),
         ("layer.rms_norm", {}, 4),
         ("layer.unit_norm", {}, 0),
+        (
+            "recurrent.simple_rnn",
+            {"units": 3},
+            {"tensorflow": 24, "pytorch": 27, "jax": 24},
+        ),
+        (
+            "recurrent.bidirectional",
+            {"cell": "simple_rnn", "units": 3, "merge_mode": "concat"},
+            {"tensorflow": 48, "pytorch": 54, "jax": 48},
+        ),
+        (
+            "recurrent.stack",
+            {"cell": "simple_rnn", "units": 3, "layers": 2},
+            {"tensorflow": 45, "pytorch": 51, "jax": 45},
+        ),
+        (
+            "recurrent.stack",
+            {"cell": "lstm", "units": 3, "layers": 2},
+            {"tensorflow": 180, "pytorch": 204, "jax": 180},
+        ),
         (
             "conv.conv3d",
             {
@@ -539,7 +694,7 @@ def test_native_representative_cases(
 def test_native_parameter_counts(
     definition_id: str,
     parameters: dict[str, Any],
-    expected_parameter_count: int,
+    expected_parameter_count: int | dict[str, int],
     backend: ExecutionBackend,
 ) -> None:
     require_backend(backend)
@@ -549,13 +704,20 @@ def test_native_parameter_counts(
         input_shape = [4, 4, 4, 1]
     else:
         input_shape = [4, 4, 1]
-    handle = (
-        build_native_model(spatial_graph(definition_id, input_shape, parameters), backend)
-        if definition_id.startswith("conv.")
-        else build_native_model(normalization_graph(definition_id, parameters), backend)
-    )
+    if definition_id.startswith("conv."):
+        graph = spatial_graph(definition_id, input_shape, parameters)
+    elif definition_id.startswith("recurrent."):
+        graph = recurrent_wrapper_graph(definition_id, parameters)
+    else:
+        graph = normalization_graph(definition_id, parameters)
+    handle = build_native_model(graph, backend)
 
-    assert handle.parameter_count() == expected_parameter_count
+    expected = (
+        expected_parameter_count
+        if isinstance(expected_parameter_count, int)
+        else expected_parameter_count[backend.value]
+    )
+    assert handle.parameter_count() == expected
 
 ###############################################################################
 @pytest.mark.parametrize("backend", native_parity_backends())

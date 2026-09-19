@@ -669,6 +669,69 @@ class PyTorchSourceExporter(SourceExporter):
                 lines.append(
                     f"        self.{name} = {module}({constructor}, kernel_size={kernel_size!r}, stride={strides!r}, padding=0, dilation={dilation!r}, groups={groups!r}, bias={bias!r})"
                 )
+            elif definition in {
+                "recurrent.simple_rnn",
+                "recurrent.bidirectional",
+                "recurrent.stack",
+            }:
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"PyTorch recurrent node {node.id} requires a rank-3 input")
+                input_size = self._static_dimension(source_spec, -1)
+                if input_size is None:
+                    raise ValueError(f"Recurrent node {node.id} requires a known feature dimension")
+                if (
+                    params.get("activation", "tanh") != "tanh"
+                    or params.get("recurrent_activation", "sigmoid") != "sigmoid"
+                ):
+                    raise ValueError(
+                        "PyTorch recurrent export supports the canonical tanh/sigmoid activations only"
+                    )
+                if (
+                    float(params.get("dropout", 0.0)) != 0.0
+                    or float(params.get("recurrent_dropout", 0.0)) != 0.0
+                ):
+                    raise ValueError("PyTorch recurrent export does not support recurrent dropout")
+                if (
+                    params.get("go_backwards", False)
+                    or params.get("stateful", False)
+                    or params.get("unroll", False)
+                ):
+                    raise ValueError(
+                        "PyTorch recurrent export does not support go_backwards, stateful, or unroll"
+                    )
+                units = int(params.get("units", 64))
+                cell = (
+                    "simple_rnn"
+                    if definition == "recurrent.simple_rnn"
+                    else str(params.get("cell", "lstm"))
+                )
+                if cell not in {"simple_rnn", "lstm", "gru"}:
+                    raise ValueError(f"Unsupported recurrent cell: {cell}")
+                if definition == "recurrent.bidirectional":
+                    merge_mode = str(params.get("merge_mode", "concat"))
+                    if merge_mode not in {"sum", "mul", "concat", "ave"}:
+                        raise ValueError(f"Unsupported bidirectional merge mode: {merge_mode}")
+                    if params.get("return_state", False):
+                        raise ValueError("PyTorch bidirectional export does not expose recurrent state ports")
+                if definition == "recurrent.stack":
+                    if str(params.get("merge_mode", "concat")) != "concat":
+                        raise ValueError("Recurrent stack merge_mode must remain concat")
+                    if params.get("return_state", False):
+                        raise ValueError("PyTorch recurrent stack does not expose recurrent state ports")
+                recurrent_class = {"simple_rnn": "RNN", "lstm": "LSTM", "gru": "GRU"}[cell]
+                constructor = (
+                    f"{input_size!r}, {units!r}, batch_first=True, bias={bool(params.get('use_bias', True))!r}"
+                )
+                if cell == "simple_rnn":
+                    constructor += ", nonlinearity='tanh'"
+                if definition == "recurrent.bidirectional":
+                    constructor += ", bidirectional=True"
+                if definition == "recurrent.stack":
+                    layers = int(params.get("layers", 2))
+                    if layers < 1:
+                        raise ValueError("Recurrent stack layers must be positive")
+                    constructor += f", num_layers={layers!r}"
+                lines.append(f"        self.{name} = nn.{recurrent_class}({constructor})")
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"PyTorch recurrent node {node.id} requires a rank-3 input")
@@ -1022,6 +1085,41 @@ class PyTorchSourceExporter(SourceExporter):
                     f"        {name} = ({self._activation(str(params.get('activation', 'relu')))})({source})"
                 )
                 variables[item.node_id] = name
+            elif definition == "recurrent.simple_rnn":
+                sequence_name = f"{name}_sequence"
+                state_name = f"{name}_state"
+                lines.append(f"        {sequence_name}, {state_name} = self.{name}({source})")
+                if not params.get("return_sequences", False):
+                    lines.append(f"        {sequence_name} = {sequence_name}[:, -1, :]")
+                if params.get("return_state", False):
+                    lines.append(f"        {name} = ({sequence_name}, {state_name}[-1])")
+                else:
+                    lines.append(f"        {name} = {sequence_name}")
+            elif definition == "recurrent.bidirectional":
+                sequence_name = f"{name}_sequence"
+                lines.append(f"        {sequence_name}, _ = self.{name}({source})")
+                units = int(params.get("units", 64))
+                merge_mode = str(params.get("merge_mode", "concat"))
+                if merge_mode != "concat":
+                    forward_name = f"{name}_forward"
+                    backward_name = f"{name}_backward"
+                    lines.append(f"        {forward_name} = {sequence_name}[..., :{units}]")
+                    lines.append(f"        {backward_name} = {sequence_name}[..., {units}:]")
+                    if merge_mode == "sum":
+                        lines.append(f"        {sequence_name} = {forward_name} + {backward_name}")
+                    elif merge_mode == "mul":
+                        lines.append(f"        {sequence_name} = {forward_name} * {backward_name}")
+                    elif merge_mode == "ave":
+                        lines.append(
+                            f"        {sequence_name} = ({forward_name} + {backward_name}) / 2.0"
+                        )
+                if not params.get("return_sequences", False):
+                    lines.append(f"        {sequence_name} = {sequence_name}[:, -1, :]")
+                lines.append(f"        {name} = {sequence_name}")
+            elif definition == "recurrent.stack":
+                lines.append(f"        {name}, _ = self.{name}({source})")
+                if not params.get("return_sequences", False):
+                    lines.append(f"        {name} = {name}[:, -1, :]")
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 lines.append(f"        {name}, _ = self.{name}({source})")
                 if not params.get("return_sequences", False):
