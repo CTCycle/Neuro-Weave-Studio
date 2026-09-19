@@ -254,6 +254,7 @@ def _mapped_option(
     jax_adapter: str | None = None,
 ) -> CompilationOption:
     tensorflow_adapter = tensorflow_adapter or pytorch_adapter
+    jax_adapter = jax_adapter or pytorch_adapter
     return CompilationOption(
         id=identifier,
         label=label,
@@ -269,11 +270,7 @@ def _mapped_option(
             ),
             "pytorch": CompilationImplementation(supported=True, adapter=pytorch_adapter),
             "tensorflow": CompilationImplementation(supported=True, adapter=tensorflow_adapter),
-            **(
-                {"jax": CompilationImplementation(supported=True, adapter=jax_adapter)}
-                if jax_adapter is not None
-                else {}
-            ),
+            "jax": CompilationImplementation(supported=True, adapter=jax_adapter),
         },
         supported_tasks=supported_tasks,
         target_contract=target_contract,

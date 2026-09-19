@@ -6,11 +6,17 @@ from typing import Any, cast
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
-from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
+from domain.compilation_catalog import (
+    CompilationCatalog,
+    CompilationOption,
+    get_compilation_catalog,
+)
+from domain.compilation_plan import CompilationObject
 from domain.graph import ModelGraph
 from domain.ports import materialized_outputs
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
+from validation.output_resolution import output_selectors, resolved_outputs
 from validation.parameter_values import condition_matches
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
@@ -60,6 +66,282 @@ class NativeJaxSourceExporter(SourceExporter):
         expression = normalize_index_expression(value if isinstance(value, str) else ":")
         validate_safe_expression(expression)
         return expression
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _catalog_option(
+        compilation_catalog: CompilationCatalog,
+        category: str,
+        identifier: str,
+    ) -> CompilationOption:
+        option = next(
+            (item for item in getattr(compilation_catalog, category) if item.id == identifier),
+            None,
+        )
+        if option is None:
+            raise ValueError(f"No JAX catalog option registered for {category}.{identifier}")
+        implementation = option.implementations.get("jax")
+        if implementation is None or not implementation.supported or not implementation.adapter:
+            raise ValueError(f"No JAX adapter registered for {category}.{identifier}")
+        return option
+
+    # -------------------------------------------------------------------------
+    @classmethod
+    def _compilation_payload(
+        cls,
+        graph: ModelGraph,
+        catalog: NodeCatalog,
+        compilation_catalog: CompilationCatalog,
+    ) -> dict[str, Any]:
+        configuration = graph.model_configuration.native.jax.compilation
+        outputs = [output for output in resolved_outputs(graph, catalog) if output.node is not None]
+
+        def selected(values: dict[str, Any], output: Any, default: Any) -> Any:
+            value = values.get("__default__", default)
+            for selector in output_selectors(output):
+                if selector and selector in values:
+                    value = values[selector]
+                    break
+            return value
+
+        loss_ids: dict[str, str] = {}
+        loss_parameters: dict[str, dict[str, Any]] = {}
+        metric_ids: dict[str, list[str]] = {}
+        metric_parameters: dict[str, list[dict[str, Any]]] = {}
+        target_contracts: dict[str, str] = {}
+        metric_target_contracts: dict[str, dict[str, str]] = {}
+        losses: dict[str, dict[str, Any]] = {}
+        metrics: dict[str, list[dict[str, Any]]] = {}
+        for output in outputs:
+            loss_value = selected(configuration.losses, output, None)
+            if isinstance(loss_value, CompilationObject):
+                option = cls._catalog_option(compilation_catalog, "losses", loss_value.id)
+                loss_ids[output.name] = loss_value.id
+                loss_parameters[output.name] = dict(loss_value.parameters)
+                losses[output.name] = {
+                    "id": loss_value.id,
+                    "parameters": dict(loss_value.parameters),
+                }
+                if option.target_contract is not None:
+                    target_contracts[output.name] = option.target_contract
+            metric_values = selected(configuration.metrics, output, [])
+            if not isinstance(metric_values, list):
+                continue
+            metric_ids[output.name] = []
+            metric_parameters[output.name] = []
+            metrics[output.name] = []
+            metric_target_contracts[output.name] = {}
+            for metric_value in metric_values:
+                if not isinstance(metric_value, CompilationObject):
+                    continue
+                option = cls._catalog_option(compilation_catalog, "metrics", metric_value.id)
+                metric_ids[output.name].append(metric_value.id)
+                metric_parameters[output.name].append(dict(metric_value.parameters))
+                metrics[output.name].append(
+                    {"id": metric_value.id, "parameters": dict(metric_value.parameters)}
+                )
+                metric_target_contracts[output.name][metric_value.id] = (
+                    option.target_contract or "continuous_same_shape"
+                )
+                target_contracts.setdefault(
+                    output.name,
+                    option.target_contract or "continuous_same_shape",
+                )
+        return {
+            "loss_ids": loss_ids,
+            "loss_parameters": loss_parameters,
+            "metric_ids": metric_ids,
+            "metric_parameters": metric_parameters,
+            "target_contracts": target_contracts,
+            "metric_target_contracts": metric_target_contracts,
+            "losses": losses,
+            "metrics": metrics,
+        }
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _compilation_formula_lines() -> list[str]:
+        return [
+            "",
+            "",
+            "def _loss_formula(prediction, target, kind, **parameters):",
+            "    expected = jnp.asarray(target, dtype=prediction.dtype)",
+            "    if kind == 'mean_squared_error': return jnp.mean(jnp.square(prediction - expected))",
+            "    if kind == 'mean_absolute_error': return jnp.mean(jnp.abs(prediction - expected))",
+            "    if kind == 'binary_crossentropy':",
+            "        if parameters.get('from_logits', False): return jnp.mean(jax.nn.softplus(prediction) - expected * prediction)",
+            "        probabilities = jnp.clip(prediction, 1e-7, 1.0 - 1e-7)",
+            "        return -jnp.mean(expected * jnp.log(probabilities) + (1.0 - expected) * jnp.log(1.0 - probabilities))",
+            "    if kind == 'categorical_crossentropy':",
+            "        log_values = jax.nn.log_softmax(prediction, axis=-1) if parameters.get('from_logits', False) else jnp.log(jnp.clip(prediction, 1e-7, 1.0))",
+            "        return -jnp.mean(jnp.sum(expected * log_values, axis=-1))",
+            "    if kind == 'sparse_categorical_crossentropy':",
+            "        labels = jnp.asarray(target, dtype=jnp.int32)",
+            "        log_values = jax.nn.log_softmax(prediction, axis=-1) if parameters.get('from_logits', False) else jnp.log(jnp.clip(prediction, 1e-7, 1.0))",
+            "        return -jnp.mean(jnp.take_along_axis(log_values, labels[..., None], axis=-1).squeeze(-1))",
+            "    if kind == 'huber':",
+            "        delta = jnp.asarray(parameters.get('delta', 1.0), dtype=prediction.dtype)",
+            "        difference = jnp.abs(prediction - expected)",
+            "        quadratic = jnp.minimum(difference, delta)",
+            "        return jnp.mean(0.5 * jnp.square(quadratic) + delta * (difference - quadratic))",
+            "    if kind == 'kullback_leibler_divergence':",
+            "        actual = jnp.clip(expected, 1e-7, 1.0)",
+            "        predicted = jnp.clip(prediction, 1e-7, 1.0)",
+            "        return jnp.mean(jnp.sum(actual * jnp.log(actual / predicted), axis=-1))",
+            "    if kind == 'log_cosh':",
+            "        difference = jnp.abs(prediction - expected)",
+            "        return jnp.mean(jax.nn.softplus(2.0 * difference) - difference - jnp.log(2.0))",
+            "    if kind == 'mean_absolute_percentage_error': return jnp.mean(jnp.abs(prediction - expected) / jnp.maximum(jnp.abs(expected), 1e-7)) * 100.0",
+            "    if kind == 'mean_squared_logarithmic_error': return jnp.mean(jnp.square(jnp.log1p(jnp.maximum(prediction, 0.0)) - jnp.log1p(jnp.maximum(expected, 0.0))))",
+            "    if kind == 'hinge': return jnp.mean(jnp.maximum(0.0, 1.0 - expected * prediction))",
+            "    if kind == 'squared_hinge': return jnp.mean(jnp.square(jnp.maximum(0.0, 1.0 - expected * prediction)))",
+            "    if kind == 'categorical_hinge':",
+            "        positive = jnp.sum(prediction * expected, axis=-1)",
+            "        negative = jnp.max((1.0 - expected) * prediction, axis=-1)",
+            "        return jnp.mean(jnp.maximum(0.0, negative - positive + 1.0))",
+            "    if kind == 'poisson':",
+            "        rate = jnp.maximum(prediction, 1e-7)",
+            "        return jnp.mean(rate - expected * jnp.log(rate))",
+            "    if kind == 'dice':",
+            "        axis = parameters.get('axis')",
+            "        intersection = jnp.sum(prediction * expected, axis=axis)",
+            "        denominator = jnp.sum(prediction, axis=axis) + jnp.sum(expected, axis=axis)",
+            "        return jnp.mean(1.0 - 2.0 * intersection / jnp.maximum(denominator, 1e-7))",
+            "    if kind == 'tversky':",
+            "        axis = parameters.get('axis')",
+            "        true_positive = jnp.sum(prediction * expected, axis=axis)",
+            "        false_positive = jnp.sum(prediction * (1.0 - expected), axis=axis)",
+            "        false_negative = jnp.sum((1.0 - prediction) * expected, axis=axis)",
+            "        denominator = true_positive + parameters.get('alpha', 0.5) * false_positive + parameters.get('beta', 0.5) * false_negative",
+            "        return jnp.mean(1.0 - true_positive / jnp.maximum(denominator, 1e-7))",
+            "    raise ValueError(f'Unsupported JAX loss adapter: {kind}')",
+            "",
+            "",
+            "def _classification_labels(prediction, target):",
+            "    if prediction.shape[-1] == 1:",
+            "        return (prediction.reshape(-1) >= 0.5).astype(jnp.int32), (jnp.asarray(target).reshape(-1) >= 0.5).astype(jnp.int32)",
+            "    predicted = jnp.argmax(prediction, axis=-1).reshape(-1)",
+            "    expected = jnp.argmax(target, axis=-1).reshape(-1) if target.shape == prediction.shape else jnp.asarray(target, dtype=jnp.int32).reshape(-1)",
+            "    return predicted, expected",
+            "",
+            "",
+            "def _binary_vectors(prediction, target, threshold=0.5, top_k=None, class_id=None):",
+            "    if class_id is not None and prediction.shape[-1] > 1:",
+            "        scores = prediction[..., class_id]",
+            "        expected = target[..., class_id] if target.shape == prediction.shape else (jnp.asarray(target, dtype=jnp.int32) == class_id).astype(prediction.dtype)",
+            "        return (scores.reshape(-1) >= threshold).astype(jnp.int32), (expected.reshape(-1) >= 0.5).astype(jnp.int32)",
+            "    if top_k is not None and prediction.shape[-1] > 1:",
+            "        limit = min(max(int(top_k), 1), int(prediction.shape[-1]))",
+            "        candidates = jnp.argsort(prediction, axis=-1)[..., -limit:]",
+            "        predicted = jnp.sum(jax.nn.one_hot(candidates, prediction.shape[-1]), axis=-2) > 0",
+            "        expected = target >= 0.5 if target.shape == prediction.shape else jax.nn.one_hot(jnp.asarray(target, dtype=jnp.int32), prediction.shape[-1]) > 0",
+            "        return predicted.reshape(-1).astype(jnp.int32), expected.reshape(-1).astype(jnp.int32)",
+            "    if prediction.shape[-1] == 1:",
+            "        expected = target[..., 0] if target.shape == prediction.shape else target",
+            "        return (prediction[..., 0].reshape(-1) >= threshold).astype(jnp.int32), (jnp.asarray(expected).reshape(-1) >= 0.5).astype(jnp.int32)",
+            "    return _classification_labels(prediction, target)",
+            "",
+            "",
+            "def _auc_binary(scores, labels, parameters):",
+            "    expected = labels >= 0.5",
+            "    positives = jnp.sum(expected.astype(jnp.float32))",
+            "    negatives = jnp.sum((~expected).astype(jnp.float32))",
+            "    explicit = parameters.get('thresholds')",
+            "    thresholds = jnp.asarray(explicit, dtype=scores.dtype) if explicit else jnp.linspace(0.0, 1.0, max(int(parameters.get('num_thresholds', 200)), 2))",
+            "    x_values = []",
+            "    y_values = []",
+            "    for threshold in thresholds:",
+            "        predicted = scores >= threshold",
+            "        true_positive = jnp.sum((predicted & expected).astype(jnp.float32))",
+            "        false_positive = jnp.sum((predicted & ~expected).astype(jnp.float32))",
+            "        if parameters.get('curve', 'ROC') == 'PR':",
+            "            x_values.append(true_positive / jnp.maximum(positives, 1.0))",
+            "            y_values.append(true_positive / jnp.maximum(predicted.astype(jnp.float32).sum(), 1.0))",
+            "        else:",
+            "            x_values.append(false_positive / jnp.maximum(negatives, 1.0))",
+            "            y_values.append(true_positive / jnp.maximum(positives, 1.0))",
+            "    x = jnp.stack(x_values)",
+            "    y = jnp.stack(y_values)",
+            "    order = jnp.argsort(x)",
+            "    x = x[order]",
+            "    y = y[order]",
+            "    widths = jnp.abs(x[1:] - x[:-1])",
+            "    lower = jnp.minimum(y[1:], y[:-1])",
+            "    upper = jnp.maximum(y[1:], y[:-1])",
+            "    heights = lower if parameters.get('summation_method', 'interpolation') == 'minoring' else upper if parameters.get('summation_method') == 'majoring' else (y[1:] + y[:-1]) * 0.5",
+            "    return jnp.clip(jnp.sum(widths * heights), 0.0, 1.0)",
+            "",
+            "",
+            "def _metric_formula(prediction, target, kind, **parameters):",
+            "    expected = jnp.asarray(target, dtype=prediction.dtype)",
+            "    if kind == 'accuracy':",
+            "        predicted, labels = _classification_labels(prediction, target)",
+            "        return jnp.mean((predicted == labels).astype(jnp.float32))",
+            "    if kind == 'binary_accuracy': return jnp.mean((prediction >= parameters.get('threshold', 0.5)) == (expected >= 0.5))",
+            "    if kind == 'categorical_accuracy': return jnp.mean((jnp.argmax(prediction, -1) == jnp.argmax(expected, -1)).astype(jnp.float32))",
+            "    if kind == 'sparse_categorical_accuracy': return jnp.mean((jnp.argmax(prediction, -1) == jnp.asarray(target, dtype=jnp.int32)).astype(jnp.float32))",
+            "    if kind in ('top_k_categorical_accuracy', 'sparse_top_k_categorical_accuracy'):",
+            "        limit = min(max(int(parameters.get('k', 5)), 1), int(prediction.shape[-1]))",
+            "        candidates = jnp.argsort(prediction, axis=-1)[..., -limit:]",
+            "        labels = jnp.argmax(expected, -1) if kind == 'top_k_categorical_accuracy' else jnp.asarray(target, dtype=jnp.int32)",
+            "        return jnp.mean(jnp.any(candidates == labels[..., None], axis=-1).astype(jnp.float32))",
+            "    if kind in ('precision', 'recall'):",
+            "        predicted, labels = _binary_vectors(prediction, target, parameters.get('threshold', 0.5), parameters.get('top_k'), parameters.get('class_id'))",
+            "        true_positive = jnp.sum(((predicted == 1) & (labels == 1)).astype(jnp.float32))",
+            "        denominator = jnp.sum((predicted == 1).astype(jnp.float32)) if kind == 'precision' else jnp.sum((labels == 1).astype(jnp.float32))",
+            "        return true_positive / jnp.maximum(denominator, 1.0)",
+            "    if kind == 'auc':",
+            "        scores = jax.nn.sigmoid(prediction) if parameters.get('from_logits', False) else prediction",
+            "        if parameters.get('multi_label', False):",
+            "            scores = scores.reshape(-1, scores.shape[-1])",
+            "            labels = expected.reshape(-1, expected.shape[-1])",
+            "            values = jnp.stack([_auc_binary(scores[:, index], labels[:, index], parameters) for index in range(int(scores.shape[-1]))])",
+            "            weights = parameters.get('label_weights')",
+            "            return jnp.sum(values * jnp.asarray(weights)) / jnp.maximum(jnp.sum(jnp.asarray(weights)), 1e-7) if weights else jnp.mean(values)",
+            "        scores = scores[..., 0] if scores.shape[-1] == 1 else scores[..., 1]",
+            "        labels = expected[..., 0] if expected.shape[-1] == 1 else expected[..., 1] if target.shape == prediction.shape else expected",
+            "        return _auc_binary(scores.reshape(-1), labels.reshape(-1), parameters)",
+            "    if kind in ('true_positives', 'true_negatives', 'false_positives', 'false_negatives'):",
+            "        predicted, labels = _binary_vectors(prediction, target, parameters.get('threshold', 0.5))",
+            "        if kind == 'true_positives': return jnp.sum(((predicted == 1) & (labels == 1)).astype(jnp.float32))",
+            "        if kind == 'true_negatives': return jnp.sum(((predicted == 0) & (labels == 0)).astype(jnp.float32))",
+            "        if kind == 'false_positives': return jnp.sum(((predicted == 1) & (labels == 0)).astype(jnp.float32))",
+            "        return jnp.sum(((predicted == 0) & (labels == 1)).astype(jnp.float32))",
+            "    if kind == 'mean_absolute_error': return jnp.mean(jnp.abs(prediction - expected))",
+            "    if kind == 'mean_squared_error': return jnp.mean(jnp.square(prediction - expected))",
+            "    if kind == 'root_mean_squared_error': return jnp.sqrt(jnp.mean(jnp.square(prediction - expected)))",
+            "    if kind == 'mean_absolute_percentage_error': return jnp.mean(jnp.abs(prediction - expected) / jnp.maximum(jnp.abs(expected), 1e-7)) * 100.0",
+            "    if kind == 'mean_squared_logarithmic_error': return jnp.mean(jnp.square(jnp.log1p(jnp.maximum(prediction, 0.0)) - jnp.log1p(jnp.maximum(expected, 0.0))))",
+            "    if kind == 'cosine_similarity':",
+            "        axis = parameters.get('axis', -1)",
+            "        return jnp.mean(jnp.sum((prediction / jnp.maximum(jnp.linalg.norm(prediction, axis=axis, keepdims=True), 1e-7)) * (expected / jnp.maximum(jnp.linalg.norm(expected, axis=axis, keepdims=True), 1e-7)), axis=axis))",
+            "    if kind == 'log_cosh_error':",
+            "        difference = jnp.abs(prediction - expected)",
+            "        return jnp.mean(jax.nn.softplus(2.0 * difference) - difference - jnp.log(2.0))",
+            "    if kind == 'prediction_mean': return jnp.mean(prediction)",
+            "    if kind == 'prediction_sum': return jnp.sum(prediction)",
+            "    raise ValueError(f'Unsupported JAX metric adapter: {kind}')",
+            "",
+            "",
+            "_LOSS_ADAPTERS = {",
+            "    identifier: functools.partial(_loss_formula, kind=identifier) for identifier in [",
+            "        'mean_squared_error', 'mean_absolute_error', 'binary_crossentropy', 'categorical_crossentropy',",
+            "        'sparse_categorical_crossentropy', 'huber', 'kullback_leibler_divergence', 'log_cosh',",
+            "        'mean_absolute_percentage_error', 'mean_squared_logarithmic_error', 'hinge', 'squared_hinge',",
+            "        'categorical_hinge', 'poisson', 'dice', 'tversky',",
+            "    ]",
+            "}",
+            "_METRIC_ADAPTERS = {",
+            "    identifier: functools.partial(_metric_formula, kind=identifier) for identifier in [",
+            "        'accuracy', 'binary_accuracy', 'categorical_accuracy', 'sparse_categorical_accuracy',",
+            "        'top_k_categorical_accuracy', 'sparse_top_k_categorical_accuracy', 'precision', 'recall', 'auc',",
+            "        'true_positives', 'true_negatives', 'false_positives', 'false_negatives',",
+            "        'mean_absolute_error', 'mean_squared_error', 'root_mean_squared_error',",
+            "        'mean_absolute_percentage_error', 'mean_squared_logarithmic_error', 'cosine_similarity',",
+            "        'log_cosh_error', 'prediction_mean', 'prediction_sum',",
+            "    ]",
+            "}",
+        ]
 
     # -------------------------------------------------------------------------
     @staticmethod
@@ -148,6 +430,7 @@ class NativeJaxSourceExporter(SourceExporter):
         lines = [
             "from __future__ import annotations",
             "",
+            "import functools",
             "import jax",
             "import jax.numpy as jnp",
             "import optax",
@@ -989,6 +1272,8 @@ class NativeJaxSourceExporter(SourceExporter):
         trace = "{" + ", ".join(trace_entries) + "}"
         lines.append(f"        if return_intermediates: return {result}, {trace}")
         lines.append(f"        return {result}")
+        lines.extend(self._compilation_formula_lines())
+        payload = self._compilation_payload(graph, catalog, compilation_catalog)
         jit_enabled = bool(
             graph.model_configuration.native.jax.compiler.parameters.get("enabled", False)
         )
@@ -1024,9 +1309,19 @@ class NativeJaxSourceExporter(SourceExporter):
                 "def configured_compilation() -> dict[str, object]:",
                 "    return {",
                 f"        'optimizer': {{'id': {optimizer_value.id!r}, 'parameters': {dict(optimizer_value.parameters)!r}}},",
-                "        'losses': {},",
-                "        'metrics': {},",
+                f"        'losses': {payload['losses']!r},",
+                f"        'metrics': {payload['metrics']!r},",
+                f"        'target_contracts': {payload['target_contracts']!r},",
+                f"        'metric_target_contracts': {payload['metric_target_contracts']!r},",
                 "    }",
+                "",
+                "",
+                "def configured_losses() -> dict[str, object]:",
+                f"    return {{output_id: functools.partial(_LOSS_ADAPTERS[loss_id], **parameters) for output_id, loss_id in {payload['loss_ids']!r}.items() for parameters in [{payload['loss_parameters']!r}.get(output_id, {{}})]}}",
+                "",
+                "",
+                "def configured_metrics() -> dict[str, dict[str, object]]:",
+                f"    return {{output_id: {{metric_id: functools.partial(_METRIC_ADAPTERS[metric_id], **parameters) for metric_id, parameters in zip(metric_ids, {payload['metric_parameters']!r}.get(output_id, []), strict=True)}} for output_id, metric_ids in {payload['metric_ids']!r}.items()}}",
                 "",
                 "",
                 "def build_compilation(variables) -> dict[str, object]:",
@@ -1034,6 +1329,8 @@ class NativeJaxSourceExporter(SourceExporter):
                 "    configuration = configured_compilation()",
                 "    configuration['optimizer_runtime'] = optimizer_runtime",
                 "    configuration['optimizer_state'] = optimizer_runtime.init(variables)",
+                "    configuration['loss_functions'] = configured_losses()",
+                "    configuration['metric_functions'] = configured_metrics()",
                 "    return configuration",
                 "",
                 "",
