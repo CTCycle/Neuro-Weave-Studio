@@ -735,6 +735,24 @@ class NativeJaxSourceExporter(SourceExporter):
                     lines.append(
                         f"        {name} = {name}.reshape(({name}.shape[0], {name}.shape[1]) + {output_shape!r})"
                     )
+            elif definition == "transformer.feed_forward":
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"Native JAX feed-forward node {node.id} requires a rank-3 input")
+                if float(params.get("dropout", 0.0)) != 0.0:
+                    raise ValueError("Native JAX feed-forward export supports dropout=0 only")
+                input_dimension = self._static_dimension(source_spec, -1)
+                if input_dimension is None:
+                    raise ValueError(f"Native JAX feed-forward node {node.id} requires a known embedding dimension")
+                hidden_dimension = input_dimension * int(params.get("ffn_multiplier", 4))
+                activation = str(params.get("activation", "gelu"))
+                lines.append(
+                    f"        {name} = nn.Dense(features={hidden_dimension}, name={name + '_expand'!r})({source})"
+                )
+                if activation != "linear":
+                    lines.append(f"        {name} = {self._activation(activation)}({name})")
+                lines.append(
+                    f"        {name} = nn.Dense(features={input_dimension}, name={name + '_project'!r})({name})"
+                )
             elif definition == "transformer.attention_mask":
                 lines.append(f"        {name} = {source}")
             elif definition == "transformer.residual":
