@@ -6,7 +6,7 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
-from domain.manifests import ParameterDefinition, ParameterValueSchema
+from domain.manifests import ParameterDefinition
 
 CompilationTask = Literal["regression", "binary_classification", "multiclass_classification"]
 TargetContract = Literal[
@@ -16,10 +16,6 @@ TargetContract = Literal[
     "class_index",
     "probability_distribution_same_shape",
 ]
-
-# Compilation parameters use the canonical recursive node schema. This alias
-# keeps third-party imports source-compatible without retaining a second model.
-CompilationParameter = ParameterDefinition
 
 ###############################################################################
 class CompilationImplementation(BaseModel):
@@ -105,7 +101,7 @@ def _optimizer(
     identifier: str,
     label: str,
     description: str,
-    parameters: list[CompilationParameter],
+    parameters: list[ParameterDefinition],
 ) -> CompilationOption:
     symbols = {"adam": "Adam", "adamw": "AdamW", "sgd": "SGD", "rmsprop": "RMSprop"}
     return CompilationOption(
@@ -246,7 +242,7 @@ def _build_compilation_catalog() -> CompilationCatalog:
                         minimum=0.0,
                         maximum=1.0,
                     ),
-                    CompilationParameter(
+                    ParameterDefinition(
                         id="nesterov",
                         display_name="Nesterov",
                         type="boolean",
@@ -284,7 +280,7 @@ def _build_compilation_catalog() -> CompilationCatalog:
                         maximum=1.0,
                     ),
                     _number("epsilon", "Epsilon", 1e-7, "Numerical stability term.", minimum=0.0),
-                    CompilationParameter(
+                    ParameterDefinition(
                         id="centered",
                         display_name="Centered",
                         type="boolean",
