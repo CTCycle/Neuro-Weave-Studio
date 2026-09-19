@@ -214,6 +214,7 @@ class NodeManifest(BaseModel):
     description: str
     semantic_role: NodeRole = "operation"
     source_kind: SourceKind | None = None
+    parameter_groups: list[str] = Field(default_factory=list)
     task_hint: str | None = None
     inputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     outputs: list[PortDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
