@@ -172,6 +172,7 @@ def _mapped_option(
     activation_contract: list[str] | None = None,
     formula: str | None = None,
     parameters: list[ParameterDefinition] | None = None,
+    keras_parameter_mapping: dict[str, str] | None = None,
 ) -> CompilationOption:
     return CompilationOption(
         id=identifier,
@@ -180,7 +181,11 @@ def _mapped_option(
         parameters=parameters or [],
         formula=formula,
         implementations={
-            "keras": CompilationImplementation(supported=True, symbol=keras_symbol),
+            "keras": CompilationImplementation(
+                supported=True,
+                symbol=keras_symbol,
+                parameter_mapping=keras_parameter_mapping or {},
+            ),
             "pytorch": CompilationImplementation(supported=True, adapter=pytorch_adapter),
         },
         supported_tasks=supported_tasks,
@@ -662,6 +667,46 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 formula=r"\operatorname{SparseAccuracy}=\frac{1}{n}\sum_{i=1}^{n}\mathbf{1}[\arg\max_c\hat p_{ic}=y_i]",
             ),
             _mapped_option(
+                "top_k_categorical_accuracy",
+                "Top-k categorical accuracy",
+                "Fraction of one-hot categorical targets found among the top-k predictions.",
+                keras_symbol="TopKCategoricalAccuracy",
+                pytorch_adapter="top_k_categorical_accuracy",
+                supported_tasks=["multiclass_classification"],
+                target_contract="one_hot_same_shape",
+                formula=r"\operatorname{TopKAccuracy}=\frac{1}{n}\sum_i\mathbf{1}[y_i\in\operatorname{TopK}(\hat y_i)]",
+                parameters=[
+                    ParameterDefinition(
+                        id="k",
+                        display_name="Top-k",
+                        type="integer",
+                        default=5,
+                        constraints={"min": 1},
+                        description="Number of highest-scoring classes to consider correct.",
+                    )
+                ],
+            ),
+            _mapped_option(
+                "sparse_top_k_categorical_accuracy",
+                "Sparse top-k categorical accuracy",
+                "Fraction of integer class targets found among the top-k predictions.",
+                keras_symbol="SparseTopKCategoricalAccuracy",
+                pytorch_adapter="sparse_top_k_categorical_accuracy",
+                supported_tasks=["multiclass_classification"],
+                target_contract="class_index",
+                formula=r"\operatorname{SparseTopKAccuracy}=\frac{1}{n}\sum_i\mathbf{1}[y_i\in\operatorname{TopK}(\hat y_i)]",
+                parameters=[
+                    ParameterDefinition(
+                        id="k",
+                        display_name="Top-k",
+                        type="integer",
+                        default=5,
+                        constraints={"min": 1},
+                        description="Number of highest-scoring classes to consider correct.",
+                    )
+                ],
+            ),
+            _mapped_option(
                 "precision",
                 "Precision",
                 "Positive predictions that are correct.",
@@ -690,6 +735,62 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 supported_tasks=["binary_classification", "multiclass_classification"],
                 target_contract="binary_same_shape",
                 formula=r"\operatorname{AUC}=\Pr(\hat p^+>\hat p^-)+\frac{1}{2}\Pr(\hat p^+=\hat p^-)",
+            ),
+            _mapped_option(
+                "true_positives",
+                "True positives",
+                "Count of positive predictions that match positive targets.",
+                keras_symbol="TruePositives",
+                pytorch_adapter="true_positives",
+                supported_tasks=["binary_classification", "multiclass_classification"],
+                target_contract="binary_same_shape",
+                formula=r"TP=\sum_i\mathbf{1}[\hat y_i=1\land y_i=1]",
+                parameters=[
+                    _number("threshold", "Threshold", 0.5, "Positive prediction threshold.", minimum=0.0, maximum=1.0)
+                ],
+                keras_parameter_mapping={"threshold": "thresholds"},
+            ),
+            _mapped_option(
+                "true_negatives",
+                "True negatives",
+                "Count of negative predictions that match negative targets.",
+                keras_symbol="TrueNegatives",
+                pytorch_adapter="true_negatives",
+                supported_tasks=["binary_classification", "multiclass_classification"],
+                target_contract="binary_same_shape",
+                formula=r"TN=\sum_i\mathbf{1}[\hat y_i=0\land y_i=0]",
+                parameters=[
+                    _number("threshold", "Threshold", 0.5, "Positive prediction threshold.", minimum=0.0, maximum=1.0)
+                ],
+                keras_parameter_mapping={"threshold": "thresholds"},
+            ),
+            _mapped_option(
+                "false_positives",
+                "False positives",
+                "Count of positive predictions that disagree with negative targets.",
+                keras_symbol="FalsePositives",
+                pytorch_adapter="false_positives",
+                supported_tasks=["binary_classification", "multiclass_classification"],
+                target_contract="binary_same_shape",
+                formula=r"FP=\sum_i\mathbf{1}[\hat y_i=1\land y_i=0]",
+                parameters=[
+                    _number("threshold", "Threshold", 0.5, "Positive prediction threshold.", minimum=0.0, maximum=1.0)
+                ],
+                keras_parameter_mapping={"threshold": "thresholds"},
+            ),
+            _mapped_option(
+                "false_negatives",
+                "False negatives",
+                "Count of negative predictions that disagree with positive targets.",
+                keras_symbol="FalseNegatives",
+                pytorch_adapter="false_negatives",
+                supported_tasks=["binary_classification", "multiclass_classification"],
+                target_contract="binary_same_shape",
+                formula=r"FN=\sum_i\mathbf{1}[\hat y_i=0\land y_i=1]",
+                parameters=[
+                    _number("threshold", "Threshold", 0.5, "Positive prediction threshold.", minimum=0.0, maximum=1.0)
+                ],
+                keras_parameter_mapping={"threshold": "thresholds"},
             ),
             _mapped_option(
                 "mean_absolute_error",
@@ -723,6 +824,59 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 target_contract="continuous_same_shape",
                 activation_contract=["linear"],
                 formula=r"\operatorname{RMSE}=\sqrt{\frac{1}{n}\sum_{i=1}^{n}(y_i-\hat y_i)^2}",
+            ),
+            _mapped_option(
+                "mean_absolute_percentage_error",
+                "Mean absolute percentage error",
+                "Mean absolute percentage prediction error.",
+                keras_symbol="MeanAbsolutePercentageError",
+                pytorch_adapter="mean_absolute_percentage_error",
+                supported_tasks=["regression"],
+                target_contract="continuous_same_shape",
+                activation_contract=["linear"],
+                formula=r"\operatorname{MAPE}=\frac{100}{n}\sum_i\frac{|y_i-\hat y_i|}{|y_i|}",
+            ),
+            _mapped_option(
+                "mean_squared_logarithmic_error",
+                "Mean squared logarithmic error",
+                "Mean squared logarithmic prediction error.",
+                keras_symbol="MeanSquaredLogarithmicError",
+                pytorch_adapter="mean_squared_logarithmic_error",
+                supported_tasks=["regression"],
+                target_contract="continuous_same_shape",
+                activation_contract=["linear"],
+                formula=r"\operatorname{MSLE}=\frac{1}{n}\sum_i(\log(1+y_i)-\log(1+\hat y_i))^2",
+            ),
+            _mapped_option(
+                "cosine_similarity",
+                "Cosine similarity",
+                "Cosine similarity between target and prediction vectors.",
+                keras_symbol="CosineSimilarity",
+                pytorch_adapter="cosine_similarity",
+                supported_tasks=["regression", "binary_classification", "multiclass_classification"],
+                target_contract="continuous_same_shape",
+                activation_contract=["linear", "sigmoid", "softmax"],
+                formula=r"\operatorname{CosineSimilarity}=\frac{y\cdot\hat y}{\|y\|\|\hat y\|}",
+                parameters=[
+                    ParameterDefinition(
+                        id="axis",
+                        display_name="Axis",
+                        type="axis",
+                        default=-1,
+                        description="Axis along which vectors are compared.",
+                    )
+                ],
+            ),
+            _mapped_option(
+                "log_cosh_error",
+                "Log-cosh error",
+                "Smooth logarithmic hyperbolic-cosine prediction error.",
+                keras_symbol="LogCoshError",
+                pytorch_adapter="log_cosh_error",
+                supported_tasks=["regression"],
+                target_contract="continuous_same_shape",
+                activation_contract=["linear"],
+                formula=r"\operatorname{LogCoshError}=\frac{1}{n}\sum_i\log(\cosh(y_i-\hat y_i))",
             ),
         ],
         initializers=[
