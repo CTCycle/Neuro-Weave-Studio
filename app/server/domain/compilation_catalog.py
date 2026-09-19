@@ -96,14 +96,53 @@ def _number(
         constraints=constraints,
     )
 
+
+def _boolean(
+    identifier: str,
+    label: str,
+    default: bool,
+    description: str,
+) -> ParameterDefinition:
+    return ParameterDefinition(
+        id=identifier,
+        display_name=label,
+        type="boolean",
+        default=default,
+        description=description,
+    )
+
 ###############################################################################
 def _optimizer(
     identifier: str,
     label: str,
     description: str,
     parameters: list[ParameterDefinition],
+    *,
+    keras_symbol: str | None = None,
+    pytorch_symbol: str | None = None,
+    pytorch_parameter_mapping: dict[str, str] | None = None,
 ) -> CompilationOption:
-    symbols = {"adam": "Adam", "adamw": "AdamW", "sgd": "SGD", "rmsprop": "RMSprop"}
+    symbols = {
+        "adam": "Adam",
+        "adamw": "AdamW",
+        "sgd": "SGD",
+        "rmsprop": "RMSprop",
+        "adagrad": "Adagrad",
+        "adadelta": "Adadelta",
+        "adamax": "Adamax",
+        "nadam": "Nadam",
+    }
+    keras_symbol = keras_symbol or symbols[identifier]
+    pytorch_symbol = pytorch_symbol or {
+        "adam": "Adam",
+        "adamw": "AdamW",
+        "sgd": "SGD",
+        "rmsprop": "RMSprop",
+        "adagrad": "Adagrad",
+        "adadelta": "Adadelta",
+        "adamax": "Adamax",
+        "nadam": "NAdam",
+    }[identifier]
     return CompilationOption(
         id=identifier,
         label=label,
@@ -111,9 +150,11 @@ def _optimizer(
         parameters=parameters,
         supported_tasks=["regression", "binary_classification", "multiclass_classification"],
         implementations={
-            "keras": CompilationImplementation(supported=True, symbol=symbols[identifier]),
+            "keras": CompilationImplementation(supported=True, symbol=keras_symbol),
             "pytorch": CompilationImplementation(
-                supported=True, adapter=f"torch.optim.{symbols[identifier]}"
+                supported=True,
+                adapter=f"torch.optim.{pytorch_symbol}",
+                parameter_mapping=pytorch_parameter_mapping or {},
             ),
         },
     )
@@ -183,6 +224,12 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     ),
                     _number("epsilon", "Epsilon", 1e-7, "Numerical stability term.", minimum=0.0),
                 ],
+                pytorch_parameter_mapping={
+                    "learning_rate": "lr",
+                    "beta_1": "betas",
+                    "beta_2": "betas",
+                    "epsilon": "eps",
+                },
             ),
             _optimizer(
                 "adamw",
@@ -221,6 +268,13 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     ),
                     _number("epsilon", "Epsilon", 1e-7, "Numerical stability term.", minimum=0.0),
                 ],
+                pytorch_parameter_mapping={
+                    "learning_rate": "lr",
+                    "weight_decay": "weight_decay",
+                    "beta_1": "betas",
+                    "beta_2": "betas",
+                    "epsilon": "eps",
+                },
             ),
             _optimizer(
                 "sgd",
@@ -242,14 +296,9 @@ def _build_compilation_catalog() -> CompilationCatalog:
                         minimum=0.0,
                         maximum=1.0,
                     ),
-                    ParameterDefinition(
-                        id="nesterov",
-                        display_name="Nesterov",
-                        type="boolean",
-                        default=False,
-                        description="Use Nesterov momentum.",
-                    ),
+                    _boolean("nesterov", "Nesterov", False, "Use Nesterov momentum."),
                 ],
+                pytorch_parameter_mapping={"learning_rate": "lr"},
             ),
             _optimizer(
                 "rmsprop",
@@ -280,14 +329,90 @@ def _build_compilation_catalog() -> CompilationCatalog:
                         maximum=1.0,
                     ),
                     _number("epsilon", "Epsilon", 1e-7, "Numerical stability term.", minimum=0.0),
-                    ParameterDefinition(
-                        id="centered",
-                        display_name="Centered",
-                        type="boolean",
-                        default=False,
-                        description="Normalize gradients using their centered variance.",
+                    _boolean(
+                        "centered",
+                        "Centered",
+                        False,
+                        "Normalize gradients using their centered variance.",
                     ),
                 ],
+                pytorch_parameter_mapping={
+                    "learning_rate": "lr",
+                    "rho": "alpha",
+                    "epsilon": "eps",
+                },
+            ),
+            _optimizer(
+                "adagrad",
+                "Adagrad",
+                "Adaptive optimizer with per-parameter learning rates.",
+                [
+                    _number("learning_rate", "Learning rate", 0.001, "Step size for each update.", minimum=0.0),
+                    _number(
+                        "initial_accumulator_value",
+                        "Initial accumulator value",
+                        0.1,
+                        "Initial value for each squared-gradient accumulator.",
+                        minimum=0.0,
+                    ),
+                    _number("epsilon", "Epsilon", 1e-7, "Numerical stability term.", minimum=0.0),
+                    _number("weight_decay", "Weight decay", 0.0, "L2 weight decay coefficient.", minimum=0.0),
+                ],
+                pytorch_parameter_mapping={
+                    "learning_rate": "lr",
+                    "epsilon": "eps",
+                },
+            ),
+            _optimizer(
+                "adadelta",
+                "Adadelta",
+                "Adaptive optimizer with a moving window of updates.",
+                [
+                    _number("learning_rate", "Learning rate", 0.001, "Step size for each update.", minimum=0.0),
+                    _number("rho", "Rho", 0.95, "Discount factor for the moving average.", minimum=0.0, maximum=1.0),
+                    _number("epsilon", "Epsilon", 1e-7, "Numerical stability term.", minimum=0.0),
+                    _number("weight_decay", "Weight decay", 0.0, "L2 weight decay coefficient.", minimum=0.0),
+                ],
+                pytorch_parameter_mapping={
+                    "learning_rate": "lr",
+                    "epsilon": "eps",
+                },
+            ),
+            _optimizer(
+                "adamax",
+                "Adamax",
+                "Adam variant using the infinity norm.",
+                [
+                    _number("learning_rate", "Learning rate", 0.001, "Step size for each update.", minimum=0.0),
+                    _number("beta_1", "Beta 1", 0.9, "Exponential decay for the first moment.", minimum=0.0, maximum=1.0),
+                    _number("beta_2", "Beta 2", 0.999, "Exponential decay for the infinity norm.", minimum=0.0, maximum=1.0),
+                    _number("epsilon", "Epsilon", 1e-7, "Numerical stability term.", minimum=0.0),
+                    _number("weight_decay", "Weight decay", 0.0, "L2 weight decay coefficient.", minimum=0.0),
+                ],
+                pytorch_parameter_mapping={
+                    "learning_rate": "lr",
+                    "beta_1": "betas",
+                    "beta_2": "betas",
+                    "epsilon": "eps",
+                },
+            ),
+            _optimizer(
+                "nadam",
+                "Nadam",
+                "Nesterov-accelerated adaptive moment estimation.",
+                [
+                    _number("learning_rate", "Learning rate", 0.001, "Step size for each update.", minimum=0.0),
+                    _number("beta_1", "Beta 1", 0.9, "Exponential decay for the first moment.", minimum=0.0, maximum=1.0),
+                    _number("beta_2", "Beta 2", 0.999, "Exponential decay for the second moment.", minimum=0.0, maximum=1.0),
+                    _number("epsilon", "Epsilon", 1e-7, "Numerical stability term.", minimum=0.0),
+                    _number("weight_decay", "Weight decay", 0.0, "L2 weight decay coefficient.", minimum=0.0),
+                ],
+                pytorch_parameter_mapping={
+                    "learning_rate": "lr",
+                    "beta_1": "betas",
+                    "beta_2": "betas",
+                    "epsilon": "eps",
+                },
             ),
         ],
         losses=[

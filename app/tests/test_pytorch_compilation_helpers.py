@@ -403,6 +403,39 @@ def test_native_configured_graph_passes_full_static_validation() -> None:
         ("adamw", {"learning_rate": 0.001, "weight_decay": 0.01}),
         ("sgd", {"learning_rate": 0.01, "momentum": 0.1, "nesterov": False}),
         ("rmsprop", {"learning_rate": 0.001, "rho": 0.9, "momentum": 0.0, "centered": False}),
+        (
+            "adagrad",
+            {
+                "learning_rate": 0.01,
+                "initial_accumulator_value": 0.2,
+                "epsilon": 1e-7,
+                "weight_decay": 0.01,
+            },
+        ),
+        (
+            "adadelta",
+            {"learning_rate": 0.01, "rho": 0.8, "epsilon": 1e-6, "weight_decay": 0.01},
+        ),
+        (
+            "adamax",
+            {
+                "learning_rate": 0.01,
+                "beta_1": 0.8,
+                "beta_2": 0.99,
+                "epsilon": 1e-7,
+                "weight_decay": 0.01,
+            },
+        ),
+        (
+            "nadam",
+            {
+                "learning_rate": 0.01,
+                "beta_1": 0.8,
+                "beta_2": 0.99,
+                "epsilon": 1e-7,
+                "weight_decay": 0.01,
+            },
+        ),
     ],
 )
 def test_native_optimizer_helpers_cover_catalog_variants(
