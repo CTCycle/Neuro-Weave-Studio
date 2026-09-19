@@ -77,10 +77,7 @@ def normalize_bundle_payload(value: Any) -> dict[str, Any]:
         raise ValueError(f"Unsupported project bundle format: {version}")
     raw["format_version"] = 7
     if isinstance(raw.get("project"), dict):
-        raw["project"] = normalize_graph_payload(dict(raw["project"]).get("graph", {})) | {
-            key: value
-            for key, value in dict(raw["project"]).items()
-            if key != "graph"
-        }
+        project = dict(raw["project"])
+        project["graph"] = normalize_graph_payload(project.get("graph", {}))
+        raw["project"] = project
     return raw
-

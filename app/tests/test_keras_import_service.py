@@ -86,7 +86,7 @@ def test_import_reconstructs_allowlisted_functional_architecture_without_weights
         "output.classification",
     ]
     assert len(parsed.payload.graph.edges) == 2
-    assert parsed.payload.graph.nodes[0].parameters["shape"] == [None, 4]
+    assert parsed.payload.graph.nodes[0].parameters["shape"] == [4]
     assert parsed.payload.graph.nodes[0].model_dump(mode="json")["parameters"]["shape"] == [4]
     assert any("weights" in warning for warning in parsed.warnings)
 
@@ -114,7 +114,7 @@ def test_import_normalizes_input_shapes_to_feature_only_persistence(
     input_node = parsed.payload.graph.nodes[0]
 
     assert input_node.definition_id == definition_id
-    assert input_node.parameters["shape"] == [None, *persisted_shape]
+    assert input_node.parameters["shape"] == persisted_shape
     assert input_node.model_dump(mode="json")["parameters"]["shape"] == persisted_shape
 
 

@@ -101,7 +101,7 @@ def test_connection_candidates_use_the_same_verified_profile_resolution(
         keras_enabled,
     )
 
-    assert result.valid_connection_ids == (["candidate"] if keras_enabled else [])
+    assert result.valid_connection_ids == ["candidate"]
 
 ###############################################################################
 @pytest.mark.parametrize(("execution_backend", "keras_enabled"), PROFILES)
@@ -127,7 +127,7 @@ def test_common_dense_chain_is_valid_for_all_six_static_profiles(
 
 ###############################################################################
 @pytest.mark.parametrize(("execution_backend", "keras_enabled"), PROFILES)
-def test_simple_rnn_is_not_actionable_in_any_profile(
+def test_simple_rnn_is_actionable_in_every_profile(
     execution_backend: ExecutionBackend,
     keras_enabled: bool,
 ) -> None:
@@ -143,14 +143,7 @@ def test_simple_rnn_is_not_actionable_in_any_profile(
         keras_enabled,
     )
 
-    assert result.valid is keras_enabled, result.diagnostics
-    if not keras_enabled:
-        diagnostic = next(
-            item
-            for item in result.diagnostics
-            if item.node_id == "operation" and item.code == "unsupported_implementation"
-        )
-        assert diagnostic.details["reason_code"] == "unsupported_implementation"
+    assert result.valid, result.diagnostics
 
 ###############################################################################
 @pytest.mark.parametrize(("execution_backend", "keras_enabled"), PROFILES)
