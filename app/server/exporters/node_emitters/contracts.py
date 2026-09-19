@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import keyword
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -36,6 +36,12 @@ class EmissionResult:
 Emitter = Callable[[NodeEmitterContext], EmissionResult]
 
 
+@dataclass
+class _EmitterRegistration:
+    emitter: Emitter
+    parameter_ids: frozenset[str] = frozenset()
+
+
 ###############################################################################
 class NodeEmitterRegistry:
     """Backend-local adapter registry with fail-fast registration checks."""
@@ -43,17 +49,36 @@ class NodeEmitterRegistry:
     # -------------------------------------------------------------------------
     def __init__(self, backend_key: str) -> None:
         self.backend_key = backend_key
-        self._emitters: dict[str, Emitter] = {}
+        self._emitters: dict[str, _EmitterRegistration] = {}
 
     # -------------------------------------------------------------------------
-    def register(self, adapter_id: str, emitter: Emitter) -> None:
+    def register(
+        self,
+        adapter_id: str,
+        emitter: Emitter,
+        *,
+        parameter_ids: Collection[str] = (),
+    ) -> None:
         if not adapter_id or not re.fullmatch(r"[a-z][a-z0-9_]*", adapter_id):
             raise ValueError(f"Invalid node emitter adapter id: {adapter_id!r}")
         if adapter_id in self._emitters:
             raise ValueError(
                 f"Duplicate node emitter adapter '{adapter_id}' for {self.backend_key}"
             )
-        self._emitters[adapter_id] = emitter
+        self._emitters[adapter_id] = _EmitterRegistration(
+            emitter=emitter,
+            parameter_ids=frozenset(parameter_ids),
+        )
+
+    # -------------------------------------------------------------------------
+    def declare_parameter_ids(self, adapter_id: str, parameter_ids: Collection[str]) -> None:
+        try:
+            registration = self._emitters[adapter_id]
+        except KeyError as exc:
+            raise KeyError(
+                f"Cannot declare parameters for unknown node emitter '{adapter_id}'"
+            ) from exc
+        registration.parameter_ids = frozenset(parameter_ids)
 
     # -------------------------------------------------------------------------
     def resolve(self, adapter_id: str | None) -> Emitter:
@@ -61,17 +86,32 @@ class NodeEmitterRegistry:
             raise KeyError(
                 f"No node emitter '{adapter_id}' is registered for {self.backend_key}"
             )
-        return self._emitters[adapter_id]
+        return self._emitters[adapter_id].emitter
 
     # -------------------------------------------------------------------------
     def has(self, adapter_id: str | None) -> bool:
         return bool(adapter_id and adapter_id in self._emitters)
 
     # -------------------------------------------------------------------------
-    def validate_catalog(self, catalog: NodeCatalog) -> None:
-        """Reject verified supported mappings that cannot be emitted."""
+    def parameter_ids(self, adapter_id: str) -> frozenset[str]:
+        try:
+            return self._emitters[adapter_id].parameter_ids
+        except KeyError as exc:
+            raise KeyError(
+                f"No node emitter '{adapter_id}' is registered for {self.backend_key}"
+            ) from exc
+
+    # -------------------------------------------------------------------------
+    def validate_catalog(
+        self,
+        catalog: NodeCatalog,
+        *,
+        adapter_ids: Collection[str] | None = None,
+    ) -> None:
+        """Reject verified mappings that cannot be emitted or lose parameters."""
 
         errors: list[str] = []
+        selected_adapters = set(adapter_ids) if adapter_ids is not None else None
         for manifest in catalog.manifests:
             if manifest.deprecated:
                 continue
@@ -80,10 +120,26 @@ class NodeEmitterRegistry:
                 continue
             if manifest.operation is not None and mapping.symbol is not None:
                 continue
+            if selected_adapters is not None and mapping.adapter not in selected_adapters:
+                continue
             if not self.has(mapping.adapter):
                 errors.append(
                     f"{manifest.id}: verified {self.backend_key} mapping requires adapter "
                     f"{mapping.adapter!r}"
+                )
+                continue
+            consumed = self.parameter_ids(mapping.adapter or "")
+            ignored = sorted(
+                parameter.id
+                for parameter in manifest.parameters
+                if parameter.scope == "authoring"
+                and parameter.id not in consumed
+                and parameter.id not in mapping.constructor_omissions
+            )
+            if ignored:
+                errors.append(
+                    f"{manifest.id}: adapter {mapping.adapter!r} ignores editable parameters "
+                    f"{', '.join(ignored)}"
                 )
         if errors:
             raise ValueError("\n".join(errors))

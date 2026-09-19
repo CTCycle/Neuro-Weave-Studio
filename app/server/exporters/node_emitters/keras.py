@@ -133,4 +133,11 @@ def build_registry() -> NodeEmitterRegistry:
         "safe_expression": _identity,
     }.items():
         registry.register(adapter, emitter)
+    registry.declare_parameter_ids("constant", {"shape", "value", "dtype"})
+    registry.declare_parameter_ids(
+        "parameter", {"shape", "initializer", "dtype", "trainable"}
+    )
+    registry.declare_parameter_ids("average", set())
+    registry.declare_parameter_ids("split", {"sections", "axis"})
+    registry.declare_parameter_ids("detection", set())
     return registry
