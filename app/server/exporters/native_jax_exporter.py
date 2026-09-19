@@ -187,6 +187,16 @@ class NativeJaxSourceExporter(SourceExporter):
             "    return value + encoding[None, :, :]",
             "",
             "",
+            "def _scaled_dot_product_attention(query, key, value, heads, key_dim, value_dim):",
+            "    query = query.reshape(query.shape[0], query.shape[1], heads, key_dim).transpose(0, 2, 1, 3)",
+            "    key = key.reshape(key.shape[0], key.shape[1], heads, key_dim).transpose(0, 2, 1, 3)",
+            "    value = value.reshape(value.shape[0], value.shape[1], heads, value_dim).transpose(0, 2, 1, 3)",
+            "    scores = jnp.einsum('bhqd,bhkd->bhqk', query, key) / (key_dim ** 0.5)",
+            "    weights = jax.nn.softmax(scores, axis=-1)",
+            "    attended = jnp.einsum('bhqk,bhkv->bhqv', weights, value)",
+            "    return attended.transpose(0, 2, 1, 3).reshape(query.shape[0], -1, heads * value_dim)",
+            "",
+            "",
             "def _upsample_nd(value, size, data_format, interpolation):",
             "    dimensions = len(size)",
             "    channels_first = data_format == 'channels_first'",
@@ -229,6 +239,12 @@ class NativeJaxSourceExporter(SourceExporter):
                 for binding in item.input_bindings
             ]
             source = source_vars[0] if source_vars else ""
+            source_by_port = {
+                binding.target_port_id: port_variables[
+                    (binding.source_node_id, binding.source_port_id)
+                ]
+                for binding in item.input_bindings
+            }
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
             manifest = catalog.get(definition, node.definition_version)
             if manifest.operation is not None:
@@ -659,6 +675,66 @@ class NativeJaxSourceExporter(SourceExporter):
                     lines.append(f"        {name} = {current}")
                     if not bool(params.get("return_sequences", False)):
                         lines.append(f"        {name} = {name}[:, -1, :]")
+            elif definition in {"attention.multi_head", "attention.self", "attention.cross"}:
+                if int(params.get("layers", 1)) != 1:
+                    raise ValueError("Native JAX attention supports layers=1 only")
+                query = source_by_port.get("query", source)
+                context = source_by_port.get("context", query)
+                query_spec = source_spec
+                context_spec = source_spec
+                for binding in item.input_bindings:
+                    binding_spec = summaries.get(binding.source_node_id)
+                    if binding.target_port_id == "query":
+                        query_spec = binding_spec
+                    elif binding.target_port_id == "context":
+                        context_spec = binding_spec
+                if (
+                    query_spec is None
+                    or context_spec is None
+                    or query_spec.rank != 3
+                    or context_spec.rank != 3
+                ):
+                    raise ValueError(f"Native JAX attention node {node.id} requires rank-3 query and context inputs")
+                query_dimension = self._static_dimension(query_spec, -1)
+                if query_dimension is None:
+                    raise ValueError(f"Native JAX attention node {node.id} requires a known query embedding dimension")
+                raw_output_shape = params.get("output_shape")
+                if raw_output_shape is None:
+                    output_shape = None
+                    output_dimension = query_dimension
+                elif isinstance(raw_output_shape, int) and not isinstance(raw_output_shape, bool):
+                    output_shape = (int(raw_output_shape),)
+                    output_dimension = int(raw_output_shape)
+                elif isinstance(raw_output_shape, (list, tuple)) and raw_output_shape:
+                    output_shape = tuple(int(value) for value in raw_output_shape)
+                    output_dimension = 1
+                    for value in output_shape:
+                        output_dimension *= value
+                else:
+                    raise ValueError(f"Native JAX attention node {node.id} has an invalid output_shape")
+                heads = int(params.get("num_heads", 8))
+                key_dimension = int(params.get("key_dim", 64))
+                value_dimension = int(params.get("value_dim", key_dimension) or key_dimension)
+                use_bias = bool(params.get("use_bias", True))
+                lines.append(
+                    f"        {name}_query = nn.Dense(features={heads * key_dimension}, use_bias={use_bias!r}, name={name + '_query'!r})({query})"
+                )
+                lines.append(
+                    f"        {name}_key = nn.Dense(features={heads * key_dimension}, use_bias={use_bias!r}, name={name + '_key'!r})({context})"
+                )
+                lines.append(
+                    f"        {name}_value = nn.Dense(features={heads * value_dimension}, use_bias={use_bias!r}, name={name + '_value'!r})({context})"
+                )
+                lines.append(
+                    f"        {name}_attended = _scaled_dot_product_attention({name}_query, {name}_key, {name}_value, {heads}, {key_dimension}, {value_dimension})"
+                )
+                lines.append(
+                    f"        {name} = nn.Dense(features={output_dimension}, use_bias={use_bias!r}, name={name + '_output'!r})({name}_attended)"
+                )
+                if output_shape is not None:
+                    lines.append(
+                        f"        {name} = {name}.reshape(({name}.shape[0], {name}.shape[1]) + {output_shape!r})"
+                    )
             elif definition == "transformer.attention_mask":
                 lines.append(f"        {name} = {source}")
             elif definition == "transformer.residual":
