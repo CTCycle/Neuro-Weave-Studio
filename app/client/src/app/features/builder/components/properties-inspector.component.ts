@@ -8,11 +8,12 @@ import { conditionMatches, effectiveParameterDefault, resolveImplementationCompa
 import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
 import { displayParameterValue, hasInvalidParameter, helpfulParameterDescription, isFiniteParameter, parameterOptions, parseParameterValue, type ParameterDraftValue } from '../graph/parameter-value'
 import { GraphEditorStore } from '../state/graph-editor.store'
+import { ParameterEditorComponent, type ParameterEditorState } from './parameter-editor.component'
 
 @Component({
   selector: 'nw-properties-inspector',
   standalone: true,
-  imports: [ReactiveFormsModule, LucideTrash2, LucideX],
+  imports: [ReactiveFormsModule, LucideTrash2, LucideX, ParameterEditorComponent],
   template: `
     <aside class="builder-inspector panel" [attr.role]="mobileOpen() ? 'dialog' : 'complementary'" [attr.aria-modal]="mobileOpen() ? 'true' : null" aria-label="Properties inspector" (click)="$event.stopPropagation()">
       @if (selectedNode(); as node) {
@@ -40,15 +41,7 @@ import { GraphEditorStore } from '../state/graph-editor.store'
                   @if (isQuantizationConfiguration(definition)) {
                     <div class="optional-config-state" [class.configured]="hasExplicitConfiguration(node, definition)"><strong>{{ hasExplicitConfiguration(node, definition) ? 'Explicit quantization' : 'Quantization disabled' }}</strong><small>{{ hasExplicitConfiguration(node, definition) ? 'This node will serialize the configuration below.' : 'Leave this field empty to use the layer without quantization configuration.' }}</small></div>
                   }
-                  @if (isBinaryCheckbox(definition)) {
-                    <label class="toggle-field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node, node.data.manifest)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><span class="compact-toggle"><input type="checkbox" [formControlName]="definition.id" [attr.aria-label]="definition.display_name" (change)="updateParameter(definition, $any($event.target).checked)" /><strong>{{ binaryStateLabel(node, definition) }}</strong></span></label>
-                  } @else if (isChoice(definition)) {
-                    <label class="field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node, node.data.manifest)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><select [formControlName]="definition.id" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (change)="updateParameter(definition, $any($event.target).value)">@if (definition.nullable) { <option value="">None</option> }@if (hasUnsupportedChoiceValue(definition, node, capability)) { <option [value]="currentParameterDisplay(node, definition)" disabled>Unavailable: {{ currentParameterDisplay(node, definition) }}</option> }@for (option of optionsFor(definition, capability); track $index) { <option [value]="stringValue(option)">{{ optionLabel(definition, option) }}</option> }</select>@if (invalid()[definition.id]) { <em class="field-error">Choose a supported option.</em> }</label>
-                  } @else if (isStructured(definition)) {
-                    <label class="field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node, node.data.manifest)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><textarea [formControlName]="definition.id" rows="2" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (input)="updateParameter(definition, $any($event.target).value)" [attr.placeholder]="structuredPlaceholder(definition)"></textarea>@if (invalid()[definition.id]) { <em class="field-error">Enter valid JSON or a supported value.</em> }</label>
-                  } @else {
-                    <label class="field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node, node.data.manifest)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><input [type]="inputType(definition)" [formControlName]="definition.id" [attr.min]="bounds(definition).min" [attr.max]="bounds(definition).max" [attr.step]="bounds(definition).step" [attr.aria-invalid]="invalid()[definition.id] ? 'true' : null" (input)="updateParameter(definition, $any($event.target).value)" />@if (invalid()[definition.id]) { <em class="field-error">Enter a complete value within the supported range.</em> }</label>
-                  }
+                  <label class="field inspector-field" [class.is-unavailable]="isDisabled(capability, definition, node, node.data.manifest)"><span>{{ definition.display_name }}@if (help) { <small>{{ help }}</small> }@if (availability) { <small class="parameter-availability">{{ availability }}</small> }</span><nw-parameter-editor [definition]="definition" [value]="parameterValue(node, definition)" [capability]="capability ?? null" [state]="parameterEditorState(node, definition, capability)" (valueChange)="updateParameter(definition, $event)" (validChange)="setParameterValidity(definition, $event)" /></label>
                 }
               }
             </details>
@@ -151,7 +144,7 @@ export class PropertiesInspectorComponent {
 
   updateLabel(nodeId: string, label: string): void { this.store.updateNode(nodeId, { label }) }
 
-  updateParameter(definition: ParameterDefinition, raw: ParameterDraftValue): void {
+  updateParameter(definition: ParameterDefinition, raw: unknown): void {
     const node = this.selectedNode()
     if (!node) return
     const capability = this.capabilityFor(node.data.manifest, definition)
@@ -164,7 +157,9 @@ export class PropertiesInspectorComponent {
       this.executionBackend(),
       this.kerasEnabled(),
     )
-    const parsed = parseParameterValue(definition, raw, capability)
+    const parsed = raw === undefined && !definition.required
+      ? { valid: true, value: undefined }
+      : parseParameterValue(definition, raw as ParameterDraftValue, capability)
     if (!parsed.valid || !currentCompatibility.editable) {
       this.invalid.update((state) => ({ ...state, [definition.id]: !parsed.valid }))
       return
@@ -188,6 +183,30 @@ export class PropertiesInspectorComponent {
       return
     }
     this.invalid.update((state) => ({ ...state, [definition.id]: false }))
+  }
+
+  setParameterValidity(definition: ParameterDefinition, valid: boolean): void {
+    this.invalid.update((state) => ({ ...state, [definition.id]: !valid }))
+  }
+
+  parameterEditorState(
+    node: { data: { manifest: NodeManifest; parameters: Record<string, unknown> } },
+    definition: ParameterDefinition,
+    capability?: ParameterCapability,
+  ): ParameterEditorState {
+    if (this.invalid()[definition.id]) return 'invalid'
+    const compatibility = resolveParameterCompatibility(
+      node.data.manifest,
+      definition,
+      this.parameterValue(node, definition),
+      node.data.parameters,
+      this.executionBackend(),
+      this.kerasEnabled(),
+    )
+    if (compatibility.reasonCode === 'parameter_fixed' || compatibility.reasonCode === 'disabled_parameter') return 'fixed'
+    if (compatibility.reasonCode === 'unsupported_parameter' || compatibility.reasonCode === 'unsupported_parameter_option' || compatibility.reasonCode === 'unverified_parameter' || !capability?.supported) return 'backend-inapplicable'
+    if (!compatibility.valueCompatible) return 'invalid'
+    return 'editable'
   }
 
   capabilityFor(manifest: NodeManifest | undefined, definition: ParameterDefinition): ParameterCapability | undefined {
@@ -322,7 +341,7 @@ export class PropertiesInspectorComponent {
     return edge ? this.store.shapeSummary(edge.source)?.outputs[edge.sourceHandle ?? 'output'] : undefined
   }
 
-  private parameterValue(node: { data: { parameters: Record<string, unknown>; manifest?: NodeManifest } }, definition: ParameterDefinition): unknown {
+  parameterValue(node: { data: { parameters: Record<string, unknown>; manifest?: NodeManifest } }, definition: ParameterDefinition): unknown {
     if (Object.prototype.hasOwnProperty.call(node.data.parameters, definition.id)) return node.data.parameters[definition.id]
     const manifest = node.data.manifest ?? this.selectedNode()?.data.manifest
     return effectiveParameterDefault(definition, this.capabilityFor(manifest, definition))
