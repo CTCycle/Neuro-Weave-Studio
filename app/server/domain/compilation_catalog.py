@@ -182,6 +182,8 @@ def _optimizer(
     pytorch_parameter_mapping: dict[str, str] | None = None,
     tensorflow_symbol: str | None = None,
     tensorflow_parameter_mapping: dict[str, str] | None = None,
+    jax_adapter: str | None = None,
+    jax_parameter_mapping: dict[str, str] | None = None,
 ) -> CompilationOption:
     symbols = {
         "adam": "Adam",
@@ -205,25 +207,32 @@ def _optimizer(
         "nadam": "NAdam",
     }[identifier]
     tensorflow_symbol = tensorflow_symbol or keras_symbol
+    implementations = {
+        "keras": CompilationImplementation(supported=True, symbol=keras_symbol),
+        "pytorch": CompilationImplementation(
+            supported=True,
+            adapter=f"torch.optim.{pytorch_symbol}",
+            parameter_mapping=pytorch_parameter_mapping or {},
+        ),
+        "tensorflow": CompilationImplementation(
+            supported=True,
+            symbol=tensorflow_symbol,
+            parameter_mapping=tensorflow_parameter_mapping or {},
+        ),
+    }
+    if jax_adapter is not None:
+        implementations["jax"] = CompilationImplementation(
+            supported=True,
+            adapter=jax_adapter,
+            parameter_mapping=jax_parameter_mapping or {},
+        )
     return CompilationOption(
         id=identifier,
         label=label,
         description=description,
         parameters=parameters,
         supported_tasks=["regression", "binary_classification", "multiclass_classification"],
-        implementations={
-            "keras": CompilationImplementation(supported=True, symbol=keras_symbol),
-            "pytorch": CompilationImplementation(
-                supported=True,
-                adapter=f"torch.optim.{pytorch_symbol}",
-                parameter_mapping=pytorch_parameter_mapping or {},
-            ),
-            "tensorflow": CompilationImplementation(
-                supported=True,
-                symbol=tensorflow_symbol,
-                parameter_mapping=tensorflow_parameter_mapping or {},
-            ),
-        },
+        implementations=implementations,
     )
 
 ###############################################################################
@@ -306,6 +315,13 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     "beta_2": "betas",
                     "epsilon": "eps",
                 },
+                jax_adapter="adam",
+                jax_parameter_mapping={
+                    "learning_rate": "learning_rate",
+                    "beta_1": "b1",
+                    "beta_2": "b2",
+                    "epsilon": "eps",
+                },
             ),
             _optimizer(
                 "adamw",
@@ -349,6 +365,14 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     "weight_decay": "weight_decay",
                     "beta_1": "betas",
                     "beta_2": "betas",
+                    "epsilon": "eps",
+                },
+                jax_adapter="adamw",
+                jax_parameter_mapping={
+                    "learning_rate": "learning_rate",
+                    "weight_decay": "weight_decay",
+                    "beta_1": "b1",
+                    "beta_2": "b2",
                     "epsilon": "eps",
                 },
             ),

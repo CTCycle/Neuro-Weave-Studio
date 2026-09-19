@@ -74,6 +74,13 @@ def normalize_compilation_plan(value: Any) -> CompilationPlan:
     optimizer = normalize_compilation_object(optimizer_value, default_id="adam")
     if not optimizer.parameters and isinstance(optimizer_parameters, dict):
         optimizer = optimizer.model_copy(update={"parameters": optimizer_parameters})
+    if not optimizer.parameters:
+        default_parameters = {
+            "adam": {"learning_rate": 0.001},
+            "adamw": {"learning_rate": 0.001, "weight_decay": 0.004},
+        }.get(optimizer.id)
+        if default_parameters is not None:
+            optimizer = optimizer.model_copy(update={"parameters": default_parameters})
 
     def normalize_losses(values: Any) -> dict[str, CompilationObject]:
         if not isinstance(values, dict):
@@ -117,4 +124,3 @@ def normalize_compilation_plan(value: Any) -> CompilationPlan:
             raw.get("default_constraint", "none"), "none", True
         ),
     )
-
