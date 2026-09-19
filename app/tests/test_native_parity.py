@@ -337,7 +337,9 @@ def transformer_block_graph(
     configuration: dict[str, Any] = {
         "num_heads": 2,
         "key_dim": 4,
-        "layers": 2 if definition_id == "transformer.encoder_block" else 1,
+        "layers": 2
+        if definition_id in {"transformer.encoder_block", "transformer.stack"}
+        else 1,
         "ffn_multiplier": 2,
         "activation": "gelu",
         "dropout": 0.0,
@@ -600,6 +602,11 @@ def test_native_dense_values_are_deterministic_across_frameworks(
         (
             "decoder_block",
             lambda: transformer_block_graph("transformer.decoder_block"),
+            (1, 5, 8),
+        ),
+        (
+            "transformer_stack",
+            lambda: transformer_block_graph("transformer.stack"),
             (1, 5, 8),
         ),
         (
@@ -881,6 +888,11 @@ def test_native_transformer_blocks_support_pre_and_post_normalization(
             904,
         ),
         (
+            "transformer.stack",
+            {"num_heads": 2, "key_dim": 4, "layers": 2, "ffn_multiplier": 2},
+            1200,
+        ),
+        (
             "conv.conv3d",
             {
                 "filters": 2,
@@ -962,7 +974,11 @@ def test_native_parameter_counts(
         graph = positional_encoding_graph(str(parameters.get("mode", "sinusoidal")))
     elif definition_id == "transformer.feed_forward":
         graph = feed_forward_graph(parameters)
-    elif definition_id in {"transformer.encoder_block", "transformer.decoder_block"}:
+    elif definition_id in {
+        "transformer.encoder_block",
+        "transformer.decoder_block",
+        "transformer.stack",
+    }:
         graph = transformer_block_graph(definition_id, parameters)
     else:
         graph = normalization_graph(definition_id, parameters)

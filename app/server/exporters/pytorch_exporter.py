@@ -813,7 +813,7 @@ class PyTorchSourceExporter(SourceExporter):
                         f"        self.{name}_output = nn.Linear({heads * value_dimension!r}, {output_dimension!r}, bias={bias!r})",
                     ]
                 )
-            elif definition in {"transformer.encoder_block", "transformer.decoder_block"}:
+            elif definition in {"transformer.encoder_block", "transformer.decoder_block", "transformer.stack"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"PyTorch {definition} node {node.id} requires a rank-3 query input")
                 if float(params.get("dropout", 0.0)) != 0.0:
@@ -1280,7 +1280,7 @@ class PyTorchSourceExporter(SourceExporter):
                 lines.append(f"        {name}, _ = self.{name}({source})")
                 if not params.get("return_sequences", False):
                     lines.append(f"        {name} = {name}[:, -1, :]")
-            elif definition in {"transformer.encoder_block", "transformer.decoder_block"}:
+            elif definition in {"transformer.encoder_block", "transformer.decoder_block", "transformer.stack"}:
                 query = source_by_port.get("query", source)
                 context = source_by_port.get("context", query)
                 current = query
@@ -1291,7 +1291,7 @@ class PyTorchSourceExporter(SourceExporter):
                 pre_norm = bool(params.get("pre_norm", True))
                 for layer_index in range(layer_count):
                     prefix = f"{name}_layer{layer_index}"
-                    if definition == "transformer.encoder_block":
+                    if definition in {"transformer.encoder_block", "transformer.stack"}:
                         attention_input = f"{prefix}_attention_input"
                         if pre_norm:
                             lines.append(f"        {attention_input} = self.{prefix}_attention_norm({current})")
