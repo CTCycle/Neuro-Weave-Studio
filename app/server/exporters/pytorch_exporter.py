@@ -813,6 +813,64 @@ class PyTorchSourceExporter(SourceExporter):
                         f"        self.{name}_output = nn.Linear({heads * value_dimension!r}, {output_dimension!r}, bias={bias!r})",
                     ]
                 )
+            elif definition in {"transformer.encoder_block", "transformer.decoder_block"}:
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"PyTorch {definition} node {node.id} requires a rank-3 query input")
+                if float(params.get("dropout", 0.0)) != 0.0:
+                    raise ValueError("Native PyTorch transformer blocks support dropout=0 only")
+                query_dimension = self._static_dimension(source_spec, -1)
+                context_spec = source_spec
+                for binding in item.input_bindings:
+                    if binding.target_port_id == "context":
+                        context_spec = summaries.get(binding.source_node_id)
+                if query_dimension is None or (
+                    definition == "transformer.decoder_block"
+                    and (context_spec is None or context_spec.rank != 3)
+                ):
+                    raise ValueError(f"PyTorch {definition} node {node.id} requires known rank-3 dimensions")
+                context_dimension = self._static_dimension(context_spec, -1)
+                if context_dimension is None:
+                    raise ValueError(f"PyTorch {definition} node {node.id} requires a known context dimension")
+                layer_count = int(params.get("layers", 1))
+                if layer_count < 1:
+                    raise ValueError("Transformer block layers must be positive")
+                heads = int(params.get("num_heads", 8))
+                key_dimension = int(params.get("key_dim", 64))
+                hidden_dimension = query_dimension * int(params.get("ffn_multiplier", 4))
+                pre_norm = bool(params.get("pre_norm", True))
+                for layer_index in range(layer_count):
+                    prefix = f"{name}_layer{layer_index}"
+                    attention_specs = [("self", query_dimension)]
+                    if definition == "transformer.decoder_block":
+                        attention_specs.append(("cross", context_dimension))
+                    for attention_kind, attention_context_dimension in attention_specs:
+                        lines.extend(
+                            [
+                                f"        self.{prefix}_{attention_kind}_query = nn.Linear({query_dimension!r}, {heads * key_dimension!r})",
+                                f"        self.{prefix}_{attention_kind}_key = nn.Linear({attention_context_dimension!r}, {heads * key_dimension!r})",
+                                f"        self.{prefix}_{attention_kind}_value = nn.Linear({attention_context_dimension!r}, {heads * key_dimension!r})",
+                                f"        self.{prefix}_{attention_kind}_output = nn.Linear({heads * key_dimension!r}, {query_dimension!r})",
+                            ]
+                        )
+                    lines.extend(
+                        [
+                            f"        self.{prefix}_expand = nn.Linear({query_dimension!r}, {hidden_dimension!r})",
+                            f"        self.{prefix}_project = nn.Linear({hidden_dimension!r}, {query_dimension!r})",
+                        ]
+                    )
+                    norm_names = (
+                        ["self_norm", "cross_norm", "ffn_norm"]
+                        if definition == "transformer.decoder_block" and pre_norm
+                        else ["self_norm", "cross_norm", "output_norm"]
+                        if definition == "transformer.decoder_block"
+                        else ["attention_norm", "ffn_norm"]
+                        if pre_norm
+                        else ["attention_norm", "output_norm"]
+                    )
+                    for norm_name in norm_names:
+                        lines.append(
+                            f"        self.{prefix}_{norm_name} = nn.LayerNorm({query_dimension!r})"
+                        )
             elif definition == "transformer.feed_forward":
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"PyTorch feed-forward node {node.id} requires a rank-3 input")
@@ -1222,6 +1280,80 @@ class PyTorchSourceExporter(SourceExporter):
                 lines.append(f"        {name}, _ = self.{name}({source})")
                 if not params.get("return_sequences", False):
                     lines.append(f"        {name} = {name}[:, -1, :]")
+            elif definition in {"transformer.encoder_block", "transformer.decoder_block"}:
+                query = source_by_port.get("query", source)
+                context = source_by_port.get("context", query)
+                current = query
+                layer_count = int(params.get("layers", 1))
+                heads = int(params.get("num_heads", 8))
+                key_dimension = int(params.get("key_dim", 64))
+                activation = str(params.get("activation", "gelu"))
+                pre_norm = bool(params.get("pre_norm", True))
+                for layer_index in range(layer_count):
+                    prefix = f"{name}_layer{layer_index}"
+                    if definition == "transformer.encoder_block":
+                        attention_input = f"{prefix}_attention_input"
+                        if pre_norm:
+                            lines.append(f"        {attention_input} = self.{prefix}_attention_norm({current})")
+                        else:
+                            lines.append(f"        {attention_input} = {current}")
+                        attention = f"{prefix}_attention"
+                        lines.append(
+                            f"        {attention} = _multi_head_attention({attention_input}, {attention_input}, self.{prefix}_self_query, self.{prefix}_self_key, self.{prefix}_self_value, self.{prefix}_self_output, {heads}, {key_dimension}, {key_dimension}, None)"
+                        )
+                        attention_residual = f"{prefix}_attention_residual"
+                        lines.append(f"        {attention_residual} = {current} + {attention}")
+                        ffn_input = f"{prefix}_ffn_input"
+                        norm_name = "ffn_norm" if pre_norm else "attention_norm"
+                        lines.append(f"        {ffn_input} = self.{prefix}_{norm_name}({attention_residual})")
+                        current_cross = attention_residual
+                    else:
+                        self_input = f"{prefix}_self_input"
+                        if pre_norm:
+                            lines.append(f"        {self_input} = self.{prefix}_self_norm({current})")
+                        else:
+                            lines.append(f"        {self_input} = {current}")
+                        self_attention = f"{prefix}_self_attention"
+                        lines.append(
+                            f"        {self_attention} = _multi_head_attention({self_input}, {self_input}, self.{prefix}_self_query, self.{prefix}_self_key, self.{prefix}_self_value, self.{prefix}_self_output, {heads}, {key_dimension}, {key_dimension}, None)"
+                        )
+                        self_residual = f"{prefix}_self_residual"
+                        lines.append(f"        {self_residual} = {current} + {self_attention}")
+                        current_self = f"{prefix}_current_self"
+                        if pre_norm:
+                            lines.append(f"        {current_self} = {self_residual}")
+                        else:
+                            lines.append(f"        {current_self} = self.{prefix}_self_norm({self_residual})")
+                        cross_input = f"{prefix}_cross_input"
+                        if pre_norm:
+                            lines.append(f"        {cross_input} = self.{prefix}_cross_norm({current_self})")
+                        else:
+                            lines.append(f"        {cross_input} = {current_self}")
+                        cross_attention = f"{prefix}_cross_attention"
+                        lines.append(
+                            f"        {cross_attention} = _multi_head_attention({cross_input}, {context}, self.{prefix}_cross_query, self.{prefix}_cross_key, self.{prefix}_cross_value, self.{prefix}_cross_output, {heads}, {key_dimension}, {key_dimension}, None)"
+                        )
+                        cross_residual = f"{prefix}_cross_residual"
+                        lines.append(f"        {cross_residual} = {current_self} + {cross_attention}")
+                        current_cross = f"{prefix}_current_cross"
+                        if pre_norm:
+                            lines.append(f"        {current_cross} = {cross_residual}")
+                        else:
+                            lines.append(f"        {current_cross} = self.{prefix}_cross_norm({cross_residual})")
+                        ffn_input = f"{prefix}_ffn_input"
+                        if pre_norm:
+                            lines.append(f"        {ffn_input} = self.{prefix}_ffn_norm({current_cross})")
+                        else:
+                            lines.append(f"        {ffn_input} = {current_cross}")
+                    lines.append(f"        {prefix}_feed_forward = self.{prefix}_expand({ffn_input})")
+                    if activation != "linear":
+                        lines.append(f"        {prefix}_feed_forward = ({self._activation(activation)})({prefix}_feed_forward)")
+                    lines.append(f"        {prefix}_feed_forward = self.{prefix}_project({prefix}_feed_forward)")
+                    current = f"{prefix}_output"
+                    lines.append(f"        {current} = {current_cross} + {prefix}_feed_forward")
+                    if not pre_norm:
+                        lines.append(f"        {current} = self.{prefix}_output_norm({current})")
+                lines.append(f"        {name} = {current}")
             elif definition in {"attention.multi_head", "attention.self", "attention.cross"}:
                 if int(params.get("layers", 1)) != 1:
                     raise ValueError("Native PyTorch attention supports layers=1 only")
