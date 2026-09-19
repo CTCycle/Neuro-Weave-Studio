@@ -8,144 +8,8 @@ from domain.manifests import NodeManifest
 
 RESOURCE_ROOT = Path(__file__).resolve().parents[2] / "resources" / "nodes"
 CATALOG_EXTENSION_PATH = RESOURCE_ROOT.parent / "catalog_extensions.json"
+PARAMETER_SURFACE_PATH = RESOURCE_ROOT.parent / "parameter_surfaces.json"
 
-_INITIALIZER_OPTIONS = [
-    "uniform",
-    "normal",
-    "truncated_normal",
-    "constant",
-    "variance_scaling",
-    "glorot_uniform",
-    "glorot_normal",
-    "he_uniform",
-    "he_normal",
-    "lecun_uniform",
-    "lecun_normal",
-    "zeros",
-    "ones",
-    "random_normal",
-    "random_uniform",
-    "orthogonal",
-    "identity",
-]
-_REGULARIZER_OPTIONS = ["none", "l1", "l2", "l1_l2"]
-_CONSTRAINT_OPTIONS = ["none", "max_norm", "min_max_norm", "non_neg", "unit_norm"]
-_ACTIVATION_OPTIONS = [
-    "linear",
-    "relu",
-    "gelu",
-    "sigmoid",
-    "tanh",
-    "softmax",
-    "softplus",
-    "softsign",
-    "elu",
-    "selu",
-    "silu",
-    "swish",
-    "mish",
-    "hard_sigmoid",
-    "exponential",
-]
-_DTYPE_OPTIONS = [
-    "float16",
-    "float32",
-    "float64",
-    "bfloat16",
-    "int8",
-    "int16",
-    "int32",
-    "int64",
-    "uint8",
-    "uint16",
-    "uint32",
-    "bool",
-]
-_DATA_FORMAT_OPTIONS = ["channels_last", "channels_first"]
-_PADDING_OPTIONS = ["valid", "same"]
-_UNSET = object()
-
-###############################################################################
-def _parameter(
-    identifier: str,
-    display_name: str,
-    parameter_type: str,
-    default: Any,
-    *,
-    group: str,
-    options: list[Any] | None = None,
-    constraints: dict[str, Any] | None = None,
-    nullable: bool = False,
-    value_schema: dict[str, Any] | None = None,
-    visible_when: dict[str, Any] | None = None,
-    enabled_when: dict[str, Any] | None = None,
-    required_when: dict[str, Any] | None = None,
-    framework_default: Any = _UNSET,
-    editor_default: Any = _UNSET,
-    ui: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    parameter = {
-        "id": identifier,
-        "display_name": display_name,
-        "type": parameter_type,
-        "default": default,
-        "required": False,
-        "options": options or [],
-        "constraints": constraints or {},
-        "description": f"Configure the {display_name.lower()} used by this layer.",
-        "group": group,
-        "nullable": nullable,
-        "ui": ui or {"control": "select" if options else parameter_type},
-    }
-    if value_schema is not None:
-        parameter["value_schema"] = value_schema
-    if visible_when:
-        parameter["visible_when"] = visible_when
-    if enabled_when:
-        parameter["enabled_when"] = enabled_when
-    if required_when:
-        parameter["required_when"] = required_when
-    if framework_default is not _UNSET:
-        parameter["framework_default"] = framework_default
-    if editor_default is not _UNSET:
-        parameter["editor_default"] = editor_default
-    return parameter
-
-###############################################################################
-def _initializer_parameter(identifier: str, label: str, default: str) -> dict[str, Any]:
-    return _parameter(
-        identifier,
-        label,
-        "initializer",
-        default,
-        group="Initializers",
-        options=_INITIALIZER_OPTIONS,
-        ui={"control": "select_or_json", "json_type": "initializer"},
-    )
-
-###############################################################################
-def _regularizer_parameter(identifier: str, label: str) -> dict[str, Any]:
-    return _parameter(
-        identifier,
-        label,
-        "regularizer",
-        "none",
-        group="Regularization",
-        options=_REGULARIZER_OPTIONS,
-        ui={"control": "select_or_json", "json_type": "regularizer"},
-    )
-
-###############################################################################
-def _constraint_parameter(identifier: str, label: str) -> dict[str, Any]:
-    return _parameter(
-        identifier,
-        label,
-        "constraint",
-        "none",
-        group="Constraints",
-        options=_CONSTRAINT_OPTIONS,
-        ui={"control": "select_or_json", "json_type": "constraint"},
-    )
 
 ###############################################################################
 def _expand_parameter_groups(
@@ -162,7 +26,8 @@ def _expand_parameter_groups(
     ):
         raise RuntimeError(f"Parameter groups for {item.get('id', '<unknown>')} must be a list")
     expanded: list[dict[str, Any]] = []
-    seen_group_parameters: set[str] = set()
+    seen_parameters: set[str] = set()
+    seen_aliases: set[str] = set()
     for reference in references:
         group = parameter_groups.get(reference)
         if group is None:
@@ -171,750 +36,69 @@ def _expand_parameter_groups(
             )
         for parameter in group:
             identifier = str(parameter.get("id", ""))
-            if identifier in seen_group_parameters:
+            if not identifier:
+                raise RuntimeError(
+                    f"Parameter group '{reference}' contains an empty identifier for "
+                    f"{item.get('id', '<unknown>')}"
+                )
+            if identifier in seen_aliases:
+                raise RuntimeError(
+                    f"Parameter alias collision for {item.get('id', '<unknown>')}: {identifier}"
+                )
+            if identifier in seen_parameters:
                 raise RuntimeError(
                     f"Parameter group collision for {item.get('id', '<unknown>')}: {identifier}"
                 )
-            seen_group_parameters.add(identifier)
+            aliases = parameter.get("aliases", [])
+            if not isinstance(aliases, list) or any(not isinstance(alias, str) for alias in aliases):
+                raise RuntimeError(
+                    f"Aliases for {item.get('id', '<unknown>')}:{identifier} must be a list"
+                )
+            if seen_parameters.intersection(aliases):
+                raise RuntimeError(
+                    f"Parameter alias collision for {item.get('id', '<unknown>')}: {identifier}"
+                )
+            seen_parameters.add(identifier)
+            seen_parameters.update(aliases)
+            seen_aliases.update(aliases)
             expanded.append(dict(parameter))
     explicit = item.get("parameters", [])
     if explicit is None:
         explicit = []
     if not isinstance(explicit, list):
         raise RuntimeError(f"Parameters for {item.get('id', '<unknown>')} must be a list")
+    for parameter in cast(list[dict[str, Any]], explicit):
+        identifier = str(parameter.get("id", ""))
+        if not identifier:
+            raise RuntimeError(f"Parameter for {item.get('id', '<unknown>')} must have an id")
+        aliases = parameter.get("aliases", [])
+        if not isinstance(aliases, list) or any(not isinstance(alias, str) for alias in aliases):
+            raise RuntimeError(
+                f"Aliases for {item.get('id', '<unknown>')}:{identifier} must be a list"
+            )
+        if seen_aliases.intersection({identifier, *aliases}):
+            raise RuntimeError(
+                f"Parameter alias collision for {item.get('id', '<unknown>')}: {identifier}"
+            )
+        if seen_parameters.intersection({identifier, *aliases}):
+            raise RuntimeError(
+                f"Parameter surface collision for {item.get('id', '<unknown>')}: {identifier}"
+            )
+        seen_parameters.add(identifier)
+        seen_parameters.update(aliases)
     item["parameters"] = [*expanded, *cast(list[dict[str, Any]], explicit)]
     return item
-
-###############################################################################
-def _base_layer_parameters() -> list[dict[str, Any]]:
-    """Safe Keras ``Layer`` constructor controls shared by layer nodes.
-
-    ``name`` is intentionally represented by the node label. Learned weights
-    are model state rather than authoring parameters and are therefore not
-    exposed in the portable graph contract.
-    """
-
-    return [
-        _parameter(
-            "dtype",
-            "Dtype",
-            "dtype",
-            None,
-            group="Advanced",
-            options=_DTYPE_OPTIONS,
-            nullable=True,
-            framework_default=None,
-            editor_default="float32",
-            ui={"control": "select", "allow_global_policy": True},
-        ),
-        _parameter("trainable", "Trainable", "boolean", True, group="Advanced"),
-        _parameter("autocast", "Autocast", "boolean", True, group="Advanced"),
-    ]
-
-###############################################################################
-def _spatial_parameters(dimensions: int) -> list[dict[str, Any]]:
-    return [
-        _parameter(
-            "strides",
-            "Strides",
-            "shape",
-            [1] * dimensions,
-            group="Spatial configuration",
-            constraints={"length": dimensions, "item_min": 1},
-        ),
-        _parameter(
-            "padding",
-            "Padding",
-            "enum",
-            "valid",
-            group="Spatial configuration",
-            options=_PADDING_OPTIONS,
-        ),
-        _parameter(
-            "data_format",
-            "Data format",
-            "enum",
-            "channels_last",
-            group="Spatial configuration",
-            options=_DATA_FORMAT_OPTIONS,
-        ),
-        _parameter(
-            "dilation_rate",
-            "Dilation rate",
-            "shape",
-            [1] * dimensions,
-            group="Spatial configuration",
-            constraints={"length": dimensions, "item_min": 1},
-        ),
-    ]
-
-###############################################################################
-def _pool_parameters(dimensions: int, *, include_pool_size: bool = False) -> list[dict[str, Any]]:
-    parameters: list[dict[str, Any]] = []
-    if include_pool_size:
-        parameters.append(
-            _parameter(
-                "pool_size",
-                "Pool size",
-                "shape",
-                [2] * dimensions,
-                group="Spatial configuration",
-                constraints={"length": dimensions, "item_min": 1},
-                framework_default=None,
-                editor_default=[2] * dimensions,
-            )
-        )
-    parameters.extend(
-        [
-            _parameter(
-                "strides",
-                "Strides",
-                "shape",
-                None,
-                group="Spatial configuration",
-                constraints={"length": dimensions, "item_min": 1},
-                nullable=True,
-            ),
-            _parameter(
-                "padding",
-                "Padding",
-                "enum",
-                "valid",
-                group="Spatial configuration",
-                options=_PADDING_OPTIONS,
-            ),
-            _parameter(
-                "data_format",
-                "Data format",
-                "enum",
-                "channels_last",
-                group="Spatial configuration",
-                options=_DATA_FORMAT_OPTIONS,
-            ),
-        ]
-    )
-    return parameters
-
-###############################################################################
-def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
-    """Return the safe, serializable Keras constructor surface for a node."""
-
-    shared_kernel_controls = [
-        _initializer_parameter("kernel_initializer", "Kernel initializer", "glorot_uniform"),
-        _initializer_parameter("bias_initializer", "Bias initializer", "zeros"),
-        _regularizer_parameter("kernel_regularizer", "Kernel regularizer"),
-        _regularizer_parameter("bias_regularizer", "Bias regularizer"),
-        _regularizer_parameter("activity_regularizer", "Activity regularizer"),
-        _constraint_parameter("kernel_constraint", "Kernel constraint"),
-        _constraint_parameter("bias_constraint", "Bias constraint"),
-    ]
-    if node_id == "layer.dense":
-        return [
-            _parameter(
-                "lora_rank",
-                "LoRA rank",
-                "integer",
-                None,
-                group="Advanced",
-                constraints={"min": 1},
-                nullable=True,
-            ),
-            _parameter(
-                "lora_alpha",
-                "LoRA alpha",
-                "number",
-                None,
-                group="Advanced",
-                constraints={"min": 1},
-                nullable=True,
-                enabled_when={"lora_rank": {"not_equals": None}},
-            ),
-            _parameter(
-                "quantization_config",
-                "Quantization config",
-                "object",
-                None,
-                group="Advanced",
-                nullable=True,
-                value_schema={"type": "object"},
-                ui={"control": "json"},
-            ),
-            *shared_kernel_controls,
-        ]
-    if node_id in {"conv.conv1d", "conv.conv2d", "conv.conv3d"}:
-        dimensions = int(node_id[-2])
-        return [
-            *_spatial_parameters(dimensions),
-            _parameter(
-                "groups",
-                "Groups",
-                "integer",
-                1,
-                group="Spatial configuration",
-                constraints={"min": 1},
-            ),
-            *shared_kernel_controls,
-        ]
-    if node_id in {
-        "conv.max_pool1d",
-        "conv.max_pool2d",
-        "conv.max_pool3d",
-        "conv.average_pool1d",
-        "conv.average_pool2d",
-        "conv.average_pool3d",
-    }:
-        dimensions = int(node_id[-2])
-        return _pool_parameters(dimensions)
-    if node_id in {"conv.global_pool1d", "conv.global_pool2d", "conv.global_pool3d"}:
-        return [
-            _parameter(
-                "data_format",
-                "Data format",
-                "enum",
-                "channels_last",
-                group="Spatial configuration",
-                options=_DATA_FORMAT_OPTIONS,
-            ),
-            _parameter("keepdims", "Keep dimensions", "boolean", False, group="Shape"),
-        ]
-    if node_id == "layer.activation":
-        return []
-    if node_id == "layer.dropout":
-        return [
-            _parameter(
-                "noise_shape",
-                "Noise shape",
-                "shape",
-                None,
-                group="Behavior",
-                nullable=True,
-                ui={"control": "sequence", "allow_null_items": True},
-            ),
-            _parameter("seed", "Seed", "integer", None, group="Behavior", nullable=True),
-        ]
-    if node_id == "layer.flatten":
-        return [
-            _parameter(
-                "data_format",
-                "Data format",
-                "enum",
-                None,
-                group="Layout",
-                options=_DATA_FORMAT_OPTIONS,
-                nullable=True,
-                framework_default=None,
-                editor_default="channels_last",
-            ),
-        ]
-    if node_id == "layer.embedding":
-        return [
-            _initializer_parameter("embeddings_initializer", "Embeddings initializer", "uniform"),
-            _regularizer_parameter("embeddings_regularizer", "Embeddings regularizer"),
-            _regularizer_parameter("activity_regularizer", "Activity regularizer"),
-            _constraint_parameter("embeddings_constraint", "Embeddings constraint"),
-            _parameter("mask_zero", "Mask zero", "boolean", False, group="Behavior"),
-            _parameter(
-                "lora_rank",
-                "LoRA rank",
-                "integer",
-                None,
-                group="Advanced",
-                constraints={"min": 1},
-                nullable=True,
-            ),
-            _parameter(
-                "lora_alpha",
-                "LoRA alpha",
-                "number",
-                None,
-                group="Advanced",
-                constraints={"min": 1},
-                nullable=True,
-                enabled_when={"lora_rank": {"not_equals": None}},
-            ),
-            _parameter(
-                "quantization_config",
-                "Quantization config",
-                "object",
-                None,
-                group="Advanced",
-                nullable=True,
-                value_schema={"type": "object"},
-                ui={"control": "json"},
-            ),
-        ]
-    if node_id == "layer.batch_norm":
-        return [
-            _parameter("axis", "Axis", "axis", -1, group="Shape"),
-            _parameter("center", "Center", "boolean", True, group="Behavior"),
-            _parameter("scale", "Scale", "boolean", True, group="Behavior"),
-            _initializer_parameter("beta_initializer", "Beta initializer", "zeros"),
-            _initializer_parameter("gamma_initializer", "Gamma initializer", "ones"),
-            _initializer_parameter("moving_mean_initializer", "Moving mean initializer", "zeros"),
-            _initializer_parameter(
-                "moving_variance_initializer", "Moving variance initializer", "ones"
-            ),
-            _regularizer_parameter("beta_regularizer", "Beta regularizer"),
-            _regularizer_parameter("gamma_regularizer", "Gamma regularizer"),
-            _constraint_parameter("beta_constraint", "Beta constraint"),
-            _constraint_parameter("gamma_constraint", "Gamma constraint"),
-            _parameter("renorm", "Renormalization", "boolean", False, group="Advanced"),
-            _parameter(
-                "renorm_clipping",
-                "Renormalization clipping",
-                "object",
-                None,
-                group="Advanced",
-                nullable=True,
-                value_schema={
-                    "type": "object",
-                    "properties": {
-                        "rmax": {"type": "number"},
-                        "rmin": {"type": "number"},
-                        "dmax": {"type": "number"},
-                    },
-                },
-                visible_when={"renorm": True},
-                enabled_when={"renorm": True},
-                ui={"control": "json"},
-            ),
-            _parameter(
-                "renorm_momentum",
-                "Renormalization momentum",
-                "number",
-                0.99,
-                group="Advanced",
-                constraints={"min": 0, "max": 1},
-                visible_when={"renorm": True},
-                enabled_when={"renorm": True},
-            ),
-            _parameter("synchronized", "Synchronized", "boolean", False, group="Behavior"),
-        ]
-    if node_id == "layer.layer_norm":
-        return [
-            _parameter("axis", "Axis", "list", [-1], group="Shape", constraints={"item_min": -1}),
-            _parameter("center", "Center", "boolean", True, group="Behavior"),
-            _parameter("scale", "Scale", "boolean", True, group="Behavior"),
-            _initializer_parameter("beta_initializer", "Beta initializer", "zeros"),
-            _initializer_parameter("gamma_initializer", "Gamma initializer", "ones"),
-            _regularizer_parameter("beta_regularizer", "Beta regularizer"),
-            _regularizer_parameter("gamma_regularizer", "Gamma regularizer"),
-            _constraint_parameter("beta_constraint", "Beta constraint"),
-            _constraint_parameter("gamma_constraint", "Gamma constraint"),
-        ]
-    if node_id == "layer.group_norm":
-        return [
-            _parameter("axis", "Axis", "axis", -1, group="Shape"),
-            _parameter("center", "Center", "boolean", True, group="Behavior"),
-            _parameter("scale", "Scale", "boolean", True, group="Behavior"),
-            _initializer_parameter("beta_initializer", "Beta initializer", "zeros"),
-            _initializer_parameter("gamma_initializer", "Gamma initializer", "ones"),
-            _regularizer_parameter("beta_regularizer", "Beta regularizer"),
-            _regularizer_parameter("gamma_regularizer", "Gamma regularizer"),
-            _constraint_parameter("beta_constraint", "Beta constraint"),
-            _constraint_parameter("gamma_constraint", "Gamma constraint"),
-        ]
-    if node_id in {"conv.transposed", "conv.depthwise", "conv.separable"}:
-        dimensions = 2
-        if node_id == "conv.depthwise":
-            dimensions = 2
-        controls: list[dict[str, Any]] = [
-            _parameter(
-                "dimensions",
-                "Dimensions",
-                "enum",
-                dimensions,
-                group="Spatial configuration",
-                options=[1, 2, 3] if node_id == "conv.transposed" else [1, 2],
-            ),
-            _parameter(
-                "strides",
-                "Strides",
-                "shape",
-                [1] * dimensions,
-                group="Spatial configuration",
-                constraints={"item_min": 1},
-            ),
-            _parameter(
-                "padding",
-                "Padding",
-                "enum",
-                "valid",
-                group="Spatial configuration",
-                options=_PADDING_OPTIONS,
-            ),
-            _parameter(
-                "data_format",
-                "Data format",
-                "enum",
-                "channels_last",
-                group="Spatial configuration",
-                options=_DATA_FORMAT_OPTIONS,
-            ),
-            _parameter(
-                "dilation_rate",
-                "Dilation rate",
-                "shape",
-                [1] * dimensions,
-                group="Spatial configuration",
-                constraints={"item_min": 1},
-            ),
-            _parameter(
-                "activation",
-                "Activation",
-                "activation",
-                "linear",
-                group="Activation",
-                options=_ACTIVATION_OPTIONS,
-            ),
-            _parameter("use_bias", "Use bias", "boolean", True, group="General"),
-        ]
-        if node_id == "conv.transposed":
-            controls.insert(
-                1,
-                _parameter(
-                    "output_padding",
-                    "Output padding",
-                    "shape",
-                    None,
-                    group="Spatial configuration",
-                    constraints={"item_min": 0},
-                    nullable=True,
-                ),
-            )
-            controls.extend(shared_kernel_controls)
-        elif node_id == "conv.depthwise":
-            controls[0] = _parameter(
-                "dimensions",
-                "Dimensions",
-                "enum",
-                2,
-                group="Spatial configuration",
-                options=[1, 2],
-            )
-            controls.insert(
-                1,
-                _parameter(
-                    "depth_multiplier",
-                    "Depth multiplier",
-                    "integer",
-                    1,
-                    group="Channels",
-                    constraints={"min": 1},
-                ),
-            )
-            controls.extend(
-                [
-                    _initializer_parameter("depthwise_initializer", "Depthwise initializer", "glorot_uniform"),
-                    _initializer_parameter("bias_initializer", "Bias initializer", "zeros"),
-                    _regularizer_parameter("depthwise_regularizer", "Depthwise regularizer"),
-                    _regularizer_parameter("bias_regularizer", "Bias regularizer"),
-                    _regularizer_parameter("activity_regularizer", "Activity regularizer"),
-                    _constraint_parameter("depthwise_constraint", "Depthwise constraint"),
-                    _constraint_parameter("bias_constraint", "Bias constraint"),
-                ]
-            )
-        else:
-            controls.extend(
-                [
-                    _parameter(
-                        "depth_multiplier",
-                        "Depth multiplier",
-                        "integer",
-                        1,
-                        group="Channels",
-                        constraints={"min": 1},
-                    ),
-                    _initializer_parameter("depthwise_initializer", "Depthwise initializer", "glorot_uniform"),
-                    _initializer_parameter("pointwise_initializer", "Pointwise initializer", "glorot_uniform"),
-                    _initializer_parameter("bias_initializer", "Bias initializer", "zeros"),
-                    _regularizer_parameter("depthwise_regularizer", "Depthwise regularizer"),
-                    _regularizer_parameter("pointwise_regularizer", "Pointwise regularizer"),
-                    _regularizer_parameter("bias_regularizer", "Bias regularizer"),
-                    _regularizer_parameter("activity_regularizer", "Activity regularizer"),
-                    _constraint_parameter("depthwise_constraint", "Depthwise constraint"),
-                    _constraint_parameter("pointwise_constraint", "Pointwise constraint"),
-                    _constraint_parameter("bias_constraint", "Bias constraint"),
-                ]
-            )
-        return controls
-    if node_id == "conv.upsampling":
-        return [
-            _parameter("dimensions", "Dimensions", "enum", 2, group="Spatial configuration", options=[1, 2, 3]),
-            _parameter("data_format", "Data format", "enum", "channels_last", group="Spatial configuration", options=_DATA_FORMAT_OPTIONS),
-            _parameter("interpolation", "Interpolation", "enum", "nearest", group="Spatial configuration", options=["nearest", "bilinear"], visible_when={"dimensions": 2}, enabled_when={"dimensions": 2}),
-        ]
-    if node_id in {"conv.padding", "conv.cropping"}:
-        return [
-            _parameter("dimensions", "Dimensions", "enum", 2, group="Spatial configuration", options=[1, 2, 3]),
-            _parameter("data_format", "Data format", "enum", "channels_last", group="Spatial configuration", options=_DATA_FORMAT_OPTIONS),
-        ]
-    if node_id == "recurrent.simple_rnn":
-        return [
-            _parameter("activation", "Activation", "activation", "tanh", group="Activation", options=_ACTIVATION_OPTIONS),
-            _parameter("use_bias", "Use bias", "boolean", True, group="General"),
-            _initializer_parameter("kernel_initializer", "Kernel initializer", "glorot_uniform"),
-            _initializer_parameter("recurrent_initializer", "Recurrent initializer", "orthogonal"),
-            _initializer_parameter("bias_initializer", "Bias initializer", "zeros"),
-            _regularizer_parameter("kernel_regularizer", "Kernel regularizer"),
-            _regularizer_parameter("recurrent_regularizer", "Recurrent regularizer"),
-            _regularizer_parameter("bias_regularizer", "Bias regularizer"),
-            _regularizer_parameter("activity_regularizer", "Activity regularizer"),
-            _constraint_parameter("kernel_constraint", "Kernel constraint"),
-            _constraint_parameter("recurrent_constraint", "Recurrent constraint"),
-            _constraint_parameter("bias_constraint", "Bias constraint"),
-            _parameter("dropout", "Dropout", "number", 0.0, group="Regularization", constraints={"min": 0, "max": 0.999}),
-            _parameter("recurrent_dropout", "Recurrent dropout", "number", 0.0, group="Regularization", constraints={"min": 0, "max": 0.999}),
-            _parameter("return_state", "Return state", "boolean", False, group="Behavior"),
-            _parameter("go_backwards", "Go backwards", "boolean", False, group="Behavior"),
-            _parameter("stateful", "Stateful", "boolean", False, group="Behavior"),
-            _parameter("unroll", "Unroll", "boolean", False, group="Behavior"),
-            _parameter("seed", "Seed", "integer", None, group="Behavior", nullable=True),
-        ]
-    if node_id in {"recurrent.gru", "recurrent.lstm"}:
-        recurrent_controls = [
-            _parameter("activation", "Activation", "activation", "tanh", group="Activation", options=_ACTIVATION_OPTIONS),
-            _parameter("recurrent_activation", "Recurrent activation", "activation", "sigmoid", group="Activation", options=_ACTIVATION_OPTIONS),
-            _parameter("use_bias", "Use bias", "boolean", True, group="General"),
-            _initializer_parameter("kernel_initializer", "Kernel initializer", "glorot_uniform"),
-            _initializer_parameter("recurrent_initializer", "Recurrent initializer", "orthogonal"),
-            _initializer_parameter("bias_initializer", "Bias initializer", "zeros"),
-            _regularizer_parameter("kernel_regularizer", "Kernel regularizer"),
-            _regularizer_parameter("recurrent_regularizer", "Recurrent regularizer"),
-            _regularizer_parameter("bias_regularizer", "Bias regularizer"),
-            _regularizer_parameter("activity_regularizer", "Activity regularizer"),
-            _constraint_parameter("kernel_constraint", "Kernel constraint"),
-            _constraint_parameter("recurrent_constraint", "Recurrent constraint"),
-            _constraint_parameter("bias_constraint", "Bias constraint"),
-            _parameter("dropout", "Dropout", "number", 0.0, group="Regularization", constraints={"min": 0, "max": 0.999}),
-            _parameter("recurrent_dropout", "Recurrent dropout", "number", 0.0, group="Regularization", constraints={"min": 0, "max": 0.999}),
-            _parameter("return_state", "Return state", "boolean", False, group="Behavior"),
-            _parameter("go_backwards", "Go backwards", "boolean", False, group="Behavior"),
-            _parameter("stateful", "Stateful", "boolean", False, group="Behavior"),
-            _parameter("unroll", "Unroll", "boolean", False, group="Behavior"),
-            _parameter("seed", "Seed", "integer", None, group="Behavior", nullable=True),
-            _parameter(
-                "use_cudnn",
-                "Use cuDNN",
-                "enum",
-                "auto",
-                group="Backend-specific",
-                options=["auto", True, False],
-            ),
-        ]
-        recurrent_controls.append(
-            _parameter(
-                "reset_after" if node_id == "recurrent.gru" else "unit_forget_bias",
-                "Reset after" if node_id == "recurrent.gru" else "Unit forget bias",
-                "boolean",
-                True,
-                group="Behavior",
-            )
-        )
-        return recurrent_controls
-    if node_id in {"recurrent.bidirectional", "recurrent.stack"}:
-        return [
-            _parameter("merge_mode", "Merge mode", "enum", "concat", group="Behavior", options=["sum", "mul", "concat", "ave"], nullable=True),
-            _parameter("activation", "Activation", "activation", "tanh", group="Activation", options=_ACTIVATION_OPTIONS),
-            _parameter("recurrent_activation", "Recurrent activation", "activation", "sigmoid", group="Activation", options=_ACTIVATION_OPTIONS),
-            _parameter("use_bias", "Use bias", "boolean", True, group="General"),
-            _initializer_parameter("kernel_initializer", "Kernel initializer", "glorot_uniform"),
-            _initializer_parameter("recurrent_initializer", "Recurrent initializer", "orthogonal"),
-            _initializer_parameter("bias_initializer", "Bias initializer", "zeros"),
-            _regularizer_parameter("kernel_regularizer", "Kernel regularizer"),
-            _regularizer_parameter("recurrent_regularizer", "Recurrent regularizer"),
-            _regularizer_parameter("bias_regularizer", "Bias regularizer"),
-            _regularizer_parameter("activity_regularizer", "Activity regularizer"),
-            _constraint_parameter("kernel_constraint", "Kernel constraint"),
-            _constraint_parameter("recurrent_constraint", "Recurrent constraint"),
-            _constraint_parameter("bias_constraint", "Bias constraint"),
-            _parameter("dropout", "Dropout", "number", 0.0, group="Regularization", constraints={"min": 0, "max": 0.999}),
-            _parameter("recurrent_dropout", "Recurrent dropout", "number", 0.0, group="Regularization", constraints={"min": 0, "max": 0.999}),
-            _parameter("go_backwards", "Go backwards", "boolean", False, group="Behavior"),
-            _parameter("stateful", "Stateful", "boolean", False, group="Behavior"),
-            _parameter("unroll", "Unroll", "boolean", False, group="Behavior"),
-            _parameter("seed", "Seed", "integer", None, group="Behavior", nullable=True),
-        ]
-    if node_id in {"attention.multi_head", "attention.self", "attention.cross"}:
-        return [
-            _parameter("value_dim", "Value dim", "integer", None, group="Attention", constraints={"min": 1}, nullable=True),
-            _parameter("output_shape", "Output shape", "shape", None, group="Attention", nullable=True),
-            _parameter("attention_axes", "Attention axes", "list", None, group="Attention", nullable=True),
-            _parameter("sliding_window", "Sliding window", "integer", None, group="Attention", constraints={"min": 1}, nullable=True),
-            _parameter("flash_attention", "Flash attention", "boolean", None, group="Backend-specific", nullable=True),
-            _parameter("use_bias", "Use bias", "boolean", True, group="General"),
-            _parameter("use_gate", "Use gate", "boolean", False, group="Advanced"),
-            _initializer_parameter("kernel_initializer", "Kernel initializer", "glorot_uniform"),
-            _initializer_parameter("bias_initializer", "Bias initializer", "zeros"),
-            _regularizer_parameter("kernel_regularizer", "Kernel regularizer"),
-            _regularizer_parameter("bias_regularizer", "Bias regularizer"),
-            _regularizer_parameter("activity_regularizer", "Activity regularizer"),
-            _constraint_parameter("kernel_constraint", "Kernel constraint"),
-            _constraint_parameter("bias_constraint", "Bias constraint"),
-            _parameter("seed", "Seed", "integer", None, group="Behavior", nullable=True),
-        ]
-    if node_id in {
-        "transformer.encoder_block",
-        "transformer.stack",
-        "transformer.decoder_block",
-    }:
-        return [
-            _parameter("num_heads", "Num heads", "integer", 8, group="Attention", constraints={"min": 1}),
-            _parameter("key_dim", "Key dimension", "integer", 64, group="Attention", constraints={"min": 1}),
-            _parameter(
-                "dropout",
-                "Dropout",
-                "number",
-                0.0,
-                group="Regularization",
-                constraints={"min": 0, "max": 0.999},
-            ),
-            _parameter("layers", "Layers", "integer", 1, group="Structure", constraints={"min": 1}),
-            _parameter(
-                "activation",
-                "Feed-forward activation",
-                "activation",
-                "gelu",
-                group="Activation",
-                options=_ACTIVATION_OPTIONS,
-            ),
-            _parameter(
-                "ffn_multiplier",
-                "Feed-forward multiplier",
-                "integer",
-                4,
-                group="Shape",
-                constraints={"min": 1},
-            ),
-            _parameter("pre_norm", "Pre-normalization", "boolean", True, group="Behavior"),
-        ]
-    if node_id == "transformer.feed_forward":
-        return [
-            _parameter(
-                "activation",
-                "Feed-forward activation",
-                "activation",
-                "gelu",
-                group="Activation",
-                options=_ACTIVATION_OPTIONS,
-            ),
-            _parameter(
-                "ffn_multiplier",
-                "Feed-forward multiplier",
-                "integer",
-                4,
-                group="Shape",
-                constraints={"min": 1},
-            ),
-            _parameter(
-                "dropout",
-                "Dropout",
-                "number",
-                0.0,
-                group="Regularization",
-                constraints={"min": 0, "max": 0.999},
-            ),
-        ]
-    return []
 
 ###############################################################################
 def _enrich_manifest_parameters(
     raw: dict[str, Any],
     parameter_groups: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
-    """Normalize the catalog into the complete safe inspector contract."""
+    """Expand the declarative catalog into the inspector contract."""
 
     item = _expand_parameter_groups(raw, parameter_groups or {})
     node_id = str(item.get("id", ""))
-    parameters: list[dict[str, Any]] = []
-    extra_parameters = _safe_layer_parameters(node_id)
-    if node_id.startswith(("layer.", "conv.", "recurrent.", "attention.", "transformer.")):
-        extra_parameters = [*_base_layer_parameters(), *extra_parameters]
-    if node_id in {
-        "transformer.encoder_block",
-        "transformer.stack",
-        "transformer.decoder_block",
-        "transformer.feed_forward",
-    }:
-        # The JSON resources intentionally share a compact placeholder shape for
-        # transformer blocks.  The executable catalog owns the node contract and
-        # replaces that placeholder with the parameters each implementation uses.
-        item["parameters"] = []
-    for parameter in [*item.get("parameters", []), *extra_parameters]:
-        normalized = dict(parameter)
-        identifier = str(normalized.get("id", ""))
-        if identifier in {"activation", "recurrent_activation"}:
-            normalized["type"] = "activation"
-            normalized["options"] = list(_ACTIVATION_OPTIONS)
-        elif identifier == "dtype":
-            normalized["type"] = "dtype"
-            normalized["options"] = list(_DTYPE_OPTIONS)
-        if not str(normalized.get("description", "")).strip():
-            normalized["description"] = (
-                f"Configure {normalized.get('display_name', normalized.get('id', 'this value'))}."
-            )
-        if not str(normalized.get("group", "")).strip() or normalized.get("group") == "General":
-            if "initializer" in identifier:
-                normalized["group"] = "Initializers"
-            elif "regularizer" in identifier:
-                normalized["group"] = "Regularization"
-            elif "constraint" in identifier:
-                normalized["group"] = "Constraints"
-            elif identifier in {
-                "dropout",
-                "recurrent_dropout",
-                "seed",
-                "return_sequences",
-                "return_state",
-                "go_backwards",
-                "stateful",
-                "unroll",
-                "use_bias",
-                "center",
-                "scale",
-                "mask_zero",
-                "synchronized",
-                "reset_after",
-                "unit_forget_bias",
-                "pre_norm",
-            }:
-                normalized["group"] = "Behavior"
-            elif identifier in {
-                "shape",
-                "kernel_size",
-                "strides",
-                "dilation_rate",
-                "pool_size",
-                "axis",
-                "groups",
-                "filters",
-                "units",
-                "vocabulary_size",
-                "embedding_dim",
-                "num_heads",
-                "key_dim",
-                "value_dim",
-                "output_shape",
-                "attention_axes",
-                "ffn_multiplier",
-            }:
-                normalized["group"] = "Shape"
-            else:
-                normalized["group"] = "General"
-        normalized.setdefault("nullable", normalized.get("default") is None)
-        normalized.setdefault("ui", {"control": normalized.get("type", "text")})
-        normalized.setdefault("framework_default", normalized.get("default"))
-        normalized.setdefault("editor_default", normalized.get("default"))
-        parameters.append(normalized)
-    unique_parameters: list[dict[str, Any]] = []
-    seen_parameters: set[str] = set()
-    for parameter in parameters:
-        identifier = str(parameter.get("id", ""))
-        if identifier in seen_parameters:
-            continue
-        seen_parameters.add(identifier)
-        unique_parameters.append(parameter)
-    item["parameters"] = unique_parameters
+    item["parameters"] = [dict(parameter) for parameter in item.get("parameters", [])]
     category = str(item.get("category", ""))
     if category == "inputs":
         item.setdefault("semantic_role", "input")
@@ -960,7 +144,6 @@ def _merge_manifest_data(
         if not isinstance(group_id, str):
             continue
         parameter_items.extend((parameter_groups or {}).get(group_id, []))
-    parameter_items.extend(_safe_layer_parameters(str(raw.get("id", ""))))
     known_parameter_ids = {
         str(cast(dict[str, Any], parameter).get("id", ""))
         for parameter in parameter_items
@@ -1092,6 +275,24 @@ def _catalog_extensions() -> dict[str, Any]:
     return cast(dict[str, Any], raw)
 
 ###############################################################################
+def _parameter_surface_catalog() -> dict[str, list[dict[str, Any]]]:
+    """Load node-specific public parameters from the declarative resource."""
+
+    if not PARAMETER_SURFACE_PATH.exists():
+        return {}
+    raw = json.loads(PARAMETER_SURFACE_PATH.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict) or not isinstance(raw.get("nodes"), dict):
+        raise RuntimeError("parameter_surfaces.json must contain a nodes object")
+    surfaces: dict[str, list[dict[str, Any]]] = {}
+    for node_id, parameters in raw["nodes"].items():
+        if not isinstance(node_id, str) or not isinstance(parameters, list):
+            raise RuntimeError("Each declarative parameter surface must be a list")
+        if any(not isinstance(parameter, dict) for parameter in parameters):
+            raise RuntimeError(f"Parameter surface for {node_id} contains a non-object")
+        surfaces[node_id] = [dict(parameter) for parameter in parameters]
+    return surfaces
+
+###############################################################################
 def _parameter_group_catalog(
     extensions: dict[str, Any],
 ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, list[str]]]:
@@ -1164,6 +365,7 @@ class NodeCatalog:
 ###############################################################################
 def get_node_catalog() -> NodeCatalog:
     extensions = _catalog_extensions()
+    parameter_surfaces = _parameter_surface_catalog()
     parameter_groups, group_assignments = _parameter_group_catalog(extensions)
     overrides = cast(dict[str, dict[str, Any]], extensions.get("overrides", {}))
     capabilities = cast(dict[str, dict[str, Any]], extensions.get("capabilities", {}))
@@ -1180,9 +382,12 @@ def get_node_catalog() -> NodeCatalog:
         normalized_items: list[dict[str, Any]] = []
         for item in items:
             item_with_groups = dict(item)
-            assigned_groups = group_assignments.get(str(item.get("id", "")))
+            node_id = str(item.get("id", ""))
+            assigned_groups = group_assignments.get(node_id)
             if assigned_groups:
                 item_with_groups["parameter_groups"] = assigned_groups
+            if node_id in parameter_surfaces:
+                item_with_groups["parameters"] = parameter_surfaces[node_id]
             normalized_items.append(
                 _enrich_manifest_parameters(
                     _merge_manifest_data(
