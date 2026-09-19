@@ -396,6 +396,66 @@ def test_native_compilation_verifier_runs_raw_optimizer_update(
     assert result["optimizer"]["instantiated"] is True
     assert result["optimizer"]["updated"] is True
 
+
+###############################################################################
+@pytest.mark.parametrize("backend", [ExecutionBackend.TENSORFLOW, ExecutionBackend.JAX])
+def test_native_crossentropy_parameters_execute_without_keras_fallback(
+    backend: ExecutionBackend,
+) -> None:
+    framework = pytest.importorskip(
+        "tensorflow" if backend is ExecutionBackend.TENSORFLOW else "jax"
+    )
+    compilation = {
+        "optimizer": {"id": "adam", "parameters": {"learning_rate": 0.002}},
+        "losses": {
+            "__default__": {
+                "id": "categorical_crossentropy",
+                "parameters": {
+                    "from_logits": True,
+                    "label_smoothing": 0.1,
+                    "axis": -1,
+                },
+            }
+        },
+    }
+    graph = _native_graph().model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    tensorflow=TensorFlowNativeConfiguration(
+                        compilation=compilation,
+                        compiler={
+                            "id": "tensorflow_function",
+                            "parameters": {"jit_compile": False},
+                        },
+                    ),
+                    jax=JaxNativeConfiguration(
+                        compilation=compilation,
+                        compiler={"id": "jax_jit", "parameters": {"enabled": False}},
+                    ),
+                )
+            )
+        }
+    )
+    handle = build_native_model(graph, backend, zero_parameters=True)
+    prediction = handle.outputs[0]
+    target = (
+        framework.one_hot([0], depth=2)
+        if backend is ExecutionBackend.TENSORFLOW
+        else framework.nn.one_hot(framework.numpy.asarray([0]), 2)
+    )
+
+    value = handle.compilation["loss_functions"]["output"](prediction, target)
+
+    finite = (
+        bool(framework.math.is_finite(value))
+        if backend is ExecutionBackend.TENSORFLOW
+        else bool(framework.numpy.isfinite(value))
+    )
+    assert finite
+    assert handle.compilation["losses"]["output"]["parameters"]["from_logits"] is True
+    assert handle.compilation["losses"]["output"]["parameters"]["label_smoothing"] == pytest.approx(0.1)
+
 ###############################################################################
 def test_compilation_rejects_a_native_parameter_without_falling_back_to_keras() -> None:
     graph = _native_graph().model_copy(deep=True)

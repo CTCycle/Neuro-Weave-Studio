@@ -554,6 +554,24 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 target_contract="binary_same_shape",
                 activation_contract=["sigmoid"],
                 formula=r"\operatorname{BCE}=-\frac{1}{n}\sum_{i=1}^{n}\left[y_i\log(\hat p_i)+(1-y_i)\log(1-\hat p_i)\right]",
+                parameters=[
+                    _boolean("from_logits", "From logits", False, "Interpret predictions as logits."),
+                    _number(
+                        "label_smoothing",
+                        "Label smoothing",
+                        0.0,
+                        "Blend binary targets toward one half.",
+                        minimum=0.0,
+                        maximum=1.0,
+                    ),
+                    ParameterDefinition(
+                        id="axis",
+                        display_name="Axis",
+                        type="axis",
+                        default=-1,
+                        description="Axis used for the binary reduction.",
+                    ),
+                ],
             ),
             _mapped_option(
                 "categorical_crossentropy",
@@ -565,6 +583,24 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 target_contract="one_hot_same_shape",
                 activation_contract=["softmax"],
                 formula=r"\operatorname{CCE}=-\frac{1}{n}\sum_{i=1}^{n}\sum_{c=1}^{C}y_{ic}\log(\hat p_{ic})",
+                parameters=[
+                    _boolean("from_logits", "From logits", False, "Interpret predictions as logits."),
+                    _number(
+                        "label_smoothing",
+                        "Label smoothing",
+                        0.0,
+                        "Blend categorical targets toward a uniform distribution.",
+                        minimum=0.0,
+                        maximum=1.0,
+                    ),
+                    ParameterDefinition(
+                        id="axis",
+                        display_name="Axis",
+                        type="axis",
+                        default=-1,
+                        description="Class axis used for the categorical reduction.",
+                    ),
+                ],
             ),
             _mapped_option(
                 "sparse_categorical_crossentropy",
@@ -576,6 +612,31 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 target_contract="class_index",
                 activation_contract=["softmax"],
                 formula=r"\operatorname{SCCE}=-\frac{1}{n}\sum_{i=1}^{n}\log(\hat p_{i,y_i})",
+                parameters=[
+                    _boolean("from_logits", "From logits", False, "Interpret predictions as logits."),
+                    _number(
+                        "label_smoothing",
+                        "Label smoothing",
+                        0.0,
+                        "Blend class targets toward a uniform distribution.",
+                        minimum=0.0,
+                        maximum=1.0,
+                    ),
+                    ParameterDefinition(
+                        id="axis",
+                        display_name="Axis",
+                        type="axis",
+                        default=-1,
+                        description="Class axis used for the sparse categorical reduction.",
+                    ),
+                    _integer(
+                        "ignore_class",
+                        "Ignore class",
+                        None,
+                        "Optional class index excluded from the reduction.",
+                        nullable=True,
+                    ),
+                ],
             ),
             _mapped_option(
                 "huber",

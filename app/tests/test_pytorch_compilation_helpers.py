@@ -473,7 +473,21 @@ def test_native_optimizer_helpers_cover_catalog_variants(
     [
         ("dense_regression", "mean_absolute_error", {}),
         ("dense_regression", "huber", {"delta": 0.5}),
-        ("multiclass_classification", "sparse_categorical_crossentropy", {}),
+        (
+            "binary_classification",
+            "binary_crossentropy",
+            {"from_logits": True, "label_smoothing": 0.1, "axis": -1},
+        ),
+        (
+            "multiclass_classification",
+            "categorical_crossentropy",
+            {"from_logits": True, "label_smoothing": 0.1, "axis": -1},
+        ),
+        (
+            "multiclass_classification",
+            "sparse_categorical_crossentropy",
+            {"from_logits": True, "label_smoothing": 0.1, "axis": -1, "ignore_class": None},
+        ),
         ("multiclass_classification", "kullback_leibler_divergence", {}),
         ("dense_regression", "log_cosh", {}),
         ("dense_regression", "mean_absolute_percentage_error", {}),
