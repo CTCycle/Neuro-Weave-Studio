@@ -65,4 +65,21 @@ describe('parameter value parser', () => {
       value: { enabled: false, count: 0 },
     })
   })
+
+  it('accepts normalized structured values emitted by shared editors', () => {
+    const shape = definition('shape', { default: [1, 2] })
+    expect(parseParameterValue(shape, [3, 4])).toEqual({ valid: true, value: [3, 4] })
+    const object = definition('object', {
+      value_schema: {
+        type: 'object',
+        properties: { enabled: { type: 'boolean' }, count: { type: 'integer' } },
+        required_properties: ['enabled', 'count'],
+      },
+    })
+    expect(parseParameterValue(object, { enabled: false, count: 0 })).toEqual({
+      valid: true,
+      value: { enabled: false, count: 0 },
+    })
+    expect(parseParameterValue(object, { enabled: 'false', count: 0 }).valid).toBe(false)
+  })
 })

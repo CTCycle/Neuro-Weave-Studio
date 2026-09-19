@@ -10,8 +10,10 @@ import type {
   ParameterDefinition,
 } from '../../domain/types'
 import { emptyModelConfiguration } from '../../domain/types'
+import { ParameterEditorComponent, type ParameterEditorState } from '../builder/components/parameter-editor.component'
 import { MathFormulaComponent } from '../../shared/components/math-formula.component'
 import { ModalGuardDirective } from '../../shared/components/modal-guard.directive'
+import { CompilationOptionEditorComponent } from './compilation-option-editor.component'
 
 export interface CompilationOutputDescriptor {
   id: string
@@ -25,7 +27,7 @@ type CompilationTab = 'optimizer' | 'outputs' | 'advanced' | 'native'
 @Component({
   selector: 'nw-compilation-configuration-dialog',
   standalone: true,
-  imports: [MathFormulaComponent, ModalGuardDirective],
+  imports: [MathFormulaComponent, ModalGuardDirective, ParameterEditorComponent, CompilationOptionEditorComponent],
   template: `
     <div class="dialog-backdrop compilation-modal-backdrop" nwModalGuard role="presentation" (mousedown)="closeFromBackdrop($event)">
       <section class="compilation-modal panel" role="dialog" aria-modal="true" aria-labelledby="compilation-modal-title" (mousedown)="$event.stopPropagation()">
@@ -46,8 +48,7 @@ type CompilationTab = 'optimizer' | 'outputs' | 'advanced' | 'native'
             <section class="compilation-section compilation-tab-panel" role="tabpanel">
               <div class="section-heading"><div><span class="eyebrow">OPTIMIZER</span><h3>Update rule</h3></div></div>
               <label class="field"><span>Optimizer</span><select [value]="optimizerId()" (change)="chooseOptimizer($event, catalog)">@for (item of catalog.optimizers; track item.id) { <option [value]="item.id">{{ item.label }}</option> }</select></label>
-              @if (optimizer(); as selected) { <p class="compilation-description">{{ selected.description }}</p> }
-              <div class="compilation-parameter-grid">@for (parameter of optimizerParameters(); track parameter.id) { <label class="field"><span>{{ parameter.display_name }}<small>{{ parameter.description }}</small></span>@if (parameter.type === 'boolean') { <input type="checkbox" [checked]="booleanParameterValue(parameter, optimizerParameterValues())" (change)="setOptimizerParameter(parameter, $event)" /> } @else if (parameter.type === 'enum') { <select [value]="parameterValue(parameter, optimizerParameterValues())" (change)="setOptimizerParameter(parameter, $event)">@for (option of parameter.options; track option) { <option [value]="option">{{ option }}</option> }</select> } @else { <input type="number" [value]="parameterValue(parameter, optimizerParameterValues())" [min]="numericConstraint(parameter, 'min')" [max]="numericConstraint(parameter, 'max')" step="any" (change)="setOptimizerParameter(parameter, $event)" /> }</label> }</div>
+              @if (optimizer(); as selected) { <p class="compilation-description">{{ selected.description }}</p><nw-compilation-option-editor [option]="selected" [value]="optimizerCompilation()" [backendMapping]="optimizerMapping()" (valueChange)="setOptimizerCompilation($event)" /> }
             </section>
           }
 
@@ -82,7 +83,7 @@ type CompilationTab = 'optimizer' | 'outputs' | 'advanced' | 'native'
             <section class="compilation-section compilation-tab-panel" role="tabpanel">
               <div class="section-heading"><div><span class="eyebrow">{{ capability.compiler }}</span><h3>Backend-native execution</h3></div></div>
               @if (!capability.available) { <p class="compilation-unavailable">{{ capability.reason ?? 'This compiler is not operational in the current environment. Settings can still be saved for a later runtime.' }}</p> }
-              <div class="compilation-parameter-grid">@for (parameter of capability.parameters; track parameter.id) { <label [class.toggle-field]="parameter.type === 'boolean'" [class.field]="parameter.type !== 'boolean'"><span>{{ parameter.display_name }}<small>{{ parameter.description }}</small></span>@if (parameter.type === 'boolean') { <input type="checkbox" [checked]="nativeParameterValue(parameter) === true" (change)="setNativeParameter(parameter, $event)" /> } @else if (parameter.type === 'enum') { <select [value]="nativeParameterValue(parameter)" (change)="setNativeParameter(parameter, $event)">@for (option of parameter.options; track option) { <option [value]="option">{{ option }}</option> }</select> } @else { <input type="number" [value]="nativeParameterValue(parameter)" (change)="setNativeParameter(parameter, $event)" /> }</label> }</div>
+              <div class="compilation-parameter-grid">@for (parameter of capability.parameters; track parameter.id) { <label [class.toggle-field]="parameter.type === 'boolean'" [class.field]="parameter.type !== 'boolean'"><span>{{ parameter.display_name }}<small>{{ parameter.description }}</small></span><nw-parameter-editor [definition]="parameter" [value]="nativeParameterValue(parameter)" [state]="nativeParameterState(capability)" (valueChange)="setNativeParameterValue(parameter, $event)" /></label> }</div>
             </section>
           }
         </div>
@@ -122,8 +123,8 @@ export class CompilationConfigurationDialogComponent {
   readonly activeCatalog = computed(() => this.kerasEnabled() ? this.kerasCatalog() : this.nativeCatalog())
   readonly optimizer = computed(() => this.findOption(this.activeCatalog(), this.optimizerId(), 'optimizers'))
   readonly optimizerId = computed(() => this.kerasEnabled() ? this.draft().keras.compilation.optimizer.id : this.nativeCapability() ? this.nativeConfiguration(this.draft()).compilation.optimizer.id : '')
-  readonly optimizerParameters = computed(() => this.optimizer()?.parameters ?? [])
-  readonly optimizerParameterValues = computed(() => this.kerasEnabled() ? this.draft().keras.compilation.optimizer.parameters : this.nativeCapability() ? this.nativeConfiguration(this.draft()).compilation.optimizer.parameters : {})
+  readonly optimizerCompilation = computed(() => this.currentCompilation(this.draft()).optimizer)
+  readonly optimizerMapping = computed(() => this.optimizer()?.implementations?.[this.kerasEnabled() ? 'keras' : (this.nativeCapability()?.backend ?? 'pytorch')] ?? null)
   readonly optimizerLabel = computed(() => this.optimizer()?.label ?? this.optimizerId())
 
   constructor() {
@@ -152,18 +153,7 @@ export class CompilationConfigurationDialogComponent {
     }))
   }
 
-  setOptimizerParameter(parameter: ParameterDefinition, event: Event): void {
-    const element = event.target as HTMLInputElement | HTMLSelectElement
-    this.draft.update((current) => {
-      const compilation = this.currentCompilation(current)
-      return this.withCompilation(current, {
-        optimizer: {
-          ...compilation.optimizer,
-          parameters: { ...compilation.optimizer.parameters, [parameter.id]: parseCompilationParameter(parameter, element) },
-        },
-      })
-    })
-  }
+  setOptimizerCompilation(value: CompilationObject): void { this.draft.update((current) => this.withCompilation(current, { optimizer: value })) }
 
   setOutputLoss(outputId: string, event: Event): void {
     const value = (event.target as HTMLSelectElement).value
@@ -203,17 +193,13 @@ export class CompilationConfigurationDialogComponent {
     }))
   }
   setKerasMixedPrecision(event: Event): void { const value = (event.target as HTMLInputElement).checked; this.draft.update((current) => ({ ...current, keras: { ...current.keras, mixed_precision: value } })) }
-  parameterValue(parameter: ParameterDefinition, values: Record<string, unknown>): unknown { return values[parameter.id] ?? parameter.default }
-  booleanParameterValue(parameter: ParameterDefinition, values: Record<string, unknown>): boolean { return Boolean(this.parameterValue(parameter, values)) }
-  numericConstraint(parameter: ParameterDefinition, key: 'min' | 'max'): number | null { const value = parameter.constraints[key]; return typeof value === 'number' ? value : null }
-
   nativeParameterValue(parameter: ParameterDefinition): unknown {
     return this.nativeConfiguration(this.draft()).compiler.parameters[parameter.id] ?? parameter.default
   }
 
-  setNativeParameter(parameter: ParameterDefinition, event: Event): void {
-    const element = event.target as HTMLInputElement | HTMLSelectElement
-    const value = parseCompilationParameter(parameter, element)
+  nativeParameterState(capability: { available: boolean }): ParameterEditorState { return capability.available ? 'editable' : 'backend-inapplicable' }
+
+  setNativeParameterValue(parameter: ParameterDefinition, value: unknown): void {
     const backend = this.nativeCapability()?.backend
     this.draft.update((current) => {
       if (!backend) return current
@@ -314,13 +300,6 @@ function mappingValue<T>(mapping: Record<string, T>, key: string, selectors?: st
     if (mapping[selector] !== undefined) return mapping[selector]
   }
   return mapping['__default__']
-}
-
-function parseCompilationParameter(parameter: ParameterDefinition, element: HTMLInputElement | HTMLSelectElement): unknown {
-  if (parameter.type === 'boolean') return (element as HTMLInputElement).checked
-  if (parameter.type === 'integer') return Number.parseInt(element.value, 10)
-  if (parameter.type === 'number') return Number(element.value)
-  return element.value
 }
 
 function normalizedTask(value?: string | null): 'regression' | 'binary_classification' | 'multiclass_classification' | null {
