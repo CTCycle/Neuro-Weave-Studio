@@ -813,6 +813,21 @@ class PyTorchSourceExporter(SourceExporter):
                         f"        self.{name}_output = nn.Linear({heads * value_dimension!r}, {output_dimension!r}, bias={bias!r})",
                     ]
                 )
+            elif definition == "transformer.feed_forward":
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"PyTorch feed-forward node {node.id} requires a rank-3 input")
+                if float(params.get("dropout", 0.0)) != 0.0:
+                    raise ValueError("Native PyTorch feed-forward export supports dropout=0 only")
+                input_dimension = self._static_dimension(source_spec, -1)
+                if input_dimension is None:
+                    raise ValueError(f"PyTorch feed-forward node {node.id} requires a known embedding dimension")
+                hidden_dimension = input_dimension * int(params.get("ffn_multiplier", 4))
+                lines.extend(
+                    [
+                        f"        self.{name}_expand = nn.Linear({input_dimension!r}, {hidden_dimension!r})",
+                        f"        self.{name}_project = nn.Linear({hidden_dimension!r}, {input_dimension!r})",
+                    ]
+                )
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"PyTorch recurrent node {node.id} requires a rank-3 input")
@@ -1237,6 +1252,12 @@ class PyTorchSourceExporter(SourceExporter):
                     lines.append(f"        {name} = {source} + self.{name}_embedding.unsqueeze(0)")
                 else:
                     lines.append(f"        {name} = _sinusoidal_encoding({source})")
+            elif definition == "transformer.feed_forward":
+                activation = str(params.get("activation", "gelu"))
+                lines.append(f"        {name} = self.{name}_expand({source})")
+                if activation != "linear":
+                    lines.append(f"        {name} = ({self._activation(activation)})({name})")
+                lines.append(f"        {name} = self.{name}_project({name})")
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 lines.append(f"        {name}, _ = self.{name}({source})")
                 if not params.get("return_sequences", False):

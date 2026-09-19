@@ -313,6 +313,23 @@ def attention_graph(
 
 
 ###############################################################################
+def feed_forward_graph(parameters: dict[str, Any] | None = None) -> ModelGraph:
+    configuration: dict[str, Any] = {
+        "activation": "gelu",
+        "ffn_multiplier": 2,
+        "dropout": 0.0,
+    }
+    if parameters:
+        configuration.update(parameters)
+    return chain_graph(
+        "input.sequence",
+        [5, 8],
+        "transformer.feed_forward",
+        configuration,
+    )
+
+
+###############################################################################
 def reshape_flatten_graph() -> ModelGraph:
     graph = chain_graph(
         "input.tensor",
@@ -536,6 +553,7 @@ def test_native_dense_values_are_deterministic_across_frameworks(
         ("recurrent", recurrent_graph, (1, 3)),
         ("positional_encoding", positional_encoding_graph, (1, 6, 8)),
         ("transformer_residual", transformer_residual_graph, (1, 6, 8)),
+        ("feed_forward", feed_forward_graph, (1, 5, 8)),
         (
             "simple_rnn",
             lambda: recurrent_wrapper_graph(
@@ -783,6 +801,7 @@ def test_native_attention_parameter_count_includes_all_projections(
             {"mode": "learned"},
             {"tensorflow": 48, "pytorch": 48, "jax": 48},
         ),
+        ("transformer.feed_forward", {"ffn_multiplier": 2}, 280),
         (
             "conv.conv3d",
             {
@@ -863,6 +882,8 @@ def test_native_parameter_counts(
         graph = recurrent_wrapper_graph(definition_id, parameters)
     elif definition_id == "transformer.positional_encoding":
         graph = positional_encoding_graph(str(parameters.get("mode", "sinusoidal")))
+    elif definition_id == "transformer.feed_forward":
+        graph = feed_forward_graph(parameters)
     else:
         graph = normalization_graph(definition_id, parameters)
     handle = build_native_model(graph, backend)

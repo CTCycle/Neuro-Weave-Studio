@@ -861,6 +861,23 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     lines.append(
                         f"        self.{name}_embedding = tf.Variable(tf.zeros([{sequence_length}, {feature_dimension}], tf.float32), trainable={bool(params.get('trainable', True))!r}, name={name + '_embedding'!r})"
                     )
+            elif definition == "transformer.feed_forward":
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"TensorFlow feed-forward node {node.id} requires a rank-3 input")
+                if float(params.get("dropout", 0.0)) != 0.0:
+                    raise ValueError("Native TensorFlow feed-forward export supports dropout=0 only")
+                input_dimension = self._static_dimension(source_spec, -1)
+                if input_dimension is None:
+                    raise ValueError(f"TensorFlow feed-forward node {node.id} requires a known embedding dimension")
+                hidden_dimension = input_dimension * int(params.get("ffn_multiplier", 4))
+                lines.extend(
+                    [
+                        f"        self.{name}_expand_kernel = tf.Variable(tf.zeros([{input_dimension}, {hidden_dimension}], tf.float32), name={name + '_expand_kernel'!r})",
+                        f"        self.{name}_expand_bias = tf.Variable(tf.zeros([{hidden_dimension}], tf.float32), name={name + '_expand_bias'!r})",
+                        f"        self.{name}_project_kernel = tf.Variable(tf.zeros([{hidden_dimension}, {input_dimension}], tf.float32), name={name + '_project_kernel'!r})",
+                        f"        self.{name}_project_bias = tf.Variable(tf.zeros([{input_dimension}], tf.float32), name={name + '_project_bias'!r})",
+                    ]
+                )
             elif definition in {"attention.multi_head", "attention.self", "attention.cross"}:
                 if int(params.get("layers", 1)) != 1:
                     raise ValueError("Native TensorFlow attention supports layers=1 only")
@@ -1290,6 +1307,15 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     lines.append(f"        {name} = {source} + self.{name}_embedding[None, :, :]" )
                 else:
                     lines.append(f"        {name} = _sinusoidal_encoding({source})")
+            elif definition == "transformer.feed_forward":
+                activation = str(params.get("activation", "gelu"))
+                lines.append(
+                    f"        {name} = tf.matmul({source}, self.{name}_expand_kernel) + self.{name}_expand_bias"
+                )
+                lines.append(f"        {name} = _activation({name}, {activation!r})")
+                lines.append(
+                    f"        {name} = tf.matmul({name}, self.{name}_project_kernel) + self.{name}_project_bias"
+                )
             elif definition == "recurrent.lstm":
                 lines.append(
                     f"        {name} = _lstm({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, {bool(params.get('return_sequences', False))!r})"
