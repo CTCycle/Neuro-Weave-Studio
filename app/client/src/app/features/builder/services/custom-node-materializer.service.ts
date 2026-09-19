@@ -4,6 +4,7 @@ import type {
   GraphTemplateComponent,
   GraphTemplateNodeSpec,
 } from '../../../domain/custom-node.types'
+import { materializedInputs, materializedOutputs } from '../../../domain/ports'
 import { effectiveParameterDefault, resolveParameterCompatibility, type NodeManifest, type PortDefinition } from '../../../domain/types'
 import { GraphEditorStore } from '../state/graph-editor.store'
 
@@ -160,10 +161,10 @@ export class CustomNodeMaterializerService {
       const source = byId.get(edge.source_component_id)
       const target = byId.get(edge.target_component_id)
       if (!source || !target) throw new Error('Graph template edge references an unknown component.')
-      const sourcePort = source.manifest.outputs.find(
+      const sourcePort = materializedOutputs(source.manifest, source.parameters).find(
         (port) => port.id === edge.source_port_id && this.portEnabled(port, source.parameters),
       )
-      const targetPort = target.manifest.inputs.find(
+      const targetPort = materializedInputs(target.manifest, target.parameters).find(
         (port) => port.id === edge.target_port_id && this.portEnabled(port, target.parameters),
       )
       if (!sourcePort || !targetPort) {
@@ -184,8 +185,8 @@ export class CustomNodeMaterializerService {
       const component = byId.get(binding.component_id)
       if (!component) throw new Error('Graph template binding references an unknown component.')
       const ports = spec.input_bindings.includes(binding)
-        ? component.manifest.inputs
-        : component.manifest.outputs
+        ? materializedInputs(component.manifest, component.parameters)
+        : materializedOutputs(component.manifest, component.parameters)
       if (!ports.some((port) => port.id === binding.port_id && this.portEnabled(port, component.parameters))) {
         throw new Error(`Graph template binding references an unavailable port: ${binding.component_id}.${binding.port_id}`)
       }

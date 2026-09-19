@@ -2,6 +2,7 @@ import { Component, HostListener, computed, effect, inject, input, output, signa
 import { ReactiveFormsModule, UntypedFormControl, UntypedFormGroup } from '@angular/forms'
 import { LucideTrash2, LucideX } from '@lucide/angular'
 import type { EditorNode } from '../../../domain/editor.types'
+import { materializedInputs, materializedOutputs } from '../../../domain/ports'
 import type { ExecutionBackend, NodeManifest, ParameterCapability, ParameterDefinition, PortDefinition } from '../../../domain/types'
 import { conditionMatches, effectiveParameterDefault, resolveImplementationCompatibility, resolveParameterCompatibility } from '../../../domain/types'
 import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
@@ -53,14 +54,14 @@ import { GraphEditorStore } from '../state/graph-editor.store'
             </details>
           }
           <section class="inspector-section port-spec-section" aria-labelledby="port-specifications-title">
-            <div class="inspector-section-heading"><div><span class="eyebrow" id="port-specifications-title">CONNECTIONS</span><small class="inspector-section-hint">Data entering and leaving this node</small></div><span class="port-count">{{ node.data.manifest.inputs.length + node.data.manifest.outputs.length }}</span></div>
+            <div class="inspector-section-heading"><div><span class="eyebrow" id="port-specifications-title">CONNECTIONS</span><small class="inspector-section-hint">Data entering and leaving this node</small></div><span class="port-count">{{ inputPorts(node).length + outputPorts(node).length }}</span></div>
             <div class="port-spec-list">
-              @for (port of node.data.manifest.inputs; track port.id) {
+              @for (port of inputPorts(node); track port.id) {
                 <div class="port-spec-row input" [class.is-missing]="portStatus(node, 'input', port) === 'Missing required input'" [class.is-connected]="portConnectionCount(node.id, 'input', port.id) > 0" [class.is-disabled]="portStatus(node, 'input', port) === 'Disabled'" [title]="port.description">
                   <span class="port-direction input">INPUT</span><div class="port-spec-main"><strong>{{ port.display_name }}</strong><small>{{ portKindLabel(port) }} · {{ portShapeLabel(node, port, 'input') }}</small><div class="port-spec-meta"><span class="port-status">{{ portStatus(node, 'input', port) }}</span><span class="port-rule">{{ port.required ? 'Required' : 'Optional' }}</span><span class="port-rule">{{ multiplicityLabel(port, 'input') }}</span></div></div>
                 </div>
               }
-              @for (port of node.data.manifest.outputs; track port.id) {
+              @for (port of outputPorts(node); track port.id) {
                   <div class="port-spec-row output" [class.is-connected]="portConnectionCount(node.id, 'output', port.id) > 0" [class.is-disabled]="portStatus(node, 'output', port) === 'Disabled'" [title]="port.description">
                   <span class="port-direction output">OUTPUT</span><div class="port-spec-main"><strong>{{ port.display_name }}</strong><small>{{ portKindLabel(port) }} · {{ portShapeLabel(node, port, 'output') }}</small><div class="port-spec-meta"><span class="port-status">{{ portStatus(node, 'output', port) }}</span><span class="port-rule">{{ port.required ? 'Required' : 'Optional' }}</span><span class="port-rule">{{ multiplicityLabel(port, 'output') }}</span><button type="button" class="port-output-toggle" [class.is-active]="store.isOutput(node.id, port.id)" [attr.aria-pressed]="store.isOutput(node.id, port.id)" [disabled]="!store.isOutput(node.id, port.id) && !store.canToggleNodeOutput(node.id)" [title]="store.isOutput(node.id, port.id) ? 'Remove this output binding' : (nodeStatus(node).label === 'Check parameters' ? 'Repair this node before adding a model output' : 'Use this port as a model output')" [attr.aria-label]="store.isOutput(node.id, port.id) ? 'Remove ' + port.display_name + ' from model outputs' : 'Use ' + port.display_name + ' as a model output'" (click)="toggleOutput(node.id, port.id); $event.stopPropagation()">{{ store.isOutput(node.id, port.id) ? 'Model output' : 'Use as output' }}</button></div></div>
                 </div>
@@ -264,7 +265,7 @@ export class PropertiesInspectorComponent {
       ).valueCompatible
     })
     if (this.invalidParameters() || incompatibleParameter) return { label: 'Check parameters', tone: 'warning' }
-    const missing = node.data.manifest.inputs.some((port) => port.required && this.isPortEnabled(node, port) && this.portConnectionCount(node.id, 'input', port.id) === 0)
+    const missing = this.inputPorts(node).some((port) => port.required && this.isPortEnabled(node, port) && this.portConnectionCount(node.id, 'input', port.id) === 0)
     return missing ? { label: 'Needs input', tone: 'warning' } : { label: 'Ready', tone: 'ready' }
   }
 
@@ -298,6 +299,22 @@ export class PropertiesInspectorComponent {
   isInitiallyOpen(group: string): boolean { return group === 'Shape' || group === 'General' || group === 'Behavior' }
   isPortEnabled(node: { data: { parameters: Record<string, unknown> } }, port: PortDefinition): boolean { return conditionMatches(port.enabled_when, node.data.parameters) }
 
+  inputPorts(node: { data: { manifest: NodeManifest; parameters: Record<string, unknown> } }): PortDefinition[] {
+    try {
+      return materializedInputs(node.data.manifest, node.data.parameters)
+    } catch {
+      return []
+    }
+  }
+
+  outputPorts(node: { data: { manifest: NodeManifest; parameters: Record<string, unknown> } }): PortDefinition[] {
+    try {
+      return materializedOutputs(node.data.manifest, node.data.parameters)
+    } catch {
+      return []
+    }
+  }
+
   toggleOutput(nodeId: string, portId: string): void { this.store.toggleNodeOutput(nodeId, portId) }
 
   private inputShape(nodeId: string, portId: string): { shape: Array<number | null | { name: string }>; dtype: string } | undefined {
@@ -326,7 +343,9 @@ export class PropertiesInspectorComponent {
   nodeLabel(nodeId: string): string { return this.store.nodes().find((node) => node.id === nodeId)?.data.label ?? nodeId }
   portLabel(nodeId: string, direction: 'input' | 'output', portId: string): string {
     const node = this.store.nodes().find((item) => item.id === nodeId)
-    const port = (direction === 'input' ? node?.data.manifest.inputs : node?.data.manifest.outputs)?.find((item) => item.id === portId)
+    const port = node
+      ? (direction === 'input' ? this.inputPorts(node) : this.outputPorts(node)).find((item) => item.id === portId)
+      : undefined
     return port ? `${port.display_name} · ${this.portKindLabel(port)}` : portId
   }
 }

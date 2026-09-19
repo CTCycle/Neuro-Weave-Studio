@@ -1,4 +1,5 @@
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'
+import { materializedInputs, materializedOutputs } from '../../../domain/ports'
 import { conditionMatches, resolveImplementationCompatibility, type ExecutionBackend } from '../../../domain/types'
 
 export interface GraphConnection {
@@ -50,8 +51,16 @@ export function validateGraphConnection(
   const sourceNode = nodes.find((node) => node.id === connection.source)
   const targetNode = nodes.find((node) => node.id === connection.target)
   if (!sourceNode || !targetNode) return rejected('missing_node')
-  const sourcePort = sourceNode.data.manifest.outputs.find((port) => port.id === connection.sourceHandle)
-  const targetPort = targetNode.data.manifest.inputs.find((port) => port.id === connection.targetHandle)
+  let sourcePort: ReturnType<typeof materializedOutputs>[number] | undefined
+  let targetPort: ReturnType<typeof materializedInputs>[number] | undefined
+  try {
+    sourcePort = materializedOutputs(sourceNode.data.manifest, sourceNode.data.parameters)
+      .find((port) => port.id === connection.sourceHandle)
+    targetPort = materializedInputs(targetNode.data.manifest, targetNode.data.parameters)
+      .find((port) => port.id === connection.targetHandle)
+  } catch {
+    return rejected('missing_port')
+  }
   if (!sourcePort || !targetPort) return rejected('missing_port')
   if (!conditionMatches(sourcePort.enabled_when, sourceNode.data.parameters)
     || !conditionMatches(targetPort.enabled_when, targetNode.data.parameters)) return rejected('disabled_port')
@@ -98,7 +107,13 @@ export function connectionCandidates(
 ): GraphConnection[] {
   const candidates: GraphConnection[] = []
   for (const node of nodes) {
-    for (const port of node.data.manifest.inputs) {
+    let inputs: ReturnType<typeof materializedInputs>
+    try {
+      inputs = materializedInputs(node.data.manifest, node.data.parameters)
+    } catch {
+      inputs = []
+    }
+    for (const port of inputs) {
       const connection = { source, sourceHandle, target: node.id, targetHandle: port.id }
       const result = validateGraphConnection(
         nodes,

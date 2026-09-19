@@ -191,6 +191,50 @@ describe('neutral graph editor store', () => {
     expect(validateGraphConnection([sourceList, targetTensor], [], listToTensor)).toMatchObject({ valid: false, reason: 'incompatible_kind' })
   })
 
+  it('accepts materialized split ports and prunes removed connections and bindings', () => {
+    const splitManifest = {
+      ...manifest,
+      id: 'merge.split',
+      display_name: 'Split',
+      parameters: [{ id: 'sections', display_name: 'Sections', type: 'integer' as const, default: 3, required: true, constraints: { min: 1, max: 4 }, options: [], description: '' }],
+      outputs: [{
+        ...manifest.outputs[0],
+        id: 'output',
+        cardinality: { kind: 'parameter' as const, parameter_id: 'sections', minimum: 1, maximum: 4, id_pattern: 'output_{index}', display_name_pattern: 'Output {index}' },
+      }],
+    }
+    const targetManifest = {
+      ...manifest,
+      id: 'target.tensor',
+      inputs: [{ id: 'input', display_name: 'Input', kind: 'tensor' as const, required: true, accepts_multiple: false, description: '' }],
+    }
+    const splitNode: EditorNode = { ...node('split'), data: { ...node('split').data, manifest: splitManifest, parameters: { sections: 3 }, label: 'Split' } }
+    const targetNode: EditorNode = { ...node('target'), data: { ...node('target').data, manifest: targetManifest, label: 'Target' } }
+    const connection = { source: 'split', sourceHandle: 'output_2', target: 'target', targetHandle: 'input' }
+
+    expect(validateGraphConnection([splitNode, targetNode], [], connection)).toMatchObject({ valid: true })
+
+    store = new GraphEditorStore()
+    store.restoreEditorSession({
+      nodes: [splitNode, targetNode],
+      edges: [{ id: 'split-target', ...connection, type: 'bezier' }],
+      outputBindings: [{ node_id: 'split', port_id: 'output_2' }],
+      modelConfiguration: emptyModelConfiguration(),
+      exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
+      futureTrainingConfiguration: {},
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      copiedNodeIds: [],
+      past: [],
+      future: [],
+    })
+
+    expect(store.updateNode('split', { parameters: { sections: 2 } })).toBe(true)
+    expect(store.edges()).toEqual([])
+    expect(store.outputBindings()).toEqual([])
+    expect(store.updateNode('split', { parameters: { sections: 0 } })).toBe(false)
+  })
+
   it('allows output fan-out and supported multi-input connections', () => {
     const sourceManifest = { ...manifest, id: 'source.tensor', inputs: [], outputs: [{ ...manifest.outputs[0], accepts_multiple: false }] }
     const targetManifest = {

@@ -6,6 +6,15 @@ export type DiagnosticSeverity = 'error' | 'warning' | 'compatibility' | 'info'
 export type ValidationState = 'not-run' | 'checking' | 'stale' | 'ready' | 'blocked' | 'error'
 export type PortKind = 'tensor' | 'tensor_list' | 'scalar' | 'mask'
 
+export interface PortCardinality {
+  kind: 'single' | 'parameter'
+  parameter_id?: string | null
+  minimum: number
+  maximum: number
+  id_pattern: string
+  display_name_pattern: string
+}
+
 export interface PortDefinition {
   id: string
   display_name: string
@@ -16,6 +25,7 @@ export interface PortDefinition {
   element_kind?: PortKind | null
   description: string
   enabled_when?: Record<string, unknown>
+  cardinality?: PortCardinality
 }
 
 export type ParameterType =
