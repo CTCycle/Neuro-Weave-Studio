@@ -867,7 +867,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     lines.append(
                         f"        self.{name}_embedding = tf.Variable(tf.zeros([{sequence_length}, {feature_dimension}], tf.float32), trainable={bool(params.get('trainable', True))!r}, name={name + '_embedding'!r})"
                     )
-            elif definition in {"transformer.encoder_block", "transformer.decoder_block"}:
+            elif definition in {"transformer.encoder_block", "transformer.decoder_block", "transformer.stack"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"TensorFlow {definition} node {node.id} requires a rank-3 query input")
                 if float(params.get("dropout", 0.0)) != 0.0:
@@ -1351,7 +1351,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     )
                     current = layer_name
                 lines.append(f"        {name} = {current}")
-            elif definition in {"transformer.encoder_block", "transformer.decoder_block"}:
+            elif definition in {"transformer.encoder_block", "transformer.decoder_block", "transformer.stack"}:
                 query = source_by_port.get("query", source)
                 context = source_by_port.get("context", query)
                 current = query
@@ -1362,7 +1362,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 pre_norm = bool(params.get("pre_norm", True))
                 for layer_index in range(layer_count):
                     prefix = f"{name}_layer{layer_index}"
-                    if definition == "transformer.encoder_block":
+                    if definition in {"transformer.encoder_block", "transformer.stack"}:
                         attention_input = f"{prefix}_attention_input"
                         if pre_norm:
                             lines.append(

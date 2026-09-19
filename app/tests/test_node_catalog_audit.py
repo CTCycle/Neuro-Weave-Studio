@@ -258,6 +258,7 @@ def test_native_shape_layer_mappings_are_declarative() -> None:
         "attention.multi_head": {"tensorflow": "attention", "pytorch": "attention", "jax": "attention"},
         "transformer.encoder_block": {"tensorflow": "transformer_block", "pytorch": "transformer_block", "jax": "transformer_block"},
         "transformer.decoder_block": {"tensorflow": "transformer_block", "pytorch": "transformer_block", "jax": "transformer_block"},
+        "transformer.stack": {"tensorflow": "transformer_block", "pytorch": "transformer_block", "jax": "transformer_block"},
         "transformer.positional_encoding": {"tensorflow": "positional_encoding", "pytorch": "positional_encoding", "jax": "positional_encoding"},
         "transformer.residual": {"tensorflow": "residual", "pytorch": "residual", "jax": "residual"},
     }

@@ -753,7 +753,7 @@ class NativeJaxSourceExporter(SourceExporter):
                 lines.append(
                     f"        {name} = nn.Dense(features={input_dimension}, name={name + '_project'!r})({name})"
                 )
-            elif definition in {"transformer.encoder_block", "transformer.decoder_block"}:
+            elif definition in {"transformer.encoder_block", "transformer.decoder_block", "transformer.stack"}:
                 query = source_by_port.get("query", source)
                 context = source_by_port.get("context", query)
                 query_spec = source_spec
@@ -784,7 +784,7 @@ class NativeJaxSourceExporter(SourceExporter):
                 current = query
                 for layer_index in range(layer_count):
                     prefix = f"{name}_layer{layer_index}"
-                    if definition == "transformer.encoder_block":
+                    if definition in {"transformer.encoder_block", "transformer.stack"}:
                         attention_input = f"{prefix}_attention_input"
                         if pre_norm:
                             lines.append(
