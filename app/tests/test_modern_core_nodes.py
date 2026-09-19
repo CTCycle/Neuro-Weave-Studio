@@ -81,10 +81,10 @@ def test_modern_nodes_are_canonical_catalog_entries() -> None:
             ExecutionBackend.JAX: True,
         }
 
-    for definition_id in {"layer.rms_norm", "layer.prelu", "layer.unit_norm"}:
+    for definition_id in ("layer.rms_norm", "layer.prelu", "layer.unit_norm"):
         manifest = catalog.get(definition_id)
         for native_target in ("tensorflow", "pytorch", "jax"):
-            assert manifest.implementations[native_target].supported is False
+            assert manifest.implementations[native_target].supported is True
 
 
 def test_modern_core_nodes_emit_explicit_keras_layers() -> None:

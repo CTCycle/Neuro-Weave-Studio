@@ -661,6 +661,59 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 output = _upsample_shape(source, parameters)
             else:
                 output = source
+            if node.definition_id == "layer.prelu":
+                alpha_shape = list(source.shape[1:])
+                shared_axes = parameters.get("shared_axes")
+                if shared_axes is not None:
+                    if not isinstance(shared_axes, list):
+                        raise ShapeInferenceError("shared_axes must be a list or null")
+                    for shared_axis in cast(list[Any], shared_axes):
+                        if (
+                            not isinstance(shared_axis, int)
+                            or isinstance(shared_axis, bool)
+                            or shared_axis < 1
+                            or shared_axis >= source.rank
+                        ):
+                            raise ShapeInferenceError(
+                                "shared_axes must contain non-batch axes"
+                            )
+                        alpha_shape[shared_axis - 1] = 1
+                parameter_count = (
+                    prod(alpha_shape)
+                    if all(isinstance(dimension, int) for dimension in alpha_shape)
+                    else None
+                )
+        elif rule == "normalization":
+            if not input_specs:
+                raise ShapeInferenceError(f"{node_id} requires an input")
+            source = input_specs[0]
+            output = source
+            if node.definition_id == "layer.unit_norm":
+                parameter_count = 0
+            else:
+                axis = _normalize_axis(_int_parameter(parameters, "axis", -1), source.rank)
+                normalized_dimension = source.shape[axis]
+                if node.definition_id == "layer.group_norm":
+                    groups = _optional_positive_int(parameters, "groups", 32)
+                    if isinstance(normalized_dimension, int) and normalized_dimension % groups != 0:
+                        raise ShapeInferenceError(
+                            "Group normalization dimension must be divisible by groups"
+                        )
+                    parameter_count = (
+                        normalized_dimension
+                        * (
+                            int(bool(parameters.get("scale", True)))
+                            + int(bool(parameters.get("center", True)))
+                        )
+                        if isinstance(normalized_dimension, int)
+                        else None
+                    )
+                else:
+                    parameter_count = (
+                        normalized_dimension
+                        if isinstance(normalized_dimension, int)
+                        else None
+                    )
         elif rule == "dense":
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")

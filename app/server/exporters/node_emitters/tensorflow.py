@@ -87,6 +87,10 @@ def build_registry() -> NodeEmitterRegistry:
         "reshape": _reshape,
         "permute": _permute,
         "repeat": _repeat,
+        "group_norm": _simple,
+        "prelu": _simple,
+        "rms_norm": _simple,
+        "unit_norm": _simple,
         "safe_expression": _simple,
     }.items():
         registry.register(adapter, emitter)
