@@ -253,6 +253,8 @@ def test_native_shape_layer_mappings_are_declarative() -> None:
         "recurrent.simple_rnn": {"tensorflow": "simple_rnn", "pytorch": "simple_rnn", "jax": "simple_rnn"},
         "recurrent.bidirectional": {"tensorflow": "bidirectional", "pytorch": "bidirectional", "jax": "bidirectional"},
         "recurrent.stack": {"tensorflow": "stack", "pytorch": "stack", "jax": "stack"},
+        "transformer.positional_encoding": {"tensorflow": "positional_encoding", "pytorch": "positional_encoding", "jax": "positional_encoding"},
+        "transformer.residual": {"tensorflow": "residual", "pytorch": "residual", "jax": "residual"},
     }
 
     for node_id, adapters in expected.items():

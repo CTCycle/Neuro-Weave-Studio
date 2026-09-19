@@ -240,6 +240,45 @@ def simple_rnn_state_graph() -> ModelGraph:
 
 
 ###############################################################################
+def positional_encoding_graph(mode: str = "sinusoidal") -> ModelGraph:
+    return chain_graph(
+        "input.sequence",
+        [6, 8],
+        "transformer.positional_encoding",
+        {"mode": mode},
+    )
+
+
+###############################################################################
+def attention_mask_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("input", "input.mask", {"shape": [6, 6], "dtype": "bool"}),
+            node("operation", "transformer.attention_mask"),
+            node("output", "output.custom"),
+        ],
+        edges=[edge("input-operation", "input", "operation"), edge("operation-output", "operation", "output")],
+    )
+
+
+###############################################################################
+def transformer_residual_graph() -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            node("left", "input.tensor", {"shape": [6, 8], "dtype": "float32"}),
+            node("right", "input.tensor", {"shape": [6, 8], "dtype": "float32"}),
+            node("residual", "transformer.residual"),
+            node("output", "output.custom"),
+        ],
+        edges=[
+            edge("left-residual", "left", "residual", "inputs"),
+            edge("right-residual", "right", "residual", "inputs"),
+            edge("residual-output", "residual", "output"),
+        ],
+    )
+
+
+###############################################################################
 def reshape_flatten_graph() -> ModelGraph:
     graph = chain_graph(
         "input.tensor",
@@ -461,6 +500,8 @@ def test_native_dense_values_are_deterministic_across_frameworks(
         ),
         ("cnn", cnn_graph, (1, 4, 4, 2)),
         ("recurrent", recurrent_graph, (1, 3)),
+        ("positional_encoding", positional_encoding_graph, (1, 6, 8)),
+        ("transformer_residual", transformer_residual_graph, (1, 6, 8)),
         (
             "simple_rnn",
             lambda: recurrent_wrapper_graph(
@@ -603,6 +644,36 @@ def test_native_simple_rnn_state_port_matches_sequence_output(
 
 
 ###############################################################################
+@pytest.mark.parametrize("mode", ["sinusoidal", "learned"])
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_positional_encoding_is_finite_and_shape_stable(
+    mode: str,
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    outputs = forward_native(build_native_model(positional_encoding_graph(mode), backend))
+
+    assert len(outputs) == 1
+    values = to_numpy(outputs[0])
+    assert values.shape == (1, 6, 8)
+    assert np.isfinite(values).all()
+
+
+###############################################################################
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_attention_mask_preserves_boolean_tensor(
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    outputs = forward_native(build_native_model(attention_mask_graph(), backend))
+
+    assert len(outputs) == 1
+    values = to_numpy(outputs[0])
+    assert values.shape == (1, 6, 6)
+    assert values.dtype == np.bool_
+
+
+###############################################################################
 @pytest.mark.parametrize(
     ("definition_id", "parameters", "expected_parameter_count"),
     [
@@ -629,6 +700,11 @@ def test_native_simple_rnn_state_port_matches_sequence_output(
             "recurrent.stack",
             {"cell": "lstm", "units": 3, "layers": 2},
             {"tensorflow": 180, "pytorch": 204, "jax": 180},
+        ),
+        (
+            "transformer.positional_encoding",
+            {"mode": "learned"},
+            {"tensorflow": 48, "pytorch": 48, "jax": 48},
         ),
         (
             "conv.conv3d",
@@ -708,6 +784,8 @@ def test_native_parameter_counts(
         graph = spatial_graph(definition_id, input_shape, parameters)
     elif definition_id.startswith("recurrent."):
         graph = recurrent_wrapper_graph(definition_id, parameters)
+    elif definition_id == "transformer.positional_encoding":
+        graph = positional_encoding_graph(str(parameters.get("mode", "sinusoidal")))
     else:
         graph = normalization_graph(definition_id, parameters)
     handle = build_native_model(graph, backend)

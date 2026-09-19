@@ -361,6 +361,17 @@ class PyTorchSourceExporter(SourceExporter):
             "        layer.bias_ih_l0[hidden_size:2 * hidden_size].fill_(1.0)",
             "",
             "",
+            "def _sinusoidal_encoding(value):",
+            "    positions = torch.arange(value.shape[1], device=value.device, dtype=value.dtype).unsqueeze(1)",
+            "    indices = torch.arange(value.shape[2], device=value.device, dtype=value.dtype).unsqueeze(0)",
+            "    dimension = value.shape[2]",
+            "    rates = torch.pow(value.new_tensor(10000.0), (2.0 * torch.floor(indices / 2.0)) / dimension)",
+            "    angles = positions / rates",
+            "    even = indices.to(torch.int64).remainder(2).eq(0)",
+            "    encoding = torch.where(even, torch.sin(angles), torch.cos(angles))",
+            "    return value + encoding.unsqueeze(0)",
+            "",
+            "",
             "def _initialize(shape, initializer, dtype):",
             "    identifier = initializer.get('id', 'zeros') if isinstance(initializer, dict) else initializer",
             "    if identifier in (None, 'zeros'): return torch.zeros(shape, dtype=dtype)",
@@ -732,6 +743,21 @@ class PyTorchSourceExporter(SourceExporter):
                         raise ValueError("Recurrent stack layers must be positive")
                     constructor += f", num_layers={layers!r}"
                 lines.append(f"        self.{name} = nn.{recurrent_class}({constructor})")
+            elif definition == "transformer.positional_encoding":
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"PyTorch positional encoding node {node.id} requires a rank-3 input")
+                if str(params.get("mode", "sinusoidal")) == "learned":
+                    sequence_length = self._static_dimension(source_spec, 1)
+                    feature_dimension = self._static_dimension(source_spec, 2)
+                    if sequence_length is None or feature_dimension is None:
+                        raise ValueError(
+                            f"PyTorch learned positional encoding node {node.id} requires static sequence and feature dimensions"
+                        )
+                    lines.append(
+                        f"        self.{name}_embedding = nn.Parameter(torch.zeros({(sequence_length, feature_dimension)!r}))"
+                        if bool(params.get("trainable", True))
+                        else f"        self.register_buffer({name + '_embedding'!r}, torch.zeros({(sequence_length, feature_dimension)!r}))"
+                    )
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"PyTorch recurrent node {node.id} requires a rank-3 input")
@@ -1120,6 +1146,15 @@ class PyTorchSourceExporter(SourceExporter):
                 lines.append(f"        {name}, _ = self.{name}({source})")
                 if not params.get("return_sequences", False):
                     lines.append(f"        {name} = {name}[:, -1, :]")
+            elif definition == "transformer.attention_mask":
+                lines.append(f"        {name} = {source}")
+            elif definition == "transformer.residual":
+                lines.append(f"        {name} = sum([{', '.join(source_vars)}])")
+            elif definition == "transformer.positional_encoding":
+                if str(params.get("mode", "sinusoidal")) == "learned":
+                    lines.append(f"        {name} = {source} + self.{name}_embedding.unsqueeze(0)")
+                else:
+                    lines.append(f"        {name} = _sinusoidal_encoding({source})")
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 lines.append(f"        {name}, _ = self.{name}({source})")
                 if not params.get("return_sequences", False):

@@ -176,6 +176,17 @@ class NativeJaxSourceExporter(SourceExporter):
             "    return current",
             "",
             "",
+            "def _sinusoidal_encoding(value):",
+            "    positions = jnp.arange(value.shape[1], dtype=value.dtype)[:, None]",
+            "    indices = jnp.arange(value.shape[2], dtype=value.dtype)[None, :]",
+            "    dimension = jnp.asarray(value.shape[2], dtype=value.dtype)",
+            "    rates = jnp.power(jnp.asarray(10000.0, dtype=value.dtype), (2.0 * jnp.floor(indices / 2.0)) / dimension)",
+            "    angles = positions / rates",
+            "    even = jnp.equal(jnp.mod(indices.astype(jnp.int32), 2), 0)",
+            "    encoding = jnp.where(even, jnp.sin(angles), jnp.cos(angles))",
+            "    return value + encoding[None, :, :]",
+            "",
+            "",
             "def _upsample_nd(value, size, data_format, interpolation):",
             "    dimensions = len(size)",
             "    channels_first = data_format == 'channels_first'",
@@ -648,6 +659,27 @@ class NativeJaxSourceExporter(SourceExporter):
                     lines.append(f"        {name} = {current}")
                     if not bool(params.get("return_sequences", False)):
                         lines.append(f"        {name} = {name}[:, -1, :]")
+            elif definition == "transformer.attention_mask":
+                lines.append(f"        {name} = {source}")
+            elif definition == "transformer.residual":
+                lines.append(f"        {name} = sum([{', '.join(source_vars)}])")
+            elif definition == "transformer.positional_encoding":
+                if str(params.get("mode", "sinusoidal")) == "learned":
+                    if source_spec is None or source_spec.rank != 3:
+                        raise ValueError(f"Native JAX positional encoding node {node.id} requires a rank-3 input")
+                    sequence_length = self._static_dimension(source_spec, 1)
+                    feature_dimension = self._static_dimension(source_spec, 2)
+                    if sequence_length is None or feature_dimension is None:
+                        raise ValueError(
+                            f"Native JAX learned positional encoding node {node.id} requires static sequence and feature dimensions"
+                        )
+                    embedding = f"{name}_embedding"
+                    lines.append(
+                        f"        {embedding} = self.param({embedding!r}, nn.initializers.zeros, ({sequence_length}, {feature_dimension}))"
+                    )
+                    lines.append(f"        {name} = {source} + {embedding}[None, :, :]")
+                else:
+                    lines.append(f"        {name} = _sinusoidal_encoding({source})")
             elif definition == "recurrent.lstm":
                 if (
                     params.get("activation", "tanh") != "tanh"

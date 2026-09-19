@@ -663,13 +663,6 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")
             source = input_specs[0]
-            if (
-                node.definition_id == "transformer.positional_encoding"
-                and parameters.get("mode", "sinusoidal") != "sinusoidal"
-            ):
-                raise ShapeInferenceError(
-                    "Only sinusoidal positional encoding is supported by the Keras runtime"
-                )
             if node.definition_id == "conv.padding":
                 output = _spatial_transform(source, parameters, "padding", "pad")
             elif node.definition_id == "conv.cropping":
