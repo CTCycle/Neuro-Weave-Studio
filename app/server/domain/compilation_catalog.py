@@ -180,6 +180,8 @@ def _optimizer(
     keras_symbol: str | None = None,
     pytorch_symbol: str | None = None,
     pytorch_parameter_mapping: dict[str, str] | None = None,
+    tensorflow_symbol: str | None = None,
+    tensorflow_parameter_mapping: dict[str, str] | None = None,
 ) -> CompilationOption:
     symbols = {
         "adam": "Adam",
@@ -202,6 +204,7 @@ def _optimizer(
         "adamax": "Adamax",
         "nadam": "NAdam",
     }[identifier]
+    tensorflow_symbol = tensorflow_symbol or keras_symbol
     return CompilationOption(
         id=identifier,
         label=label,
@@ -214,6 +217,11 @@ def _optimizer(
                 supported=True,
                 adapter=f"torch.optim.{pytorch_symbol}",
                 parameter_mapping=pytorch_parameter_mapping or {},
+            ),
+            "tensorflow": CompilationImplementation(
+                supported=True,
+                symbol=tensorflow_symbol,
+                parameter_mapping=tensorflow_parameter_mapping or {},
             ),
         },
     )

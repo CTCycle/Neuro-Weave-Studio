@@ -113,6 +113,9 @@ def build_native_model(
             compilation = cast(Callable[[Any], dict[str, Any]], compilation_factory)(model)
     elif backend is ExecutionBackend.TENSORFLOW:
         outputs = _as_list(execution_model(model_input))
+        compilation_factory = module.__dict__.get("build_compilation")
+        if callable(compilation_factory):
+            compilation = cast(Callable[[Any], dict[str, Any]], compilation_factory)(model)
     else:
         import jax
 

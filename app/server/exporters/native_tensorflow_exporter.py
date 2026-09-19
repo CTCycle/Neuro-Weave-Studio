@@ -6,7 +6,7 @@ from typing import Any, cast
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
-from domain.compilation_catalog import CompilationCatalog
+from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
 from domain.graph import ModelGraph
 from domain.ports import materialized_outputs
 from domain.tensor import TensorSpec
@@ -161,8 +161,8 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         *,
         compilation_catalog: CompilationCatalog | None = None,
     ) -> str:
-        del compilation_catalog
         catalog = catalog or get_node_catalog()
+        compilation_catalog = compilation_catalog or get_compilation_catalog()
         nodes = {node.id: node for node in graph.nodes}
         summaries = self._summary_map(ir)
         lines = [
@@ -1537,7 +1537,53 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         trace = "{" + ", ".join(trace_entries) + "}"
         lines.append(f"        if return_intermediates: return {result}, {trace}")
         lines.append(f"        return {result}")
+        native = graph.model_configuration.native.tensorflow
+        optimizer_value = native.compilation.optimizer
+        optimizer_option = next(
+            (option for option in compilation_catalog.optimizers if option.id == optimizer_value.id),
+            None,
+        )
+        if optimizer_option is None:
+            raise ValueError(f"No TensorFlow optimizer catalog option registered for {optimizer_value.id}")
+        optimizer_implementation = optimizer_option.implementations.get("tensorflow")
+        if optimizer_implementation is None or not optimizer_implementation.supported:
+            raise ValueError(f"No TensorFlow optimizer implementation registered for {optimizer_value.id}")
+        accepted_parameters = {parameter.id for parameter in optimizer_option.parameters}
+        optimizer_parameters = {
+            key: value
+            for key, value in optimizer_value.parameters.items()
+            if key in accepted_parameters
+        }
+        optimizer_arguments = ", ".join(
+            f"{optimizer_implementation.parameter_mapping.get(key, key)}={value!r}"
+            for key, value in optimizer_parameters.items()
+        )
         lines.extend(
-            ["", "", "def build_model() -> GeneratedModel:", "    return GeneratedModel()", ""]
+            [
+                "",
+                "",
+                "def build_optimizer():",
+                f"    return tf.optimizers.{optimizer_implementation.symbol}({optimizer_arguments})",
+                "",
+                "",
+                "def configured_compilation() -> dict[str, object]:",
+                "    return {",
+                f"        'optimizer': {{'id': {optimizer_value.id!r}, 'parameters': {dict(optimizer_value.parameters)!r}}},",
+                "        'losses': {},",
+                "        'metrics': {},",
+                "    }",
+                "",
+                "",
+                "def build_compilation(model: GeneratedModel) -> dict[str, object]:",
+                "    del model",
+                "    configuration = configured_compilation()",
+                "    configuration['optimizer_runtime'] = build_optimizer()",
+                "    return configuration",
+                "",
+                "",
+                "def build_model() -> GeneratedModel:",
+                "    return GeneratedModel()",
+                "",
+            ]
         )
         return "\n".join(lines)
