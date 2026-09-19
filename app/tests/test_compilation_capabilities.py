@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from common.catalogs.loader import get_node_catalog
 from domain.compilation_capabilities import get_compilation_capabilities
 from domain.compilation_catalog import get_compilation_catalog
@@ -19,6 +21,7 @@ from domain.metadata import ExecutionBackendStatus
 from services.compilation_service import CompilationService
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
+from models.native_runtime import build_native_model
 
 
 ###############################################################################
@@ -155,6 +158,56 @@ def test_native_compilation_source_uses_each_backend_native_compiler() -> None:
     assert "keras.Model" not in tensorflow.code
     assert "keras.Model" not in pytorch.code
     assert "keras.Model" not in jax.code
+
+
+###############################################################################
+def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
+    tensorflow = pytest.importorskip("tensorflow")
+    graph = _native_graph().model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    tensorflow=TensorFlowNativeConfiguration(
+                        compilation={
+                            "optimizer": {
+                                "id": "adamw",
+                                "parameters": {
+                                    "learning_rate": 0.007,
+                                    "weight_decay": 0.021,
+                                    "beta_1": 0.81,
+                                    "beta_2": 0.97,
+                                    "epsilon": 1e-6,
+                                },
+                            }
+                        },
+                        compiler={
+                            "id": "tensorflow_function",
+                            "parameters": {"jit_compile": False},
+                        },
+                    )
+                )
+            )
+        }
+    )
+
+    handle = build_native_model(graph, ExecutionBackend.TENSORFLOW, zero_parameters=True)
+
+    assert handle.compilation is not None
+    optimizer = handle.compilation["optimizer_runtime"]
+    configuration = optimizer.get_config()
+    assert optimizer.__class__.__name__ == "AdamW"
+    assert configuration["learning_rate"] == pytest.approx(0.007)
+    assert configuration["weight_decay"] == pytest.approx(0.021)
+    assert configuration["beta_1"] == pytest.approx(0.81)
+    assert configuration["beta_2"] == pytest.approx(0.97)
+    assert configuration["epsilon"] == pytest.approx(1e-6)
+    parameter = tensorflow.Variable(1.0)
+    with tensorflow.GradientTape() as tape:
+        loss = parameter * parameter
+    gradient = tape.gradient(loss, parameter)
+    optimizer.apply_gradients([(gradient, parameter)])
+    assert float(parameter.numpy()) != pytest.approx(1.0)
+    assert bool(tensorflow.math.is_finite(parameter))
 
 ###############################################################################
 def test_compilation_rejects_a_native_parameter_without_falling_back_to_keras() -> None:
