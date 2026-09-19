@@ -103,6 +103,8 @@ def build_registry() -> NodeEmitterRegistry:
         "simple_rnn": _simple,
         "bidirectional": _simple,
         "stack": _simple,
+        "positional_encoding": _simple,
+        "residual": _simple,
         "safe_expression": _simple,
     }.items():
         registry.register(adapter, emitter)

@@ -401,6 +401,17 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             "    return merged if return_sequences else merged[:, -1, :]",
             "",
             "",
+            "def _sinusoidal_encoding(value):",
+            "    positions = tf.cast(tf.range(tf.shape(value)[1])[:, None], value.dtype)",
+            "    indices = tf.cast(tf.range(tf.shape(value)[2])[None, :], value.dtype)",
+            "    dimension = tf.cast(tf.shape(value)[2], value.dtype)",
+            "    rates = tf.pow(tf.cast(10000.0, value.dtype), (2.0 * tf.floor(indices / 2.0)) / dimension)",
+            "    angles = positions / rates",
+            "    even = tf.equal(tf.math.floormod(tf.cast(indices, tf.int32), 2), 0)",
+            "    encoding = tf.where(even, tf.sin(angles), tf.cos(angles))",
+            "    return value + encoding[None, :, :]",
+            "",
+            "",
             "def _initialize(shape, initializer, dtype):",
             "    identifier = initializer.get('id', 'zeros') if isinstance(initializer, dict) else initializer",
             "    if identifier in (None, 'zeros'): return tf.zeros(shape, dtype=dtype)",
@@ -817,6 +828,19 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                             else f"        self.{name}_layer{layer_index}_bias = None"
                         )
                         layer_input_size = units
+            elif definition == "transformer.positional_encoding":
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"TensorFlow positional encoding node {node.id} requires a rank-3 input")
+                if str(params.get("mode", "sinusoidal")) == "learned":
+                    sequence_length = self._static_dimension(source_spec, 1)
+                    feature_dimension = self._static_dimension(source_spec, 2)
+                    if sequence_length is None or feature_dimension is None:
+                        raise ValueError(
+                            f"TensorFlow learned positional encoding node {node.id} requires static sequence and feature dimensions"
+                        )
+                    lines.append(
+                        f"        self.{name}_embedding = tf.Variable(tf.zeros([{sequence_length}, {feature_dimension}], tf.float32), trainable={bool(params.get('trainable', True))!r}, name={name + '_embedding'!r})"
+                    )
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"TensorFlow recurrent node {node.id} requires a rank-3 input")
@@ -1161,6 +1185,15 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     )
                     current = layer_name
                 lines.append(f"        {name} = {current}")
+            elif definition == "transformer.attention_mask":
+                lines.append(f"        {name} = {source}")
+            elif definition == "transformer.residual":
+                lines.append(f"        {name} = tf.add_n([{', '.join(source_vars)}])")
+            elif definition == "transformer.positional_encoding":
+                if str(params.get("mode", "sinusoidal")) == "learned":
+                    lines.append(f"        {name} = {source} + self.{name}_embedding[None, :, :]" )
+                else:
+                    lines.append(f"        {name} = _sinusoidal_encoding({source})")
             elif definition == "recurrent.lstm":
                 lines.append(
                     f"        {name} = _lstm({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, {bool(params.get('return_sequences', False))!r})"
