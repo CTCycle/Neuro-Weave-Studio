@@ -65,36 +65,6 @@ _DATA_FORMAT_OPTIONS = ["channels_last", "channels_first"]
 _PADDING_OPTIONS = ["valid", "same"]
 _UNSET = object()
 
-_NATIVE_BRANCH_ADAPTERS: dict[tuple[str, str], str] = {
-    ("conv.conv1d", "pytorch"): "conv1d",
-    ("conv.conv2d", "pytorch"): "conv2d",
-    ("conv.max_pool2d", "pytorch"): "max_pool2d",
-    ("layer.activation", "pytorch"): "activation",
-    ("layer.batch_norm", "pytorch"): "batch_norm",
-    ("layer.dense", "pytorch"): "dense",
-    ("layer.dropout", "pytorch"): "dropout",
-    ("layer.embedding", "pytorch"): "embedding",
-    ("layer.flatten", "pytorch"): "flatten",
-    ("layer.layer_norm", "pytorch"): "layer_norm",
-    ("input.image", "pytorch"): "identity",
-    ("input.tensor", "pytorch"): "identity",
-    ("input.mask", "pytorch"): "identity",
-    ("input.sequence", "pytorch"): "identity",
-    ("input.tabular", "pytorch"): "identity",
-    ("input.token", "pytorch"): "identity",
-    ("merge.residual", "pytorch"): "add",
-    ("merge.skip", "pytorch"): "add",
-    ("output.classification", "pytorch"): "identity",
-    ("output.custom", "pytorch"): "identity",
-    ("output.multi_head", "pytorch"): "identity",
-    ("output.regression", "pytorch"): "identity",
-    ("output.segmentation", "pytorch"): "identity",
-    ("output.sequence", "pytorch"): "identity",
-    ("recurrent.gru", "pytorch"): "gru",
-    ("recurrent.lstm", "pytorch"): "lstm",
-}
-_PYTORCH_ACTIVATIONS = ["linear", "relu", "gelu", "sigmoid", "tanh", "softmax"]
-
 ###############################################################################
 def _parameter(
     identifier: str,
@@ -978,7 +948,7 @@ def _merge_manifest_data(
     raw: dict[str, Any],
     override: dict[str, Any] | None,
     shared_parameter_capabilities: dict[str, dict[str, Any]] | None = None,
-    default_implementation_adapters: dict[str, str] | None = None,
+    default_implementation_adapters: dict[str, dict[str, str]] | None = None,
     parameter_groups: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Apply checked-in declarative capability/operation data to a node."""
@@ -1010,37 +980,14 @@ def _merge_manifest_data(
         if parameters:
             mapping["parameters"] = parameters
         implementations[implementation] = mapping
-    for implementation, adapter in (default_implementation_adapters or {}).items():
-        mapping = dict(implementations.get(implementation, {}))
-        if (
-            mapping.get("supported", True)
-            and not mapping.get("symbol")
-            and not mapping.get("adapter")
-        ):
-            mapping["adapter"] = adapter
-        implementations[implementation] = mapping
     node_id = str(item.get("id", ""))
-    for (adapter_node_id, implementation), adapter in _NATIVE_BRANCH_ADAPTERS.items():
-        if adapter_node_id != node_id:
+    for implementation, adapters in (default_implementation_adapters or {}).items():
+        adapter = adapters.get(node_id)
+        if not adapter:
             continue
         mapping = dict(implementations.get(implementation, {}))
         if mapping.get("supported", True) and not mapping.get("symbol") and not mapping.get("adapter"):
             mapping["adapter"] = adapter
-        if implementation == "pytorch" and node_id in {
-            "conv.conv1d",
-            "conv.conv2d",
-            "layer.activation",
-            "layer.dense",
-        }:
-            mapping_parameters = dict(mapping.get("parameters", {}))
-            mapping_parameters.setdefault(
-                "activation",
-                {
-                    "allowed_values": _PYTORCH_ACTIVATIONS,
-                    "notes": "The native PyTorch adapter supports the listed activation functions.",
-                },
-            )
-            mapping["parameters"] = mapping_parameters
         implementations[implementation] = mapping
     if implementations:
         item["implementations"] = implementations
@@ -1224,7 +1171,7 @@ def get_node_catalog() -> NodeCatalog:
         dict[str, dict[str, Any]], extensions.get("shared_parameter_capabilities", {})
     )
     default_implementation_adapters = cast(
-        dict[str, str], extensions.get("default_implementation_adapters", {})
+        dict[str, dict[str, str]], extensions.get("default_implementation_adapters", {})
     )
     manifests: list[NodeManifest] = []
     for path in sorted(RESOURCE_ROOT.glob("*.json")):
