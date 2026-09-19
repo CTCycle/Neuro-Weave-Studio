@@ -16,6 +16,24 @@ def test_metric_formula_uses_only_the_bounded_expression_subset() -> None:
     with pytest.raises(MetricFormulaError):
         parse_metric_formula("__import__('os').system('whoami')")
 
+
+###############################################################################
+def test_prediction_aggregate_metrics_use_prediction_values() -> None:
+    pytest.importorskip("keras")
+    import keras
+
+    from models.keras_runtime import PredictionAggregateMetric
+
+    target = keras.ops.zeros((2, 1), dtype="float32")
+    prediction = keras.ops.convert_to_tensor([[1.0], [3.0]], dtype="float32")
+    mean = PredictionAggregateMetric("mean")
+    total = PredictionAggregateMetric("sum")
+    mean.update_state(target, prediction)
+    total.update_state(target, prediction)
+
+    assert float(keras.ops.convert_to_numpy(mean.result())) == pytest.approx(2.0)
+    assert float(keras.ops.convert_to_numpy(total.result())) == pytest.approx(4.0)
+
 ###############################################################################
 def test_custom_metric_lifecycle_and_builtin_locking(client: httpx.Client) -> None:
     builtins = client.get("/api/metrics")

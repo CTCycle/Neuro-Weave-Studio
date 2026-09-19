@@ -530,6 +530,8 @@ def test_native_loss_helpers_cover_remaining_catalog_variants(
         ("dense_regression", "mean_squared_logarithmic_error", {}),
         ("dense_regression", "cosine_similarity", {"axis": -1}),
         ("dense_regression", "log_cosh_error", {}),
+        ("dense_regression", "prediction_mean", {}),
+        ("dense_regression", "prediction_sum", {}),
     ],
 )
 def test_native_metric_helpers_cover_remaining_catalog_variants(

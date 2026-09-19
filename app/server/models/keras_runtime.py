@@ -59,6 +59,39 @@ def prepare_runtime(graph: ModelGraph) -> None:
         "mixed_float16" if graph.model_configuration.keras.mixed_precision else "float32"
     )
 
+
+class PredictionAggregateMetric(keras.metrics.Metric):
+    """Stateful metric whose input is explicitly the prediction tensor."""
+
+    def __init__(self, mode: str, name: str | None = None, **kwargs: Any) -> None:
+        super().__init__(name=name or f"prediction_{mode}", **kwargs)
+        if mode not in {"mean", "sum"}:
+            raise ValueError(f"Unsupported prediction aggregate mode: {mode}")
+        self.mode = mode
+        self.total = self.add_weight(name="total", initializer="zeros")
+        self.count = self.add_weight(name="count", initializer="zeros")
+
+    def update_state(
+        self, y_true: Any, y_pred: Any, sample_weight: Any = None
+    ) -> None:
+        del y_true
+        values = keras.ops.cast(y_pred, self.dtype)
+        if sample_weight is not None:
+            values = values * keras.ops.cast(sample_weight, values.dtype)
+        self.total.assign_add(keras.ops.sum(values))
+        if self.mode == "mean":
+            self.count.assign_add(keras.ops.cast(keras.ops.size(values), self.dtype))
+        else:
+            self.count.assign_add(keras.ops.cast(1, self.dtype))
+
+    def result(self) -> Any:
+        if self.mode == "sum":
+            return self.total
+        return self.total / keras.ops.maximum(self.count, keras.ops.cast(1, self.dtype))
+
+    def get_config(self) -> dict[str, Any]:
+        return {**super().get_config(), "mode": self.mode}
+
 ###############################################################################
 def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
     return [
@@ -153,6 +186,12 @@ def _compile_option(
     if option.origin == "custom":
         return _custom_formula(option)
     implementation = option.implementations["keras"]
+    if implementation.adapter == "prediction_mean":
+        return PredictionAggregateMetric("mean", name=option.id)
+    if implementation.adapter == "prediction_sum":
+        return PredictionAggregateMetric("sum", name=option.id)
+    if not implementation.symbol:
+        raise ValueError(f"No Keras symbol registered for {category}.{value.id}")
     namespace = keras.losses if category == "losses" else keras.metrics
     factory = getattr(namespace, implementation.symbol or "")
     accepted_parameters = {parameter.id for parameter in option.parameters}

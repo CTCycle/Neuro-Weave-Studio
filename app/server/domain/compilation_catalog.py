@@ -173,6 +173,7 @@ def _mapped_option(
     formula: str | None = None,
     parameters: list[ParameterDefinition] | None = None,
     keras_parameter_mapping: dict[str, str] | None = None,
+    keras_adapter: str | None = None,
 ) -> CompilationOption:
     return CompilationOption(
         id=identifier,
@@ -184,6 +185,7 @@ def _mapped_option(
             "keras": CompilationImplementation(
                 supported=True,
                 symbol=keras_symbol,
+                adapter=keras_adapter,
                 parameter_mapping=keras_parameter_mapping or {},
             ),
             "pytorch": CompilationImplementation(supported=True, adapter=pytorch_adapter),
@@ -877,6 +879,28 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 target_contract="continuous_same_shape",
                 activation_contract=["linear"],
                 formula=r"\operatorname{LogCoshError}=\frac{1}{n}\sum_i\log(\cosh(y_i-\hat y_i))",
+            ),
+            _mapped_option(
+                "prediction_mean",
+                "Prediction mean",
+                "Mean of all values in the prediction tensor; target values are ignored.",
+                keras_symbol=None,
+                keras_adapter="prediction_mean",
+                pytorch_adapter="prediction_mean",
+                supported_tasks=["regression", "binary_classification", "multiclass_classification"],
+                target_contract="continuous_same_shape",
+                formula=r"\operatorname{PredictionMean}=\frac{1}{n}\sum_i\hat y_i",
+            ),
+            _mapped_option(
+                "prediction_sum",
+                "Prediction sum",
+                "Sum of all values in the prediction tensor; target values are ignored.",
+                keras_symbol=None,
+                keras_adapter="prediction_sum",
+                pytorch_adapter="prediction_sum",
+                supported_tasks=["regression", "binary_classification", "multiclass_classification"],
+                target_contract="continuous_same_shape",
+                formula=r"\operatorname{PredictionSum}=\sum_i\hat y_i",
             ),
         ],
         initializers=[

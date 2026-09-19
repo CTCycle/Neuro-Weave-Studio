@@ -258,7 +258,13 @@ class KerasSourceExporter(SourceExporter):
         implementation = option.implementations.get("keras")
         if option.origin == "custom":
             return cls._custom_function_name(option)
-        if implementation is None or not implementation.symbol:
+        if implementation is None:
+            raise ValueError(f"No Keras symbol registered for {option.id}")
+        if implementation.adapter == "prediction_mean":
+            return "PredictionAggregateMetric(mode='mean', name='prediction_mean')"
+        if implementation.adapter == "prediction_sum":
+            return "PredictionAggregateMetric(mode='sum', name='prediction_sum')"
+        if not implementation.symbol:
             raise ValueError(f"No Keras symbol registered for {option.id}")
         namespace = "metrics" if metric else "losses"
         accepted = {parameter.id for parameter in option.parameters}
@@ -364,6 +370,28 @@ class KerasSourceExporter(SourceExporter):
             "",
             "import keras",
             "from keras import layers",
+            "",
+            "",
+            "@keras.saving.register_keras_serializable(package='NeuroWeave')",
+            "class PredictionAggregateMetric(keras.metrics.Metric):",
+            "    def __init__(self, mode, **kwargs):",
+            "        super().__init__(**kwargs)",
+            "        if mode not in ('mean', 'sum'): raise ValueError(f'Unsupported prediction aggregate mode: {mode}')",
+            "        self.mode = mode",
+            "        self.total = self.add_weight(name='total', initializer='zeros')",
+            "        self.count = self.add_weight(name='count', initializer='zeros')",
+            "    def update_state(self, y_true, y_pred, sample_weight=None):",
+            "        del y_true",
+            "        values = keras.ops.cast(y_pred, self.dtype)",
+            "        if sample_weight is not None: values = values * keras.ops.cast(sample_weight, values.dtype)",
+            "        self.total.assign_add(keras.ops.sum(values))",
+            "        if self.mode == 'mean': self.count.assign_add(keras.ops.cast(keras.ops.size(values), self.dtype))",
+            "        else: self.count.assign_add(keras.ops.cast(1, self.dtype))",
+            "    def result(self):",
+            "        if self.mode == 'sum': return self.total",
+            "        return self.total / keras.ops.maximum(self.count, keras.ops.cast(1, self.dtype))",
+            "    def get_config(self):",
+            "        return {**super().get_config(), 'mode': self.mode}",
         ]
         if any(node.definition_id == "transformer.positional_encoding" for node in graph.nodes):
             lines.extend(
