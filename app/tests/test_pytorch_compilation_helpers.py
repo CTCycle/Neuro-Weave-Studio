@@ -468,21 +468,38 @@ def test_native_optimizer_helpers_cover_catalog_variants(
 
 ###############################################################################
 @pytest.mark.parametrize(
-    ("workflow", "loss_id"),
+    ("workflow", "loss_id", "parameters"),
     [
-        ("dense_regression", "mean_absolute_error"),
-        ("dense_regression", "huber"),
-        ("multiclass_classification", "sparse_categorical_crossentropy"),
-        ("multiclass_classification", "kullback_leibler_divergence"),
+        ("dense_regression", "mean_absolute_error", {}),
+        ("dense_regression", "huber", {"delta": 0.5}),
+        ("multiclass_classification", "sparse_categorical_crossentropy", {}),
+        ("multiclass_classification", "kullback_leibler_divergence", {}),
+        ("dense_regression", "log_cosh", {}),
+        ("dense_regression", "mean_absolute_percentage_error", {}),
+        ("dense_regression", "mean_squared_logarithmic_error", {}),
+        ("binary_classification", "hinge", {}),
+        ("binary_classification", "squared_hinge", {}),
+        ("multiclass_classification", "categorical_hinge", {}),
+        ("dense_regression", "poisson", {}),
+        ("multiclass_classification", "dice", {"axis": -1}),
+        (
+            "multiclass_classification",
+            "tversky",
+            {"alpha": 0.3, "beta": 0.7, "axis": -1},
+        ),
     ],
 )
-def test_native_loss_helpers_cover_remaining_catalog_variants(workflow: str, loss_id: str) -> None:
+def test_native_loss_helpers_cover_remaining_catalog_variants(
+    workflow: str, loss_id: str, parameters: dict[str, Any]
+) -> None:
     graph, _, _ = _workflow_graphs()[workflow]
     graph = graph.model_copy(
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    pytorch=PyTorchNativeConfiguration(losses={"__default__": loss_id})
+                    pytorch=PyTorchNativeConfiguration(
+                        losses={"__default__": {"id": loss_id, "parameters": parameters}}
+                    )
                 )
             )
         }
