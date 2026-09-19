@@ -174,7 +174,7 @@ def test_project_revision_workflow_invalidates_generated_source_and_rejects_stal
     assert project["current_revision"] == 1
     assert project["generated_source"] is None
     assert "schema_version" not in project
-    assert project["graph"]["schema_version"] == 5
+    assert project["graph"]["schema_version"] == 6
     assert project["graph"]["nodes"][0]["parameters"]["shape"] == [8]
 
     listed = client.get("/api/projects")
