@@ -6,11 +6,11 @@ from pydantic import BaseModel, Field
 
 from domain.compilation_catalog import (
     CompilationCatalog,
-    CompilationParameter,
     get_compilation_catalog,
     get_compilation_catalog_for_implementation,
 )
 from domain.enums import ExecutionBackend
+from domain.manifests import ParameterDefinition
 
 
 ###############################################################################
@@ -21,7 +21,7 @@ class NativeCompilationCapability(BaseModel):
     available: bool = False
     reason_code: str | None = None
     reason: str | None = None
-    parameters: list[CompilationParameter] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    parameters: list[ParameterDefinition] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     catalog: CompilationCatalog = Field(default_factory=CompilationCatalog)
 
 ###############################################################################
@@ -48,7 +48,7 @@ def get_native_compilation_capabilities(
             compiler_id="tensorflow_function",
             compiler="TensorFlow tf.function / XLA",
             parameters=[
-                CompilationParameter(
+                ParameterDefinition(
                     id="jit_compile",
                     display_name="XLA JIT compilation",
                     type="boolean",
@@ -62,14 +62,14 @@ def get_native_compilation_capabilities(
             compiler_id="pytorch_compile",
             compiler="PyTorch torch.compile",
             parameters=[
-                CompilationParameter(
+                ParameterDefinition(
                     id="enabled",
                     display_name="Enable torch.compile",
                     type="boolean",
                     default=False,
                     description="Wrap the native module with PyTorch's compiler before execution.",
                 ),
-                CompilationParameter(
+                ParameterDefinition(
                     id="mode",
                     display_name="Compile mode",
                     type="enum",
@@ -77,14 +77,14 @@ def get_native_compilation_capabilities(
                     options=["default", "reduce-overhead", "max-autotune"],
                     description="Select the optimization strategy used by torch.compile.",
                 ),
-                CompilationParameter(
+                ParameterDefinition(
                     id="fullgraph",
                     display_name="Require full graph",
                     type="boolean",
                     default=False,
                     description="Fail instead of graph-breaking when the full model cannot be captured.",
                 ),
-                CompilationParameter(
+                ParameterDefinition(
                     id="dynamic",
                     display_name="Dynamic shapes",
                     type="boolean",
@@ -99,7 +99,7 @@ def get_native_compilation_capabilities(
             compiler_id="jax_jit",
             compiler="JAX jax.jit",
             parameters=[
-                CompilationParameter(
+                ParameterDefinition(
                     id="enabled",
                     display_name="Enable jax.jit",
                     type="boolean",
