@@ -362,6 +362,80 @@ def test_native_dense_values_are_deterministic_across_frameworks(
             ),
             (1, 4, 5, 1),
         ),
+        (
+            "conv3d",
+            lambda: spatial_graph(
+                "conv.conv3d",
+                [4, 4, 4, 1],
+                {
+                    "filters": 2,
+                    "kernel_size": [3, 3, 3],
+                    "strides": [1, 1, 1],
+                    "padding": "same",
+                    "data_format": "channels_last",
+                    "dilation_rate": [1, 1, 1],
+                    "groups": 1,
+                    "use_bias": True,
+                },
+            ),
+            (1, 4, 4, 4, 2),
+        ),
+        (
+            "depthwise",
+            lambda: spatial_graph(
+                "conv.depthwise",
+                [4, 4, 2],
+                {
+                    "dimensions": 2,
+                    "depth_multiplier": 2,
+                    "kernel_size": [3, 3],
+                    "strides": [1, 1],
+                    "padding": "same",
+                    "data_format": "channels_last",
+                    "dilation_rate": [1, 1],
+                    "use_bias": True,
+                },
+            ),
+            (1, 4, 4, 4),
+        ),
+        (
+            "separable",
+            lambda: spatial_graph(
+                "conv.separable",
+                [4, 4, 2],
+                {
+                    "dimensions": 2,
+                    "filters": 3,
+                    "depth_multiplier": 2,
+                    "kernel_size": [3, 3],
+                    "strides": [1, 1],
+                    "padding": "same",
+                    "data_format": "channels_last",
+                    "dilation_rate": [1, 1],
+                    "use_bias": True,
+                },
+            ),
+            (1, 4, 4, 3),
+        ),
+        (
+            "transposed",
+            lambda: spatial_graph(
+                "conv.transposed",
+                [4, 4, 1],
+                {
+                    "dimensions": 2,
+                    "filters": 2,
+                    "kernel_size": [3, 3],
+                    "strides": [2, 2],
+                    "padding": "valid",
+                    "output_padding": [1, 1],
+                    "data_format": "channels_last",
+                    "dilation_rate": [1, 1],
+                    "use_bias": True,
+                },
+            ),
+            (1, 10, 10, 2),
+        ),
         ("cnn", cnn_graph, (1, 4, 4, 2)),
         ("recurrent", recurrent_graph, (1, 3)),
         ("reshape_flatten", reshape_flatten_graph, (1, 4)),
@@ -401,17 +475,85 @@ def test_native_representative_cases(
         ("layer.prelu", {}, 4),
         ("layer.rms_norm", {}, 4),
         ("layer.unit_norm", {}, 0),
+        (
+            "conv.conv3d",
+            {
+                "filters": 2,
+                "kernel_size": [3, 3, 3],
+                "strides": [1, 1, 1],
+                "padding": "same",
+                "data_format": "channels_last",
+                "dilation_rate": [1, 1, 1],
+                "groups": 1,
+                "use_bias": True,
+            },
+            56,
+        ),
+        (
+            "conv.depthwise",
+            {
+                "dimensions": 2,
+                "depth_multiplier": 2,
+                "kernel_size": [3, 3],
+                "strides": [1, 1],
+                "padding": "same",
+                "data_format": "channels_last",
+                "dilation_rate": [1, 1],
+                "use_bias": True,
+            },
+            40,
+        ),
+        (
+            "conv.separable",
+            {
+                "dimensions": 2,
+                "filters": 3,
+                "depth_multiplier": 2,
+                "kernel_size": [3, 3],
+                "strides": [1, 1],
+                "padding": "same",
+                "data_format": "channels_last",
+                "dilation_rate": [1, 1],
+                "use_bias": True,
+            },
+            51,
+        ),
+        (
+            "conv.transposed",
+            {
+                "dimensions": 2,
+                "filters": 2,
+                "kernel_size": [3, 3],
+                "strides": [2, 2],
+                "padding": "valid",
+                "output_padding": [0, 0],
+                "data_format": "channels_last",
+                "dilation_rate": [1, 1],
+                "use_bias": True,
+            },
+            20,
+        ),
     ],
 )
 @pytest.mark.parametrize("backend", native_parity_backends())
-def test_native_normalization_parameter_counts(
+def test_native_parameter_counts(
     definition_id: str,
     parameters: dict[str, Any],
     expected_parameter_count: int,
     backend: ExecutionBackend,
 ) -> None:
     require_backend(backend)
-    handle = build_native_model(normalization_graph(definition_id, parameters), backend)
+    if definition_id in {"conv.depthwise", "conv.separable"}:
+        input_shape = [4, 4, 2]
+    elif definition_id == "conv.conv3d":
+        input_shape = [4, 4, 4, 1]
+    else:
+        input_shape = [4, 4, 1]
+    handle = (
+        build_native_model(spatial_graph(definition_id, input_shape, parameters), backend)
+        if definition_id.startswith("conv.")
+        else build_native_model(normalization_graph(definition_id, parameters), backend)
+    )
 
     assert handle.parameter_count() == expected_parameter_count
 

@@ -9,6 +9,7 @@ from domain.compilation import CanonicalModelIR
 from domain.compilation_catalog import CompilationCatalog
 from domain.graph import ModelGraph
 from domain.ports import materialized_outputs
+from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 from validation.parameter_values import condition_matches
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
@@ -17,6 +18,26 @@ from validation.safe_expression import normalize_index_expression, validate_safe
 ###############################################################################
 class NativeJaxSourceExporter(SourceExporter):
     """Generate a native Flax Linen module for the verified subset."""
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _summary_map(ir: CanonicalModelIR) -> dict[str, TensorSpec]:
+        return {
+            summary.node_id: next(iter(summary.outputs.values()))
+            for summary in ir.shape_summaries
+            if summary.outputs
+        }
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _static_dimension(spec: TensorSpec | None, index: int) -> int | None:
+        if spec is None:
+            return None
+        shape = cast(list[Any], spec.shape)
+        if not -len(shape) <= index < len(shape):
+            return None
+        value = shape[index]
+        return value if isinstance(value, int) else None
 
     # -------------------------------------------------------------------------
     @staticmethod
@@ -78,6 +99,24 @@ class NativeJaxSourceExporter(SourceExporter):
 
     # -------------------------------------------------------------------------
     @staticmethod
+    def _spatial_nonnegative(
+        parameters: dict[str, Any],
+        key: str,
+        dimensions: int,
+        default: list[int],
+    ) -> tuple[int, ...]:
+        value = parameters.get(key, default)
+        if value is None:
+            value = default
+        if not isinstance(value, list) or len(value) != dimensions:
+            raise ValueError(f"JAX {key} expects {dimensions} values")
+        values = cast(list[Any], value)
+        if any(not isinstance(item, int) or isinstance(item, bool) or item < 0 for item in values):
+            raise ValueError(f"JAX {key} expects non-negative integer values")
+        return tuple(int(item) for item in values)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
     def _spatial_pairs(parameters: dict[str, Any], key: str, dimensions: int) -> tuple[tuple[int, int], ...]:
         value = parameters.get(key)
         if not isinstance(value, list) or len(value) != dimensions:
@@ -105,6 +144,7 @@ class NativeJaxSourceExporter(SourceExporter):
         del compilation_catalog
         catalog = catalog or get_node_catalog()
         nodes = {node.id: node for node in graph.nodes}
+        summaries = self._summary_map(ir)
         lines = [
             "from __future__ import annotations",
             "",
@@ -178,6 +218,7 @@ class NativeJaxSourceExporter(SourceExporter):
                 for binding in item.input_bindings
             ]
             source = source_vars[0] if source_vars else ""
+            source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
             manifest = catalog.get(definition, node.definition_version)
             if manifest.operation is not None:
                 lines.append(
@@ -381,6 +422,72 @@ class NativeJaxSourceExporter(SourceExporter):
                 )
                 if data_format == "channels_first":
                     lines.append(f"        {name} = {name}.transpose(0, 3, 1, 2)")
+                activation = str(params.get("activation", "linear"))
+                if activation != "linear":
+                    lines.append(f"        {name} = {self._activation(activation)}({name})")
+            elif definition in {"conv.conv3d", "conv.depthwise", "conv.separable"}:
+                dimensions = 3 if definition == "conv.conv3d" else int(params.get("dimensions", 2))
+                if source_spec is None or source_spec.rank != dimensions + 2:
+                    raise ValueError(f"Native JAX {definition} node {node.id} expects a rank {dimensions + 2} input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = dimensions + 1 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                if input_channels is None:
+                    raise ValueError(f"Native JAX {definition} node {node.id} requires known input channels")
+                if data_format == "channels_first":
+                    lines.append(f"        {name}_input = {source}.transpose(0, *range(2, {dimensions + 2}), 1)")
+                else:
+                    lines.append(f"        {name}_input = {source}")
+                padding = str(params.get("padding", "same")).upper()
+                kernel_size = self._spatial_values(params, "kernel_size", dimensions, [3] * dimensions)
+                strides = self._spatial_values(params, "strides", dimensions, [1] * dimensions)
+                dilation = self._spatial_values(params, "dilation_rate", dimensions, [1] * dimensions)
+                use_bias = bool(params.get("use_bias", True))
+                if definition == "conv.conv3d":
+                    lines.append(
+                        f"        {name} = nn.Conv(features={int(params.get('filters', 32))}, kernel_size={kernel_size!r}, strides={strides!r}, kernel_dilation={dilation!r}, padding={padding!r}, feature_group_count={int(params.get('groups', 1))}, use_bias={use_bias!r}, name={name!r})({name}_input)"
+                    )
+                elif definition == "conv.depthwise":
+                    depth_multiplier = int(params.get("depth_multiplier", 1))
+                    lines.append(
+                        f"        {name} = nn.Conv(features={input_channels * depth_multiplier}, kernel_size={kernel_size!r}, strides={strides!r}, kernel_dilation={dilation!r}, padding={padding!r}, feature_group_count={input_channels}, use_bias={use_bias!r}, name={name!r})({name}_input)"
+                    )
+                else:
+                    depth_multiplier = int(params.get("depth_multiplier", 1))
+                    depth_channels = input_channels * depth_multiplier
+                    lines.append(
+                        f"        {name}_depthwise = nn.Conv(features={depth_channels}, kernel_size={kernel_size!r}, strides={strides!r}, kernel_dilation={dilation!r}, padding={padding!r}, feature_group_count={input_channels}, use_bias=False, name={name + '_depthwise'!r})({name}_input)"
+                    )
+                    lines.append(
+                        f"        {name} = nn.Conv(features={int(params.get('filters', 32))}, kernel_size={((1,) * dimensions)!r}, strides={((1,) * dimensions)!r}, padding='VALID', use_bias={use_bias!r}, name={name!r})({name}_depthwise)"
+                    )
+                if data_format == "channels_first":
+                    lines.append(f"        {name} = {name}.transpose(0, {dimensions + 1}, *range(1, {dimensions + 1}))")
+                activation = str(params.get("activation", "linear"))
+                if activation != "linear":
+                    lines.append(f"        {name} = {self._activation(activation)}({name})")
+            elif definition == "conv.transposed":
+                dimensions = int(params.get("dimensions", 2))
+                if source_spec is None or source_spec.rank != dimensions + 2:
+                    raise ValueError(f"Native JAX transposed convolution node {node.id} expects a rank {dimensions + 2} input")
+                data_format = str(params.get("data_format", "channels_last"))
+                if data_format == "channels_first":
+                    lines.append(f"        {name}_input = {source}.transpose(0, *range(2, {dimensions + 2}), 1)")
+                else:
+                    lines.append(f"        {name}_input = {source}")
+                kernel_size = self._spatial_values(params, "kernel_size", dimensions, [3] * dimensions)
+                strides = self._spatial_values(params, "strides", dimensions, [1] * dimensions)
+                dilation = self._spatial_values(params, "dilation_rate", dimensions, [1] * dimensions)
+                output_padding = self._spatial_nonnegative(params, "output_padding", dimensions, [0] * dimensions)
+                padding = str(params.get("padding", "valid")).upper()
+                lines.append(
+                    f"        {name} = nn.ConvTranspose(features={int(params.get('filters', 32))}, kernel_size={kernel_size!r}, strides={strides!r}, padding={padding!r}, kernel_dilation={dilation!r}, use_bias={bool(params.get('use_bias', True))!r}, name={name!r})({name}_input)"
+                )
+                if any(output_padding):
+                    pad_width = [(0, 0), *[(0, value) for value in output_padding], (0, 0)]
+                    lines.append(f"        {name} = jnp.pad({name}, {pad_width!r})")
+                if data_format == "channels_first":
+                    lines.append(f"        {name} = {name}.transpose(0, {dimensions + 1}, *range(1, {dimensions + 1}))")
                 activation = str(params.get("activation", "linear"))
                 if activation != "linear":
                     lines.append(f"        {name} = {self._activation(activation)}({name})")

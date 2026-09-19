@@ -124,14 +124,15 @@ def _convolution_size(
     dilation: int,
     padding: str,
     transposed: bool,
+    output_padding: int = 0,
 ) -> int | None:
     if not isinstance(size, int):
         return None
     effective_kernel = dilation * (kernel - 1) + 1
     if transposed:
         if padding == "same":
-            return size * stride
-        return (size - 1) * stride + effective_kernel
+            return size * stride + output_padding
+        return (size - 1) * stride + effective_kernel + output_padding
     if padding == "same":
         return ceil(size / stride)
     result = floor((size - effective_kernel) / stride) + 1
@@ -844,7 +845,9 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             expected_rank = dimensions + 2
             if source.rank != expected_rank:
                 raise ShapeInferenceError(f"{manifest.display_name} expects rank {expected_rank}")
-            filters = _int_parameter(parameters, "filters", 32)
+            depthwise = node.definition_id == "conv.depthwise"
+            separable = node.definition_id == "conv.separable"
+            filters = None if depthwise else _int_parameter(parameters, "filters", 32)
             data_format = str(parameters.get("data_format", "channels_last"))
             if data_format not in {"channels_last", "channels_first"}:
                 raise ShapeInferenceError("data_format must be channels_last or channels_first")
@@ -862,6 +865,27 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             if padding not in {"same", "valid"}:
                 raise ShapeInferenceError("padding must be 'same' or 'valid'")
             transposed = node.definition_id == "conv.transposed"
+            output_padding = [0] * dimensions
+            if transposed:
+                raw_output_padding = parameters.get("output_padding", output_padding)
+                if raw_output_padding is None:
+                    raw_output_padding = output_padding
+                if (
+                    not isinstance(raw_output_padding, list)
+                    or len(raw_output_padding) != dimensions
+                    or any(
+                        not isinstance(item, int)
+                        or isinstance(item, bool)
+                        or item < 0
+                        for item in raw_output_padding
+                    )
+                ):
+                    raise ShapeInferenceError(
+                        f"Parameter 'output_padding' must contain {dimensions} non-negative integers"
+                    )
+                output_padding = [int(item) for item in raw_output_padding]
+                if any(item >= stride for item, stride in zip(output_padding, strides, strict=True)):
+                    raise ShapeInferenceError("output_padding must be smaller than the corresponding stride")
             shape = list(source.shape)
             channel_index = dimensions + 1 if data_format == "channels_last" else 1
             spatial_indices = (
@@ -870,12 +894,23 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 else list(range(2, dimensions + 2))
             )
             input_channels = shape[channel_index]
-            groups = _optional_positive_int(parameters, "groups", 1)
-            if isinstance(input_channels, int):
-                if input_channels % groups != 0:
-                    raise ShapeInferenceError("Input channels must be divisible by groups")
-                if filters % groups != 0:
-                    raise ShapeInferenceError("Filters must be divisible by groups")
+            depth_multiplier = 1
+            if depthwise:
+                depth_multiplier = _optional_positive_int(parameters, "depth_multiplier", 1)
+                groups = input_channels if isinstance(input_channels, int) else None
+                output_channels = (
+                    input_channels * depth_multiplier
+                    if isinstance(input_channels, int)
+                    else None
+                )
+            else:
+                groups = _optional_positive_int(parameters, "groups", 1)
+                output_channels = filters
+                if isinstance(input_channels, int):
+                    if input_channels % groups != 0:
+                        raise ShapeInferenceError("Input channels must be divisible by groups")
+                    if filters is not None and filters % groups != 0:
+                        raise ShapeInferenceError("Filters must be divisible by groups")
             for index, kernel_size, stride, dilation_rate in zip(
                 spatial_indices, kernel, strides, dilation, strict=True
             ):
@@ -886,16 +921,29 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                     dilation=dilation_rate,
                     padding=padding,
                     transposed=transposed,
+                    output_padding=output_padding[spatial_indices.index(index)],
                 )
-            shape[channel_index] = filters
+            shape[channel_index] = output_channels
             output = TensorSpec(shape=shape, dtype=source.dtype)
             kernel_elements = prod(kernel)
-            parameter_count = (
-                kernel_elements * (input_channels // groups) * filters
-                + (filters if parameters.get("use_bias", True) else 0)
-                if isinstance(input_channels, int)
-                else None
-            )
+            if isinstance(input_channels, int) and output_channels is not None:
+                if depthwise:
+                    parameter_count = kernel_elements * input_channels * depth_multiplier
+                    if parameters.get("use_bias", True):
+                        parameter_count += output_channels
+                elif separable:
+                    depth_multiplier = _optional_positive_int(parameters, "depth_multiplier", 1)
+                    depth_channels = input_channels * depth_multiplier
+                    parameter_count = kernel_elements * depth_channels + depth_channels * output_channels
+                    if parameters.get("use_bias", True):
+                        parameter_count += output_channels
+                else:
+                    assert groups is not None
+                    parameter_count = kernel_elements * (input_channels // groups) * output_channels
+                    if parameters.get("use_bias", True):
+                        parameter_count += output_channels
+            else:
+                parameter_count = None
         elif rule == "pool_nd":
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")

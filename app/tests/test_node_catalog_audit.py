@@ -246,6 +246,10 @@ def test_native_shape_layer_mappings_are_declarative() -> None:
         "conv.upsampling": {"tensorflow": "upsampling", "pytorch": "upsampling", "jax": "upsampling"},
         "conv.padding": {"tensorflow": "padding", "pytorch": "padding", "jax": "padding"},
         "conv.cropping": {"tensorflow": "cropping", "pytorch": "cropping", "jax": "cropping"},
+        "conv.conv3d": {"tensorflow": "conv3d", "pytorch": "conv3d", "jax": "conv3d"},
+        "conv.depthwise": {"tensorflow": "depthwise", "pytorch": "depthwise", "jax": "depthwise"},
+        "conv.separable": {"tensorflow": "separable", "pytorch": "separable", "jax": "separable"},
+        "conv.transposed": {"tensorflow": "transposed", "pytorch": "transposed", "jax": "transposed"},
     }
 
     for node_id, adapters in expected.items():

@@ -69,6 +69,24 @@ class NativeTensorFlowSourceExporter(SourceExporter):
 
     # -------------------------------------------------------------------------
     @staticmethod
+    def _spatial_nonnegative(
+        parameters: dict[str, Any],
+        key: str,
+        dimensions: int,
+        default: list[int],
+    ) -> tuple[int, ...]:
+        value = parameters.get(key, default)
+        if value is None:
+            value = default
+        if not isinstance(value, list) or len(value) != dimensions:
+            raise ValueError(f"TensorFlow {key} expects {dimensions} values")
+        values = cast(list[Any], value)
+        if any(not isinstance(item, int) or isinstance(item, bool) or item < 0 for item in values):
+            raise ValueError(f"TensorFlow {key} expects non-negative integer values")
+        return tuple(int(item) for item in values)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
     def _spatial_pairs(parameters: dict[str, Any], key: str, dimensions: int) -> tuple[tuple[int, int], ...]:
         value = parameters.get(key)
         if not isinstance(value, list) or len(value) != dimensions:
@@ -184,6 +202,62 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             "    current = tf.nn.conv2d(current, kernel, strides=[1, strides[0], strides[1], 1], dilations=[1, dilation[0], dilation[1], 1], padding='VALID' if padding == 'same' else padding.upper())",
             "    if bias is not None: current = tf.nn.bias_add(current, bias)",
             "    return tf.transpose(current, [0, 3, 1, 2]) if channels_first else current",
+            "",
+            "",
+            "def _conv3d(value, kernel, bias, strides, dilation, padding, data_format, groups):",
+            "    channels_first = data_format == 'channels_first'",
+            "    current = tf.transpose(value, [0, 2, 3, 4, 1]) if channels_first else value",
+            "    stride_value = [1, strides[0], strides[1], strides[2], 1]",
+            "    dilation_value = [1, dilation[0], dilation[1], dilation[2], 1]",
+            "    if groups == 1:",
+            "        current = tf.nn.conv3d(current, kernel, strides=stride_value, dilations=dilation_value, padding=padding.upper(), data_format='NDHWC')",
+            "    else:",
+            "        current = tf.concat([tf.nn.conv3d(part, kernel_part, strides=stride_value, dilations=dilation_value, padding=padding.upper(), data_format='NDHWC') for part, kernel_part in zip(tf.split(current, groups, axis=4), tf.split(kernel, groups, axis=4))], axis=4)",
+            "    if bias is not None: current = tf.nn.bias_add(current, bias, data_format='NDHWC')",
+            "    return tf.transpose(current, [0, 4, 1, 2, 3]) if channels_first else current",
+            "",
+            "",
+            "def _depthwise(value, kernel, bias, strides, dilation, padding, data_format, dimensions):",
+            "    channels_first = data_format == 'channels_first'",
+            "    if dimensions == 1:",
+            "        current = tf.transpose(value, [0, 2, 1]) if channels_first else value",
+            "        current = tf.expand_dims(current, axis=1)",
+            "        current = tf.raw_ops.DepthwiseConv2dNative(input=current, filter=kernel[None, ...], strides=[1, 1, strides[0], 1], dilations=[1, 1, dilation[0], 1], padding=padding.upper())",
+            "        current = tf.squeeze(current, axis=1)",
+            "        if bias is not None: current = tf.nn.bias_add(current, bias, data_format='NWC')",
+            "        return tf.transpose(current, [0, 2, 1]) if channels_first else current",
+            "    current = tf.transpose(value, [0, 2, 3, 1]) if channels_first else value",
+            "    current = tf.raw_ops.DepthwiseConv2dNative(input=current, filter=kernel, strides=[1, strides[0], strides[1], 1], dilations=[1, dilation[0], dilation[1], 1], padding=padding.upper())",
+            "    if bias is not None: current = tf.nn.bias_add(current, bias, data_format='NHWC')",
+            "    return tf.transpose(current, [0, 3, 1, 2]) if channels_first else current",
+            "",
+            "",
+            "def _separable(value, depthwise_kernel, pointwise_kernel, bias, strides, dilation, padding, data_format, dimensions):",
+            "    current = _depthwise(value, depthwise_kernel, None, strides, dilation, padding, data_format, dimensions)",
+            "    if dimensions == 1:",
+            "        return _conv1d(current, pointwise_kernel, bias, 1, 1, 'valid', data_format, 1)",
+            "    return _conv2d(current, pointwise_kernel, bias, (1, 1), (1, 1), 'valid', data_format)",
+            "",
+            "",
+            "def _transposed(value, kernel, bias, filters, strides, dilation, padding, output_padding, data_format, dimensions):",
+            "    channels_first = data_format == 'channels_first'",
+            "    if channels_first:",
+            "        value = tf.transpose(value, [0, *range(2, dimensions + 2), 1])",
+            "    input_shape = tf.shape(value)",
+            "    output_spatial = []",
+            "    for index in range(dimensions):",
+            "        effective_kernel = dilation[index] * (kernel.shape[index] - 1) + 1",
+            "        output_size = input_shape[index + 1] * strides[index] if padding == 'same' else (input_shape[index + 1] - 1) * strides[index] + effective_kernel",
+            "        if output_padding is not None: output_size = output_size + output_padding[index]",
+            "        output_spatial.append(output_size)",
+            "    output_shape = tf.stack([input_shape[0], *output_spatial, filters])",
+            "    operation = getattr(tf.nn, f'conv{dimensions}d_transpose')",
+            "    strides_value = strides[0] if dimensions == 1 else [1, *strides, 1]",
+            "    dilation_value = dilation[0] if dimensions == 1 else [1, *dilation, 1]",
+            "    current = operation(value, kernel, output_shape=output_shape, strides=strides_value, padding=padding.upper(), dilations=dilation_value, data_format={1: 'NWC', 2: 'NHWC', 3: 'NDHWC'}[dimensions])",
+            "    if bias is not None: current = tf.nn.bias_add(current, bias, data_format={1: 'NWC', 2: 'NHWC', 3: 'NDHWC'}[dimensions])",
+            "    if channels_first: current = tf.transpose(current, [0, dimensions + 1, *range(1, dimensions + 1)])",
+            "    return current",
             "",
             "",
             "def _same_pad_1d(value, kernel_size, stride, dilation, fill_value=0.0):",
@@ -482,6 +556,99 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     if bool(params.get("center", True))
                     else f"        self.{name}_beta = None"
                 )
+            elif definition == "conv.conv3d":
+                if source_spec is None or source_spec.rank != 5:
+                    raise ValueError(f"TensorFlow Conv3D node {node.id} requires a rank-5 input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = 4 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                if input_channels is None:
+                    raise ValueError(f"TensorFlow Conv3D node {node.id} requires known input channels")
+                kernel_size = self._spatial_values(params, "kernel_size", 3, [3, 3, 3])
+                filters = int(params.get("filters", 32))
+                groups = int(params.get("groups", 1))
+                if input_channels % groups != 0 or filters % groups != 0:
+                    raise ValueError("TensorFlow Conv3D channels and filters must be divisible by groups")
+                lines.append(
+                    f"        self.{name}_kernel = tf.Variable(tf.zeros([{kernel_size[0]}, {kernel_size[1]}, {kernel_size[2]}, {input_channels // groups}, {filters}], tf.float32), name={name + '_kernel'!r})"
+                )
+                lines.append(
+                    f"        self.{name}_bias = tf.Variable(tf.zeros([{filters}], tf.float32), name={name + '_bias'!r})"
+                    if bool(params.get("use_bias", True))
+                    else f"        self.{name}_bias = None"
+                )
+            elif definition == "conv.depthwise":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow depthwise node {node.id} requires a known input shape")
+                dimensions = int(params.get("dimensions", 2))
+                if dimensions not in {1, 2} or source_spec.rank != dimensions + 2:
+                    raise ValueError(f"TensorFlow depthwise node {node.id} expects a rank {dimensions + 2} input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = dimensions + 1 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                if input_channels is None:
+                    raise ValueError(f"TensorFlow depthwise node {node.id} requires known input channels")
+                kernel_size = self._spatial_values(params, "kernel_size", dimensions, [3] * dimensions)
+                depth_multiplier = int(params.get("depth_multiplier", 1))
+                kernel_shape = (*kernel_size, input_channels, depth_multiplier)
+                lines.append(
+                    f"        self.{name}_depthwise_kernel = tf.Variable(tf.zeros({kernel_shape!r}, tf.float32), name={name + '_depthwise_kernel'!r})"
+                )
+                output_channels = input_channels * depth_multiplier
+                lines.append(
+                    f"        self.{name}_bias = tf.Variable(tf.zeros([{output_channels}], tf.float32), name={name + '_bias'!r})"
+                    if bool(params.get("use_bias", True))
+                    else f"        self.{name}_bias = None"
+                )
+            elif definition == "conv.separable":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow separable node {node.id} requires a known input shape")
+                dimensions = int(params.get("dimensions", 2))
+                if dimensions not in {1, 2} or source_spec.rank != dimensions + 2:
+                    raise ValueError(f"TensorFlow separable node {node.id} expects a rank {dimensions + 2} input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = dimensions + 1 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                if input_channels is None:
+                    raise ValueError(f"TensorFlow separable node {node.id} requires known input channels")
+                kernel_size = self._spatial_values(params, "kernel_size", dimensions, [3] * dimensions)
+                depth_multiplier = int(params.get("depth_multiplier", 1))
+                filters = int(params.get("filters", 32))
+                depth_channels = input_channels * depth_multiplier
+                depthwise_shape = (*kernel_size, input_channels, depth_multiplier)
+                pointwise_shape = (*([1] * dimensions), depth_channels, filters)
+                lines.append(
+                    f"        self.{name}_depthwise_kernel = tf.Variable(tf.zeros({depthwise_shape!r}, tf.float32), name={name + '_depthwise_kernel'!r})"
+                )
+                lines.append(
+                    f"        self.{name}_pointwise_kernel = tf.Variable(tf.zeros({pointwise_shape!r}, tf.float32), name={name + '_pointwise_kernel'!r})"
+                )
+                lines.append(
+                    f"        self.{name}_bias = tf.Variable(tf.zeros([{filters}], tf.float32), name={name + '_bias'!r})"
+                    if bool(params.get("use_bias", True))
+                    else f"        self.{name}_bias = None"
+                )
+            elif definition == "conv.transposed":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow transposed convolution node {node.id} requires a known input shape")
+                dimensions = int(params.get("dimensions", 2))
+                if dimensions not in {1, 2, 3} or source_spec.rank != dimensions + 2:
+                    raise ValueError(f"TensorFlow transposed convolution node {node.id} expects a rank {dimensions + 2} input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = dimensions + 1 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                if input_channels is None:
+                    raise ValueError(f"TensorFlow transposed convolution node {node.id} requires known input channels")
+                kernel_size = self._spatial_values(params, "kernel_size", dimensions, [3] * dimensions)
+                filters = int(params.get("filters", 32))
+                lines.append(
+                    f"        self.{name}_kernel = tf.Variable(tf.zeros({(*kernel_size, filters, input_channels)!r}, tf.float32), name={name + '_kernel'!r})"
+                )
+                lines.append(
+                    f"        self.{name}_bias = tf.Variable(tf.zeros([{filters}], tf.float32), name={name + '_bias'!r})"
+                    if bool(params.get("use_bias", True))
+                    else f"        self.{name}_bias = None"
+                )
             elif definition == "conv.conv1d":
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"TensorFlow Conv1D node {node.id} requires a rank-3 input")
@@ -722,6 +889,61 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 data_format = str(params.get("data_format", "channels_last"))
                 lines.append(
                     f"        {name} = _conv2d({source}, self.{name}_kernel, self.{name}_bias, {strides!r}, {dilation!r}, {padding!r}, {data_format!r})"
+                )
+                activation = str(params.get("activation", "linear"))
+                if activation != "linear":
+                    lines.append(f"        {name} = _activation({name}, {activation!r})")
+            elif definition == "conv.conv3d":
+                strides = self._spatial_values(params, "strides", 3, [1, 1, 1])
+                dilation = self._spatial_values(params, "dilation_rate", 3, [1, 1, 1])
+                padding = str(params.get("padding", "same"))
+                data_format = str(params.get("data_format", "channels_last"))
+                groups = int(params.get("groups", 1))
+                lines.append(
+                    f"        {name} = _conv3d({source}, self.{name}_kernel, self.{name}_bias, {strides!r}, {dilation!r}, {padding!r}, {data_format!r}, {groups!r})"
+                )
+                activation = str(params.get("activation", "linear"))
+                if activation != "linear":
+                    lines.append(f"        {name} = _activation({name}, {activation!r})")
+            elif definition == "conv.depthwise":
+                dimensions = int(params.get("dimensions", 2))
+                strides = self._spatial_values(params, "strides", dimensions, [1] * dimensions)
+                dilation = self._spatial_values(params, "dilation_rate", dimensions, [1] * dimensions)
+                padding = str(params.get("padding", "same"))
+                data_format = str(params.get("data_format", "channels_last"))
+                lines.append(
+                    f"        {name} = _depthwise({source}, self.{name}_depthwise_kernel, self.{name}_bias, {strides!r}, {dilation!r}, {padding!r}, {data_format!r}, {dimensions!r})"
+                )
+                activation = str(params.get("activation", "linear"))
+                if activation != "linear":
+                    lines.append(f"        {name} = _activation({name}, {activation!r})")
+            elif definition == "conv.separable":
+                dimensions = int(params.get("dimensions", 2))
+                strides = self._spatial_values(params, "strides", dimensions, [1] * dimensions)
+                dilation = self._spatial_values(params, "dilation_rate", dimensions, [1] * dimensions)
+                padding = str(params.get("padding", "same"))
+                data_format = str(params.get("data_format", "channels_last"))
+                lines.append(
+                    f"        {name} = _separable({source}, self.{name}_depthwise_kernel, self.{name}_pointwise_kernel, self.{name}_bias, {strides!r}, {dilation!r}, {padding!r}, {data_format!r}, {dimensions!r})"
+                )
+                activation = str(params.get("activation", "linear"))
+                if activation != "linear":
+                    lines.append(f"        {name} = _activation({name}, {activation!r})")
+            elif definition == "conv.transposed":
+                dimensions = int(params.get("dimensions", 2))
+                strides = self._spatial_values(params, "strides", dimensions, [1] * dimensions)
+                dilation = self._spatial_values(params, "dilation_rate", dimensions, [1] * dimensions)
+                padding = str(params.get("padding", "valid"))
+                data_format = str(params.get("data_format", "channels_last"))
+                output_padding_value = params.get("output_padding")
+                output_padding = (
+                    None
+                    if output_padding_value is None
+                    else self._spatial_nonnegative(params, "output_padding", dimensions, [0] * dimensions)
+                )
+                filters = int(params.get("filters", 32))
+                lines.append(
+                    f"        {name} = _transposed({source}, self.{name}_kernel, self.{name}_bias, {filters!r}, {strides!r}, {dilation!r}, {padding!r}, {output_padding!r}, {data_format!r}, {dimensions!r})"
                 )
                 activation = str(params.get("activation", "linear"))
                 if activation != "linear":

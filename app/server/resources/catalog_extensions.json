@@ -158,6 +158,10 @@
     "pytorch": {
       "conv.conv1d": "conv1d",
       "conv.conv2d": "conv2d",
+      "conv.conv3d": "conv3d",
+      "conv.depthwise": "depthwise",
+      "conv.separable": "separable",
+      "conv.transposed": "transposed",
       "conv.max_pool2d": "pool_nd",
       "layer.activation": "activation",
       "layer.batch_norm": "batch_norm",
@@ -187,6 +191,10 @@
   "capabilities": {
     "conv.conv1d": {"implementations": {"pytorch": {"supported": true, "parameters": {"activation": {"allowed_values": ["linear", "relu", "gelu", "sigmoid", "tanh", "softmax"], "notes": "The native PyTorch adapter supports the listed activation functions."}}}}},
     "conv.conv2d": {"implementations": {"tensorflow": {"supported": true, "symbol": "tf.nn.conv2d", "adapter": "conv2d"}, "jax": {"supported": true, "symbol": "nn.Conv", "adapter": "conv2d"}, "pytorch": {"supported": true, "parameters": {"activation": {"allowed_values": ["linear", "relu", "gelu", "sigmoid", "tanh", "softmax"], "notes": "The native PyTorch adapter supports the listed activation functions."}}}}},
+    "conv.conv3d": {"implementations": {"tensorflow": {"supported": true, "symbol": "tf.nn.conv3d", "adapter": "conv3d"}, "pytorch": {"supported": true, "symbol": "torch.nn.Conv3d", "adapter": "conv3d"}, "jax": {"supported": true, "symbol": "nn.Conv", "adapter": "conv3d"}}},
+    "conv.depthwise": {"implementations": {"tensorflow": {"supported": true, "symbol": "tf.nn.depthwise_conv2d", "adapter": "depthwise"}, "pytorch": {"supported": true, "symbol": "torch.nn.Conv2d", "adapter": "depthwise"}, "jax": {"supported": true, "symbol": "nn.Conv", "adapter": "depthwise"}}},
+    "conv.separable": {"implementations": {"tensorflow": {"supported": true, "symbol": "tf.nn.separable_conv2d", "adapter": "separable"}, "pytorch": {"supported": true, "symbol": "torch.nn.Conv2d", "adapter": "separable"}, "jax": {"supported": true, "symbol": "nn.Conv", "adapter": "separable"}}},
+    "conv.transposed": {"implementations": {"tensorflow": {"supported": true, "symbol": "tf.nn.conv2d_transpose", "adapter": "transposed"}, "pytorch": {"supported": true, "symbol": "torch.nn.ConvTranspose2d", "adapter": "transposed"}, "jax": {"supported": true, "symbol": "nn.ConvTranspose", "adapter": "transposed"}}},
     "conv.max_pool1d": {"implementations": {"tensorflow": {"supported": true, "symbol": "tf.nn.max_pool1d", "adapter": "pool_nd"}, "pytorch": {"supported": true, "symbol": "torch.nn.functional.max_pool1d", "adapter": "pool_nd"}, "jax": {"supported": true, "symbol": "nn.max_pool", "adapter": "pool_nd"}}},
     "conv.max_pool2d": {"implementations": {"tensorflow": {"supported": true, "symbol": "tf.nn.max_pool2d", "adapter": "pool_nd"}, "pytorch": {"supported": true, "symbol": "torch.nn.functional.max_pool2d", "adapter": "pool_nd"}, "jax": {"supported": true, "symbol": "nn.max_pool", "adapter": "pool_nd"}}},
     "conv.max_pool3d": {"implementations": {"tensorflow": {"supported": true, "symbol": "tf.nn.max_pool3d", "adapter": "pool_nd"}, "pytorch": {"supported": true, "symbol": "torch.nn.functional.max_pool3d", "adapter": "pool_nd"}, "jax": {"supported": true, "symbol": "nn.max_pool", "adapter": "pool_nd"}}},

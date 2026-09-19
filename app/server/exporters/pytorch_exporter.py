@@ -77,6 +77,24 @@ class PyTorchSourceExporter(SourceExporter):
 
     # -------------------------------------------------------------------------
     @staticmethod
+    def _spatial_nonnegative(
+        parameters: dict[str, Any],
+        key: str,
+        dimensions: int,
+        default: list[int],
+    ) -> tuple[int, ...]:
+        value = parameters.get(key, default)
+        if value is None:
+            value = default
+        if not isinstance(value, list) or len(value) != dimensions:
+            raise ValueError(f"PyTorch {key} expects {dimensions} values")
+        values = cast(list[Any], value)
+        if any(not isinstance(item, int) or isinstance(item, bool) or item < 0 for item in values):
+            raise ValueError(f"PyTorch {key} expects non-negative integer values")
+        return tuple(int(item) for item in values)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
     def _spatial_pairs(parameters: dict[str, Any], key: str, dimensions: int) -> tuple[tuple[int, int], ...]:
         value = parameters.get(key)
         if not isinstance(value, list) or len(value) != dimensions:
@@ -263,17 +281,26 @@ class PyTorchSourceExporter(SourceExporter):
             "    return F.pad(value, (left, total - left), value=fill_value)",
             "",
             "",
-            "def _same_pad_nd(value: Tensor, kernel_size: tuple[int, ...], stride: tuple[int, ...], fill_value: float = 0.0) -> Tensor:",
+            "def _same_pad_nd(value: Tensor, kernel_size: tuple[int, ...], stride: tuple[int, ...], fill_value: float = 0.0, dilation: tuple[int, ...] | None = None) -> Tensor:",
             "    pairs = []",
             "    dimensions = len(kernel_size)",
+            "    dilation = dilation or (1,) * dimensions",
             "    for index in range(dimensions):",
             "        size = value.shape[-dimensions + index]",
             "        output_size = (size + stride[index] - 1) // stride[index]",
-            "        total = max((output_size - 1) * stride[index] + kernel_size[index] - size, 0)",
+            "        effective_kernel = dilation[index] * (kernel_size[index] - 1) + 1",
+            "        total = max((output_size - 1) * stride[index] + effective_kernel - size, 0)",
             "        left = total // 2",
             "        pairs.append((left, total - left))",
             "    padding = [item for pair in reversed(pairs) for item in pair]",
             "    return F.pad(value, padding, value=fill_value)",
+            "",
+            "",
+            "def _crop_transposed_same(value: Tensor, input_shape: torch.Size, stride: tuple[int, ...], output_padding: tuple[int, ...]) -> Tensor:",
+            "    slices = [slice(None)] * (len(stride) + 2)",
+            "    for index, multiplier in enumerate(stride):",
+            "        slices[index + 2] = slice(0, input_shape[index + 2] * multiplier + output_padding[index])",
+            "    return value[tuple(slices)]",
             "",
             "",
             "def _pool_nd(value: Tensor, pool_size: tuple[int, ...], strides: tuple[int, ...], padding: str, data_format: str, mode: str) -> Tensor:",
@@ -495,6 +522,97 @@ class PyTorchSourceExporter(SourceExporter):
             elif definition == "layer.embedding":
                 lines.append(
                     f"        self.{name} = nn.Embedding({int(params.get('vocabulary_size', 10000))!r}, {int(params.get('embedding_dim', 128))!r})"
+                )
+            elif definition == "conv.conv3d":
+                if source_spec is None or source_spec.rank != 5:
+                    raise ValueError(f"PyTorch Conv3D node {node.id} requires a rank-5 input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = 4 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                kernel_size = self._spatial_values(params, "kernel_size", 3, [3, 3, 3])
+                strides = self._spatial_values(params, "strides", 3, [1, 1, 1])
+                dilation = self._spatial_values(params, "dilation_rate", 3, [1, 1, 1])
+                filters = int(params.get("filters", 32))
+                groups = int(params.get("groups", 1))
+                bias = bool(params.get("use_bias", True))
+                if input_channels is None and groups != 1:
+                    raise ValueError("PyTorch LazyConv3d cannot infer grouped input channels")
+                module = "nn.Conv3d" if input_channels is not None else "nn.LazyConv3d"
+                constructor = (
+                    f"{input_channels!r}, {filters!r}"
+                    if input_channels is not None
+                    else f"{filters!r}"
+                )
+                lines.append(
+                    f"        self.{name} = {module}({constructor}, kernel_size={kernel_size!r}, stride={strides!r}, padding=0, dilation={dilation!r}, groups={groups!r}, bias={bias!r})"
+                )
+            elif definition == "conv.depthwise":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch depthwise node {node.id} requires a known input shape")
+                dimensions = int(params.get("dimensions", 2))
+                if dimensions not in {1, 2} or source_spec.rank != dimensions + 2:
+                    raise ValueError(f"PyTorch depthwise node {node.id} expects a rank {dimensions + 2} input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = dimensions + 1 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                if input_channels is None:
+                    raise ValueError(f"PyTorch depthwise node {node.id} requires known input channels")
+                kernel_size = self._spatial_values(params, "kernel_size", dimensions, [3] * dimensions)
+                strides = self._spatial_values(params, "strides", dimensions, [1] * dimensions)
+                dilation = self._spatial_values(params, "dilation_rate", dimensions, [1] * dimensions)
+                depth_multiplier = int(params.get("depth_multiplier", 1))
+                module = f"nn.Conv{dimensions}d"
+                output_channels = input_channels * depth_multiplier
+                lines.append(
+                    f"        self.{name} = {module}({input_channels!r}, {output_channels!r}, kernel_size={kernel_size!r}, stride={strides!r}, padding=0, dilation={dilation!r}, groups={input_channels!r}, bias={bool(params.get('use_bias', True))!r})"
+                )
+            elif definition == "conv.separable":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch separable node {node.id} requires a known input shape")
+                dimensions = int(params.get("dimensions", 2))
+                if dimensions not in {1, 2} or source_spec.rank != dimensions + 2:
+                    raise ValueError(f"PyTorch separable node {node.id} expects a rank {dimensions + 2} input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = dimensions + 1 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                if input_channels is None:
+                    raise ValueError(f"PyTorch separable node {node.id} requires known input channels")
+                kernel_size = self._spatial_values(params, "kernel_size", dimensions, [3] * dimensions)
+                strides = self._spatial_values(params, "strides", dimensions, [1] * dimensions)
+                dilation = self._spatial_values(params, "dilation_rate", dimensions, [1] * dimensions)
+                depth_multiplier = int(params.get("depth_multiplier", 1))
+                filters = int(params.get("filters", 32))
+                depth_channels = input_channels * depth_multiplier
+                module = f"nn.Conv{dimensions}d"
+                lines.append(
+                    f"        self.{name}_depthwise = {module}({input_channels!r}, {depth_channels!r}, kernel_size={kernel_size!r}, stride={strides!r}, padding=0, dilation={dilation!r}, groups={input_channels!r}, bias=False)"
+                )
+                lines.append(
+                    f"        self.{name}_pointwise = {module}({depth_channels!r}, {filters!r}, kernel_size={((1,) * dimensions)!r}, stride={((1,) * dimensions)!r}, padding=0, bias={bool(params.get('use_bias', True))!r})"
+                )
+            elif definition == "conv.transposed":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch transposed convolution node {node.id} requires a known input shape")
+                dimensions = int(params.get("dimensions", 2))
+                if dimensions not in {1, 2, 3} or source_spec.rank != dimensions + 2:
+                    raise ValueError(f"PyTorch transposed convolution node {node.id} expects a rank {dimensions + 2} input")
+                data_format = str(params.get("data_format", "channels_last"))
+                channel_index = dimensions + 1 if data_format == "channels_last" else 1
+                input_channels = self._static_dimension(source_spec, channel_index)
+                if input_channels is None:
+                    raise ValueError(f"PyTorch transposed convolution node {node.id} requires known input channels")
+                kernel_size = self._spatial_values(params, "kernel_size", dimensions, [3] * dimensions)
+                strides = self._spatial_values(params, "strides", dimensions, [1] * dimensions)
+                dilation = self._spatial_values(params, "dilation_rate", dimensions, [1] * dimensions)
+                output_padding_value = params.get("output_padding")
+                output_padding = (
+                    (0,) * dimensions
+                    if output_padding_value is None
+                    else self._spatial_nonnegative(params, "output_padding", dimensions, [0] * dimensions)
+                )
+                filters = int(params.get("filters", 32))
+                lines.append(
+                    f"        self.{name} = nn.ConvTranspose{dimensions}d({input_channels!r}, {filters!r}, kernel_size={kernel_size!r}, stride={strides!r}, padding=0, output_padding={output_padding!r}, groups=1, dilation={dilation!r}, bias={bool(params.get('use_bias', True))!r})"
                 )
             elif definition == "conv.conv1d":
                 if source_spec is None or source_spec.rank != 3:
@@ -764,6 +882,65 @@ class PyTorchSourceExporter(SourceExporter):
                 lines.append(f"        {name} = self.{name}({conv_input})")
                 if data_format == "channels_last":
                     lines.append(f"        {name} = {name}.permute(0, 2, 3, 1).contiguous()")
+                activation = params.get("activation", "linear")
+                if activation != "linear":
+                    lines.append(f"        {name} = ({self._activation(str(activation))})({name})")
+                variables[item.node_id] = name
+            elif definition in {"conv.conv3d", "conv.depthwise", "conv.separable"}:
+                dimensions = 3 if definition == "conv.conv3d" else int(params.get("dimensions", 2))
+                data_format = str(params.get("data_format", "channels_last"))
+                kernel_size = self._spatial_values(params, "kernel_size", dimensions, [3] * dimensions)
+                strides = self._spatial_values(params, "strides", dimensions, [1] * dimensions)
+                dilation = self._spatial_values(params, "dilation_rate", dimensions, [1] * dimensions)
+                padding = str(params.get("padding", "same"))
+                conv_input = f"{name}_input"
+                lines.append(f"        {conv_input} = {source}")
+                if data_format == "channels_last":
+                    lines.append(
+                        f"        {conv_input} = {conv_input}.permute((0, {dimensions + 1}, *range(1, {dimensions + 1}))).contiguous()"
+                    )
+                if padding == "same":
+                    lines.append(
+                        f"        {conv_input} = _same_pad_nd({conv_input}, {kernel_size!r}, {strides!r}, 0.0, {dilation!r})"
+                    )
+                if definition == "conv.separable":
+                    lines.append(f"        {name} = self.{name}_pointwise(self.{name}_depthwise({conv_input}))")
+                else:
+                    lines.append(f"        {name} = self.{name}({conv_input})")
+                if data_format == "channels_last":
+                    lines.append(
+                        f"        {name} = {name}.permute((0, *range(2, {dimensions + 2}), 1)).contiguous()"
+                    )
+                activation = params.get("activation", "linear")
+                if activation != "linear":
+                    lines.append(f"        {name} = ({self._activation(str(activation))})({name})")
+                variables[item.node_id] = name
+            elif definition == "conv.transposed":
+                dimensions = int(params.get("dimensions", 2))
+                data_format = str(params.get("data_format", "channels_last"))
+                strides = self._spatial_values(params, "strides", dimensions, [1] * dimensions)
+                padding = str(params.get("padding", "valid"))
+                output_padding_value = params.get("output_padding")
+                output_padding = (
+                    (0,) * dimensions
+                    if output_padding_value is None
+                    else self._spatial_nonnegative(params, "output_padding", dimensions, [0] * dimensions)
+                )
+                conv_input = f"{name}_input"
+                lines.append(f"        {conv_input} = {source}")
+                if data_format == "channels_last":
+                    lines.append(
+                        f"        {conv_input} = {conv_input}.permute((0, {dimensions + 1}, *range(1, {dimensions + 1}))).contiguous()"
+                    )
+                lines.append(f"        {name} = self.{name}({conv_input})")
+                if padding == "same":
+                    lines.append(
+                        f"        {name} = _crop_transposed_same({name}, {conv_input}.shape, {strides!r}, {output_padding!r})"
+                    )
+                if data_format == "channels_last":
+                    lines.append(
+                        f"        {name} = {name}.permute((0, *range(2, {dimensions + 2}), 1)).contiguous()"
+                    )
                 activation = params.get("activation", "linear")
                 if activation != "linear":
                     lines.append(f"        {name} = ({self._activation(str(activation))})({name})")
