@@ -1,10 +1,14 @@
 import { Inject, Injectable } from '@angular/core'
-import type { CompositeNodeComponent, CustomNodeDefinition } from '../../../domain/custom-node.types'
+import type {
+  CustomNodeDefinition,
+  GraphTemplateComponent,
+  GraphTemplateNodeSpec,
+} from '../../../domain/custom-node.types'
 import { effectiveParameterDefault, resolveParameterCompatibility, type NodeManifest, type PortDefinition } from '../../../domain/types'
 import { GraphEditorStore } from '../state/graph-editor.store'
 
 interface ResolvedComponent {
-  definition: CompositeNodeComponent
+  definition: GraphTemplateComponent
   manifest: NodeManifest
   parameters: Record<string, unknown>
 }
@@ -36,16 +40,16 @@ export class CustomNodeMaterializerService {
           this.store.nodeParametersFor(manifest, { expression: definition.spec.expression }),
         )
       }
-      if (definition.spec.type === 'composite') {
+      if (definition.spec.type === 'graph_template') {
         if (!definition.spec.components.length) {
-          return { available: false, reason: 'A composite template must contain at least one built-in component.' }
+          return { available: false, reason: 'A graph template must contain at least one built-in component.' }
         }
         const resolved = this.resolveComponents(definition.spec.components)
         for (const component of resolved) {
           const result = this.componentCompatibility(component.manifest, component.parameters)
           if (!result.available) return result
         }
-        this.resolvedPortPairs(resolved)
+        this.validateGraphTemplate(definition.spec, resolved)
         return { available: true, reason: '' }
       }
       return {
@@ -66,8 +70,8 @@ export class CustomNodeMaterializerService {
         this.materializeMathematical(definition, position)
         return
       }
-      if (definition.spec.type === 'composite') {
-        this.materializeComposite(definition, position)
+      if (definition.spec.type === 'graph_template') {
+        this.materializeGraphTemplate(definition, position)
         return
       }
       throw new Error(
@@ -97,15 +101,17 @@ export class CustomNodeMaterializerService {
     })) throw new Error('The mathematical template could not be applied to the active execution profile.')
   }
 
-  private materializeComposite(
+  private materializeGraphTemplate(
     definition: CustomNodeDefinition,
     position: { x: number; y: number },
   ): void {
-    if (definition.spec.type !== 'composite') return
+    if (definition.spec.type !== 'graph_template') return
     const resolved = this.resolveComponents(definition.spec.components)
-    if (!resolved.length) throw new Error('A composite template must contain at least one built-in component.')
-    const portPairs = this.resolvedPortPairs(resolved)
-    const nodeIds = resolved.map((component, index) => {
+    if (!resolved.length) throw new Error('A graph template must contain at least one built-in component.')
+    this.validateGraphTemplate(definition.spec, resolved)
+    const byId = new Map(resolved.map((component) => [component.definition.id, component]))
+    const nodeIds = new Map<string, string>()
+    this.topologicalComponents(definition.spec, resolved).forEach((component, index) => {
       const nodeId = this.store.addNode(component.manifest, {
         x: position.x + index * 280,
         y: position.y,
@@ -117,22 +123,27 @@ export class CustomNodeMaterializerService {
           : component.manifest.display_name),
         parameters: structuredClone(component.parameters),
       })) throw new Error(`Could not apply ${component.manifest.display_name} to the active execution profile.`)
-      return nodeId
+      nodeIds.set(component.definition.id, nodeId)
     })
-    portPairs.forEach((pair, index) => {
+    definition.spec.edges.forEach((edge) => {
+      const sourceNodeId = nodeIds.get(edge.source_component_id)
+      const targetNodeId = nodeIds.get(edge.target_component_id)
+      if (!sourceNodeId || !targetNodeId || !byId.has(edge.source_component_id) || !byId.has(edge.target_component_id)) {
+        throw new Error('Graph template edge references a component that was not materialized.')
+      }
       const result = this.store.connect({
-        source: nodeIds[index],
-        sourceHandle: pair.sourceHandle,
-        target: nodeIds[index + 1],
-        targetHandle: pair.targetHandle,
+        source: sourceNodeId,
+        sourceHandle: edge.source_port_id,
+        target: targetNodeId,
+        targetHandle: edge.target_port_id,
       })
       if (!result.valid) {
-        throw new Error(`Could not connect sequential template components: ${result.message}`)
+        throw new Error(`Could not connect graph template components: ${result.message}`)
       }
     })
   }
 
-  private resolveComponents(components: CompositeNodeComponent[]): ResolvedComponent[] {
+  private resolveComponents(components: GraphTemplateComponent[]): ResolvedComponent[] {
     return components.map((component) => {
       const manifest = this.manifest(component.definition_id, component.definition_version)
       return {
@@ -143,10 +154,76 @@ export class CustomNodeMaterializerService {
     })
   }
 
-  private resolvedPortPairs(resolved: ResolvedComponent[]): { sourceHandle: string; targetHandle: string }[] {
-    return resolved.slice(0, -1).map((component, index) =>
-      this.compatiblePorts(component, resolved[index + 1]),
-    )
+  private validateGraphTemplate(spec: GraphTemplateNodeSpec, resolved: ResolvedComponent[]): void {
+    const byId = new Map(resolved.map((component) => [component.definition.id, component]))
+    for (const edge of spec.edges) {
+      const source = byId.get(edge.source_component_id)
+      const target = byId.get(edge.target_component_id)
+      if (!source || !target) throw new Error('Graph template edge references an unknown component.')
+      const sourcePort = source.manifest.outputs.find(
+        (port) => port.id === edge.source_port_id && this.portEnabled(port, source.parameters),
+      )
+      const targetPort = target.manifest.inputs.find(
+        (port) => port.id === edge.target_port_id && this.portEnabled(port, target.parameters),
+      )
+      if (!sourcePort || !targetPort) {
+        throw new Error(
+          `Graph template edge references an unavailable port: ${edge.source_component_id}.${edge.source_port_id} -> ${edge.target_component_id}.${edge.target_port_id}`,
+        )
+      }
+      const expected = targetPort.kind === 'tensor_list'
+        ? targetPort.element_kind ?? 'tensor'
+        : targetPort.kind
+      if (sourcePort.kind !== expected) {
+        throw new Error(
+          `Graph template edge ${edge.source_component_id}.${edge.source_port_id} -> ${edge.target_component_id}.${edge.target_port_id} has incompatible port kinds.`,
+        )
+      }
+    }
+    for (const binding of [...spec.input_bindings, ...spec.output_bindings]) {
+      const component = byId.get(binding.component_id)
+      if (!component) throw new Error('Graph template binding references an unknown component.')
+      const ports = spec.input_bindings.includes(binding)
+        ? component.manifest.inputs
+        : component.manifest.outputs
+      if (!ports.some((port) => port.id === binding.port_id && this.portEnabled(port, component.parameters))) {
+        throw new Error(`Graph template binding references an unavailable port: ${binding.component_id}.${binding.port_id}`)
+      }
+    }
+  }
+
+  private topologicalComponents(
+    spec: GraphTemplateNodeSpec,
+    resolved: ResolvedComponent[],
+  ): ResolvedComponent[] {
+    const byId = new Map(resolved.map((component) => [component.definition.id, component]))
+    const indegree = new Map(resolved.map((component) => [component.definition.id, 0]))
+    const adjacency = new Map(resolved.map((component) => [component.definition.id, new Set<string>()]))
+    for (const edge of spec.edges) {
+      const targets = adjacency.get(edge.source_component_id)
+      if (!targets || !indegree.has(edge.target_component_id)) throw new Error('Graph template edge references an unknown component.')
+      if (!targets.has(edge.target_component_id)) {
+        targets.add(edge.target_component_id)
+        indegree.set(edge.target_component_id, (indegree.get(edge.target_component_id) ?? 0) + 1)
+      }
+    }
+    const pending = resolved.filter((component) => indegree.get(component.definition.id) === 0)
+    const ordered: ResolvedComponent[] = []
+    while (pending.length) {
+      const component = pending.shift()
+      if (!component) continue
+      ordered.push(component)
+      for (const targetId of adjacency.get(component.definition.id) ?? []) {
+        const nextDegree = (indegree.get(targetId) ?? 0) - 1
+        indegree.set(targetId, nextDegree)
+        if (nextDegree === 0) {
+          const target = byId.get(targetId)
+          if (target) pending.push(target)
+        }
+      }
+    }
+    if (ordered.length !== resolved.length) throw new Error('Graph template contains a cycle.')
+    return ordered
   }
 
   private componentCompatibility(
@@ -178,31 +255,6 @@ export class CustomNodeMaterializerService {
       }
     }
     return { available: false, reason: 'This template contains parameters that are unavailable for the active execution profile.' }
-  }
-
-  private compatiblePorts(
-    source: ResolvedComponent,
-    target: ResolvedComponent,
-  ): { sourceHandle: string; targetHandle: string } {
-    const outputs = source.manifest.outputs.filter((port) =>
-      this.portEnabled(port, source.parameters),
-    )
-    const inputs = target.manifest.inputs.filter((port) =>
-      this.portEnabled(port, target.parameters),
-    )
-    for (const output of outputs) {
-      for (const input of inputs) {
-        const expected = input.kind === 'tensor_list'
-          ? input.element_kind ?? 'tensor'
-          : input.kind
-        if (output.kind === expected) {
-          return { sourceHandle: output.id, targetHandle: input.id }
-        }
-      }
-    }
-    throw new Error(
-      `Sequential template cannot connect ${source.manifest.display_name} to ${target.manifest.display_name}.`,
-    )
   }
 
   private portEnabled(port: PortDefinition, parameters: Record<string, unknown>): boolean {

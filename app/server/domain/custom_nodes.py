@@ -6,10 +6,11 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-CustomNodeKind = Literal["mathematical", "composite", "repository"]
+CustomNodeKind = Literal["mathematical", "graph_template", "repository"]
 CustomNodeOrigin = Literal["custom"]
 _REPOSITORY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 _COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+_COMPONENT_ID_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,79}$")
 
 ###############################################################################
 class MathematicalNodeSpec(BaseModel):
@@ -35,7 +36,8 @@ class MathematicalNodeSpec(BaseModel):
         return self
 
 ###############################################################################
-class CompositeNodeComponent(BaseModel):
+class GraphTemplateComponent(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
     definition_id: str = Field(min_length=1, max_length=160)
     definition_version: int = Field(default=1, ge=1)
     label: str | None = Field(default=None, max_length=160)
@@ -51,6 +53,17 @@ class CompositeNodeComponent(BaseModel):
         return cleaned
 
     # -------------------------------------------------------------------------
+    @field_validator("id")
+    @classmethod
+    def validate_id(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not _COMPONENT_ID_PATTERN.fullmatch(cleaned):
+            raise ValueError(
+                "Component ids must start with a letter and contain only letters, numbers, dots, underscores, or hyphens"
+            )
+        return cleaned
+
+    # -------------------------------------------------------------------------
     @field_validator("label")
     @classmethod
     def clean_label(cls, value: str | None) -> str | None:
@@ -60,10 +73,73 @@ class CompositeNodeComponent(BaseModel):
         return cleaned or None
 
 ###############################################################################
-class CompositeNodeSpec(BaseModel):
-    type: Literal["composite"] = "composite"
-    connection_mode: Literal["sequential"] = "sequential"
-    components: list[CompositeNodeComponent] = Field(min_length=1, max_length=64)
+class GraphTemplateEdge(BaseModel):
+    source_component_id: str = Field(min_length=1, max_length=80)
+    source_port_id: str = Field(min_length=1, max_length=120)
+    target_component_id: str = Field(min_length=1, max_length=80)
+    target_port_id: str = Field(min_length=1, max_length=120)
+
+
+###############################################################################
+class GraphTemplateBinding(BaseModel):
+    template_port_id: str = Field(min_length=1, max_length=120)
+    component_id: str = Field(min_length=1, max_length=80)
+    port_id: str = Field(min_length=1, max_length=120)
+
+
+###############################################################################
+class GraphTemplateNodeSpec(BaseModel):
+    type: Literal["graph_template"] = "graph_template"
+    components: list[GraphTemplateComponent] = Field(min_length=1, max_length=64)
+    edges: list[GraphTemplateEdge] = Field(default_factory=list, max_length=256)
+    input_bindings: list[GraphTemplateBinding] = Field(default_factory=list, max_length=64)
+    output_bindings: list[GraphTemplateBinding] = Field(default_factory=list, max_length=64)
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="after")
+    def validate_graph(self) -> GraphTemplateNodeSpec:
+        component_ids = [component.id for component in self.components]
+        known_ids = set(component_ids)
+        if len(component_ids) != len(known_ids):
+            raise ValueError("Graph template component ids must be unique")
+
+        adjacency = {component_id: set[str]() for component_id in component_ids}
+        indegree = {component_id: 0 for component_id in component_ids}
+        for edge in self.edges:
+            if edge.source_component_id not in known_ids or edge.target_component_id not in known_ids:
+                raise ValueError("Graph template edges must reference known components")
+            if edge.source_component_id == edge.target_component_id:
+                raise ValueError("Graph template edges cannot connect a component to itself")
+            if edge.target_component_id not in adjacency[edge.source_component_id]:
+                adjacency[edge.source_component_id].add(edge.target_component_id)
+                indegree[edge.target_component_id] += 1
+
+        pending = [component_id for component_id, degree in indegree.items() if degree == 0]
+        visited = 0
+        while pending:
+            component_id = pending.pop()
+            visited += 1
+            for target_id in adjacency[component_id]:
+                indegree[target_id] -= 1
+                if indegree[target_id] == 0:
+                    pending.append(target_id)
+        if visited != len(component_ids):
+            raise ValueError("Graph template edges must form an acyclic graph")
+
+        self._validate_bindings(self.input_bindings, known_ids, "input")
+        self._validate_bindings(self.output_bindings, known_ids, "output")
+        return self
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _validate_bindings(
+        bindings: list[GraphTemplateBinding], known_ids: set[str], kind: str
+    ) -> None:
+        template_ids = [binding.template_port_id for binding in bindings]
+        if len(template_ids) != len(set(template_ids)):
+            raise ValueError(f"Graph template {kind} binding ids must be unique")
+        if any(binding.component_id not in known_ids for binding in bindings):
+            raise ValueError(f"Graph template {kind} bindings must reference known components")
 
 ###############################################################################
 class RepositoryNodeSpec(BaseModel):
@@ -117,7 +193,7 @@ class RepositoryNodeSpec(BaseModel):
 
 
 CustomNodeSpec = Annotated[
-    MathematicalNodeSpec | CompositeNodeSpec | RepositoryNodeSpec,
+    MathematicalNodeSpec | GraphTemplateNodeSpec | RepositoryNodeSpec,
     Field(discriminator="type"),
 ]
 

@@ -109,25 +109,36 @@ describe('custom node materializer', () => {
       ...common,
       id: 'custom.node.block',
       display_name: 'Reusable block',
-      kind: 'composite',
+      kind: 'graph_template',
       executable_template: true,
       spec: {
-        type: 'composite',
-        connection_mode: 'sequential',
+        type: 'graph_template',
         components: [
           {
+            id: 'first',
             definition_id: first.id,
             definition_version: first.version,
             label: 'Projection',
             parameters: {},
           },
           {
+            id: 'second',
             definition_id: second.id,
             definition_version: second.version,
             label: 'Activation',
             parameters: {},
           },
         ],
+        edges: [
+          {
+            source_component_id: 'first',
+            source_port_id: 'tensor',
+            target_component_id: 'second',
+            target_port_id: 'tensor',
+          },
+        ],
+        input_bindings: [],
+        output_bindings: [],
       },
     }
 
@@ -170,15 +181,24 @@ describe('custom node materializer', () => {
       ...common,
       id: 'custom.node.block.invalid-profile',
       display_name: 'Unavailable block',
-      kind: 'composite',
+      kind: 'graph_template',
       executable_template: true,
       spec: {
-        type: 'composite',
-        connection_mode: 'sequential',
+        type: 'graph_template',
         components: [
-          { definition_id: first.id, definition_version: first.version, parameters: {} },
-          { definition_id: second.id, definition_version: second.version, parameters: {} },
+          { id: 'first', definition_id: first.id, definition_version: first.version, parameters: {} },
+          { id: 'second', definition_id: second.id, definition_version: second.version, parameters: {} },
         ],
+        edges: [
+          {
+            source_component_id: 'first',
+            source_port_id: 'tensor',
+            target_component_id: 'second',
+            target_port_id: 'tensor',
+          },
+        ],
+        input_bindings: [],
+        output_bindings: [],
       },
     }
 

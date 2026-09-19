@@ -1,4 +1,4 @@
-export type CustomNodeKind = 'mathematical' | 'composite' | 'repository'
+export type CustomNodeKind = 'mathematical' | 'graph_template' | 'repository'
 
 export interface MathematicalNodeSpec {
   type: 'mathematical'
@@ -7,17 +7,33 @@ export interface MathematicalNodeSpec {
   input_symbols: ['x']
 }
 
-export interface CompositeNodeComponent {
+export interface GraphTemplateComponent {
+  id: string
   definition_id: string
   definition_version: number
   label?: string | null
   parameters: Record<string, unknown>
 }
 
-export interface CompositeNodeSpec {
-  type: 'composite'
-  connection_mode: 'sequential'
-  components: CompositeNodeComponent[]
+export interface GraphTemplateEdge {
+  source_component_id: string
+  source_port_id: string
+  target_component_id: string
+  target_port_id: string
+}
+
+export interface GraphTemplateBinding {
+  template_port_id: string
+  component_id: string
+  port_id: string
+}
+
+export interface GraphTemplateNodeSpec {
+  type: 'graph_template'
+  components: GraphTemplateComponent[]
+  edges: GraphTemplateEdge[]
+  input_bindings: GraphTemplateBinding[]
+  output_bindings: GraphTemplateBinding[]
 }
 
 export interface RepositoryNodeSpec {
@@ -32,7 +48,7 @@ export interface RepositoryNodeSpec {
   pipeline_tag?: string | null
 }
 
-export type CustomNodeSpec = MathematicalNodeSpec | CompositeNodeSpec | RepositoryNodeSpec
+export type CustomNodeSpec = MathematicalNodeSpec | GraphTemplateNodeSpec | RepositoryNodeSpec
 
 export interface CustomNodeDefinition {
   id: string
