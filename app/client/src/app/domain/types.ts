@@ -155,35 +155,49 @@ export interface OutputBinding {
   port_id: string
 }
 
+export interface CompilationObject {
+  id: string
+  parameters: Record<string, unknown>
+}
+
+export interface CompilationPlan {
+  optimizer: CompilationObject
+  losses: Record<string, CompilationObject>
+  metrics: Record<string, CompilationObject[]>
+  default_initializer: CompilationObject
+  default_regularizer: CompilationObject | null
+  default_constraint: CompilationObject | null
+}
+
+export type CompilerId = 'tensorflow_function' | 'pytorch_compile' | 'jax_jit'
+
+export interface CompilerObject {
+  id: CompilerId
+  parameters: Record<string, unknown>
+}
+
 export interface KerasCompilationConfiguration {
-  optimizer: string
-  optimizer_parameters: Record<string, unknown>
-  losses: Record<string, string>
-  metrics: Record<string, string[]>
-  default_initializer: string
-  default_regularizer: string
-  default_constraint: string
+  compilation: CompilationPlan
   mixed_precision: boolean
   random_seed?: number | null
 }
 
 export interface TensorFlowNativeConfiguration {
-  jit_compile: boolean
+  compilation: CompilationPlan
+  compiler: CompilerObject
+  random_seed?: number | null
 }
 
 export interface PyTorchNativeConfiguration {
-  optimizer: string
-  optimizer_parameters: Record<string, unknown>
-  losses: Record<string, string>
-  metrics: Record<string, string[]>
-  compile_enabled: boolean
-  mode: 'default' | 'reduce-overhead' | 'max-autotune'
-  fullgraph: boolean
-  dynamic: boolean
+  compilation: CompilationPlan
+  compiler: CompilerObject
+  random_seed?: number | null
 }
 
 export interface JaxNativeConfiguration {
-  jit_enabled: boolean
+  compilation: CompilationPlan
+  compiler: CompilerObject
+  random_seed?: number | null
 }
 
 export interface NativeCompilationConfiguration {
@@ -197,23 +211,11 @@ export interface ModelConfiguration {
   native: NativeCompilationConfiguration
 }
 
-export type CompilationParameterType = 'number' | 'integer' | 'boolean' | 'enum'
-
-export interface CompilationParameter {
-  id: string
-  label: string
-  type: CompilationParameterType
-  default: number | boolean | string
-  description: string
-  options?: string[]
-  constraints: Record<string, number | boolean | string>
-}
-
 export interface CompilationOption {
   id: string
   label: string
   description: string
-  parameters: CompilationParameter[]
+  parameters: ParameterDefinition[]
   formula?: string | null
   implementations?: Record<string, CompilationImplementation>
   supported_tasks?: Array<'regression' | 'binary_classification' | 'multiclass_classification'>
@@ -251,7 +253,7 @@ export interface NativeCompilationCapability {
   compiler: string
   reason_code?: string | null
   reason?: string | null
-  parameters: CompilationParameter[]
+  parameters: ParameterDefinition[]
   catalog?: CompilationCatalog
 }
 
@@ -261,7 +263,7 @@ export interface CompilationCapabilities {
 }
 
 export interface ModelGraph {
-  schema_version: 5
+  schema_version: 6
   nodes: GraphNodeInstance[]
   edges: GraphEdgeInstance[]
   output_bindings: OutputBinding[]
@@ -1051,7 +1053,7 @@ function valueMatchesSchema(schema: ParameterValueSchema, value: unknown): boole
 
 export interface ProjectExportBundle {
   format: 'neuro-weave-project'
-  format_version: 6
+  format_version: 7
   exported_at: string
   project: {
     name: string
@@ -1067,30 +1069,40 @@ export interface KerasArchitectureImportResponse {
   warnings: string[]
 }
 
+export const emptyCompilationPlan = (): CompilationPlan => ({
+  optimizer: { id: 'adam', parameters: { learning_rate: 0.001 } },
+  losses: {},
+  metrics: {},
+  default_initializer: { id: 'glorot_uniform', parameters: {} },
+  default_regularizer: null,
+  default_constraint: null,
+})
+
 export const emptyModelConfiguration = (): ModelConfiguration => ({
   keras: {
-    optimizer: 'adam',
-    optimizer_parameters: { learning_rate: 0.001 },
-    losses: { __default__: 'categorical_crossentropy' },
-    metrics: { __default__: ['accuracy'] },
-    default_initializer: 'glorot_uniform',
-    default_regularizer: 'none',
-    default_constraint: 'none',
+    compilation: {
+      ...emptyCompilationPlan(),
+      losses: { __default__: { id: 'categorical_crossentropy', parameters: {} } },
+      metrics: { __default__: [{ id: 'accuracy', parameters: {} }] },
+    },
     mixed_precision: false,
     random_seed: 42,
   },
   native: {
-    tensorflow: { jit_compile: false },
-    pytorch: {
-      optimizer: 'adam',
-      optimizer_parameters: { learning_rate: 0.001 },
-      losses: {},
-      metrics: {},
-      compile_enabled: false,
-      mode: 'default',
-      fullgraph: false,
-      dynamic: false,
+    tensorflow: {
+      compilation: emptyCompilationPlan(),
+      compiler: { id: 'tensorflow_function', parameters: { jit_compile: false } },
+      random_seed: 42,
     },
-    jax: { jit_enabled: false },
+    pytorch: {
+      compilation: emptyCompilationPlan(),
+      compiler: { id: 'pytorch_compile', parameters: { enabled: false, mode: 'default', fullgraph: false, dynamic: false } },
+      random_seed: 42,
+    },
+    jax: {
+      compilation: emptyCompilationPlan(),
+      compiler: { id: 'jax_jit', parameters: { enabled: false } },
+      random_seed: 42,
+    },
   },
 })

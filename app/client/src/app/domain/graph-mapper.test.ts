@@ -22,7 +22,7 @@ const inputManifest: NodeManifest = {
 }
 
 const currentGraph: ModelGraph = {
-  schema_version: 5,
+  schema_version: 6,
   nodes: [{
     id: 'input',
     definition_id: 'input.tabular',
@@ -45,7 +45,7 @@ describe('current graph mapping', () => {
 
     expect(session.nodes[0].data.parameters).toEqual({ shape: [8] })
     expect(sessionToGraph(session)).toEqual(currentGraph)
-    expect(currentGraph.schema_version).toBe(5)
+    expect(currentGraph.schema_version).toBe(6)
     expect(currentGraph.nodes[0].parameters.shape).toEqual([8])
   })
 })
