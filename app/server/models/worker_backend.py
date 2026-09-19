@@ -525,6 +525,10 @@ def _verify_native_compilation(
 
     if handle.compilation is None:
         return None
+    if handle.backend is ExecutionBackend.TENSORFLOW:
+        return _verify_tensorflow_compilation(graph, handle, checkpoint)
+    if handle.backend is ExecutionBackend.JAX:
+        return _verify_jax_compilation(graph, handle, checkpoint)
     import torch
 
     compilation = handle.compilation
@@ -610,6 +614,213 @@ def _assert_finite_scalar(value: Any, description: str) -> None:
         or not bool(torch.isfinite(value).all())
     ):
         raise RuntimeError(f"Native PyTorch {description} did not return one finite scalar")
+
+###############################################################################
+def _verify_tensorflow_compilation(
+    graph: ModelGraph,
+    handle: Any,
+    checkpoint: Callable[[], None],
+) -> dict[str, object]:
+    import tensorflow as tf
+
+    compilation = handle.compilation
+    output_bindings = resolved_outputs(graph, get_node_catalog())
+    output_values = {
+        output.name: value
+        for output, value in zip(output_bindings, handle.outputs, strict=True)
+    }
+    loss_functions = compilation.get("loss_functions", {})
+    loss_objects = compilation.get("losses", {})
+    metric_functions = compilation.get("metric_functions", {})
+    target_contracts = compilation.get("target_contracts", {})
+    metric_target_contracts = compilation.get("metric_target_contracts", {})
+    loss_summary: dict[str, object] = {}
+    metric_summary: dict[str, object] = {}
+
+    def target_for(prediction: Any, contract: str) -> Any:
+        if contract == "class_index":
+            return tf.zeros(tf.shape(prediction)[:-1], dtype=tf.int32)
+        if contract == "one_hot_same_shape":
+            return tf.one_hot(
+                tf.zeros(tf.shape(prediction)[:-1], dtype=tf.int32),
+                depth=tf.shape(prediction)[-1],
+                dtype=tf.float32,
+            )
+        if contract == "probability_distribution_same_shape":
+            width = tf.maximum(tf.shape(prediction)[-1], 1)
+            return tf.ones_like(prediction, dtype=tf.float32) / tf.cast(width, tf.float32)
+        return tf.zeros_like(prediction, dtype=tf.float32)
+
+    def scalar(value: Any, description: str) -> float:
+        tensor = tf.convert_to_tensor(value)
+        if tensor.shape.num_elements() not in (None, 1):
+            raise RuntimeError(f"Native TensorFlow {description} did not return one scalar")
+        if not bool(tf.reduce_all(tf.math.is_finite(tensor))):
+            raise RuntimeError(f"Native TensorFlow {description} was not finite")
+        return float(tf.reshape(tensor, [-1])[0].numpy())
+
+    for output_id, function in loss_functions.items():
+        prediction = output_values[output_id]
+        contract = str(target_contracts.get(output_id, "continuous_same_shape"))
+        value = scalar(function(prediction, target_for(prediction, contract)), f"loss for output {output_id}")
+        loss_object = loss_objects.get(output_id, {})
+        loss_summary[output_id] = {
+            "id": loss_object.get("id") if isinstance(loss_object, dict) else None,
+            "parameters": loss_object.get("parameters", {}) if isinstance(loss_object, dict) else {},
+            "value": value,
+            "target_contract": contract,
+        }
+        checkpoint()
+    for output_id, functions in metric_functions.items():
+        prediction = output_values[output_id]
+        contract = str(target_contracts.get(output_id, "continuous_same_shape"))
+        values: dict[str, object] = {}
+        for metric_id, function in functions.items():
+            metric_contract = str(
+                metric_target_contracts.get(output_id, {}).get(metric_id, contract)
+            )
+            values[metric_id] = scalar(
+                function(prediction, target_for(prediction, metric_contract)),
+                f"metric {metric_id} for output {output_id}",
+            )
+            checkpoint()
+        if values:
+            metric_summary[output_id] = values
+
+    optimizer_runtime = compilation.get("optimizer_runtime")
+    trainable_variables = list(getattr(handle.model, "trainable_variables", []))
+    optimizer_changed = False
+    if optimizer_runtime is not None and trainable_variables:
+        before = [variable.numpy().copy() for variable in trainable_variables]
+        with tf.GradientTape() as tape:
+            objective = tf.add_n(
+                [tf.reduce_sum(tf.square(variable - 1.0)) for variable in trainable_variables]
+            )
+        gradients = tape.gradient(objective, trainable_variables)
+        optimizer_runtime.apply_gradients(zip(gradients, trainable_variables, strict=True))
+        optimizer_changed = any(
+            not np.array_equal(previous, variable.numpy())
+            for previous, variable in zip(before, trainable_variables, strict=True)
+        )
+        if not optimizer_changed:
+            raise RuntimeError("Native TensorFlow optimizer update did not change a trainable value")
+        if not all(np.isfinite(variable.numpy()).all() for variable in trainable_variables):
+            raise RuntimeError("Native TensorFlow optimizer update produced a non-finite value")
+
+    optimizer_object = compilation.get("optimizer", {})
+    return {
+        "verified": True,
+        "optimizer": {
+            "id": optimizer_object.get("id"),
+            "instantiated": optimizer_runtime is not None,
+            "updated": optimizer_changed,
+        },
+        "losses": loss_summary,
+        "metrics": metric_summary,
+        "training": "not_run",
+    }
+
+###############################################################################
+def _verify_jax_compilation(
+    graph: ModelGraph,
+    handle: Any,
+    checkpoint: Callable[[], None],
+) -> dict[str, object]:
+    import jax
+    import jax.numpy as jnp
+    import optax
+
+    compilation = handle.compilation
+    output_bindings = resolved_outputs(graph, get_node_catalog())
+    output_values = {
+        output.name: value
+        for output, value in zip(output_bindings, handle.outputs, strict=True)
+    }
+    loss_functions = compilation.get("loss_functions", {})
+    loss_objects = compilation.get("losses", {})
+    metric_functions = compilation.get("metric_functions", {})
+    target_contracts = compilation.get("target_contracts", {})
+    metric_target_contracts = compilation.get("metric_target_contracts", {})
+    loss_summary: dict[str, object] = {}
+    metric_summary: dict[str, object] = {}
+
+    def target_for(prediction: Any, contract: str) -> Any:
+        if contract == "class_index":
+            return jnp.zeros(prediction.shape[:-1], dtype=jnp.int32)
+        if contract == "one_hot_same_shape":
+            target = jnp.zeros_like(prediction, dtype=jnp.float32)
+            return target.at[..., 0].set(1.0)
+        if contract == "probability_distribution_same_shape":
+            width = max(int(prediction.shape[-1]), 1)
+            return jnp.ones_like(prediction, dtype=jnp.float32) / width
+        return jnp.zeros_like(prediction, dtype=jnp.float32)
+
+    def scalar(value: Any, description: str) -> float:
+        array = jnp.asarray(value)
+        if array.size != 1:
+            raise RuntimeError(f"Native JAX {description} did not return one scalar")
+        if not bool(jnp.all(jnp.isfinite(array))):
+            raise RuntimeError(f"Native JAX {description} was not finite")
+        return float(array.reshape(-1)[0])
+
+    for output_id, function in loss_functions.items():
+        prediction = output_values[output_id]
+        contract = str(target_contracts.get(output_id, "continuous_same_shape"))
+        value = scalar(function(prediction, target_for(prediction, contract)), f"loss for output {output_id}")
+        loss_object = loss_objects.get(output_id, {})
+        loss_summary[output_id] = {
+            "id": loss_object.get("id") if isinstance(loss_object, dict) else None,
+            "parameters": loss_object.get("parameters", {}) if isinstance(loss_object, dict) else {},
+            "value": value,
+            "target_contract": contract,
+        }
+        checkpoint()
+    for output_id, functions in metric_functions.items():
+        prediction = output_values[output_id]
+        contract = str(target_contracts.get(output_id, "continuous_same_shape"))
+        values: dict[str, object] = {}
+        for metric_id, function in functions.items():
+            metric_contract = str(
+                metric_target_contracts.get(output_id, {}).get(metric_id, contract)
+            )
+            values[metric_id] = scalar(
+                function(prediction, target_for(prediction, metric_contract)),
+                f"metric {metric_id} for output {output_id}",
+            )
+            checkpoint()
+        if values:
+            metric_summary[output_id] = values
+
+    optimizer_runtime = compilation.get("optimizer_runtime")
+    optimizer_state = compilation.get("optimizer_state")
+    optimizer_changed = False
+    if optimizer_runtime is not None and optimizer_state is not None:
+        gradients = jax.tree_util.tree_map(jnp.ones_like, handle.variables)
+        updates, _ = optimizer_runtime.update(gradients, optimizer_state, handle.variables)
+        updated_variables = optax.apply_updates(handle.variables, updates)
+        before = jax.tree_util.tree_leaves(handle.variables)
+        after = jax.tree_util.tree_leaves(updated_variables)
+        optimizer_changed = any(
+            not np.array_equal(np.asarray(previous), np.asarray(current))
+            for previous, current in zip(before, after, strict=True)
+        )
+        if not optimizer_changed:
+            raise RuntimeError("Native JAX optimizer update did not change a trainable value")
+        if not all(np.isfinite(np.asarray(value)).all() for value in after):
+            raise RuntimeError("Native JAX optimizer update produced a non-finite value")
+
+    optimizer_object = compilation.get("optimizer", {})
+    return {
+        "verified": True,
+        "optimizer": {
+            "id": optimizer_object.get("id"),
+            "instantiated": optimizer_runtime is not None,
+            "updated": optimizer_changed,
+        },
+        "losses": loss_summary,
+        "metrics": metric_summary,
+        "training": "not_run",
+    }
 
 ###############################################################################
 def run_model_export(

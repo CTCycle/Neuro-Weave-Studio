@@ -22,6 +22,7 @@ from services.compilation_service import CompilationService
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
 from models.native_runtime import build_native_model
+from models.worker_backend import _verify_native_compilation
 
 
 ###############################################################################
@@ -362,6 +363,38 @@ def test_native_jax_compilation_builds_raw_loss_and_metric_functions() -> None:
     assert all(bool(jax.numpy.isfinite(value)) for value in metric_values.values())
     assert handle.compilation["losses"]["output"]["parameters"]["delta"] == pytest.approx(0.7)
     assert handle.compilation["metrics"]["output"][0]["id"] == "precision"
+
+
+###############################################################################
+@pytest.mark.parametrize("backend", [ExecutionBackend.TENSORFLOW, ExecutionBackend.JAX])
+def test_native_compilation_verifier_runs_raw_optimizer_update(
+    backend: ExecutionBackend,
+) -> None:
+    pytest.importorskip("tensorflow" if backend is ExecutionBackend.TENSORFLOW else "jax")
+    graph = _native_graph().model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    tensorflow=TensorFlowNativeConfiguration(
+                        compiler={
+                            "id": "tensorflow_function",
+                            "parameters": {"jit_compile": False},
+                        }
+                    ),
+                    jax=JaxNativeConfiguration(
+                        compiler={"id": "jax_jit", "parameters": {"enabled": False}}
+                    ),
+                )
+            )
+        }
+    )
+    handle = build_native_model(graph, backend, zero_parameters=True)
+
+    result = _verify_native_compilation(graph, handle, lambda: None)
+
+    assert result["verified"] is True
+    assert result["optimizer"]["instantiated"] is True
+    assert result["optimizer"]["updated"] is True
 
 ###############################################################################
 def test_compilation_rejects_a_native_parameter_without_falling_back_to_keras() -> None:
