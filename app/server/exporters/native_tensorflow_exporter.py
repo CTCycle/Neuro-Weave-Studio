@@ -412,6 +412,26 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             "    return value + encoding[None, :, :]",
             "",
             "",
+            "def _multi_head_attention(query, context, query_kernel, query_bias, key_kernel, key_bias, value_kernel, value_bias, output_kernel, output_bias, heads, key_dim, value_dim, output_shape):",
+            "    query_projection = tf.matmul(query, query_kernel)",
+            "    key_projection = tf.matmul(context, key_kernel)",
+            "    value_projection = tf.matmul(context, value_kernel)",
+            "    if query_bias is not None: query_projection = query_projection + query_bias",
+            "    if key_bias is not None: key_projection = key_projection + key_bias",
+            "    if value_bias is not None: value_projection = value_projection + value_bias",
+            "    query_projection = tf.transpose(tf.reshape(query_projection, [tf.shape(query)[0], tf.shape(query)[1], heads, key_dim]), [0, 2, 1, 3])",
+            "    key_projection = tf.transpose(tf.reshape(key_projection, [tf.shape(context)[0], tf.shape(context)[1], heads, key_dim]), [0, 2, 1, 3])",
+            "    value_projection = tf.transpose(tf.reshape(value_projection, [tf.shape(context)[0], tf.shape(context)[1], heads, value_dim]), [0, 2, 1, 3])",
+            "    scores = tf.einsum('bhqd,bhkd->bhqk', query_projection, key_projection) / tf.sqrt(tf.cast(key_dim, query.dtype))",
+            "    weights = tf.nn.softmax(scores, axis=-1)",
+            "    attended = tf.einsum('bhqk,bhkv->bhqv', weights, value_projection)",
+            "    attended = tf.reshape(tf.transpose(attended, [0, 2, 1, 3]), [tf.shape(query)[0], tf.shape(query)[1], heads * value_dim])",
+            "    result = tf.matmul(attended, output_kernel)",
+            "    if output_bias is not None: result = result + output_bias",
+            "    if output_shape is not None: result = tf.reshape(result, [tf.shape(result)[0], tf.shape(result)[1], *output_shape])",
+            "    return result",
+            "",
+            "",
             "def _initialize(shape, initializer, dtype):",
             "    identifier = initializer.get('id', 'zeros') if isinstance(initializer, dict) else initializer",
             "    if identifier in (None, 'zeros'): return tf.zeros(shape, dtype=dtype)",
@@ -841,6 +861,55 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     lines.append(
                         f"        self.{name}_embedding = tf.Variable(tf.zeros([{sequence_length}, {feature_dimension}], tf.float32), trainable={bool(params.get('trainable', True))!r}, name={name + '_embedding'!r})"
                     )
+            elif definition in {"attention.multi_head", "attention.self", "attention.cross"}:
+                if int(params.get("layers", 1)) != 1:
+                    raise ValueError("Native TensorFlow attention supports layers=1 only")
+                query_spec = source_spec
+                context_spec = source_spec
+                for binding in item.input_bindings:
+                    binding_spec = summaries.get(binding.source_node_id)
+                    if binding.target_port_id == "query":
+                        query_spec = binding_spec
+                    elif binding.target_port_id == "context":
+                        context_spec = binding_spec
+                if query_spec is None or context_spec is None or query_spec.rank != 3 or context_spec.rank != 3:
+                    raise ValueError(f"TensorFlow attention node {node.id} requires rank-3 query and context inputs")
+                query_dimension = self._static_dimension(query_spec, -1)
+                context_dimension = self._static_dimension(context_spec, -1)
+                if query_dimension is None or context_dimension is None:
+                    raise ValueError(f"TensorFlow attention node {node.id} requires known embedding dimensions")
+                heads = int(params.get("num_heads", 8))
+                key_dimension = int(params.get("key_dim", 64))
+                value_dimension = int(params.get("value_dim", key_dimension) or key_dimension)
+                raw_output_shape = params.get("output_shape")
+                if raw_output_shape is None:
+                    output_shape = None
+                    output_dimension = query_dimension
+                elif isinstance(raw_output_shape, int) and not isinstance(raw_output_shape, bool):
+                    output_shape = (int(raw_output_shape),)
+                    output_dimension = int(raw_output_shape)
+                elif isinstance(raw_output_shape, list) and raw_output_shape:
+                    output_shape = tuple(int(value) for value in raw_output_shape)
+                    output_dimension = 1
+                    for value in output_shape:
+                        output_dimension *= value
+                else:
+                    raise ValueError(f"TensorFlow attention node {node.id} has an invalid output_shape")
+                projection_shapes = {
+                    "query": (query_dimension, heads * key_dimension),
+                    "key": (context_dimension, heads * key_dimension),
+                    "value": (context_dimension, heads * value_dimension),
+                    "output": (heads * value_dimension, output_dimension),
+                }
+                for projection, (input_dimension, output_width) in projection_shapes.items():
+                    lines.append(
+                        f"        self.{name}_{projection}_kernel = tf.Variable(tf.zeros([{input_dimension}, {output_width}], tf.float32), name={name + '_' + projection + '_kernel'!r})"
+                    )
+                    lines.append(
+                        f"        self.{name}_{projection}_bias = tf.Variable(tf.zeros([{output_width}], tf.float32), name={name + '_' + projection + '_bias'!r})"
+                        if bool(params.get("use_bias", True))
+                        else f"        self.{name}_{projection}_bias = None"
+                    )
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"TensorFlow recurrent node {node.id} requires a rank-3 input")
@@ -891,6 +960,12 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 for binding in item.input_bindings
             ]
             source = source_vars[0] if source_vars else ""
+            source_by_port = {
+                binding.target_port_id: port_variables[
+                    (binding.source_node_id, binding.source_port_id)
+                ]
+                for binding in item.input_bindings
+            }
             manifest = catalog.get(definition, node.definition_version)
             if manifest.operation is not None:
                 lines.append(
@@ -1185,6 +1260,27 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     )
                     current = layer_name
                 lines.append(f"        {name} = {current}")
+            elif definition in {"attention.multi_head", "attention.self", "attention.cross"}:
+                if int(params.get("layers", 1)) != 1:
+                    raise ValueError("Native TensorFlow attention supports layers=1 only")
+                raw_output_shape = params.get("output_shape")
+                if raw_output_shape is None:
+                    output_shape = None
+                elif isinstance(raw_output_shape, int) and not isinstance(raw_output_shape, bool):
+                    output_shape = (int(raw_output_shape),)
+                elif isinstance(raw_output_shape, list) and raw_output_shape:
+                    output_shape = tuple(int(value) for value in raw_output_shape)
+                else:
+                    raise ValueError(f"TensorFlow attention node {node.id} has an invalid output_shape")
+                query = source_by_port.get("query", source)
+                context = source_by_port.get("context", query)
+                value_dimension = int(
+                    params.get("value_dim", params.get("key_dim", 64))
+                    or params.get("key_dim", 64)
+                )
+                lines.append(
+                    f"        {name} = _multi_head_attention({query}, {context}, self.{name}_query_kernel, self.{name}_query_bias, self.{name}_key_kernel, self.{name}_key_bias, self.{name}_value_kernel, self.{name}_value_bias, self.{name}_output_kernel, self.{name}_output_bias, {int(params.get('num_heads', 8))}, {int(params.get('key_dim', 64))}, {value_dimension}, {output_shape!r})"
+                )
             elif definition == "transformer.attention_mask":
                 lines.append(f"        {name} = {source}")
             elif definition == "transformer.residual":

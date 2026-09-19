@@ -279,6 +279,40 @@ def transformer_residual_graph() -> ModelGraph:
 
 
 ###############################################################################
+def attention_graph(
+    definition_id: str,
+    *,
+    context: bool = False,
+    output_shape: list[int] | None = None,
+) -> ModelGraph:
+    parameters: dict[str, Any] = {
+        "num_heads": 2,
+        "key_dim": 4,
+        "value_dim": 4,
+        "use_bias": True,
+    }
+    if output_shape is not None:
+        parameters["output_shape"] = output_shape
+    nodes = [
+        node("query", "input.sequence", {"shape": [5, 8], "dtype": "float32"}),
+    ]
+    edges = []
+    if context:
+        nodes.append(node("context", "input.sequence", {"shape": [3, 8], "dtype": "float32"}))
+    nodes.extend(
+        [
+            node("attention", definition_id, parameters),
+            node("output", "output.custom"),
+        ]
+    )
+    edges.append(edge("query-attention", "query", "attention", "query"))
+    if context:
+        edges.append(edge("context-attention", "context", "attention", "context"))
+    edges.append(edge("attention-output", "attention", "output"))
+    return ModelGraph(nodes=nodes, edges=edges)
+
+
+###############################################################################
 def reshape_flatten_graph() -> ModelGraph:
     graph = chain_graph(
         "input.tensor",
@@ -671,6 +705,49 @@ def test_native_attention_mask_preserves_boolean_tensor(
     values = to_numpy(outputs[0])
     assert values.shape == (1, 6, 6)
     assert values.dtype == np.bool_
+
+
+###############################################################################
+@pytest.mark.parametrize(
+    ("definition_id", "context", "output_shape", "expected_shape"),
+    [
+        ("attention.self", False, None, (1, 5, 8)),
+        ("attention.cross", True, None, (1, 5, 8)),
+        ("attention.multi_head", False, [2, 4], (1, 5, 2, 4)),
+    ],
+)
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_attention_primitives_emit_finite_port_aligned_outputs(
+    definition_id: str,
+    context: bool,
+    output_shape: list[int] | None,
+    expected_shape: tuple[int, ...],
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    outputs = forward_native(
+        build_native_model(
+            attention_graph(definition_id, context=context, output_shape=output_shape),
+            backend,
+        )
+    )
+
+    assert len(outputs) == 1
+    values = to_numpy(outputs[0])
+    assert values.shape == expected_shape
+    assert values.dtype == np.float32
+    assert np.isfinite(values).all()
+
+
+###############################################################################
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_attention_parameter_count_includes_all_projections(
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    handle = build_native_model(attention_graph("attention.self"), backend)
+
+    assert handle.parameter_count() == 288
 
 
 ###############################################################################

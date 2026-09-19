@@ -372,6 +372,18 @@ class PyTorchSourceExporter(SourceExporter):
             "    return value + encoding.unsqueeze(0)",
             "",
             "",
+            "def _multi_head_attention(query, context, query_projection, key_projection, value_projection, output_projection, heads, key_dim, value_dim, output_shape):",
+            "    query_projection = query_projection(query).reshape(query.shape[0], query.shape[1], heads, key_dim).transpose(1, 2)",
+            "    key_projection = key_projection(context).reshape(context.shape[0], context.shape[1], heads, key_dim).transpose(1, 2)",
+            "    value_projection = value_projection(context).reshape(context.shape[0], context.shape[1], heads, value_dim).transpose(1, 2)",
+            "    scores = torch.matmul(query_projection, key_projection.transpose(-2, -1)) / (key_dim ** 0.5)",
+            "    weights = torch.softmax(scores, dim=-1)",
+            "    attended = torch.matmul(weights, value_projection).transpose(1, 2).reshape(query.shape[0], query.shape[1], heads * value_dim)",
+            "    result = output_projection(attended)",
+            "    if output_shape is not None: result = result.reshape(result.shape[0], result.shape[1], *output_shape)",
+            "    return result",
+            "",
+            "",
             "def _initialize(shape, initializer, dtype):",
             "    identifier = initializer.get('id', 'zeros') if isinstance(initializer, dict) else initializer",
             "    if identifier in (None, 'zeros'): return torch.zeros(shape, dtype=dtype)",
@@ -758,6 +770,49 @@ class PyTorchSourceExporter(SourceExporter):
                         if bool(params.get("trainable", True))
                         else f"        self.register_buffer({name + '_embedding'!r}, torch.zeros({(sequence_length, feature_dimension)!r}))"
                     )
+            elif definition in {"attention.multi_head", "attention.self", "attention.cross"}:
+                query_spec = source_spec
+                context_spec = source_spec
+                for binding in item.input_bindings:
+                    binding_spec = summaries.get(binding.source_node_id)
+                    if binding.target_port_id == "query":
+                        query_spec = binding_spec
+                    elif binding.target_port_id == "context":
+                        context_spec = binding_spec
+                if query_spec is None or context_spec is None or query_spec.rank != 3 or context_spec.rank != 3:
+                    raise ValueError(f"PyTorch attention node {node.id} requires rank-3 query and context inputs")
+                query_dimension = self._static_dimension(query_spec, -1)
+                context_dimension = self._static_dimension(context_spec, -1)
+                if query_dimension is None or context_dimension is None:
+                    raise ValueError(f"PyTorch attention node {node.id} requires known embedding dimensions")
+                if int(params.get("layers", 1)) != 1:
+                    raise ValueError("Native PyTorch attention supports layers=1 only")
+                heads = int(params.get("num_heads", 8))
+                key_dimension = int(params.get("key_dim", 64))
+                value_dimension = int(params.get("value_dim", key_dimension) or key_dimension)
+                raw_output_shape = params.get("output_shape")
+                if raw_output_shape is None:
+                    output_shape = None
+                    output_dimension = query_dimension
+                elif isinstance(raw_output_shape, int) and not isinstance(raw_output_shape, bool):
+                    output_shape = (int(raw_output_shape),)
+                    output_dimension = int(raw_output_shape)
+                elif isinstance(raw_output_shape, list) and raw_output_shape:
+                    output_shape = tuple(int(value) for value in raw_output_shape)
+                    output_dimension = 1
+                    for value in output_shape:
+                        output_dimension *= value
+                else:
+                    raise ValueError(f"PyTorch attention node {node.id} has an invalid output_shape")
+                bias = bool(params.get("use_bias", True))
+                lines.extend(
+                    [
+                        f"        self.{name}_query = nn.Linear({query_dimension!r}, {heads * key_dimension!r}, bias={bias!r})",
+                        f"        self.{name}_key = nn.Linear({context_dimension!r}, {heads * key_dimension!r}, bias={bias!r})",
+                        f"        self.{name}_value = nn.Linear({context_dimension!r}, {heads * value_dimension!r}, bias={bias!r})",
+                        f"        self.{name}_output = nn.Linear({heads * value_dimension!r}, {output_dimension!r}, bias={bias!r})",
+                    ]
+                )
             elif definition in {"recurrent.lstm", "recurrent.gru"}:
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"PyTorch recurrent node {node.id} requires a rank-3 input")
@@ -809,6 +864,12 @@ class PyTorchSourceExporter(SourceExporter):
                 for binding in item.input_bindings
             ]
             source = source_vars[0] if source_vars else ""
+            source_by_port = {
+                binding.target_port_id: port_variables[
+                    (binding.source_node_id, binding.source_port_id)
+                ]
+                for binding in item.input_bindings
+            }
             params = node.parameters
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
 
@@ -1146,6 +1207,27 @@ class PyTorchSourceExporter(SourceExporter):
                 lines.append(f"        {name}, _ = self.{name}({source})")
                 if not params.get("return_sequences", False):
                     lines.append(f"        {name} = {name}[:, -1, :]")
+            elif definition in {"attention.multi_head", "attention.self", "attention.cross"}:
+                if int(params.get("layers", 1)) != 1:
+                    raise ValueError("Native PyTorch attention supports layers=1 only")
+                raw_output_shape = params.get("output_shape")
+                if raw_output_shape is None:
+                    output_shape = None
+                elif isinstance(raw_output_shape, int) and not isinstance(raw_output_shape, bool):
+                    output_shape = (int(raw_output_shape),)
+                elif isinstance(raw_output_shape, (list, tuple)) and raw_output_shape:
+                    output_shape = tuple(int(value) for value in raw_output_shape)
+                else:
+                    raise ValueError(f"PyTorch attention node {node.id} has an invalid output_shape")
+                query = source_by_port.get("query", source)
+                context = source_by_port.get("context", query)
+                value_dimension = int(
+                    params.get("value_dim", params.get("key_dim", 64))
+                    or params.get("key_dim", 64)
+                )
+                lines.append(
+                    f"        {name} = _multi_head_attention({query}, {context}, self.{name}_query, self.{name}_key, self.{name}_value, self.{name}_output, {int(params.get('num_heads', 8))}, {int(params.get('key_dim', 64))}, {value_dimension}, {output_shape!r})"
+                )
             elif definition == "transformer.attention_mask":
                 lines.append(f"        {name} = {source}")
             elif definition == "transformer.residual":

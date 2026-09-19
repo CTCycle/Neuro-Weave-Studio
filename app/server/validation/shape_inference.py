@@ -1202,7 +1202,7 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                     )
                 )
                 continue
-            if node.definition_id in {"attention.multi_head", "attention.self"}:
+            if node.definition_id in {"attention.multi_head", "attention.self", "attention.cross"}:
                 layers = _optional_positive_int(parameters, "layers", 1)
                 if layers != 1:
                     raise ShapeInferenceError(
