@@ -1121,12 +1121,8 @@ class RuntimeController:
         if capability is None:
             return
         backend_configuration = getattr(graph.model_configuration.native, worker.backend.value)
-        enabled_field = {
-            ExecutionBackend.TENSORFLOW: "jit_compile",
-            ExecutionBackend.PYTORCH: "compile_enabled",
-            ExecutionBackend.JAX: "jit_enabled",
-        }[worker.backend]
-        if not bool(getattr(backend_configuration, enabled_field)):
+        enabled_parameter = "jit_compile" if worker.backend is ExecutionBackend.TENSORFLOW else "enabled"
+        if not bool(backend_configuration.compiler.parameters.get(enabled_parameter, False)):
             return
         status = self._backend_statuses.get(worker.backend)
         if status is not None and status.native_compilers.get(capability.compiler_id, False):

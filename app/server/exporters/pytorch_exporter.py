@@ -11,9 +11,10 @@ from domain.compilation_catalog import (
     CompilationOption,
     get_compilation_catalog,
 )
+from domain.compilation_plan import CompilationObject
 from domain.graph import ModelGraph
-from domain.ports import materialized_outputs
 from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
+from domain.ports import materialized_outputs
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 from validation.output_resolution import output_selectors, resolved_outputs
@@ -124,6 +125,7 @@ class PyTorchSourceExporter(SourceExporter):
         nodes = {node.id: node for node in graph.nodes}
         summaries = self._summary_map(ir)
         native = graph.model_configuration.native.pytorch
+        compilation = native.compilation
         output_items = [
             output for output in resolved_outputs(graph, catalog) if output.node is not None
         ]
@@ -145,39 +147,57 @@ class PyTorchSourceExporter(SourceExporter):
                 raise ValueError(f"No PyTorch compilation adapter registered for {identifier}")
             return selected
 
-        optimizer_option = option(compilation_catalog.optimizers, native.optimizer)
+        optimizer_value = compilation.optimizer
+        optimizer_option = option(compilation_catalog.optimizers, optimizer_value.id)
         optimizer_class = optimizer_option.implementations["pytorch"].adapter.rsplit(".", 1)[-1]  # type: ignore[union-attr]
         resolved_losses: dict[str, tuple[str, str]] = {}
         resolved_metrics: dict[str, list[tuple[str, str]]] = {}
+        loss_configurations: dict[str, CompilationObject] = {}
+        metric_configurations: dict[str, list[CompilationObject]] = {}
         target_contracts: dict[str, str] = {}
         metric_target_contracts: dict[str, dict[str, str]] = {}
         for output in output_items:
-            loss_id = selected_value(native.losses, output, None)
-            if isinstance(loss_id, str):
+            loss_value = selected_value(compilation.losses, output, None)
+            if isinstance(loss_value, CompilationObject):
+                loss_id = loss_value.id
                 loss_option = option(compilation_catalog.losses, loss_id)
                 loss_adapter = loss_option.implementations["pytorch"].adapter
                 if loss_adapter is None:
                     raise ValueError(f"No PyTorch loss adapter registered for {loss_id}")
                 resolved_losses[output.name] = (loss_id, loss_adapter)
+                loss_configurations[output.name] = loss_value
                 if loss_option.target_contract is not None:
                     target_contracts[output.name] = loss_option.target_contract
-            metric_values = selected_value(native.metrics, output, [])
+            metric_values = selected_value(compilation.metrics, output, [])
             if isinstance(metric_values, list):
                 resolved_metrics[output.name] = []
-                for metric_id in cast(list[Any], metric_values):
-                    if not isinstance(metric_id, str):
+                for metric_value in cast(list[Any], metric_values):
+                    if not isinstance(metric_value, CompilationObject):
                         continue
+                    metric_id = metric_value.id
                     metric_option = option(compilation_catalog.metrics, metric_id)
                     metric_adapter = metric_option.implementations["pytorch"].adapter
                     if metric_adapter is None:
                         raise ValueError(f"No PyTorch metric adapter registered for {metric_id}")
                     resolved_metrics[output.name].append((metric_id, metric_adapter))
+                    metric_configurations.setdefault(output.name, []).append(metric_value)
                     metric_target_contracts.setdefault(output.name, {})[metric_id] = (
                         metric_option.target_contract or "continuous_same_shape"
                     )
                     target_contracts.setdefault(
                         output.name, metric_option.target_contract or "continuous_same_shape"
                     )
+        loss_payload = {
+            output_id: {"id": value.id, "parameters": dict(value.parameters)}
+            for output_id, value in loss_configurations.items()
+        }
+        metric_payload = {
+            output_id: [
+                {"id": value.id, "parameters": dict(value.parameters)}
+                for value in values
+            ]
+            for output_id, values in metric_configurations.items()
+        }
         lines = [
             "from __future__ import annotations",
             "",
@@ -632,20 +652,20 @@ class PyTorchSourceExporter(SourceExporter):
         lines.append(f"        if return_intermediates: return {result}, {trace}")
         lines.append(f"        return {result}")
         optimizer_parameters = {
-            parameter.id: native.optimizer_parameters.get(parameter.id, parameter.default)
+            parameter.id: optimizer_value.parameters.get(parameter.id, parameter.default)
             for parameter in optimizer_option.parameters
         }
         optimizer_kwargs = [
             f"        lr={optimizer_parameters['learning_rate']!r},",
         ]
-        if native.optimizer == "adam":
+        if optimizer_value.id == "adam":
             optimizer_kwargs.extend(
                 [
                     f"        betas=({optimizer_parameters['beta_1']!r}, {optimizer_parameters['beta_2']!r}),",
                     f"        eps={optimizer_parameters['epsilon']!r},",
                 ]
             )
-        elif native.optimizer == "adamw":
+        elif optimizer_value.id == "adamw":
             optimizer_kwargs.extend(
                 [
                     f"        betas=({optimizer_parameters['beta_1']!r}, {optimizer_parameters['beta_2']!r}),",
@@ -653,14 +673,14 @@ class PyTorchSourceExporter(SourceExporter):
                     f"        weight_decay={optimizer_parameters['weight_decay']!r},",
                 ]
             )
-        elif native.optimizer == "sgd":
+        elif optimizer_value.id == "sgd":
             optimizer_kwargs.extend(
                 [
                     f"        momentum={optimizer_parameters['momentum']!r},",
                     f"        nesterov={optimizer_parameters['nesterov']!r},",
                 ]
             )
-        elif native.optimizer == "rmsprop":
+        elif optimizer_value.id == "rmsprop":
             optimizer_kwargs.extend(
                 [
                     f"        alpha={optimizer_parameters['rho']!r},",
@@ -793,8 +813,8 @@ class PyTorchSourceExporter(SourceExporter):
                 "",
                 "",
                 "def _metric_auc(prediction: Tensor, target: Tensor) -> Tensor:",
-                "    scores = prediction[..., 0] if prediction.shape[-1] == 1 else prediction[..., 1]",
-                "    labels = target[..., 0] if target.shape[-1] == 1 else target.argmax(dim=-1).to(prediction.dtype)",
+                "    scores = (prediction[..., 0] if prediction.shape[-1] == 1 else prediction[..., 1]).reshape(-1)",
+                "    labels = (target[..., 0] if target.shape[-1] == 1 else target.argmax(dim=-1).to(prediction.dtype)).reshape(-1)",
                 "    positive = scores[labels.reshape(-1) > 0.5]",
                 "    negative = scores[labels.reshape(-1) <= 0.5]",
                 "    if positive.numel() == 0 or negative.numel() == 0:",
@@ -849,13 +869,13 @@ class PyTorchSourceExporter(SourceExporter):
                 "",
                 "",
                 "def compile_model(model: GeneratedModel) -> GeneratedModel:",
-                f"    if not {native.compile_enabled!r}:",
+                f"    if not {bool(native.compiler.parameters.get('enabled', False))!r}:",
                 "        return model",
                 "    return torch.compile(",
                 "        model,",
-                f"        mode={native.mode!r},",
-                f"        fullgraph={native.fullgraph!r},",
-                f"        dynamic={native.dynamic!r},",
+                f"        mode={native.compiler.parameters.get('mode', 'default')!r},",
+                f"        fullgraph={bool(native.compiler.parameters.get('fullgraph', False))!r},",
+                f"        dynamic={bool(native.compiler.parameters.get('dynamic', False))!r},",
                 "    )",
                 "",
                 "",
@@ -869,16 +889,8 @@ class PyTorchSourceExporter(SourceExporter):
                 "    )",
                 "",
                 "",
-                "def configured_loss_ids() -> dict[str, str]:",
-                f"    return { {output_id: loss_id for output_id, (loss_id, _) in resolved_losses.items()}!r}",
-                "",
-                "",
                 "def configured_losses() -> dict[str, object]:",
                 f"    return {{output_id: _LOSS_ADAPTERS[loss_id] for output_id, loss_id in { {output_id: loss_id for output_id, (loss_id, _) in resolved_losses.items()}!r}.items()}}",
-                "",
-                "",
-                "def configured_metric_ids() -> dict[str, list[str]]:",
-                f"    return { {output_id: [metric_id for metric_id, _ in values] for output_id, values in resolved_metrics.items()}!r}",
                 "",
                 "",
                 "def configured_metrics() -> dict[str, dict[str, object]]:",
@@ -895,9 +907,9 @@ class PyTorchSourceExporter(SourceExporter):
                 "",
                 "def configured_compilation() -> dict[str, object]:",
                 "    return {",
-                f"        'optimizer_id': {native.optimizer!r},",
-                f"        'loss_ids': { {output_id: loss_id for output_id, (loss_id, _) in resolved_losses.items()}!r},",
-                f"        'metric_ids': { {output_id: [metric_id for metric_id, _ in values] for output_id, values in resolved_metrics.items()}!r},",
+                f"        'optimizer': {{'id': {optimizer_value.id!r}, 'parameters': {dict(optimizer_value.parameters)!r}}},",
+                f"        'losses': {loss_payload!r},",
+                f"        'metrics': {metric_payload!r},",
                 f"        'target_contracts': {target_contracts!r},",
                 f"        'metric_target_contracts': {metric_target_contracts!r},",
                 "        'training': 'not_run',",
@@ -907,9 +919,9 @@ class PyTorchSourceExporter(SourceExporter):
                 "def build_compilation(model: GeneratedModel) -> dict[str, object]:",
                 "    configuration = configured_compilation()",
                 "    configuration.update({",
-                "        'optimizer': build_optimizer(model),",
-                "        'losses': configured_losses(),",
-                "        'metrics': configured_metrics(),",
+                "        'optimizer_runtime': build_optimizer(model),",
+                "        'loss_functions': configured_losses(),",
+                "        'metric_functions': configured_metrics(),",
                 "    })",
                 "    return configuration",
                 "",

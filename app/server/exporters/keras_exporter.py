@@ -11,6 +11,7 @@ from domain.compilation_catalog import (
     CompilationOption,
     get_compilation_catalog,
 )
+from domain.compilation_plan import CompilationObject
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
@@ -69,11 +70,19 @@ class KerasSourceExporter(SourceExporter):
             return cls._option(parameters[key])
         configuration = graph.model_configuration.keras
         if "initializer" in key:
-            return cls._option(configuration.default_initializer)
+            return cls._option(configuration.compilation.default_initializer.id)
         if "regularizer" in key:
-            return cls._option(configuration.default_regularizer)
+            return cls._option(
+                configuration.compilation.default_regularizer.id
+                if configuration.compilation.default_regularizer
+                else "none"
+            )
         if "constraint" in key:
-            return cls._option(configuration.default_constraint)
+            return cls._option(
+                configuration.compilation.default_constraint.id
+                if configuration.compilation.default_constraint
+                else "none"
+            )
         return cls._option(fallback)
 
     # -------------------------------------------------------------------------
@@ -197,19 +206,24 @@ class KerasSourceExporter(SourceExporter):
                 if not isinstance(value, str):
                     values.append("None")
                 else:
-                    option = cls._catalog_option(compilation_catalog, category, value)
-                    symbol = cls._keras_value_source(option)
+                    if not isinstance(value, CompilationObject):
+                        values.append("None")
+                        continue
+                    option = cls._catalog_option(compilation_catalog, category, value.id)
+                    symbol = cls._keras_value_source(option, value=value)
                     values.append(symbol)
             else:
                 metric_expressions: list[str] = []
                 metric_values = cast(list[Any], value) if isinstance(value, list) else []
                 for metric in metric_values:
-                    if not isinstance(metric, str):
+                    if not isinstance(metric, CompilationObject):
                         raise ValueError(
-                            f"Keras metric identifiers must be strings, got {metric!r}"
+                            f"Keras metric values must be compilation objects, got {metric!r}"
                         )
-                    option = cls._catalog_option(compilation_catalog, category, metric)
-                    metric_expressions.append(cls._keras_value_source(option, metric=True))
+                    option = cls._catalog_option(compilation_catalog, category, metric.id)
+                    metric_expressions.append(
+                        cls._keras_value_source(option, value=metric, metric=True)
+                    )
                 values.append("[" + ", ".join(metric_expressions) + "]")
         if len(values) == 1:
             return values[0]
@@ -234,14 +248,27 @@ class KerasSourceExporter(SourceExporter):
 
     # -------------------------------------------------------------------------
     @classmethod
-    def _keras_value_source(cls, option: CompilationOption, *, metric: bool = False) -> str:
+    def _keras_value_source(
+        cls,
+        option: CompilationOption,
+        *,
+        value: CompilationObject | None = None,
+        metric: bool = False,
+    ) -> str:
         implementation = option.implementations.get("keras")
         if option.origin == "custom":
             return cls._custom_function_name(option)
         if implementation is None or not implementation.symbol:
             raise ValueError(f"No Keras symbol registered for {option.id}")
         namespace = "metrics" if metric else "losses"
-        return f"keras.{namespace}.{implementation.symbol}()"
+        accepted = {parameter.id for parameter in option.parameters}
+        arguments = {
+            implementation.parameter_mapping.get(key, key): parameter_value
+            for key, parameter_value in (value.parameters if value else {}).items()
+            if key in accepted
+        }
+        rendered = ", ".join(f"{key}={item!r}" for key, item in arguments.items())
+        return f"keras.{namespace}.{implementation.symbol}({rendered})"
 
     # -------------------------------------------------------------------------
     @classmethod
@@ -249,12 +276,15 @@ class KerasSourceExporter(SourceExporter):
         cls, graph: ModelGraph, compilation_catalog: CompilationCatalog
     ) -> list[str]:
         identifiers: set[str] = set()
-        for values in (graph.model_configuration.keras.losses, graph.model_configuration.keras.metrics):
+        compilation = graph.model_configuration.keras.compilation
+        for values in (compilation.losses, compilation.metrics):
             for value in values.values():
-                if isinstance(value, str):
-                    identifiers.add(value)
+                if isinstance(value, CompilationObject):
+                    identifiers.add(value.id)
                 elif isinstance(value, list):
-                    identifiers.update(item for item in value if isinstance(item, str))
+                    identifiers.update(
+                        item.id for item in value if isinstance(item, CompilationObject)
+                    )
         options = [
             option
             for option in (*compilation_catalog.losses, *compilation_catalog.metrics)
@@ -277,9 +307,11 @@ class KerasSourceExporter(SourceExporter):
 
     # -------------------------------------------------------------------------
     @classmethod
-    def _optimizer_name(cls, name: str, compilation_catalog: CompilationCatalog) -> str:
+    def _optimizer_name(
+        cls, value: CompilationObject, compilation_catalog: CompilationCatalog
+    ) -> str:
         return (
-            cls._catalog_option(compilation_catalog, "optimizers", name)
+            cls._catalog_option(compilation_catalog, "optimizers", value.id)
             .implementations["keras"]
             .symbol
             or ""
@@ -293,15 +325,19 @@ class KerasSourceExporter(SourceExporter):
         optimizer = cls._catalog_option(
             compilation_catalog,
             "optimizers",
-            graph.model_configuration.keras.optimizer,
+            graph.model_configuration.keras.compilation.optimizer.id,
         )
         accepted = {parameter.id for parameter in optimizer.parameters}
         parameters = {
             key: value
-            for key, value in graph.model_configuration.keras.optimizer_parameters.items()
+            for key, value in graph.model_configuration.keras.compilation.optimizer.parameters.items()
             if key in accepted
         }
-        return ", ".join(f"{key}={value!r}" for key, value in parameters.items())
+        implementation = optimizer.implementations["keras"]
+        return ", ".join(
+            f"{implementation.parameter_mapping.get(key, key)}={value!r}"
+            for key, value in parameters.items()
+        )
 
     # -------------------------------------------------------------------------
     def generate(
@@ -1585,18 +1621,18 @@ class KerasSourceExporter(SourceExporter):
             f"    model = keras.Model(inputs=[{input_variables}], outputs=[{output_variables}], name='neuro_weave_model')"
         )
         optimizer_name = self._optimizer_name(
-            graph.model_configuration.keras.optimizer, compilation_catalog
+            graph.model_configuration.keras.compilation.optimizer, compilation_catalog
         )
         loss = self._compile_mapping_source(
             graph,
-            graph.model_configuration.keras.losses,
+            graph.model_configuration.keras.compilation.losses,
             None,
             "losses",
             compilation_catalog,
         )
         metrics = self._compile_mapping_source(
             graph,
-            graph.model_configuration.keras.metrics,
+            graph.model_configuration.keras.compilation.metrics,
             [],
             "metrics",
             compilation_catalog,

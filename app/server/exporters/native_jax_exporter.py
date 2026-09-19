@@ -271,7 +271,9 @@ class NativeJaxSourceExporter(SourceExporter):
         trace = "{" + ", ".join(trace_entries) + "}"
         lines.append(f"        if return_intermediates: return {result}, {trace}")
         lines.append(f"        return {result}")
-        jit_enabled = graph.model_configuration.native.jax.jit_enabled
+        jit_enabled = bool(
+            graph.model_configuration.native.jax.compiler.parameters.get("enabled", False)
+        )
         lines.extend(
             [
                 "",
