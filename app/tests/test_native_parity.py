@@ -178,6 +178,15 @@ def normalization_graph(definition_id: str, parameters: dict[str, Any] | None = 
 
 
 ###############################################################################
+def spatial_graph(
+    definition_id: str,
+    input_shape: list[int],
+    parameters: dict[str, Any],
+) -> ModelGraph:
+    return chain_graph("input.tensor", input_shape, definition_id, parameters)
+
+
+###############################################################################
 def cnn_graph() -> ModelGraph:
     return chain_graph(
         "input.image",
@@ -271,6 +280,88 @@ def test_native_dense_values_are_deterministic_across_frameworks(
         ("prelu", lambda: normalization_graph("layer.prelu"), (1, 4)),
         ("rms_norm", lambda: normalization_graph("layer.rms_norm"), (1, 4)),
         ("unit_norm", lambda: normalization_graph("layer.unit_norm"), (1, 4)),
+        (
+            "max_pool1d",
+            lambda: spatial_graph(
+                "conv.max_pool1d", [8, 2], {"pool_size": [2], "strides": [2]}
+            ),
+            (1, 4, 2),
+        ),
+        (
+            "average_pool1d",
+            lambda: spatial_graph(
+                "conv.average_pool1d", [8, 2], {"pool_size": [2], "strides": [2]}
+            ),
+            (1, 4, 2),
+        ),
+        (
+            "max_pool2d_channels_first",
+            lambda: spatial_graph(
+                "conv.max_pool2d",
+                [2, 8, 8],
+                {"pool_size": [2, 2], "strides": [2, 2], "data_format": "channels_first"},
+            ),
+            (1, 2, 4, 4),
+        ),
+        (
+            "average_pool2d",
+            lambda: spatial_graph(
+                "conv.average_pool2d", [8, 8, 2], {"pool_size": [2, 2], "strides": [2, 2]}
+            ),
+            (1, 4, 4, 2),
+        ),
+        (
+            "max_pool3d",
+            lambda: spatial_graph(
+                "conv.max_pool3d", [4, 4, 4, 2], {"pool_size": [2, 2, 2], "strides": [2, 2, 2]}
+            ),
+            (1, 2, 2, 2, 2),
+        ),
+        (
+            "average_pool3d",
+            lambda: spatial_graph(
+                "conv.average_pool3d", [4, 4, 4, 2], {"pool_size": [2, 2, 2], "strides": [2, 2, 2]}
+            ),
+            (1, 2, 2, 2, 2),
+        ),
+        (
+            "global_pool1d",
+            lambda: spatial_graph("conv.global_pool1d", [8, 2], {"mode": "maximum"}),
+            (1, 2),
+        ),
+        (
+            "global_pool2d_keepdims",
+            lambda: spatial_graph(
+                "conv.global_pool2d", [4, 4, 2], {"mode": "maximum", "keepdims": True}
+            ),
+            (1, 1, 1, 2),
+        ),
+        (
+            "global_pool3d",
+            lambda: spatial_graph("conv.global_pool3d", [3, 3, 3, 2], {"mode": "average"}),
+            (1, 2),
+        ),
+        (
+            "upsampling",
+            lambda: spatial_graph(
+                "conv.upsampling", [2, 3, 1], {"size": [2, 3], "interpolation": "bilinear"}
+            ),
+            (1, 4, 9, 1),
+        ),
+        (
+            "padding",
+            lambda: spatial_graph(
+                "conv.padding", [4, 5, 1], {"padding": [[1, 2], [2, 1]]}
+            ),
+            (1, 7, 8, 1),
+        ),
+        (
+            "cropping",
+            lambda: spatial_graph(
+                "conv.cropping", [7, 8, 1], {"cropping": [[1, 2], [2, 1]]}
+            ),
+            (1, 4, 5, 1),
+        ),
         ("cnn", cnn_graph, (1, 4, 4, 2)),
         ("recurrent", recurrent_graph, (1, 3)),
         ("reshape_flatten", reshape_flatten_graph, (1, 4)),

@@ -1,6 +1,8 @@
 # pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
+from typing import Any, cast
+
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
@@ -57,6 +59,41 @@ class NativeJaxSourceExporter(SourceExporter):
         )
 
     # -------------------------------------------------------------------------
+    @staticmethod
+    def _spatial_values(
+        parameters: dict[str, Any],
+        key: str,
+        dimensions: int,
+        default: list[int],
+    ) -> tuple[int, ...]:
+        value = parameters.get(key, default)
+        if value is None:
+            value = default
+        if not isinstance(value, list) or len(value) != dimensions:
+            raise ValueError(f"JAX {key} expects {dimensions} values")
+        values = cast(list[Any], value)
+        if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in values):
+            raise ValueError(f"JAX {key} expects positive integer values")
+        return tuple(int(item) for item in values)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _spatial_pairs(parameters: dict[str, Any], key: str, dimensions: int) -> tuple[tuple[int, int], ...]:
+        value = parameters.get(key)
+        if not isinstance(value, list) or len(value) != dimensions:
+            raise ValueError(f"JAX {key} expects {dimensions} pairs")
+        pairs: list[tuple[int, int]] = []
+        for item in cast(list[Any], value):
+            if (
+                not isinstance(item, list)
+                or len(item) != 2
+                or any(not isinstance(entry, int) or isinstance(entry, bool) or entry < 0 for entry in item)
+            ):
+                raise ValueError(f"JAX {key} expects non-negative pairs")
+            pairs.append((int(item[0]), int(item[1])))
+        return tuple(pairs)
+
+    # -------------------------------------------------------------------------
     def generate(
         self,
         graph: ModelGraph,
@@ -74,6 +111,55 @@ class NativeJaxSourceExporter(SourceExporter):
             "import jax",
             "import jax.numpy as jnp",
             "from flax import linen as nn",
+            "",
+            "",
+            "def _pool_nd(value, pool_size, strides, padding, data_format, mode):",
+            "    dimensions = len(pool_size)",
+            "    channels_first = data_format == 'channels_first'",
+            "    if channels_first:",
+            "        value = jnp.transpose(value, (0, *range(2, dimensions + 2), 1))",
+            "    operation = nn.max_pool if mode == 'max' else nn.avg_pool",
+            "    current = operation(value, window_shape=pool_size, strides=strides, padding=padding.upper())",
+            "    if channels_first:",
+            "        current = jnp.transpose(current, (0, dimensions + 1, *range(1, dimensions + 1)))",
+            "    return current",
+            "",
+            "",
+            "def _global_pool_nd(value, dimensions, data_format, mode, keepdims):",
+            "    channels_first = data_format == 'channels_first'",
+            "    if channels_first:",
+            "        value = jnp.transpose(value, (0, *range(2, dimensions + 2), 1))",
+            "    axes = tuple(range(1, dimensions + 1))",
+            "    current = jnp.mean(value, axis=axes, keepdims=keepdims) if mode == 'average' else jnp.max(value, axis=axes, keepdims=keepdims)",
+            "    if channels_first and keepdims:",
+            "        current = jnp.transpose(current, (0, dimensions + 1, *range(1, dimensions + 1)))",
+            "    return current",
+            "",
+            "",
+            "def _upsample_nd(value, size, data_format, interpolation):",
+            "    dimensions = len(size)",
+            "    channels_first = data_format == 'channels_first'",
+            "    if channels_first:",
+            "        value = jnp.transpose(value, (0, *range(2, dimensions + 2), 1))",
+            "    if interpolation == 'bilinear' and dimensions == 2:",
+            "        target_shape = (value.shape[0], value.shape[1] * size[0], value.shape[2] * size[1], value.shape[3])",
+            "        current = jax.image.resize(value, target_shape, method='linear')",
+            "    else:",
+            "        current = value",
+            "        for axis, multiplier in enumerate(size, start=1):",
+            "            current = jnp.repeat(current, multiplier, axis=axis)",
+            "    if channels_first:",
+            "        current = jnp.transpose(current, (0, dimensions + 1, *range(1, dimensions + 1)))",
+            "    return current",
+            "",
+            "",
+            "def _pad_nd(value, pairs, data_format):",
+            "    dimensions = len(pairs)",
+            "    if data_format == 'channels_first':",
+            "        pad_width = [(0, 0), (0, 0), *pairs]",
+            "    else:",
+            "        pad_width = [(0, 0), *pairs, (0, 0)]",
+            "    return jnp.pad(value, pad_width)",
             "",
             "",
             "class GeneratedModel(nn.Module):",
@@ -298,21 +384,67 @@ class NativeJaxSourceExporter(SourceExporter):
                 activation = str(params.get("activation", "linear"))
                 if activation != "linear":
                     lines.append(f"        {name} = {self._activation(activation)}({name})")
-            elif definition == "conv.max_pool2d":
-                data_format = str(params.get("data_format", "channels_last"))
-                if data_format == "channels_first":
-                    lines.append(f"        {name}_input = {source}.transpose(0, 2, 3, 1)")
-                else:
-                    lines.append(f"        {name}_input = {source}")
-                pool_size = tuple(params.get("pool_size", [2, 2]))
+            elif definition in {
+                "conv.max_pool1d",
+                "conv.max_pool2d",
+                "conv.max_pool3d",
+                "conv.average_pool1d",
+                "conv.average_pool2d",
+                "conv.average_pool3d",
+            }:
+                dimensions = int(definition[-2])
+                pool_size = self._spatial_values(params, "pool_size", dimensions, [2] * dimensions)
                 strides_value = params.get("strides")
-                strides = pool_size if strides_value is None else tuple(strides_value)
-                padding = str(params.get("padding", "valid")).upper()
-                lines.append(
-                    f"        {name} = nn.max_pool({name}_input, window_shape={pool_size!r}, strides={strides!r}, padding={padding!r})"
+                strides = (
+                    pool_size
+                    if strides_value is None
+                    else self._spatial_values(params, "strides", dimensions, list(pool_size))
                 )
-                if data_format == "channels_first":
-                    lines.append(f"        {name} = {name}.transpose(0, 3, 1, 2)")
+                padding = str(params.get("padding", "valid"))
+                data_format = str(params.get("data_format", "channels_last"))
+                mode = "max" if definition.startswith("conv.max") else "avg"
+                lines.append(
+                    f"        {name} = _pool_nd({source}, {pool_size!r}, {strides!r}, {padding!r}, {data_format!r}, {mode!r})"
+                )
+            elif definition in {
+                "conv.global_pool1d",
+                "conv.global_pool2d",
+                "conv.global_pool3d",
+            }:
+                dimensions = int(definition[-2])
+                mode = str(params.get("mode", "average"))
+                data_format = str(params.get("data_format", "channels_last"))
+                keepdims = bool(params.get("keepdims", False))
+                lines.append(
+                    f"        {name} = _global_pool_nd({source}, {dimensions!r}, {data_format!r}, {mode!r}, {keepdims!r})"
+                )
+            elif definition == "conv.upsampling":
+                dimensions = int(params.get("dimensions", 2))
+                size = self._spatial_values(params, "size", dimensions, [2] * dimensions)
+                data_format = str(params.get("data_format", "channels_last"))
+                interpolation = str(params.get("interpolation", "nearest"))
+                lines.append(
+                    f"        {name} = _upsample_nd({source}, {size!r}, {data_format!r}, {interpolation!r})"
+                )
+            elif definition == "conv.padding":
+                dimensions = int(params.get("dimensions", 2))
+                pairs = self._spatial_pairs(params, "padding", dimensions)
+                data_format = str(params.get("data_format", "channels_last"))
+                lines.append(f"        {name} = _pad_nd({source}, {pairs!r}, {data_format!r})")
+            elif definition == "conv.cropping":
+                dimensions = int(params.get("dimensions", 2))
+                pairs = self._spatial_pairs(params, "cropping", dimensions)
+                data_format = str(params.get("data_format", "channels_last"))
+                rank = dimensions + 2
+                spatial_indices = (
+                    list(range(1, dimensions + 1))
+                    if data_format == "channels_last"
+                    else list(range(2, dimensions + 2))
+                )
+                slices = ["slice(None)"] * rank
+                for index, (before, after) in zip(spatial_indices, pairs, strict=True):
+                    slices[index] = f"slice({before}, {-after if after else 'None'})"
+                lines.append(f"        {name} = {source}[({', '.join(slices)},)]")
             elif definition == "recurrent.lstm":
                 if (
                     params.get("activation", "tanh") != "tanh"

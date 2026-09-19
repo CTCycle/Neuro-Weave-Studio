@@ -191,8 +191,16 @@ def _spatial_transform(
     spatial_rank = source.rank - 2
     if len(raw_pairs) != spatial_rank:
         raise ShapeInferenceError(f"Parameter '{key}' must contain {spatial_rank} spatial pairs")
+    data_format = str(parameters.get("data_format", "channels_last"))
+    if data_format not in {"channels_last", "channels_first"}:
+        raise ShapeInferenceError("data_format must be channels_last or channels_first")
+    spatial_indices = (
+        list(range(1, spatial_rank + 1))
+        if data_format == "channels_last"
+        else list(range(2, spatial_rank + 2))
+    )
     shape = list(source.shape)
-    for index, raw_pair in enumerate(raw_pairs, start=1):
+    for index, raw_pair in zip(spatial_indices, raw_pairs, strict=True):
         pair = [int(value) for value in raw_pair]
         dimension = shape[index]
         if isinstance(dimension, int):
@@ -222,8 +230,16 @@ def _upsample_shape(source: TensorSpec, parameters: dict[str, Any]) -> TensorSpe
         raise ShapeInferenceError(
             f"Parameter 'size' must contain {spatial_rank} spatial dimensions"
         )
+    data_format = str(parameters.get("data_format", "channels_last"))
+    if data_format not in {"channels_last", "channels_first"}:
+        raise ShapeInferenceError("data_format must be channels_last or channels_first")
+    spatial_indices = (
+        list(range(1, spatial_rank + 1))
+        if data_format == "channels_last"
+        else list(range(2, spatial_rank + 2))
+    )
     shape = list(source.shape)
-    for index, raw_multiplier in enumerate(size_values, start=1):
+    for index, raw_multiplier in zip(spatial_indices, size_values, strict=True):
         multiplier = int(raw_multiplier)
         dimension = shape[index]
         if isinstance(dimension, int):
@@ -925,10 +941,21 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             if data_format not in {"channels_last", "channels_first"}:
                 raise ShapeInferenceError("data_format must be channels_last or channels_first")
             channel_index = dimensions + 1 if data_format == "channels_last" else 1
-            output = TensorSpec(
-                shape=[source.shape[0], source.shape[channel_index]],
-                dtype=source.dtype,
-            )
+            if bool(parameters.get("keepdims", False)):
+                shape = list(source.shape)
+                spatial_indices = (
+                    list(range(1, dimensions + 1))
+                    if data_format == "channels_last"
+                    else list(range(2, dimensions + 2))
+                )
+                for index in spatial_indices:
+                    shape[index] = 1
+                output = TensorSpec(shape=shape, dtype=source.dtype)
+            else:
+                output = TensorSpec(
+                    shape=[source.shape[0], source.shape[channel_index]],
+                    dtype=source.dtype,
+                )
             parameter_count = 0
         elif rule == "recurrent":
             if not input_specs:

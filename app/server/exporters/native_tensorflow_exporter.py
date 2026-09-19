@@ -51,6 +51,41 @@ class NativeTensorFlowSourceExporter(SourceExporter):
 
     # -------------------------------------------------------------------------
     @staticmethod
+    def _spatial_values(
+        parameters: dict[str, Any],
+        key: str,
+        dimensions: int,
+        default: list[int],
+    ) -> tuple[int, ...]:
+        value = parameters.get(key, default)
+        if value is None:
+            value = default
+        if not isinstance(value, list) or len(value) != dimensions:
+            raise ValueError(f"TensorFlow {key} expects {dimensions} values")
+        values = cast(list[Any], value)
+        if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in values):
+            raise ValueError(f"TensorFlow {key} expects positive integer values")
+        return tuple(int(item) for item in values)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _spatial_pairs(parameters: dict[str, Any], key: str, dimensions: int) -> tuple[tuple[int, int], ...]:
+        value = parameters.get(key)
+        if not isinstance(value, list) or len(value) != dimensions:
+            raise ValueError(f"TensorFlow {key} expects {dimensions} pairs")
+        pairs: list[tuple[int, int]] = []
+        for item in cast(list[Any], value):
+            if (
+                not isinstance(item, list)
+                or len(item) != 2
+                or any(not isinstance(entry, int) or isinstance(entry, bool) or entry < 0 for entry in item)
+            ):
+                raise ValueError(f"TensorFlow {key} expects non-negative pairs")
+            pairs.append((int(item[0]), int(item[1])))
+        return tuple(pairs)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
     def _axis(value: object, rank: int) -> int:
         if not isinstance(value, int) or isinstance(value, bool):
             raise ValueError("TensorFlow normalization expects an integer axis")
@@ -179,6 +214,57 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             "    if padding == 'same': current = _same_pad(current, pool_size, strides, (1, 1), float('-inf'))",
             "    current = tf.nn.max_pool2d(current, ksize=pool_size, strides=strides, padding='VALID' if padding == 'same' else padding.upper(), data_format='NHWC')",
             "    return tf.transpose(current, [0, 3, 1, 2]) if channels_first else current",
+            "",
+            "",
+            "def _pool_nd(value, pool_size, strides, padding, data_format, mode):",
+            "    dimensions = len(pool_size)",
+            "    channels_first = data_format == 'channels_first'",
+            "    if channels_first:",
+            "        value = tf.transpose(value, [0, *range(2, dimensions + 2), 1])",
+            "    operation = getattr(tf.nn, f'{mode}_pool{dimensions}d')",
+            "    format_name = {1: 'NWC', 2: 'NHWC', 3: 'NDHWC'}[dimensions]",
+            "    current = operation(value, ksize=pool_size, strides=strides, padding=padding.upper(), data_format=format_name)",
+            "    if channels_first:",
+            "        current = tf.transpose(current, [0, dimensions + 1, *range(1, dimensions + 1)])",
+            "    return current",
+            "",
+            "",
+            "def _global_pool_nd(value, dimensions, data_format, mode, keepdims):",
+            "    channels_first = data_format == 'channels_first'",
+            "    if channels_first:",
+            "        value = tf.transpose(value, [0, *range(2, dimensions + 2), 1])",
+            "    spatial_axes = list(range(1, dimensions + 1))",
+            "    operation = tf.reduce_mean if mode == 'average' else tf.reduce_max",
+            "    current = operation(value, axis=spatial_axes, keepdims=keepdims)",
+            "    if channels_first and keepdims:",
+            "        current = tf.transpose(current, [0, dimensions + 1, *range(1, dimensions + 1)])",
+            "    return current",
+            "",
+            "",
+            "def _upsample_nd(value, size, data_format, interpolation):",
+            "    dimensions = len(size)",
+            "    channels_first = data_format == 'channels_first'",
+            "    if channels_first:",
+            "        value = tf.transpose(value, [0, *range(2, dimensions + 2), 1])",
+            "    if interpolation == 'bilinear' and dimensions == 2:",
+            "        target = [tf.shape(value)[1] * size[0], tf.shape(value)[2] * size[1]]",
+            "        current = tf.image.resize(value, target, method='bilinear')",
+            "    else:",
+            "        current = value",
+            "        for axis, multiplier in enumerate(size, start=1):",
+            "            current = tf.repeat(current, multiplier, axis=axis)",
+            "    if channels_first:",
+            "        current = tf.transpose(current, [0, dimensions + 1, *range(1, dimensions + 1)])",
+            "    return current",
+            "",
+            "",
+            "def _pad_nd(value, pairs, data_format):",
+            "    dimensions = len(pairs)",
+            "    if data_format == 'channels_first':",
+            "        paddings = [[0, 0], [0, 0], *pairs]",
+            "    else:",
+            "        paddings = [[0, 0], *pairs, [0, 0]]",
+            "    return tf.pad(value, paddings)",
             "",
             "",
             "def _lstm(value, kernel, bias, units, return_sequences):",
@@ -640,19 +726,67 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 activation = str(params.get("activation", "linear"))
                 if activation != "linear":
                     lines.append(f"        {name} = _activation({name}, {activation!r})")
-            elif definition == "conv.max_pool2d":
-                pool_size = self._spatial_tuple(params, "pool_size", [2, 2])
+            elif definition in {
+                "conv.max_pool1d",
+                "conv.max_pool2d",
+                "conv.max_pool3d",
+                "conv.average_pool1d",
+                "conv.average_pool2d",
+                "conv.average_pool3d",
+            }:
+                dimensions = int(definition[-2])
+                pool_size = self._spatial_values(params, "pool_size", dimensions, [2] * dimensions)
                 strides_value = params.get("strides")
                 strides = (
                     pool_size
                     if strides_value is None
-                    else self._spatial_tuple(params, "strides", [2, 2])
+                    else self._spatial_values(params, "strides", dimensions, list(pool_size))
                 )
                 padding = str(params.get("padding", "valid"))
                 data_format = str(params.get("data_format", "channels_last"))
+                mode = "max" if definition.startswith("conv.max") else "avg"
                 lines.append(
-                    f"        {name} = _max_pool2d({source}, {pool_size!r}, {strides!r}, {padding!r}, {data_format!r})"
+                    f"        {name} = _pool_nd({source}, {pool_size!r}, {strides!r}, {padding!r}, {data_format!r}, {mode!r})"
                 )
+            elif definition in {
+                "conv.global_pool1d",
+                "conv.global_pool2d",
+                "conv.global_pool3d",
+            }:
+                dimensions = int(definition[-2])
+                mode = str(params.get("mode", "average"))
+                data_format = str(params.get("data_format", "channels_last"))
+                keepdims = bool(params.get("keepdims", False))
+                lines.append(
+                    f"        {name} = _global_pool_nd({source}, {dimensions!r}, {data_format!r}, {mode!r}, {keepdims!r})"
+                )
+            elif definition == "conv.upsampling":
+                dimensions = int(params.get("dimensions", 2))
+                size = self._spatial_values(params, "size", dimensions, [2] * dimensions)
+                data_format = str(params.get("data_format", "channels_last"))
+                interpolation = str(params.get("interpolation", "nearest"))
+                lines.append(
+                    f"        {name} = _upsample_nd({source}, {size!r}, {data_format!r}, {interpolation!r})"
+                )
+            elif definition == "conv.padding":
+                dimensions = int(params.get("dimensions", 2))
+                pairs = self._spatial_pairs(params, "padding", dimensions)
+                data_format = str(params.get("data_format", "channels_last"))
+                lines.append(f"        {name} = _pad_nd({source}, {pairs!r}, {data_format!r})")
+            elif definition == "conv.cropping":
+                dimensions = int(params.get("dimensions", 2))
+                pairs = self._spatial_pairs(params, "cropping", dimensions)
+                data_format = str(params.get("data_format", "channels_last"))
+                rank = dimensions + 2
+                spatial_indices = (
+                    list(range(1, dimensions + 1))
+                    if data_format == "channels_last"
+                    else list(range(2, dimensions + 2))
+                )
+                slices = ["slice(None)"] * rank
+                for index, (before, after) in zip(spatial_indices, pairs, strict=True):
+                    slices[index] = f"slice({before}, {-after if after else 'None'})"
+                lines.append(f"        {name} = {source}[({', '.join(slices)},)]")
             elif definition == "recurrent.lstm":
                 lines.append(
                     f"        {name} = _lstm({source}, self.{name}_kernel, self.{name}_bias, {int(params.get('units', 64))}, {bool(params.get('return_sequences', False))!r})"
