@@ -82,6 +82,28 @@ describe('graph I/O summary', () => {
     expect(outputSelectors(summary.outputs[0], model)).toEqual(['Auxiliary', 'side', 'side:output'])
   })
 
+  it('resolves explicit bindings against materialized dynamic output ports', () => {
+    const split = manifest('merge.split', 'operation', [{
+      ...port(),
+      id: 'output',
+      cardinality: {
+        kind: 'parameter' as const,
+        parameter_id: 'sections',
+        minimum: 1,
+        maximum: 4,
+        id_pattern: 'output_{index}',
+        display_name_pattern: 'Output {index}',
+      },
+    }])
+    split.parameters = [{ id: 'sections', display_name: 'Sections', type: 'integer', default: 2, required: true, constraints: {}, options: [], description: '' }]
+    const model = graph([{ node_id: 'side', port_id: 'output_1' }])
+    model.nodes[2] = { ...model.nodes[2], definition_id: split.id, parameters: { sections: 2 } }
+
+    const summary = summarizeGraphIo(model, [...manifests, split])
+
+    expect(summary.outputs).toEqual([{ node_id: 'side', port_id: 'output_1', name: 'Auxiliary_output_1', task_hint: null, explicit: true }])
+  })
+
   it('derives classification task metadata from the terminal output width', () => {
     const binary = summarizeGraphIo(
       classificationGraph({ units: 1, activation: 'sigmoid' }),

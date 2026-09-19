@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core'
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'
+import { materializedInputs, materializedOutputs } from '../../../domain/ports'
 import {
   cloneEditorSession,
   defaultExportSettings,
@@ -260,8 +261,7 @@ export class GraphEditorStore {
     const node = this.nodes().find((item) => item.id === nodeId)
     if (!node) return false
     if (patch.parameters !== undefined && !this.canUpdateParameters(node, patch.parameters)) return false
-    this.checkpoint()
-    this.nodes.update((nodes) => nodes.map((node) => node.id === nodeId ? {
+    const nextNode: EditorNode = {
       ...node,
       locked: patch.locked ?? node.locked,
       data: {
@@ -269,7 +269,19 @@ export class GraphEditorStore {
         label: patch.label ?? node.data.label,
         parameters: patch.parameters ?? node.data.parameters,
       },
-    } : node))
+    }
+    const nextNodes = this.nodes().map((item) => item.id === nodeId ? nextNode : item)
+    const nextEdges = this.edges().filter((edge) => (
+      (edge.source !== nodeId || this.portStillAvailable(nextNode, 'output', edge.sourceHandle ?? 'output'))
+      && (edge.target !== nodeId || this.portStillAvailable(nextNode, 'input', edge.targetHandle ?? 'input'))
+    ))
+    const nextOutputBindings = this.outputBindings().filter((binding) => (
+      binding.node_id !== nodeId || this.portStillAvailable(nextNode, 'output', binding.port_id)
+    ))
+    this.checkpoint()
+    this.nodes.set(nextNodes)
+    this.edges.set(nextEdges)
+    this.outputBindings.set(uniqueOutputBindings(nextOutputBindings))
     this.invalidateDerivedState()
     return true
   }
@@ -353,7 +365,7 @@ export class GraphEditorStore {
     if (this.outputBindings().length) return false
     const node = this.nodes().find((item) => item.id === nodeId)
     if (!node || node.data.manifest.semantic_role === 'input') return false
-    return node.data.manifest.outputs.some((port) => {
+    return this.outputPorts(node).some((port) => {
       if (portId && port.id !== portId) return false
       if (port.enabled_when && !conditionMatches(port.enabled_when, node.data.parameters)) return false
       if (!isValueOutputPort(port.kind)) return false
@@ -367,10 +379,10 @@ export class GraphEditorStore {
 
   hasEnabledOutputPort(nodeId: string): boolean {
     const node = this.nodes().find((item) => item.id === nodeId)
-    return node?.data.manifest.outputs.some((port) => (
+    return node ? this.outputPorts(node).some((port) => (
       isValueOutputPort(port.kind)
       && (!port.enabled_when || conditionMatches(port.enabled_when, node.data.parameters))
-    )) ?? false
+    )) : false
   }
 
   canToggleNodeOutput(nodeId: string): boolean {
@@ -394,12 +406,12 @@ export class GraphEditorStore {
     }
     if (!this.nodeCompatibility(node.data.manifest).available) return
     const candidate = portId
-      ? node.data.manifest.outputs.find((port) => port.id === portId)
-      : node.data.manifest.outputs.find((port) => (
+      ? this.outputPorts(node).find((port) => port.id === portId)
+      : this.outputPorts(node).find((port) => (
         isValueOutputPort(port.kind)
         && (!port.enabled_when || conditionMatches(port.enabled_when, node.data.parameters))
         && port.id === 'output'
-      )) ?? node.data.manifest.outputs.find((port) => (
+      )) ?? this.outputPorts(node).find((port) => (
         isValueOutputPort(port.kind)
         && (!port.enabled_when || conditionMatches(port.enabled_when, node.data.parameters))
       ))
@@ -616,6 +628,30 @@ export class GraphEditorStore {
       const value = effectiveParameterDefault(definition, mapping?.parameters?.[definition.id])
       return value === undefined ? [] : [[definition.id, structuredClone(value)]]
     }))
+  }
+
+  private outputPorts(node: EditorNode): NodeManifest['outputs'] {
+    try {
+      return materializedOutputs(node.data.manifest, node.data.parameters)
+    } catch {
+      return []
+    }
+  }
+
+  private portStillAvailable(
+    node: EditorNode,
+    direction: 'input' | 'output',
+    portId: string,
+  ): boolean {
+    try {
+      const ports = direction === 'input'
+        ? materializedInputs(node.data.manifest, node.data.parameters)
+        : materializedOutputs(node.data.manifest, node.data.parameters)
+      const port = ports.find((item) => item.id === portId)
+      return Boolean(port && conditionMatches(port.enabled_when, node.data.parameters))
+    } catch {
+      return false
+    }
   }
 
   private editorParameters(manifest: NodeManifest): Record<string, unknown> {

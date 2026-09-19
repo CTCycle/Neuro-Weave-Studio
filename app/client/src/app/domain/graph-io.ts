@@ -1,4 +1,5 @@
 import { conditionMatches, type GraphNodeInstance, type ModelGraph, type NodeManifest, type OutputBinding, type PortDefinition } from './types'
+import { materializedOutputs } from './ports'
 
 export interface GraphOutputSummary {
   node_id: string
@@ -60,8 +61,8 @@ function resolveOutput(
 ): GraphOutputSummary {
   const node = graph.nodes.find((item) => item.id === binding.node_id)
   const manifest = node ? manifestFor(node) : undefined
-  const port = manifest?.outputs.find((item) => item.id === binding.port_id)
   const enabledPorts = manifest && node ? tensorOutputPorts(manifest, node.parameters) : []
+  const port = enabledPorts.find((item) => item.id === binding.port_id)
   const base = node?.label || node?.id || binding.node_id
   return {
     node_id: binding.node_id,
@@ -142,7 +143,14 @@ function isEffectiveOutput(
 ): boolean {
   const node = graph.nodes.find((item) => item.id === binding.node_id)
   const manifest = node ? manifestFor(node) : undefined
-  const port = manifest?.outputs.find((item) => item.id === binding.port_id)
+  let port: PortDefinition | undefined
+  try {
+    port = manifest && node
+      ? materializedOutputs(manifest, node.parameters).find((item) => item.id === binding.port_id)
+      : undefined
+  } catch {
+    return false
+  }
   return Boolean(
     node
     && manifest
@@ -154,8 +162,12 @@ function isEffectiveOutput(
 }
 
 function tensorOutputPorts(manifest: NodeManifest, parameters: Record<string, unknown>): PortDefinition[] {
-  return manifest.outputs.filter((port) =>
-    ['tensor', 'tensor_list', 'mask', 'scalar'].includes(port.kind)
-    && conditionMatches(port.enabled_when, parameters),
-  )
+  try {
+    return materializedOutputs(manifest, parameters).filter((port) =>
+      ['tensor', 'tensor_list', 'mask', 'scalar'].includes(port.kind)
+      && conditionMatches(port.enabled_when, parameters),
+    )
+  } catch {
+    return []
+  }
 }

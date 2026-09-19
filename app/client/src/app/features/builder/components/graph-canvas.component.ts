@@ -3,6 +3,7 @@ import type { OnChanges, SimpleChanges } from '@angular/core'
 import { LucideLock, LucideMaximize2, LucideSave, LucideUnlock } from '@lucide/angular'
 import { FCanvasComponent, FFlowModule, FZoomDirective, type FCreateConnectionEvent, type FDeleteSelectedEvent, type FEventTrigger, type FMoveNodesEvent, type FSelectionChangeEvent } from '@foblex/flow'
 import type { EditorNode } from '../../../domain/editor.types'
+import { materializedInputs, materializedOutputs } from '../../../domain/ports'
 import { ApiService } from '../../../core/api/api.service'
 import type { ExecutionBackend, ValidationDiagnostic, ValidationResult } from '../../../domain/types'
 import { GraphEditorStore } from '../state/graph-editor.store'
@@ -28,7 +29,7 @@ type NormalizedConnection = NonNullable<ReturnType<typeof normalizeConnection>>
           <ng-container ngProjectAs="[fConnections]">@for (edge of store.edges(); track edge.id) { <f-connection fType="straight" fOffset="20" [fSelectionDisabled]="readOnly" [fConnectionId]="edge.id" [fSourceId]="connectorId(edge.source, 'output', edge.sourceHandle || 'output')" [fTargetId]="connectorId(edge.target, 'input', edge.targetHandle || 'input')" [class.is-selected]="store.selectedEdgeId() === edge.id" [class.is-invalid]="hasEdgeError(edge.id)"></f-connection> }</ng-container>
           <ng-container ngProjectAs="[fNodes]">@for (node of store.nodes(); track node.id) {
             <div fNode [fNodeId]="node.id" [fNodePosition]="node.position" [fNodeDraggingDisabled]="readOnly || node.locked" [fNodeSelectionDisabled]="readOnly" [fNodeSize]="nodeSize(node)" [class.is-selected]="store.selectedNodeId() === node.id" [class.has-validation-error]="hasNodeError(node.id)" [class.is-profile-incompatible]="!isProfileCompatible(node.id)" [attr.data-node-id]="node.id" [attr.tabindex]="0" role="group" [attr.aria-label]="nodeAccessibilityLabel(node)" [title]="nodeCompatibilityTitle(node.id)" (click)="selectNode(node.id)" (keydown)="handleNodeKeydown($event, node.id)">
-              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" [attr.aria-label]="!isProfileCompatible(node.id) ? nodeCompatibilityTitle(node.id) : null">@if (node.locked) { <svg lucideLock [size]="13"></svg> } @if (!isProfileCompatible(node.id)) { <span class="nw-flow-node-incompatible" aria-hidden="true">!</span> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of node.data.manifest.inputs; track port.id; let index = $index) { @if (portEnabled(node, 'input', port.id)) { <span class="nw-flow-port input" [class.is-profile-incompatible]="!isProfileCompatible(node.id)" [style.top]="portOffset(index, node.data.manifest.inputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'input'" [attr.tabindex]="isProfileCompatible(node.id) ? 0 : -1" [attr.aria-disabled]="!isProfileCompatible(node.id)" role="button" [attr.aria-label]="keyboardPortLabel(node, 'input', port.id)" [class.is-keyboard-target]="isKeyboardTarget(node.id, port.id)" [title]="portTitle(node.id, port.display_name, port.kind)" (keydown)="handlePortKeydown($event, node.id, 'input', port.id)"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> } }</div><div class="nw-flow-port-layer outputs">@for (port of node.data.manifest.outputs; track port.id; let index = $index) { @if (portEnabled(node, 'output', port.id)) { <span class="nw-flow-port output" [class.is-profile-incompatible]="!isProfileCompatible(node.id)" [style.top]="portOffset(index, node.data.manifest.outputs.length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'output'" [attr.tabindex]="isProfileCompatible(node.id) ? 0 : -1" [attr.aria-disabled]="!isProfileCompatible(node.id)" role="button" [attr.aria-pressed]="isKeyboardSource(node.id, port.id)" [attr.aria-label]="keyboardPortLabel(node, 'output', port.id)" [class.is-keyboard-source]="isKeyboardSource(node.id, port.id)" [title]="portTitle(node.id, port.display_name, port.kind)" (keydown)="handlePortKeydown($event, node.id, 'output', port.id)"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="true" [fCanBeConnectedTo]="connectionTargets(node.id, port.id)"></i></span> } }</div></div>
+              <div fDragHandle class="nw-flow-node" [style.--node-accent]="node.data.manifest.ui.accent" (contextmenu)="openNodeMenu($event, node.id)"><div class="nw-flow-node-status" [attr.aria-label]="!isProfileCompatible(node.id) ? nodeCompatibilityTitle(node.id) : null">@if (node.locked) { <svg lucideLock [size]="13"></svg> } @if (!isProfileCompatible(node.id)) { <span class="nw-flow-node-incompatible" aria-hidden="true">!</span> }</div>@if (store.isEffectiveOutput(node.id)) { <span class="nw-flow-output-indicator" [attr.aria-label]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'" [title]="store.isOutput(node.id) ? 'Explicit workflow output' : 'Inferred workflow output'"></span> }<div class="nw-flow-node-eyebrow">{{ node.data.manifest.category }}</div><div class="nw-flow-node-heading"><strong>{{ node.data.label }}</strong></div><small>{{ node.data.manifest.id }}</small><div class="nw-flow-node-footer">{{ shapeLabel(node) }}</div><div class="nw-flow-port-layer inputs">@for (port of inputPorts(node); track port.id; let index = $index) { @if (portEnabled(node, 'input', port.id)) { <span class="nw-flow-port input" [class.is-profile-incompatible]="!isProfileCompatible(node.id)" [style.top]="portOffset(index, inputPorts(node).length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'input'" [attr.tabindex]="isProfileCompatible(node.id) ? 0 : -1" [attr.aria-disabled]="!isProfileCompatible(node.id)" role="button" [attr.aria-label]="keyboardPortLabel(node, 'input', port.id)" [class.is-keyboard-target]="isKeyboardTarget(node.id, port.id)" [title]="portTitle(node.id, port.display_name, port.kind)" (keydown)="handlePortKeydown($event, node.id, 'input', port.id)"><i fConnector fConnectorType="target" [fConnectorId]="connectorId(node.id, 'input', port.id)" [fConnectorMultiple]="port.accepts_multiple"></i></span> } }</div><div class="nw-flow-port-layer outputs">@for (port of outputPorts(node); track port.id; let index = $index) { @if (portEnabled(node, 'output', port.id)) { <span class="nw-flow-port output" [class.is-profile-incompatible]="!isProfileCompatible(node.id)" [style.top]="portOffset(index, outputPorts(node).length) + '%'" [attr.data-port-id]="port.id" [attr.data-port-direction]="'output'" [attr.tabindex]="isProfileCompatible(node.id) ? 0 : -1" [attr.aria-disabled]="!isProfileCompatible(node.id)" role="button" [attr.aria-pressed]="isKeyboardSource(node.id, port.id)" [attr.aria-label]="keyboardPortLabel(node, 'output', port.id)" [class.is-keyboard-source]="isKeyboardSource(node.id, port.id)" [title]="portTitle(node.id, port.display_name, port.kind)" (keydown)="handlePortKeydown($event, node.id, 'output', port.id)"><i fConnector fConnectorType="source" [fConnectorId]="connectorId(node.id, 'output', port.id)" [fConnectorMultiple]="true" [fCanBeConnectedTo]="connectionTargets(node.id, port.id)"></i></span> } }</div></div>
             </div>
           } </ng-container>
         </f-canvas>
@@ -85,7 +86,7 @@ export class GraphCanvasComponent implements OnChanges {
     const source = this.keyboardConnectionSource()
     if (!source) return null
     const node = this.store.nodes().find((item) => item.id === source.nodeId)
-    const port = node?.data.manifest.outputs.find((item) => item.id === source.portId)
+    const port = node ? this.outputPorts(node).find((item) => item.id === source.portId) : undefined
     if (!node || !port) return null
     return `Connection source ${port.display_name} on ${node.data.label} selected. Choose an input port and press Enter to connect, or press Escape to cancel.`
   })
@@ -121,7 +122,7 @@ export class GraphCanvasComponent implements OnChanges {
     const targets = new Map<string, string[]>()
 
     for (const node of nodes) {
-      for (const port of node.data.manifest.outputs) {
+      for (const port of this.outputPorts(node)) {
         const sourceKey = `${node.id}|${port.id}`
         const targetIds = connectionCandidates(
           nodes,
@@ -398,7 +399,7 @@ export class GraphCanvasComponent implements OnChanges {
       && this.connectionTargets(source.nodeId, source.portId).includes(connectorId(nodeId, 'input', portId))
   }
   keyboardPortLabel(node: EditorNode, direction: 'input' | 'output', portId: string): string {
-    const ports = direction === 'input' ? node.data.manifest.inputs : node.data.manifest.outputs
+    const ports = direction === 'input' ? this.inputPorts(node) : this.outputPorts(node)
     const port = ports.find((item) => item.id === portId)
     const selected = direction === 'output' && this.isKeyboardSource(node.id, portId)
     const compatibility = this.nodeCompatibilityTitle(node.id)
@@ -459,9 +460,25 @@ export class GraphCanvasComponent implements OnChanges {
   }
 
   portEnabled(node: EditorNode, direction: 'input' | 'output', portId: string): boolean {
-    const ports = direction === 'input' ? node.data.manifest.inputs : node.data.manifest.outputs
+    const ports = direction === 'input' ? this.inputPorts(node) : this.outputPorts(node)
     const port = ports.find((item) => item.id === portId)
     return port ? this.conditionMatches(port.enabled_when ?? {}, node.data.parameters) : false
+  }
+
+  inputPorts(node: EditorNode) {
+    try {
+      return materializedInputs(node.data.manifest, node.data.parameters)
+    } catch {
+      return []
+    }
+  }
+
+  outputPorts(node: EditorNode) {
+    try {
+      return materializedOutputs(node.data.manifest, node.data.parameters)
+    } catch {
+      return []
+    }
   }
 
   private conditionMatches(condition: Record<string, unknown>, parameters: Record<string, unknown>): boolean {
