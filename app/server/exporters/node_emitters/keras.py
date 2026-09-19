@@ -58,6 +58,34 @@ def _detection(context: NodeEmitterContext) -> EmissionResult:
     return EmissionResult(output_expressions=emit_multi_output_assignment(expression, context.materialized_output_ports))
 
 
+def _reshape(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    target_shape = tuple(int(value) for value in parameters.get("target_shape", [-1]))
+    expression = f"keras.layers.Reshape({target_shape!r}, name={context.canonical_ir_node.variable_name!r})({source})"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+def _permute(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    axes = tuple(int(value) for value in parameters.get("axes", [2, 1]))
+    expression = f"keras.layers.Permute({axes!r}, name={context.canonical_ir_node.variable_name!r})({source})"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+def _repeat(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    repeats = int(parameters.get("repeats", 2))
+    axis = int(parameters.get("axis", 1))
+    if axis == 1:
+        expression = f"keras.layers.RepeatVector({repeats}, name={context.canonical_ir_node.variable_name!r})({source})"
+    else:
+        expression = f"keras.ops.repeat({source}, {repeats}, axis={axis})"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
 def build_registry() -> NodeEmitterRegistry:
     registry = NodeEmitterRegistry("keras")
     for adapter, emitter in {
@@ -68,6 +96,9 @@ def build_registry() -> NodeEmitterRegistry:
         "average": _average,
         "split": _split,
         "detection": _detection,
+        "keras_reshape": _reshape,
+        "keras_permute": _permute,
+        "keras_repeat": _repeat,
         "safe_expression": _identity,
     }.items():
         registry.register(adapter, emitter)

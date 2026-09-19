@@ -743,6 +743,26 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 shape=[source.shape[0], *resolved_shape],
                 dtype=source.dtype,
             )
+        elif rule == "repeat":
+            if not input_specs:
+                raise ShapeInferenceError(f"{node_id} requires an input")
+            source = input_specs[0]
+            axis = _normalize_axis(_int_parameter(parameters, "axis", 1), source.rank)
+            repeats = _optional_positive_int(parameters, "repeats", 2)
+            if node.definition_id == "layer.repeat" and axis == 1:
+                if source.rank != 2:
+                    raise ShapeInferenceError(
+                        "Repeat with axis 1 expects a rank-2 input"
+                    )
+                output = TensorSpec(
+                    shape=[source.shape[0], repeats, source.shape[1]],
+                    dtype=source.dtype,
+                )
+            else:
+                shape = list(source.shape)
+                dimension = shape[axis]
+                shape[axis] = int(dimension) * repeats if isinstance(dimension, int) else None
+                output = TensorSpec(shape=shape, dtype=source.dtype)
         elif rule == "conv_nd":
             if not input_specs:
                 raise ShapeInferenceError(f"{node_id} requires an input")

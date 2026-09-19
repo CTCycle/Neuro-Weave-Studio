@@ -133,6 +133,25 @@ class NativeJaxSourceExporter(SourceExporter):
                 )
             elif definition == "layer.flatten":
                 lines.append(f"        {name} = jnp.reshape({source}, ({source}.shape[0], -1))")
+            elif definition == "layer.reshape":
+                target_shape = tuple(int(value) for value in params.get("target_shape", [-1]))
+                lines.append(
+                    f"        {name} = jnp.reshape({source}, ({source}.shape[0],) + {target_shape!r})"
+                )
+            elif definition == "layer.permute":
+                axes = tuple(int(value) for value in params.get("axes", [2, 1]))
+                lines.append(f"        {name} = jnp.transpose({source}, (0,) + {axes!r})")
+            elif definition == "layer.repeat":
+                repeats = int(params.get("repeats", 2))
+                axis = int(params.get("axis", 1))
+                if axis == 1:
+                    lines.append(
+                        f"        {name} = jnp.repeat({source}[:, None, :], {repeats!r}, axis=1)"
+                    )
+                else:
+                    lines.append(
+                        f"        {name} = jnp.repeat({source}, {repeats!r}, axis={axis!r})"
+                    )
             elif definition == "layer.embedding":
                 lines.append(
                     f"        {name} = nn.Embed(num_embeddings={int(params.get('vocabulary_size', 10000))}, features={int(params.get('embedding_dim', 128))}, name={name!r})({source}.astype(jnp.int32))"
