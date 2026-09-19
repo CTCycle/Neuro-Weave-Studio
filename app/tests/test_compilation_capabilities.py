@@ -312,6 +312,100 @@ def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
     assert bool(jax.numpy.isfinite(updated))
 
 
+@pytest.mark.parametrize(
+    ("optimizer_id", "parameters"),
+    [
+        (
+            "sgd",
+            {"learning_rate": 0.007, "momentum": 0.2, "nesterov": True},
+        ),
+        (
+            "rmsprop",
+            {
+                "learning_rate": 0.007,
+                "rho": 0.8,
+                "momentum": 0.1,
+                "epsilon": 1e-6,
+                "centered": True,
+            },
+        ),
+        (
+            "adagrad",
+            {
+                "learning_rate": 0.007,
+                "initial_accumulator_value": 0.2,
+                "epsilon": 1e-6,
+                "weight_decay": 0.03,
+            },
+        ),
+        (
+            "adadelta",
+            {
+                "learning_rate": 0.007,
+                "rho": 0.8,
+                "epsilon": 1e-6,
+                "weight_decay": 0.03,
+            },
+        ),
+        (
+            "adamax",
+            {
+                "learning_rate": 0.007,
+                "beta_1": 0.81,
+                "beta_2": 0.97,
+                "epsilon": 1e-6,
+                "weight_decay": 0.03,
+            },
+        ),
+        (
+            "nadam",
+            {
+                "learning_rate": 0.007,
+                "beta_1": 0.81,
+                "beta_2": 0.97,
+                "epsilon": 1e-6,
+                "weight_decay": 0.03,
+            },
+        ),
+    ],
+)
+def test_native_jax_optimizer_catalog_variants_update(
+    optimizer_id: str,
+    parameters: dict[str, object],
+) -> None:
+    jax = pytest.importorskip("jax")
+    optax = pytest.importorskip("optax")
+    graph = _native_graph().model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    jax=JaxNativeConfiguration(
+                        compilation={
+                            "optimizer": {
+                                "id": optimizer_id,
+                                "parameters": parameters,
+                            }
+                        },
+                        compiler={"id": "jax_jit", "parameters": {"enabled": False}},
+                    )
+                )
+            )
+        }
+    )
+
+    handle = build_native_model(graph, ExecutionBackend.JAX, zero_parameters=True)
+
+    assert handle.compilation is not None
+    optimizer = handle.compilation["optimizer_runtime"]
+    assert handle.compilation["optimizer"]["id"] == optimizer_id
+    parameter = jax.numpy.asarray(1.0)
+    state = optimizer.init(parameter)
+    updates, _ = optimizer.update(jax.numpy.asarray(2.0), state, parameter)
+    updated = optax.apply_updates(parameter, updates)
+    assert float(updated) != pytest.approx(1.0)
+    assert bool(jax.numpy.isfinite(updated))
+
+
 ###############################################################################
 def test_native_jax_compilation_builds_raw_loss_and_metric_functions() -> None:
     jax = pytest.importorskip("jax")

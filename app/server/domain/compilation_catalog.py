@@ -405,6 +405,12 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     _boolean("nesterov", "Nesterov", False, "Use Nesterov momentum."),
                 ],
                 pytorch_parameter_mapping={"learning_rate": "lr"},
+                jax_adapter="sgd",
+                jax_parameter_mapping={
+                    "learning_rate": "learning_rate",
+                    "momentum": "momentum",
+                    "nesterov": "nesterov",
+                },
             ),
             _optimizer(
                 "rmsprop",
@@ -447,6 +453,14 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     "rho": "alpha",
                     "epsilon": "eps",
                 },
+                jax_adapter="rmsprop",
+                jax_parameter_mapping={
+                    "learning_rate": "learning_rate",
+                    "rho": "decay",
+                    "momentum": "momentum",
+                    "epsilon": "eps",
+                    "centered": "centered",
+                },
             ),
             _optimizer(
                 "adagrad",
@@ -468,6 +482,12 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     "learning_rate": "lr",
                     "epsilon": "eps",
                 },
+                jax_adapter="adagrad",
+                jax_parameter_mapping={
+                    "learning_rate": "learning_rate",
+                    "initial_accumulator_value": "initial_accumulator_value",
+                    "epsilon": "eps",
+                },
             ),
             _optimizer(
                 "adadelta",
@@ -482,6 +502,13 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 pytorch_parameter_mapping={
                     "learning_rate": "lr",
                     "epsilon": "eps",
+                },
+                jax_adapter="adadelta",
+                jax_parameter_mapping={
+                    "learning_rate": "learning_rate",
+                    "rho": "rho",
+                    "epsilon": "eps",
+                    "weight_decay": "weight_decay",
                 },
             ),
             _optimizer(
@@ -501,6 +528,13 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     "beta_2": "betas",
                     "epsilon": "eps",
                 },
+                jax_adapter="adamax",
+                jax_parameter_mapping={
+                    "learning_rate": "learning_rate",
+                    "beta_1": "b1",
+                    "beta_2": "b2",
+                    "epsilon": "eps",
+                },
             ),
             _optimizer(
                 "nadam",
@@ -517,6 +551,13 @@ def _build_compilation_catalog() -> CompilationCatalog:
                     "learning_rate": "lr",
                     "beta_1": "betas",
                     "beta_2": "betas",
+                    "epsilon": "eps",
+                },
+                jax_adapter="nadam",
+                jax_parameter_mapping={
+                    "learning_rate": "learning_rate",
+                    "beta_1": "b1",
+                    "beta_2": "b2",
                     "epsilon": "eps",
                 },
             ),
