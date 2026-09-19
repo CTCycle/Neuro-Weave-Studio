@@ -130,6 +130,9 @@ def build_native_model(
         )
         apply = apply_callable
         outputs = _as_list(apply_callable(variables, model_input))
+        compilation_factory = module.__dict__.get("build_compilation")
+        if callable(compilation_factory):
+            compilation = cast(Callable[[Any], dict[str, Any]], compilation_factory)(variables)
     if backend is ExecutionBackend.TENSORFLOW and not zero_parameters:
         _initialize_tensorflow_parameters(model, seed)
         outputs = _as_list(execution_model(model_input))

@@ -897,6 +897,7 @@ export = [
 jax = [
     { name = "flax" },
     { name = "jax" },
+    { name = "optax" },
 ]
 tensorflow = [
     { name = "tensorflow" },
@@ -931,6 +932,7 @@ requires-dist = [
     { name = "onnx", marker = "extra == 'export'", specifier = ">=1.17,<2" },
     { name = "onnxruntime", marker = "extra == 'export'", specifier = ">=1.20,<2" },
     { name = "onnxscript", marker = "extra == 'export'", specifier = ">=0.2,<1" },
+    { name = "optax", marker = "extra == 'jax'", specifier = ">=0.2,<1" },
     { name = "pyarrow", specifier = ">=20,<24" },
     { name = "pydantic", specifier = ">=2.11,<3" },
     { name = "pydantic-settings", specifier = ">=2.15,<3" },

@@ -209,6 +209,48 @@ def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
     assert float(parameter.numpy()) != pytest.approx(1.0)
     assert bool(tensorflow.math.is_finite(parameter))
 
+
+###############################################################################
+def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
+    jax = pytest.importorskip("jax")
+    optax = pytest.importorskip("optax")
+    graph = _native_graph().model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    jax=JaxNativeConfiguration(
+                        compilation={
+                            "optimizer": {
+                                "id": "adamw",
+                                "parameters": {
+                                    "learning_rate": 0.007,
+                                    "weight_decay": 0.021,
+                                    "beta_1": 0.81,
+                                    "beta_2": 0.97,
+                                    "epsilon": 1e-6,
+                                },
+                            }
+                        },
+                        compiler={"id": "jax_jit", "parameters": {"enabled": False}},
+                    )
+                )
+            )
+        }
+    )
+
+    handle = build_native_model(graph, ExecutionBackend.JAX, zero_parameters=True)
+
+    assert handle.compilation is not None
+    optimizer = handle.compilation["optimizer_runtime"]
+    assert handle.compilation["optimizer"]["id"] == "adamw"
+    assert handle.compilation["optimizer"]["parameters"]["learning_rate"] == pytest.approx(0.007)
+    parameter = jax.numpy.asarray(1.0)
+    state = optimizer.init(parameter)
+    updates, _ = optimizer.update(jax.numpy.asarray(2.0), state, parameter)
+    updated = optax.apply_updates(parameter, updates)
+    assert float(updated) != pytest.approx(1.0)
+    assert bool(jax.numpy.isfinite(updated))
+
 ###############################################################################
 def test_compilation_rejects_a_native_parameter_without_falling_back_to_keras() -> None:
     graph = _native_graph().model_copy(deep=True)
