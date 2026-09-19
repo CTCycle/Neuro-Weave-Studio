@@ -211,6 +211,65 @@ def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
 
 
 ###############################################################################
+def test_native_tensorflow_compilation_builds_raw_loss_and_metric_functions() -> None:
+    tensorflow = pytest.importorskip("tensorflow")
+    graph = _native_graph().model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    tensorflow=TensorFlowNativeConfiguration(
+                        compilation={
+                            "optimizer": {"id": "adam", "parameters": {"learning_rate": 0.002}},
+                            "losses": {
+                                "__default__": {
+                                    "id": "huber",
+                                    "parameters": {"delta": 0.7},
+                                }
+                            },
+                            "metrics": {
+                                "__default__": [
+                                    {
+                                        "id": "precision",
+                                        "parameters": {
+                                            "threshold": 0.35,
+                                            "top_k": None,
+                                            "class_id": None,
+                                        },
+                                    },
+                                    {
+                                        "id": "prediction_mean",
+                                        "parameters": {},
+                                    },
+                                ]
+                            },
+                        },
+                        compiler={
+                            "id": "tensorflow_function",
+                            "parameters": {"jit_compile": False},
+                        },
+                    )
+                )
+            )
+        }
+    )
+
+    handle = build_native_model(graph, ExecutionBackend.TENSORFLOW, zero_parameters=True)
+
+    assert handle.compilation is not None
+    prediction = handle.outputs[0]
+    target = tensorflow.zeros_like(prediction)
+    loss_value = handle.compilation["loss_functions"]["output"](prediction, target)
+    metric_values = {
+        metric_id: function(prediction, target)
+        for metric_id, function in handle.compilation["metric_functions"]["output"].items()
+    }
+    assert float(loss_value.numpy()) >= 0.0
+    assert all(bool(tensorflow.math.is_finite(value)) for value in metric_values.values())
+    assert handle.compilation["losses"]["output"]["parameters"]["delta"] == pytest.approx(0.7)
+    assert handle.compilation["metrics"]["output"][0]["id"] == "precision"
+
+
+###############################################################################
 def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
     jax = pytest.importorskip("jax")
     optax = pytest.importorskip("optax")

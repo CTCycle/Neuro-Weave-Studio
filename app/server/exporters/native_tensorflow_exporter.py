@@ -6,11 +6,17 @@ from typing import Any, cast
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
-from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
+from domain.compilation_catalog import (
+    CompilationCatalog,
+    CompilationOption,
+    get_compilation_catalog,
+)
+from domain.compilation_plan import CompilationObject
 from domain.graph import ModelGraph
 from domain.ports import materialized_outputs
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
+from validation.output_resolution import output_selectors, resolved_outputs
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
 
@@ -121,6 +127,284 @@ class NativeTensorFlowSourceExporter(SourceExporter):
 
     # -------------------------------------------------------------------------
     @staticmethod
+    def _catalog_option(
+        compilation_catalog: CompilationCatalog,
+        category: str,
+        identifier: str,
+    ) -> CompilationOption:
+        option = next(
+            (item for item in getattr(compilation_catalog, category) if item.id == identifier),
+            None,
+        )
+        if option is None:
+            raise ValueError(f"No TensorFlow catalog option registered for {category}.{identifier}")
+        implementation = option.implementations.get("tensorflow")
+        if implementation is None or not implementation.supported or not implementation.adapter:
+            raise ValueError(f"No TensorFlow adapter registered for {category}.{identifier}")
+        return option
+
+    # -------------------------------------------------------------------------
+    @classmethod
+    def _compilation_payload(
+        cls,
+        graph: ModelGraph,
+        catalog: NodeCatalog,
+        compilation_catalog: CompilationCatalog,
+    ) -> dict[str, Any]:
+        configuration = graph.model_configuration.native.tensorflow.compilation
+        outputs = [output for output in resolved_outputs(graph, catalog) if output.node is not None]
+
+        def selected(values: dict[str, Any], output: Any, default: Any) -> Any:
+            value = values.get("__default__", default)
+            for selector in output_selectors(output):
+                if selector and selector in values:
+                    value = values[selector]
+                    break
+            return value
+
+        loss_ids: dict[str, str] = {}
+        loss_parameters: dict[str, dict[str, Any]] = {}
+        metric_ids: dict[str, list[str]] = {}
+        metric_parameters: dict[str, list[dict[str, Any]]] = {}
+        target_contracts: dict[str, str] = {}
+        metric_target_contracts: dict[str, dict[str, str]] = {}
+        losses: dict[str, dict[str, Any]] = {}
+        metrics: dict[str, list[dict[str, Any]]] = {}
+        for output in outputs:
+            loss_value = selected(configuration.losses, output, None)
+            if isinstance(loss_value, CompilationObject):
+                option = cls._catalog_option(compilation_catalog, "losses", loss_value.id)
+                loss_ids[output.name] = loss_value.id
+                loss_parameters[output.name] = dict(loss_value.parameters)
+                losses[output.name] = {
+                    "id": loss_value.id,
+                    "parameters": dict(loss_value.parameters),
+                }
+                if option.target_contract is not None:
+                    target_contracts[output.name] = option.target_contract
+            metric_values = selected(configuration.metrics, output, [])
+            if not isinstance(metric_values, list):
+                continue
+            metric_ids[output.name] = []
+            metric_parameters[output.name] = []
+            metrics[output.name] = []
+            metric_target_contracts[output.name] = {}
+            for metric_value in metric_values:
+                if not isinstance(metric_value, CompilationObject):
+                    continue
+                option = cls._catalog_option(compilation_catalog, "metrics", metric_value.id)
+                metric_ids[output.name].append(metric_value.id)
+                metric_parameters[output.name].append(dict(metric_value.parameters))
+                metrics[output.name].append(
+                    {"id": metric_value.id, "parameters": dict(metric_value.parameters)}
+                )
+                metric_target_contracts[output.name][metric_value.id] = (
+                    option.target_contract or "continuous_same_shape"
+                )
+                target_contracts.setdefault(
+                    output.name,
+                    option.target_contract or "continuous_same_shape",
+                )
+        return {
+            "loss_ids": loss_ids,
+            "loss_parameters": loss_parameters,
+            "metric_ids": metric_ids,
+            "metric_parameters": metric_parameters,
+            "target_contracts": target_contracts,
+            "metric_target_contracts": metric_target_contracts,
+            "losses": losses,
+            "metrics": metrics,
+        }
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _compilation_formula_lines() -> list[str]:
+        return [
+            "",
+            "",
+            "def _loss_formula(prediction, target, kind, **parameters):",
+            "    expected = tf.cast(target, prediction.dtype)",
+            "    if kind == 'mean_squared_error': return tf.reduce_mean(tf.square(prediction - expected))",
+            "    if kind == 'mean_absolute_error': return tf.reduce_mean(tf.abs(prediction - expected))",
+            "    if kind == 'binary_crossentropy':",
+            "        if parameters.get('from_logits', False): return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=expected, logits=prediction))",
+            "        probabilities = tf.clip_by_value(prediction, tf.cast(1e-7, prediction.dtype), tf.cast(1.0 - 1e-7, prediction.dtype))",
+            "        return -tf.reduce_mean(expected * tf.math.log(probabilities) + (1.0 - expected) * tf.math.log(1.0 - probabilities))",
+            "    if kind == 'categorical_crossentropy':",
+            "        if parameters.get('from_logits', False): return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=expected, logits=prediction))",
+            "        probabilities = tf.clip_by_value(prediction, tf.cast(1e-7, prediction.dtype), tf.cast(1.0, prediction.dtype))",
+            "        return -tf.reduce_mean(tf.reduce_sum(expected * tf.math.log(probabilities), axis=-1))",
+            "    if kind == 'sparse_categorical_crossentropy':",
+            "        labels = tf.cast(tf.reshape(target, [-1]), tf.int32)",
+            "        if parameters.get('from_logits', False): return tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=tf.reshape(prediction, [-1, tf.shape(prediction)[-1]])))",
+            "        probabilities = tf.clip_by_value(tf.reshape(prediction, [-1, tf.shape(prediction)[-1]]), tf.cast(1e-7, prediction.dtype), tf.cast(1.0, prediction.dtype))",
+            "        indices = tf.stack([tf.range(tf.shape(labels)[0]), labels], axis=1)",
+            "        return -tf.reduce_mean(tf.math.log(tf.gather_nd(probabilities, indices)))",
+            "    if kind == 'huber':",
+            "        delta = tf.cast(parameters.get('delta', 1.0), prediction.dtype)",
+            "        difference = tf.abs(prediction - expected)",
+            "        quadratic = tf.minimum(difference, delta)",
+            "        linear = difference - quadratic",
+            "        return tf.reduce_mean(0.5 * tf.square(quadratic) + delta * linear)",
+            "    if kind == 'kullback_leibler_divergence':",
+            "        actual = tf.clip_by_value(expected, tf.cast(1e-7, prediction.dtype), tf.cast(1.0, prediction.dtype))",
+            "        predicted = tf.clip_by_value(prediction, tf.cast(1e-7, prediction.dtype), tf.cast(1.0, prediction.dtype))",
+            "        return tf.reduce_mean(tf.reduce_sum(actual * tf.math.log(actual / predicted), axis=-1))",
+            "    if kind == 'log_cosh': return tf.reduce_mean(tf.math.log(tf.cosh(prediction - expected)))",
+            "    if kind == 'mean_absolute_percentage_error': return tf.reduce_mean(tf.abs(prediction - expected) / tf.maximum(tf.abs(expected), tf.cast(1e-7, prediction.dtype))) * 100.0",
+            "    if kind == 'mean_squared_logarithmic_error': return tf.reduce_mean(tf.square(tf.math.log1p(tf.maximum(prediction, 0.0)) - tf.math.log1p(tf.maximum(expected, 0.0))))",
+            "    if kind == 'hinge': return tf.reduce_mean(tf.maximum(0.0, 1.0 - expected * prediction))",
+            "    if kind == 'squared_hinge': return tf.reduce_mean(tf.square(tf.maximum(0.0, 1.0 - expected * prediction)))",
+            "    if kind == 'categorical_hinge':",
+            "        positive = tf.reduce_sum(prediction * expected, axis=-1)",
+            "        negative = tf.reduce_max((1.0 - expected) * prediction, axis=-1)",
+            "        return tf.reduce_mean(tf.maximum(0.0, negative - positive + 1.0))",
+            "    if kind == 'poisson':",
+            "        rate = tf.maximum(prediction, tf.cast(1e-7, prediction.dtype))",
+            "        return tf.reduce_mean(rate - expected * tf.math.log(rate))",
+            "    if kind == 'dice':",
+            "        axis = parameters.get('axis')",
+            "        intersection = tf.reduce_sum(prediction * expected, axis=axis)",
+            "        denominator = tf.reduce_sum(prediction, axis=axis) + tf.reduce_sum(expected, axis=axis)",
+            "        return tf.reduce_mean(1.0 - 2.0 * intersection / tf.maximum(denominator, tf.cast(1e-7, prediction.dtype)))",
+            "    if kind == 'tversky':",
+            "        axis = parameters.get('axis')",
+            "        true_positive = tf.reduce_sum(prediction * expected, axis=axis)",
+            "        false_positive = tf.reduce_sum(prediction * (1.0 - expected), axis=axis)",
+            "        false_negative = tf.reduce_sum((1.0 - prediction) * expected, axis=axis)",
+            "        denominator = true_positive + parameters.get('alpha', 0.5) * false_positive + parameters.get('beta', 0.5) * false_negative",
+            "        return tf.reduce_mean(1.0 - true_positive / tf.maximum(denominator, tf.cast(1e-7, prediction.dtype)))",
+            "    raise ValueError(f'Unsupported TensorFlow loss adapter: {kind}')",
+            "",
+            "",
+            "def _classification_labels(prediction, target):",
+            "    if prediction.shape[-1] == 1:",
+            "        return tf.cast(tf.reshape(prediction >= 0.5, [-1]), tf.int32), tf.cast(tf.reshape(target >= 0.5, [-1]), tf.int32)",
+            "    predicted = tf.reshape(tf.argmax(prediction, axis=-1), [-1])",
+            "    expected = tf.reshape(tf.argmax(target, axis=-1) if target.shape == prediction.shape else tf.cast(target, tf.int32), [-1])",
+            "    return predicted, expected",
+            "",
+            "",
+            "def _binary_vectors(prediction, target, threshold=0.5, top_k=None, class_id=None):",
+            "    if class_id is not None and prediction.shape[-1] > 1:",
+            "        scores = prediction[..., class_id]",
+            "        expected = target[..., class_id] if target.shape == prediction.shape else tf.cast(tf.equal(tf.cast(target, tf.int32), class_id), prediction.dtype)",
+            "        return tf.cast(tf.reshape(scores >= threshold, [-1]), tf.int32), tf.cast(tf.reshape(expected >= 0.5, [-1]), tf.int32)",
+            "    if top_k is not None and prediction.shape[-1] > 1:",
+            "        _, candidates = tf.math.top_k(prediction, k=tf.minimum(tf.cast(top_k, tf.int32), tf.shape(prediction)[-1]))",
+            "        predicted = tf.reduce_any(tf.one_hot(candidates, tf.shape(prediction)[-1], dtype=tf.bool), axis=-2)",
+            "        expected = target >= 0.5 if target.shape == prediction.shape else tf.one_hot(tf.cast(target, tf.int32), tf.shape(prediction)[-1], dtype=tf.bool)",
+            "        return tf.cast(tf.reshape(predicted, [-1]), tf.int32), tf.cast(tf.reshape(expected, [-1]), tf.int32)",
+            "    if prediction.shape[-1] == 1:",
+            "        expected = target[..., 0] if target.shape == prediction.shape else target",
+            "        return tf.cast(tf.reshape(prediction[..., 0] >= threshold, [-1]), tf.int32), tf.cast(tf.reshape(expected >= 0.5, [-1]), tf.int32)",
+            "    return _classification_labels(prediction, target)",
+            "",
+            "",
+            "def _auc_binary(scores, labels, parameters):",
+            "    expected = labels >= 0.5",
+            "    positives = tf.reduce_sum(tf.cast(expected, tf.float32))",
+            "    negatives = tf.reduce_sum(tf.cast(tf.logical_not(expected), tf.float32))",
+            "    if bool(tf.equal(positives, 0)) or bool(tf.equal(negatives, 0)): return tf.constant(0.5, dtype=scores.dtype)",
+            "    explicit = parameters.get('thresholds')",
+            "    thresholds = tf.convert_to_tensor(explicit, dtype=scores.dtype) if explicit else tf.linspace(tf.cast(0.0, scores.dtype), tf.cast(1.0, scores.dtype), max(int(parameters.get('num_thresholds', 200)), 2))",
+            "    x_values = []",
+            "    y_values = []",
+            "    for threshold in tf.unstack(thresholds):",
+            "        predicted = scores >= threshold",
+            "        true_positive = tf.reduce_sum(tf.cast(tf.logical_and(predicted, expected), tf.float32))",
+            "        false_positive = tf.reduce_sum(tf.cast(tf.logical_and(predicted, tf.logical_not(expected)), tf.float32))",
+            "        if parameters.get('curve', 'ROC') == 'PR':",
+            "            x_values.append(true_positive / tf.maximum(positives, 1.0))",
+            "            y_values.append(true_positive / tf.maximum(tf.reduce_sum(tf.cast(predicted, tf.float32)), 1.0))",
+            "        else:",
+            "            x_values.append(false_positive / tf.maximum(negatives, 1.0))",
+            "            y_values.append(true_positive / tf.maximum(positives, 1.0))",
+            "    x = tf.stack(x_values)",
+            "    y = tf.stack(y_values)",
+            "    order = tf.argsort(x)",
+            "    x = tf.gather(x, order)",
+            "    y = tf.gather(y, order)",
+            "    widths = tf.abs(x[1:] - x[:-1])",
+            "    lower = tf.minimum(y[1:], y[:-1])",
+            "    upper = tf.maximum(y[1:], y[:-1])",
+            "    heights = lower if parameters.get('summation_method', 'interpolation') == 'minoring' else upper if parameters.get('summation_method') == 'majoring' else (y[1:] + y[:-1]) * 0.5",
+            "    return tf.clip_by_value(tf.reduce_sum(widths * heights), 0.0, 1.0)",
+            "",
+            "",
+            "def _metric_formula(prediction, target, kind, **parameters):",
+            "    expected = tf.cast(target, prediction.dtype)",
+            "    if kind == 'accuracy':",
+            "        predicted, labels = _classification_labels(prediction, target)",
+            "        return tf.reduce_mean(tf.cast(tf.equal(predicted, labels), tf.float32))",
+            "    if kind == 'binary_accuracy':",
+            "        threshold = parameters.get('threshold', 0.5)",
+            "        return tf.reduce_mean(tf.cast(tf.equal(prediction >= threshold, expected >= 0.5), tf.float32))",
+            "    if kind == 'categorical_accuracy': return tf.reduce_mean(tf.cast(tf.equal(tf.argmax(prediction, -1), tf.argmax(expected, -1)), tf.float32))",
+            "    if kind == 'sparse_categorical_accuracy': return tf.reduce_mean(tf.cast(tf.equal(tf.argmax(prediction, -1), tf.cast(target, tf.int64)), tf.float32))",
+            "    if kind in ('top_k_categorical_accuracy', 'sparse_top_k_categorical_accuracy'):",
+            "        k = min(max(int(parameters.get('k', 5)), 1), int(prediction.shape[-1]))",
+            "        candidates = tf.math.top_k(prediction, k=k).indices",
+            "        labels = tf.argmax(expected, -1) if kind == 'top_k_categorical_accuracy' else tf.cast(target, tf.int64)",
+            "        return tf.reduce_mean(tf.cast(tf.reduce_any(tf.equal(candidates, labels[..., None]), axis=-1), tf.float32))",
+            "    if kind in ('precision', 'recall'):",
+            "        predicted, labels = _binary_vectors(prediction, target, parameters.get('threshold', 0.5), parameters.get('top_k'), parameters.get('class_id'))",
+            "        true_positive = tf.reduce_sum(tf.cast(tf.logical_and(predicted == 1, labels == 1), tf.float32))",
+            "        denominator = tf.reduce_sum(tf.cast(predicted == 1, tf.float32)) if kind == 'precision' else tf.reduce_sum(tf.cast(labels == 1, tf.float32))",
+            "        return true_positive / tf.maximum(denominator, 1.0)",
+            "    if kind == 'auc':",
+            "        scores = tf.sigmoid(prediction) if parameters.get('from_logits', False) else prediction",
+            "        if parameters.get('multi_label', False):",
+            "            scores = tf.reshape(scores, [-1, scores.shape[-1]])",
+            "            labels = tf.reshape(expected, [-1, expected.shape[-1]])",
+            "            values = [_auc_binary(scores[:, index], labels[:, index], parameters) for index in range(int(scores.shape[-1]))]",
+            "            result = tf.stack(values)",
+            "            weights = parameters.get('label_weights')",
+            "            if weights: return tf.reduce_sum(result * tf.convert_to_tensor(weights, dtype=result.dtype)) / tf.maximum(tf.reduce_sum(tf.convert_to_tensor(weights, dtype=result.dtype)), 1e-7)",
+            "            return tf.reduce_mean(result)",
+            "        scores = scores[..., 0] if scores.shape[-1] == 1 else scores[..., 1]",
+            "        labels = expected[..., 0] if expected.shape[-1] == 1 else expected[..., 1] if target.shape == prediction.shape else expected",
+            "        return _auc_binary(tf.reshape(scores, [-1]), tf.reshape(labels, [-1]), parameters)",
+            "    if kind in ('true_positives', 'true_negatives', 'false_positives', 'false_negatives'):",
+            "        predicted, labels = _binary_vectors(prediction, target, parameters.get('threshold', 0.5))",
+            "        if kind == 'true_positives': return tf.reduce_sum(tf.cast(tf.logical_and(predicted == 1, labels == 1), tf.float32))",
+            "        if kind == 'true_negatives': return tf.reduce_sum(tf.cast(tf.logical_and(predicted == 0, labels == 0), tf.float32))",
+            "        if kind == 'false_positives': return tf.reduce_sum(tf.cast(tf.logical_and(predicted == 1, labels == 0), tf.float32))",
+            "        return tf.reduce_sum(tf.cast(tf.logical_and(predicted == 0, labels == 1), tf.float32))",
+            "    if kind == 'mean_absolute_error': return tf.reduce_mean(tf.abs(prediction - expected))",
+            "    if kind == 'mean_squared_error': return tf.reduce_mean(tf.square(prediction - expected))",
+            "    if kind == 'root_mean_squared_error': return tf.sqrt(tf.reduce_mean(tf.square(prediction - expected)))",
+            "    if kind == 'mean_absolute_percentage_error': return tf.reduce_mean(tf.abs(prediction - expected) / tf.maximum(tf.abs(expected), 1e-7)) * 100.0",
+            "    if kind == 'mean_squared_logarithmic_error': return tf.reduce_mean(tf.square(tf.math.log1p(tf.maximum(prediction, 0.0)) - tf.math.log1p(tf.maximum(expected, 0.0))))",
+            "    if kind == 'cosine_similarity': return tf.reduce_mean(tf.math.l2_normalize(prediction, axis=parameters.get('axis', -1)) * tf.math.l2_normalize(expected, axis=parameters.get('axis', -1)))",
+            "    if kind == 'log_cosh_error': return tf.reduce_mean(tf.math.log(tf.cosh(prediction - expected)))",
+            "    if kind == 'prediction_mean': return tf.reduce_mean(prediction)",
+            "    if kind == 'prediction_sum': return tf.reduce_sum(prediction)",
+            "    raise ValueError(f'Unsupported TensorFlow metric adapter: {kind}')",
+            "",
+            "",
+            "_LOSS_ADAPTERS = {",
+            "    identifier: functools.partial(_loss_formula, kind=identifier) for identifier in [",
+            "        'mean_squared_error', 'mean_absolute_error', 'binary_crossentropy', 'categorical_crossentropy',",
+            "        'sparse_categorical_crossentropy', 'huber', 'kullback_leibler_divergence', 'log_cosh',",
+            "        'mean_absolute_percentage_error', 'mean_squared_logarithmic_error', 'hinge', 'squared_hinge',",
+            "        'categorical_hinge', 'poisson', 'dice', 'tversky',",
+            "    ]",
+            "}",
+            "_METRIC_ADAPTERS = {",
+            "    identifier: functools.partial(_metric_formula, kind=identifier) for identifier in [",
+            "        'accuracy', 'binary_accuracy', 'categorical_accuracy', 'sparse_categorical_accuracy',",
+            "        'top_k_categorical_accuracy', 'sparse_top_k_categorical_accuracy', 'precision', 'recall', 'auc',",
+            "        'true_positives', 'true_negatives', 'false_positives', 'false_negatives',",
+            "        'mean_absolute_error', 'mean_squared_error', 'root_mean_squared_error',",
+            "        'mean_absolute_percentage_error', 'mean_squared_logarithmic_error', 'cosine_similarity',",
+            "        'log_cosh_error', 'prediction_mean', 'prediction_sum',",
+            "    ]",
+            "}",
+        ]
+
+    # -------------------------------------------------------------------------
+    @staticmethod
     def _condition_matches(condition: dict[str, object], parameters: dict[str, object]) -> bool:
         for parameter_id, expected in condition.items():
             actual = parameters.get(parameter_id)
@@ -168,6 +452,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         lines = [
             "from __future__ import annotations",
             "",
+            "import functools",
             "import tensorflow as tf",
             "",
             "",
@@ -1537,6 +1822,8 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         trace = "{" + ", ".join(trace_entries) + "}"
         lines.append(f"        if return_intermediates: return {result}, {trace}")
         lines.append(f"        return {result}")
+        lines.extend(self._compilation_formula_lines())
+        payload = self._compilation_payload(graph, catalog, compilation_catalog)
         native = graph.model_configuration.native.tensorflow
         optimizer_value = native.compilation.optimizer
         optimizer_option = next(
@@ -1569,15 +1856,27 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 "def configured_compilation() -> dict[str, object]:",
                 "    return {",
                 f"        'optimizer': {{'id': {optimizer_value.id!r}, 'parameters': {dict(optimizer_value.parameters)!r}}},",
-                "        'losses': {},",
-                "        'metrics': {},",
+                f"        'losses': {payload['losses']!r},",
+                f"        'metrics': {payload['metrics']!r},",
+                f"        'target_contracts': {payload['target_contracts']!r},",
+                f"        'metric_target_contracts': {payload['metric_target_contracts']!r},",
                 "    }",
+                "",
+                "",
+                "def configured_losses() -> dict[str, object]:",
+                f"    return {{output_id: functools.partial(_LOSS_ADAPTERS[loss_id], **parameters) for output_id, loss_id in {payload['loss_ids']!r}.items() for parameters in [{payload['loss_parameters']!r}.get(output_id, {{}})]}}",
+                "",
+                "",
+                "def configured_metrics() -> dict[str, dict[str, object]]:",
+                f"    return {{output_id: {{metric_id: functools.partial(_METRIC_ADAPTERS[metric_id], **parameters) for metric_id, parameters in zip(metric_ids, {payload['metric_parameters']!r}.get(output_id, []), strict=True)}} for output_id, metric_ids in {payload['metric_ids']!r}.items()}}",
                 "",
                 "",
                 "def build_compilation(model: GeneratedModel) -> dict[str, object]:",
                 "    del model",
                 "    configuration = configured_compilation()",
                 "    configuration['optimizer_runtime'] = build_optimizer()",
+                "    configuration['loss_functions'] = configured_losses()",
+                "    configuration['metric_functions'] = configured_metrics()",
                 "    return configuration",
                 "",
                 "",

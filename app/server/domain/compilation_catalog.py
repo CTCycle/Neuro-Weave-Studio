@@ -250,7 +250,10 @@ def _mapped_option(
     parameters: list[ParameterDefinition] | None = None,
     keras_parameter_mapping: dict[str, str] | None = None,
     keras_adapter: str | None = None,
+    tensorflow_adapter: str | None = None,
+    jax_adapter: str | None = None,
 ) -> CompilationOption:
+    tensorflow_adapter = tensorflow_adapter or pytorch_adapter
     return CompilationOption(
         id=identifier,
         label=label,
@@ -265,6 +268,12 @@ def _mapped_option(
                 parameter_mapping=keras_parameter_mapping or {},
             ),
             "pytorch": CompilationImplementation(supported=True, adapter=pytorch_adapter),
+            "tensorflow": CompilationImplementation(supported=True, adapter=tensorflow_adapter),
+            **(
+                {"jax": CompilationImplementation(supported=True, adapter=jax_adapter)}
+                if jax_adapter is not None
+                else {}
+            ),
         },
         supported_tasks=supported_tasks,
         target_contract=target_contract,
