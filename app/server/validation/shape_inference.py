@@ -1013,22 +1013,45 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 raise ShapeInferenceError("Recurrent layers require rank 3: batch, time, features")
             units = _int_parameter(parameters, "units", 64)
             return_sequences = bool(parameters.get("return_sequences", False))
+            cell = str(parameters.get("cell", "lstm"))
+            multiplier = {"simple_rnn": 1, "gru": 3, "lstm": 4}.get(cell)
+            if multiplier is None:
+                raise ShapeInferenceError(f"Unsupported recurrent cell: {cell}")
+            if node.definition_id == "recurrent.stack":
+                layers = _int_parameter(parameters, "layers", 2)
+                if layers < 1:
+                    raise ShapeInferenceError("Recurrent stack layers must be positive")
+            else:
+                layers = 1
+            merge_mode = str(parameters.get("merge_mode", "concat"))
+            if node.definition_id == "recurrent.bidirectional" and merge_mode not in {
+                "sum",
+                "mul",
+                "concat",
+                "ave",
+            }:
+                raise ShapeInferenceError(f"Unsupported bidirectional merge mode: {merge_mode}")
+            output_units = (
+                units * 2
+                if node.definition_id == "recurrent.bidirectional" and merge_mode == "concat"
+                else units
+            )
             output_shape = (
-                [source.shape[0], source.shape[1], units]
+                [source.shape[0], source.shape[1], output_units]
                 if return_sequences
-                else [source.shape[0], units]
+                else [source.shape[0], output_units]
             )
             output = TensorSpec(shape=output_shape, dtype=source.dtype)
             input_features = source.shape[-1]
-            multiplier = (
-                4
-                if node.definition_id == "recurrent.lstm"
-                else 3
-                if node.definition_id == "recurrent.gru"
-                else 1
-            )
+            bias_count = units if bool(parameters.get("use_bias", True)) else 0
             parameter_count = (
-                multiplier * (input_features * units + units * units + units)
+                multiplier
+                * (
+                    input_features * units
+                    + (2 * layers - 1) * units * units
+                    + layers * bias_count
+                )
+                * (2 if node.definition_id == "recurrent.bidirectional" else 1)
                 if isinstance(input_features, int)
                 else None
             )

@@ -552,6 +552,102 @@ class NativeJaxSourceExporter(SourceExporter):
                 for index, (before, after) in zip(spatial_indices, pairs, strict=True):
                     slices[index] = f"slice({before}, {-after if after else 'None'})"
                 lines.append(f"        {name} = {source}[({', '.join(slices)},)]")
+            elif definition in {
+                "recurrent.simple_rnn",
+                "recurrent.bidirectional",
+                "recurrent.stack",
+            }:
+                if (
+                    params.get("activation", "tanh") != "tanh"
+                    or params.get("recurrent_activation", "sigmoid") != "sigmoid"
+                ):
+                    raise ValueError("Native JAX recurrent export supports tanh/sigmoid only")
+                if (
+                    float(params.get("dropout", 0.0)) != 0.0
+                    or float(params.get("recurrent_dropout", 0.0)) != 0.0
+                ):
+                    raise ValueError("Native JAX recurrent export does not support recurrent dropout")
+                if (
+                    params.get("go_backwards", False)
+                    or params.get("stateful", False)
+                    or params.get("unroll", False)
+                ):
+                    raise ValueError(
+                        "Native JAX recurrent export does not support go_backwards, stateful, or unroll"
+                    )
+                units = int(params.get("units", 64))
+                cell = (
+                    "simple_rnn"
+                    if definition == "recurrent.simple_rnn"
+                    else str(params.get("cell", "lstm"))
+                )
+                cell_class = {
+                    "simple_rnn": "SimpleCell",
+                    "lstm": "LSTMCell",
+                    "gru": "GRUCell",
+                }.get(cell)
+                if cell_class is None:
+                    raise ValueError(f"Unsupported recurrent cell: {cell}")
+                if definition == "recurrent.simple_rnn":
+                    return_sequences = bool(params.get("return_sequences", False))
+                    if params.get("return_state", False):
+                        lines.append(
+                            f"        {name}_carry, {name}_sequence = nn.RNN(nn.SimpleCell(features={units}), return_carry=True, name={name!r})({source})"
+                        )
+                        if return_sequences:
+                            lines.append(f"        {name} = ({name}_sequence, {name}_carry)")
+                        else:
+                            lines.append(f"        {name} = ({name}_carry, {name}_carry)")
+                    else:
+                        lines.append(
+                            f"        {name} = nn.RNN(nn.SimpleCell(features={units}), return_carry=False, name={name!r})({source})"
+                        )
+                        if not return_sequences:
+                            lines.append(f"        {name} = {name}[:, -1, :]")
+                elif definition == "recurrent.bidirectional":
+                    merge_mode = str(params.get("merge_mode", "concat"))
+                    if merge_mode not in {"sum", "mul", "concat", "ave"}:
+                        raise ValueError(f"Unsupported bidirectional merge mode: {merge_mode}")
+                    if params.get("return_state", False):
+                        raise ValueError("Native JAX bidirectional export does not expose recurrent state ports")
+                    lines.append(
+                        f"        {name}_forward = nn.RNN(nn.{cell_class}(features={units}), return_carry=False, name={name + '_forward'!r})({source})"
+                    )
+                    lines.append(
+                        f"        {name}_backward = nn.RNN(nn.{cell_class}(features={units}), return_carry=False, reverse=True, keep_order=True, name={name + '_backward'!r})({source})"
+                    )
+                    if merge_mode == "sum":
+                        lines.append(f"        {name} = {name}_forward + {name}_backward")
+                    elif merge_mode == "mul":
+                        lines.append(f"        {name} = {name}_forward * {name}_backward")
+                    elif merge_mode == "ave":
+                        lines.append(
+                            f"        {name} = ({name}_forward + {name}_backward) / 2.0"
+                        )
+                    else:
+                        lines.append(
+                            f"        {name} = jnp.concatenate([{name}_forward, {name}_backward], axis=-1)"
+                        )
+                    if not bool(params.get("return_sequences", False)):
+                        lines.append(f"        {name} = {name}[:, -1, :]")
+                else:
+                    if str(params.get("merge_mode", "concat")) != "concat":
+                        raise ValueError("Recurrent stack merge_mode must remain concat")
+                    if params.get("return_state", False):
+                        raise ValueError("Native JAX recurrent stack does not expose recurrent state ports")
+                    layers = int(params.get("layers", 2))
+                    if layers < 1:
+                        raise ValueError("Recurrent stack layers must be positive")
+                    current = source
+                    for layer_index in range(layers):
+                        layer_name = f"{name}_layer{layer_index}"
+                        lines.append(
+                            f"        {layer_name} = nn.RNN(nn.{cell_class}(features={units}), return_carry=False, name={layer_name!r})({current})"
+                        )
+                        current = layer_name
+                    lines.append(f"        {name} = {current}")
+                    if not bool(params.get("return_sequences", False)):
+                        lines.append(f"        {name} = {name}[:, -1, :]")
             elif definition == "recurrent.lstm":
                 if (
                     params.get("activation", "tanh") != "tanh"
