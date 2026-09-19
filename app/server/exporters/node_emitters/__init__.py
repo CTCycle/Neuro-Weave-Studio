@@ -24,6 +24,7 @@ REGISTRIES = {
 }
 
 
+###############################################################################
 def registry_for_backend(backend_key: str) -> NodeEmitterRegistry:
     try:
         return REGISTRIES[backend_key]
@@ -31,6 +32,7 @@ def registry_for_backend(backend_key: str) -> NodeEmitterRegistry:
         raise KeyError(f"Unknown node emitter backend: {backend_key}") from exc
 
 
+###############################################################################
 def validate_emitter_coverage(catalog: NodeCatalog) -> None:
     for registry in REGISTRIES.values():
         registry.validate_catalog(catalog)

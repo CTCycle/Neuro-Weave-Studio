@@ -8,7 +8,6 @@ from sqlalchemy import event
 
 from repositories.session import RepositoryContext
 
-
 ###############################################################################
 def project_payload(name: str, *, extra_dense: bool = False) -> dict[str, object]:
     payload: dict[str, object] = {

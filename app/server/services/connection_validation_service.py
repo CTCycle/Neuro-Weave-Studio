@@ -12,7 +12,6 @@ from domain.manifests import NodeManifest
 from services.validation_service import ValidationService
 from validation.profile_compatibility import resolve_implementation_compatibility
 
-
 ###############################################################################
 class ConnectionValidationService:
     """Validate proposed edges against graph semantics and the active runtime profile."""

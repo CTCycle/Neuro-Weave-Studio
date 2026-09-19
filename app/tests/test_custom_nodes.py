@@ -8,7 +8,6 @@ from urllib.error import URLError
 import httpx
 import pytest
 
-
 ###############################################################################
 class _FakeResponse:
 
@@ -27,7 +26,6 @@ class _FakeResponse:
     # -------------------------------------------------------------------------
     def read(self) -> bytes:
         return json.dumps(self._payload).encode("utf-8")
-
 
 ###############################################################################
 def _stub_huggingface(monkeypatch: pytest.MonkeyPatch, sha: str = "a" * 40) -> None:
@@ -256,7 +254,6 @@ def test_repository_nodes_resolve_and_pin_public_hugging_face_reference(
     )
     assert invalid.status_code == 422
 
-
 ###############################################################################
 def test_repository_resolution_outage_is_service_unavailable(
     client: httpx.Client,
@@ -282,7 +279,6 @@ def test_repository_resolution_outage_is_service_unavailable(
     )
     assert response.status_code == 503
 
-
 ###############################################################################
 def test_repository_resolution_rejects_invalid_commit_response(
     client: httpx.Client,
@@ -304,7 +300,6 @@ def test_repository_resolution_rejects_invalid_commit_response(
         },
     )
     assert response.status_code == 503
-
 
 ###############################################################################
 @pytest.mark.skipif(

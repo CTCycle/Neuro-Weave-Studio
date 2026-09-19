@@ -12,6 +12,7 @@ from domain.graph import ModelGraph
 from domain.manifests import ImplementationMapping, NodeManifest, PortDefinition
 
 
+###############################################################################
 @dataclass(frozen=True)
 class NodeEmitterContext:
     """The complete normalized contract available to one backend emitter."""
@@ -25,6 +26,7 @@ class NodeEmitterContext:
     materialized_output_ports: tuple[PortDefinition, ...]
 
 
+###############################################################################
 @dataclass(frozen=True)
 class EmissionResult:
     setup_statements: tuple[str, ...] = ()
@@ -34,13 +36,16 @@ class EmissionResult:
 Emitter = Callable[[NodeEmitterContext], EmissionResult]
 
 
+###############################################################################
 class NodeEmitterRegistry:
     """Backend-local adapter registry with fail-fast registration checks."""
 
+    # -------------------------------------------------------------------------
     def __init__(self, backend_key: str) -> None:
         self.backend_key = backend_key
         self._emitters: dict[str, Emitter] = {}
 
+    # -------------------------------------------------------------------------
     def register(self, adapter_id: str, emitter: Emitter) -> None:
         if not adapter_id or not re.fullmatch(r"[a-z][a-z0-9_]*", adapter_id):
             raise ValueError(f"Invalid node emitter adapter id: {adapter_id!r}")
@@ -50,6 +55,7 @@ class NodeEmitterRegistry:
             )
         self._emitters[adapter_id] = emitter
 
+    # -------------------------------------------------------------------------
     def resolve(self, adapter_id: str | None) -> Emitter:
         if not adapter_id or adapter_id not in self._emitters:
             raise KeyError(
@@ -57,9 +63,11 @@ class NodeEmitterRegistry:
             )
         return self._emitters[adapter_id]
 
+    # -------------------------------------------------------------------------
     def has(self, adapter_id: str | None) -> bool:
         return bool(adapter_id and adapter_id in self._emitters)
 
+    # -------------------------------------------------------------------------
     def validate_catalog(self, catalog: NodeCatalog) -> None:
         """Reject verified supported mappings that cannot be emitted."""
 
@@ -81,6 +89,7 @@ class NodeEmitterRegistry:
             raise ValueError("\n".join(errors))
 
 
+###############################################################################
 def safe_identifier(value: str, fallback: str = "value") -> str:
     candidate = re.sub(r"[^A-Za-z0-9_]", "_", value)
     if not candidate or candidate[0].isdigit() or keyword.iskeyword(candidate):
@@ -88,12 +97,14 @@ def safe_identifier(value: str, fallback: str = "value") -> str:
     return candidate
 
 
+###############################################################################
 def render_structured_value(value: Any) -> str:
     """Render a JSON-safe parameter without introducing executable code."""
 
     return repr(value)
 
 
+###############################################################################
 def layout_permutation(rank: int, *, to_channels_first: bool) -> tuple[int, ...]:
     if rank < 3:
         return tuple(range(rank))
@@ -102,6 +113,7 @@ def layout_permutation(rank: int, *, to_channels_first: bool) -> tuple[int, ...]
     return (0, *range(2, rank), 1)
 
 
+###############################################################################
 def emit_multi_output_assignment(
     expression: str, output_ports: tuple[PortDefinition, ...]
 ) -> dict[str, str]:

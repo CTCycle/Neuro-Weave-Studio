@@ -10,7 +10,6 @@ from common.timestamps import utc_now
 from repositories.base import Base
 from repositories.types import UTCDateTime
 
-
 ###############################################################################
 class DatasetRecord(Base):
     """A lightweight external dataset registration; source bytes are never stored here."""
@@ -48,7 +47,6 @@ class DatasetRecord(Base):
         Index("ix_datasets_updated_at", "updated_at"),
         Index("ix_datasets_type", "dataset_type"),
     )
-
 
 ###############################################################################
 class DatasetRepository:

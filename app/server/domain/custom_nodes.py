@@ -79,13 +79,11 @@ class GraphTemplateEdge(BaseModel):
     target_component_id: str = Field(min_length=1, max_length=80)
     target_port_id: str = Field(min_length=1, max_length=120)
 
-
 ###############################################################################
 class GraphTemplateBinding(BaseModel):
     template_port_id: str = Field(min_length=1, max_length=120)
     component_id: str = Field(min_length=1, max_length=80)
     port_id: str = Field(min_length=1, max_length=120)
-
 
 ###############################################################################
 class GraphTemplateNodeSpec(BaseModel):

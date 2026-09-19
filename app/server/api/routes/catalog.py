@@ -28,7 +28,6 @@ def custom_nodes(
 ) -> CustomNodeCatalogResponse:
     return service.list()
 
-
 ###############################################################################
 def _service_unavailable(exc: HuggingFaceUnavailableError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))

@@ -8,16 +8,13 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-
 ###############################################################################
 class HuggingFaceReferenceError(ValueError):
     pass
 
-
 ###############################################################################
 class HuggingFaceUnavailableError(RuntimeError):
     pass
-
 
 ###############################################################################
 @dataclass(frozen=True, slots=True)
@@ -25,7 +22,6 @@ class HuggingFaceRepositoryMetadata:
     commit: str
     library_name: str | None
     pipeline_tag: str | None
-
 
 ###############################################################################
 class HuggingFaceRepositoryService:

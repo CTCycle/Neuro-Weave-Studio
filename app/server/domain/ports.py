@@ -5,7 +5,6 @@ from typing import Any
 
 from domain.manifests import NodeManifest, PortDefinition
 
-
 ###############################################################################
 def materialize_ports(
     definitions: Iterable[PortDefinition], parameters: dict[str, Any] | None = None
@@ -55,13 +54,11 @@ def materialize_ports(
             )
     return materialized
 
-
 ###############################################################################
 def materialized_inputs(
     manifest: NodeManifest, parameters: dict[str, Any] | None = None
 ) -> list[PortDefinition]:
     return materialize_ports(manifest.inputs, parameters)
-
 
 ###############################################################################
 def materialized_outputs(

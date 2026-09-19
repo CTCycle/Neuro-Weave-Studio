@@ -10,7 +10,6 @@ from domain.enums import ExecutionBackend, ValidationStatus
 from repositories.contracts import ProjectMetadata, RepositoryRevisionConflictError
 from repositories.models import ProjectRecord
 
-
 ###############################################################################
 class ProjectRepository:
 

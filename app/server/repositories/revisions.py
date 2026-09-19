@@ -10,7 +10,6 @@ from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from repositories.models import ProjectRevisionRecord
 
-
 ###############################################################################
 class RevisionRepository:
 

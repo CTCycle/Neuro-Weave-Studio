@@ -14,7 +14,6 @@ from models.native_runtime import build_native_model, forward_native
 
 REQUIRED_NATIVE_BACKEND_ENV = "NEURO_WEAVE_REQUIRED_NATIVE_BACKEND"
 
-
 ###############################################################################
 def configured_native_backend() -> ExecutionBackend | None:
     configured = os.getenv(REQUIRED_NATIVE_BACKEND_ENV, "").strip().lower()
@@ -28,14 +27,12 @@ def configured_native_backend() -> ExecutionBackend | None:
             f"{REQUIRED_NATIVE_BACKEND_ENV} must be one of {valid_backends}; received {configured!r}"
         ) from exc
 
-
 ###############################################################################
 def native_parity_backends() -> tuple[ExecutionBackend, ...]:
     """Select the CI matrix backend or all optional runtimes for local runs."""
 
     configured = configured_native_backend()
     return (configured,) if configured is not None else tuple(ExecutionBackend)
-
 
 ###############################################################################
 def require_backend(backend: ExecutionBackend) -> None:
@@ -106,7 +103,6 @@ def multi_io_graph() -> ModelGraph:
         ],
     )
 
-
 ###############################################################################
 def chain_graph(
     input_definition: str,
@@ -126,7 +122,6 @@ def chain_graph(
         ],
     )
 
-
 ###############################################################################
 def activation_graph() -> ModelGraph:
     return chain_graph(
@@ -135,7 +130,6 @@ def activation_graph() -> ModelGraph:
         "layer.activation",
         {"activation": "relu"},
     )
-
 
 ###############################################################################
 def layer_reshape_graph() -> ModelGraph:
@@ -146,7 +140,6 @@ def layer_reshape_graph() -> ModelGraph:
         {"target_shape": [4]},
     )
 
-
 ###############################################################################
 def layer_permute_graph() -> ModelGraph:
     return chain_graph(
@@ -155,7 +148,6 @@ def layer_permute_graph() -> ModelGraph:
         "layer.permute",
         {"axes": [2, 1]},
     )
-
 
 ###############################################################################
 def layer_repeat_graph() -> ModelGraph:
@@ -166,7 +158,6 @@ def layer_repeat_graph() -> ModelGraph:
         {"repeats": 2, "axis": 1},
     )
 
-
 ###############################################################################
 def normalization_graph(definition_id: str, parameters: dict[str, Any] | None = None) -> ModelGraph:
     return chain_graph(
@@ -176,7 +167,6 @@ def normalization_graph(definition_id: str, parameters: dict[str, Any] | None = 
         parameters,
     )
 
-
 ###############################################################################
 def spatial_graph(
     definition_id: str,
@@ -184,7 +174,6 @@ def spatial_graph(
     parameters: dict[str, Any],
 ) -> ModelGraph:
     return chain_graph("input.tensor", input_shape, definition_id, parameters)
-
 
 ###############################################################################
 def cnn_graph() -> ModelGraph:
@@ -205,7 +194,6 @@ def cnn_graph() -> ModelGraph:
         },
     )
 
-
 ###############################################################################
 def recurrent_graph() -> ModelGraph:
     return chain_graph(
@@ -215,14 +203,12 @@ def recurrent_graph() -> ModelGraph:
         {"units": 3, "return_sequences": False},
     )
 
-
 ###############################################################################
 def recurrent_wrapper_graph(
     definition_id: str,
     parameters: dict[str, Any],
 ) -> ModelGraph:
     return chain_graph("input.sequence", [6, 4], definition_id, parameters)
-
 
 ###############################################################################
 def simple_rnn_state_graph() -> ModelGraph:
@@ -238,7 +224,6 @@ def simple_rnn_state_graph() -> ModelGraph:
         edges=[edge("input-operation", "input", "operation")],
     )
 
-
 ###############################################################################
 def positional_encoding_graph(mode: str = "sinusoidal") -> ModelGraph:
     return chain_graph(
@@ -247,7 +232,6 @@ def positional_encoding_graph(mode: str = "sinusoidal") -> ModelGraph:
         "transformer.positional_encoding",
         {"mode": mode},
     )
-
 
 ###############################################################################
 def attention_mask_graph() -> ModelGraph:
@@ -259,7 +243,6 @@ def attention_mask_graph() -> ModelGraph:
         ],
         edges=[edge("input-operation", "input", "operation"), edge("operation-output", "operation", "output")],
     )
-
 
 ###############################################################################
 def transformer_residual_graph() -> ModelGraph:
@@ -276,7 +259,6 @@ def transformer_residual_graph() -> ModelGraph:
             edge("residual-output", "residual", "output"),
         ],
     )
-
 
 ###############################################################################
 def attention_graph(
@@ -311,7 +293,6 @@ def attention_graph(
     edges.append(edge("attention-output", "attention", "output"))
     return ModelGraph(nodes=nodes, edges=edges)
 
-
 ###############################################################################
 def feed_forward_graph(parameters: dict[str, Any] | None = None) -> ModelGraph:
     configuration: dict[str, Any] = {
@@ -327,7 +308,6 @@ def feed_forward_graph(parameters: dict[str, Any] | None = None) -> ModelGraph:
         "transformer.feed_forward",
         configuration,
     )
-
 
 ###############################################################################
 def transformer_block_graph(
@@ -368,7 +348,6 @@ def transformer_block_graph(
         ],
     )
 
-
 ###############################################################################
 def reshape_flatten_graph() -> ModelGraph:
     graph = chain_graph(
@@ -384,7 +363,6 @@ def reshape_flatten_graph() -> ModelGraph:
         edge("flatten-output", "flatten", "output"),
     ]
     return graph
-
 
 ###############################################################################
 def merge_add_graph() -> ModelGraph:
@@ -402,7 +380,6 @@ def merge_add_graph() -> ModelGraph:
         ],
     )
 
-
 ###############################################################################
 @pytest.mark.parametrize("backend", native_parity_backends())
 def test_native_dense_values_are_deterministic_across_frameworks(
@@ -419,7 +396,6 @@ def test_native_dense_values_are_deterministic_across_frameworks(
     np.testing.assert_allclose(
         values, np.full((1, 3), 1 / 3, dtype=np.float32), rtol=1e-5, atol=1e-6
     )
-
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -660,7 +636,6 @@ def test_native_representative_cases(
     assert value.shape == expected_shape
     assert value.dtype == np.float32
 
-
 ###############################################################################
 @pytest.mark.parametrize(
     ("definition_id", "parameters", "expected_shape"),
@@ -702,7 +677,6 @@ def test_native_bidirectional_merge_modes(
     assert len(outputs) == 1
     assert to_numpy(outputs[0]).shape == expected_shape
 
-
 ###############################################################################
 @pytest.mark.parametrize(
     ("definition_id", "cell"),
@@ -733,7 +707,6 @@ def test_native_recurrent_wrapper_cells(
     expected_width = 6 if definition_id == "recurrent.bidirectional" else 3
     assert to_numpy(outputs[0]).shape == (1, expected_width)
 
-
 ###############################################################################
 @pytest.mark.parametrize("backend", native_parity_backends())
 def test_native_simple_rnn_state_port_matches_sequence_output(
@@ -748,7 +721,6 @@ def test_native_simple_rnn_state_port_matches_sequence_output(
     assert sequence.shape == (1, 6, 3)
     assert hidden_state.shape == (1, 3)
     np.testing.assert_allclose(hidden_state, sequence[:, -1, :])
-
 
 ###############################################################################
 @pytest.mark.parametrize("mode", ["sinusoidal", "learned"])
@@ -765,7 +737,6 @@ def test_native_positional_encoding_is_finite_and_shape_stable(
     assert values.shape == (1, 6, 8)
     assert np.isfinite(values).all()
 
-
 ###############################################################################
 @pytest.mark.parametrize("backend", native_parity_backends())
 def test_native_attention_mask_preserves_boolean_tensor(
@@ -778,7 +749,6 @@ def test_native_attention_mask_preserves_boolean_tensor(
     values = to_numpy(outputs[0])
     assert values.shape == (1, 6, 6)
     assert values.dtype == np.bool_
-
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -811,7 +781,6 @@ def test_native_attention_primitives_emit_finite_port_aligned_outputs(
     assert values.dtype == np.float32
     assert np.isfinite(values).all()
 
-
 ###############################################################################
 @pytest.mark.parametrize("backend", native_parity_backends())
 def test_native_attention_parameter_count_includes_all_projections(
@@ -821,7 +790,6 @@ def test_native_attention_parameter_count_includes_all_projections(
     handle = build_native_model(attention_graph("attention.self"), backend)
 
     assert handle.parameter_count() == 288
-
 
 ###############################################################################
 @pytest.mark.parametrize("definition_id", ["transformer.encoder_block", "transformer.decoder_block"])
@@ -841,7 +809,6 @@ def test_native_transformer_blocks_support_pre_and_post_normalization(
     assert values.shape == (1, 5, 8)
     assert values.dtype == np.float32
     assert np.isfinite(values).all()
-
 
 ###############################################################################
 @pytest.mark.parametrize(

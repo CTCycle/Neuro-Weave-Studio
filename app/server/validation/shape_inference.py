@@ -16,7 +16,6 @@ from validation.safe_expression import (
     validate_safe_expression,
 )
 
-
 ###############################################################################
 class ShapeInferenceError(ValueError):
     pass
@@ -41,7 +40,6 @@ def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) ->
             return False
     return True
 
-
 ###############################################################################
 def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any]:
     return [
@@ -49,7 +47,6 @@ def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any
         for port in materialized_outputs(manifest, parameters)
         if _condition_matches(port.enabled_when, parameters)
     ]
-
 
 ###############################################################################
 def _source_shape(value: object, parameter_id: str) -> list[int]:
@@ -62,7 +59,6 @@ def _source_shape(value: object, parameter_id: str) -> list[int]:
     ):
         raise ShapeInferenceError(f"Parameter '{parameter_id}' must contain positive integers")
     return [int(dimension) for dimension in dimensions]
-
 
 ###############################################################################
 def _constant_value_shape(value: object) -> list[int]:
@@ -78,7 +74,6 @@ def _constant_value_shape(value: object) -> list[int]:
     if any(shape != nested[0] for shape in nested[1:]):
         raise ShapeInferenceError("Constant value must have a rectangular nested shape")
     return [len(value), *nested[0]]
-
 
 ###############################################################################
 def _constant_value_is_broadcastable(value: object, target_shape: list[int]) -> bool:

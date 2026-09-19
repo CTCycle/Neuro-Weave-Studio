@@ -103,11 +103,9 @@ def _serve_client_path(full_path: str) -> FileResponse:
 def _raise_unknown_api_root() -> None:
     raise HTTPException(status_code=404, detail="API route not found")
 
-
 ###############################################################################
 def _raise_unknown_api_route(_full_path: str) -> None:
     raise HTTPException(status_code=404, detail="API route not found")
-
 
 ###############################################################################
 def _redirect_root_to_docs() -> RedirectResponse:

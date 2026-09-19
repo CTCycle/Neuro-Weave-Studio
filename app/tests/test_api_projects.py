@@ -9,7 +9,6 @@ import pytest
 
 from repositories.graphs import GraphRepository
 
-
 ###############################################################################
 def fail_update_graph_replace(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("graph replacement failed")

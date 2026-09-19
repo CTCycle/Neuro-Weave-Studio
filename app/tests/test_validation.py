@@ -4,7 +4,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, OutputBinding, 
 from services.validation_service import ValidationService
 from validation.shape_inference import infer_shapes
 
-
 ###############################################################################
 def make_node(
     node_id: str,

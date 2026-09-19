@@ -13,7 +13,6 @@ from repositories.models import (
     ProjectRecord,
 )
 
-
 ###############################################################################
 class MetricRepository:
 
@@ -59,7 +58,6 @@ class MetricRepository:
                 result.append(MetricUsage(project_id=UUID(str(project_id)), project_name=str(project_name)))
         return result
 
-
 ###############################################################################
 def _configuration_references(configuration: object, metric_id: str) -> bool:
     if not isinstance(configuration, dict):
@@ -86,7 +84,6 @@ def _configuration_references(configuration: object, metric_id: str) -> bool:
                     if _contains_metric_id(candidate.get(key), metric_id):
                         return True
     return False
-
 
 ###############################################################################
 def _contains_metric_id(value: object, metric_id: str) -> bool:

@@ -17,7 +17,6 @@ from domain.metrics import (
 from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
 from repositories.models import CustomMetricDefinitionRecord
 
-
 ###############################################################################
 class MetricDefinitionConflictError(ValueError):
 
@@ -25,7 +24,6 @@ class MetricDefinitionConflictError(ValueError):
     def __init__(self, message: str, *, usages: list[MetricUsageResponse] | None = None) -> None:
         super().__init__(message)
         self.usages = usages or []
-
 
 ###############################################################################
 class MetricService:
@@ -177,11 +175,9 @@ class MetricService:
             for option in (*catalog.metrics, *catalog.losses)
         )
 
-
 ###############################################################################
 def _normalized_label(value: str) -> str:
     return " ".join(value.casefold().split())
-
 
 ###############################################################################
 def _parse(formula: str):
@@ -191,6 +187,7 @@ def _parse(formula: str):
         raise
 
 
+###############################################################################
 def _capabilities(parsed: object) -> dict[str, bool]:
     return {
         backend: _can_emit(parsed, backend)
@@ -198,6 +195,7 @@ def _capabilities(parsed: object) -> dict[str, bool]:
     }
 
 
+###############################################################################
 def _can_emit(parsed: object, backend: str) -> bool:
     try:
         emit_metric_formula(parsed, backend)  # type: ignore[arg-type]

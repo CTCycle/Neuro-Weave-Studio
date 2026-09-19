@@ -16,7 +16,6 @@ from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
 from validation.output_resolution import ResolvedOutput, output_selectors, resolved_outputs
 
-
 ###############################################################################
 def _error(
     code: str,
@@ -54,7 +53,6 @@ def _selected_value(
             break
     return value
 
-
 ###############################################################################
 def _output_details(output: ResolvedOutput, task: str | None = None) -> dict[str, object]:
     details: dict[str, object] = {
@@ -66,7 +64,6 @@ def _output_details(output: ResolvedOutput, task: str | None = None) -> dict[str
     if task is not None:
         details["task"] = task
     return details
-
 
 ###############################################################################
 def _matching_outputs(

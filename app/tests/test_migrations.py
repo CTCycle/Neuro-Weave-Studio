@@ -16,7 +16,6 @@ from repositories.initializer import HEAD_REVISION, initialize_database
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Connection
 
-
 ###############################################################################
 def _settings(path: Path) -> DatabaseSettings:
     return DatabaseSettings(sqlite_path=path, connect_timeout=10)

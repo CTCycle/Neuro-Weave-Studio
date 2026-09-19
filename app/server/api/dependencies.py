@@ -28,7 +28,6 @@ from services.runtime_service import RuntimeService
 from services.tensor_inspection_service import TensorInspectionService
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def get_catalog(request: Request) -> NodeCatalog:
     return cast(NodeCatalog, request.app.state.catalog)
@@ -70,7 +69,6 @@ def get_connection_validation_service(
     validator: ValidationService = Depends(get_validation_service),
 ) -> ConnectionValidationService:
     return ConnectionValidationService(catalog, validator)
-
 
 ###############################################################################
 def get_metric_service(

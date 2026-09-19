@@ -23,7 +23,6 @@ from repositories.models import (
 )
 from repositories.session import RepositoryContext
 
-
 ###############################################################################
 def settings(path: Path) -> DatabaseSettings:
     return DatabaseSettings(sqlite_path=path)

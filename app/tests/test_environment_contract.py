@@ -5,7 +5,6 @@ from pathlib import Path
 
 from configurations.environment import ensure_environment_file
 
-
 ###############################################################################
 def test_concurrent_first_start_creates_one_exact_environment_file(
     tmp_path: Path,

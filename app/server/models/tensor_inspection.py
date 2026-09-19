@@ -19,6 +19,7 @@ MAX_SESSION_VALUE_ELEMENTS = 100_000
 HISTOGRAM_BINS = 24
 
 
+###############################################################################
 def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
     for parameter_id, expected in condition.items():
         actual = parameters.get(parameter_id)
@@ -39,10 +40,12 @@ def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) ->
     return True
 
 
+###############################################################################
 def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any]:
     return [port for port in cast(list[Any], manifest.outputs) if _condition_matches(port.enabled_when, parameters)]
 
 
+###############################################################################
 def _flatten_symbolic(value: Any) -> list[Any]:
     if isinstance(value, (list, tuple)):
         flattened: list[Any] = []
@@ -52,6 +55,7 @@ def _flatten_symbolic(value: Any) -> list[Any]:
     return [value]
 
 
+###############################################################################
 def _concrete_shape(value: Any) -> list[int]:
     shape = getattr(value, "shape", ())
     result: list[int] = []
@@ -64,10 +68,12 @@ def _concrete_shape(value: Any) -> list[int]:
     return result
 
 
+###############################################################################
 def _element_count(shape: list[int]) -> int:
     return math.prod(shape) if shape else 1
 
 
+###############################################################################
 def _json_value(value: Any) -> int | float | bool | str | None:
     if isinstance(value, (np.bool_, bool)):
         return bool(cast(Any, value))
@@ -85,6 +91,7 @@ def _json_value(value: Any) -> int | float | bool | str | None:
     return str(value)
 
 
+###############################################################################
 def _numeric_statistics(values: np.ndarray, *, total_elements: int, sampled: bool) -> dict[str, object] | None:
     if values.dtype.kind not in "biufc":
         return None
@@ -128,6 +135,7 @@ def _numeric_statistics(values: np.ndarray, *, total_elements: int, sampled: boo
     return statistics
 
 
+###############################################################################
 def _histogram(values: np.ndarray) -> dict[str, object] | None:
     if values.dtype.kind not in "biuf":
         return None
@@ -149,6 +157,7 @@ def _histogram(values: np.ndarray) -> dict[str, object] | None:
     }
 
 
+###############################################################################
 def summarize_array(
     values: np.ndarray,
     *,
@@ -191,6 +200,7 @@ def summarize_array(
     )
 
 
+###############################################################################
 def _sample_tensor_for_host(keras_module: Any, tensor: Any) -> tuple[np.ndarray, bool]:
     shape = _concrete_shape(tensor)
     count = _element_count(shape)
@@ -203,6 +213,7 @@ def _sample_tensor_for_host(keras_module: Any, tensor: Any) -> tuple[np.ndarray,
     return np.asarray(keras_module.ops.convert_to_numpy(flattened)), sampled
 
 
+###############################################################################
 def _tensor_summary(
     keras_module: Any,
     tensor: Any,
@@ -224,6 +235,7 @@ def _tensor_summary(
     return summary, used
 
 
+###############################################################################
 def _unavailable_node(node: Any, manifest: Any, index: int, reason: str) -> dict[str, object]:
     return {
         "node_id": node.id,
@@ -239,6 +251,7 @@ def _unavailable_node(node: Any, manifest: Any, index: int, reason: str) -> dict
     }
 
 
+###############################################################################
 def run_keras_tensor_inspection(
     graph: ModelGraph,
     model: Any,
@@ -399,6 +412,7 @@ def run_keras_tensor_inspection(
     }
 
 
+###############################################################################
 def native_tensor_inspection_unavailable() -> dict[str, object]:
     return {
         "available": False,

@@ -13,12 +13,10 @@ from services.metric_service import MetricDefinitionConflictError, MetricService
 
 router = APIRouter(prefix="/api/metrics", tags=["metrics"])
 
-
 ###############################################################################
 @router.get("", response_model=MetricCatalogResponse)
 def list_metrics(service: MetricService = Depends(get_metric_service)) -> MetricCatalogResponse:
     return service.list()
-
 
 ###############################################################################
 @router.post("", response_model=MetricDefinitionResponse, status_code=status.HTTP_201_CREATED)
@@ -32,7 +30,6 @@ def create_metric(
         raise HTTPException(status_code=409, detail={"message": str(exc)}) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
 
 ###############################################################################
 @router.put("/{metric_id}", response_model=MetricDefinitionResponse)
@@ -54,7 +51,6 @@ def update_metric(
         ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
 
 ###############################################################################
 @router.delete("/{metric_id}", status_code=status.HTTP_204_NO_CONTENT)

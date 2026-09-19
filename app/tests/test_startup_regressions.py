@@ -26,7 +26,6 @@ from domain.runtime import (
 )
 from services.runtime_controller import RuntimeController, RuntimeControllerError
 
-
 ###############################################################################
 def test_controller_startup_does_not_probe_optional_frameworks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def fail_probe(*_args: object, **_kwargs: object) -> None:
@@ -39,7 +38,6 @@ def test_controller_startup_does_not_probe_optional_frameworks(tmp_path: Path, m
         assert all(not status.available for status in runtime.backend_statuses.values())
     finally:
         runtime.shutdown()
-
 
 ###############################################################################
 def test_discovery_requests_are_deduplicated_and_complete_in_background(
@@ -87,7 +85,6 @@ def test_discovery_requests_are_deduplicated_and_complete_in_background(
         assert result.source == "live"
     finally:
         runtime.shutdown()
-
 
 ###############################################################################
 def test_force_refresh_bypasses_matching_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -147,7 +144,6 @@ def test_force_refresh_bypasses_matching_snapshot(tmp_path: Path, monkeypatch: p
     finally:
         runtime.shutdown()
 
-
 ###############################################################################
 def test_health_and_metadata_do_not_probe_optional_frameworks(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -164,7 +160,6 @@ def test_health_and_metadata_do_not_probe_optional_frameworks(
         metadata = client.get("/api/metadata")
         assert metadata.status_code == 200
         assert all(item["state"] in {"unchecked", "verified", "unavailable", "failed"} for item in metadata.json()["runtime_apis"])
-
 
 ###############################################################################
 def test_probe_timeout_is_reported_and_shutdown_joins_discovery_worker(
@@ -189,7 +184,6 @@ def test_probe_timeout_is_reported_and_shutdown_joins_discovery_worker(
     finally:
         runtime.shutdown()
 
-
 ###############################################################################
 def test_job_submission_starts_discovery_and_returns_pending(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     runtime = RuntimeController(Settings(ml_job_root=tmp_path / "jobs", runtime_discovery_path=tmp_path / "discovery.json"))
@@ -211,7 +205,6 @@ def test_job_submission_starts_discovery_and_returns_pending(tmp_path: Path, mon
         assert runtime.discovery_status(ExecutionBackend.PYTORCH, RuntimeApi.KERAS).reason_code == "dependency_missing"
     finally:
         runtime.shutdown()
-
 
 ###############################################################################
 def test_preview_server_serves_spa_root_without_crashing() -> None:

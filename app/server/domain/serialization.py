@@ -4,7 +4,6 @@ from typing import Any
 
 from domain.compilation_plan import normalize_compilation_plan
 
-
 ###############################################################################
 def _remove_detection_placeholder(raw: dict[str, Any]) -> None:
     removed = {
@@ -30,7 +29,6 @@ def _remove_detection_placeholder(raw: dict[str, Any]) -> None:
         for binding in raw.get("output_bindings", [])
         if not isinstance(binding, dict) or binding.get("node_id") not in removed
     ]
-
 
 ###############################################################################
 def normalize_graph_payload(value: Any) -> dict[str, Any]:
@@ -67,7 +65,6 @@ def normalize_graph_payload(value: Any) -> dict[str, Any]:
             normalized["native"][backend] = branch
         raw["model_configuration"] = normalized
     return raw
-
 
 ###############################################################################
 def normalize_bundle_payload(value: Any) -> dict[str, Any]:

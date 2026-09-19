@@ -23,6 +23,7 @@ from domain.tensor_inspection import (
 MAX_VIEW_PAYLOAD_BYTES = 256 * 1024
 
 
+###############################################################################
 def _json_safe(value: Any) -> Any:
     """Keep NaN/Infinity values valid for strict JSON responses."""
 
@@ -39,20 +40,27 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
+###############################################################################
 class TensorInspectionError(RuntimeError):
+
+    # -------------------------------------------------------------------------
     def __init__(self, code: str, message: str, *, status_code: int = 404) -> None:
         self.code = code
         self.status_code = status_code
         super().__init__(message)
 
 
+###############################################################################
 class TensorInspectionService:
+
+    # -------------------------------------------------------------------------
     def __init__(self, settings: Settings) -> None:
         self._root = settings.tensor_inspection_root
         self._ttl = settings.tensor_inspection_ttl_seconds
         self._root.mkdir(parents=True, exist_ok=True)
         self.cleanup()
 
+    # -------------------------------------------------------------------------
     def cleanup(self) -> None:
         now = time.time()
         sessions: list[tuple[float, Path]] = []
@@ -72,6 +80,7 @@ class TensorInspectionService:
         for _, path in sessions[3:]:
             shutil.rmtree(path, ignore_errors=True)
 
+    # -------------------------------------------------------------------------
     def _path(self, session_id: str) -> Path:
         if not session_id or not session_id.isalnum() or len(session_id) > 64:
             raise TensorInspectionError("session_expired", "The tensor inspection session is unavailable")
@@ -80,6 +89,7 @@ class TensorInspectionService:
             raise TensorInspectionError("session_expired", "The tensor inspection session is unavailable")
         return path
 
+    # -------------------------------------------------------------------------
     def _load(self, session_id: str, *, touch: bool = True) -> tuple[Path, TensorInspectionSession]:
         path = self._path(session_id)
         try:
@@ -101,13 +111,16 @@ class TensorInspectionService:
                 )
         return path, session
 
+    # -------------------------------------------------------------------------
     def get(self, session_id: str) -> TensorInspectionSession:
         return self._load(session_id)[1]
 
+    # -------------------------------------------------------------------------
     def delete(self, session_id: str) -> None:
         path = self._path(session_id)
         shutil.rmtree(path, ignore_errors=True)
 
+    # -------------------------------------------------------------------------
     @staticmethod
     def _descriptor(session: TensorInspectionSession, tensor_id: str) -> TensorDescriptor:
         for node in session.nodes:
@@ -116,6 +129,7 @@ class TensorInspectionService:
                     return descriptor
         raise TensorInspectionError("slice_out_of_bounds", "The selected tensor is not in this session", status_code=422)
 
+    # -------------------------------------------------------------------------
     def node(self, session_id: str, node_id: str) -> TensorInspectionNode:
         _, session = self._load(session_id)
         for node in session.nodes:
@@ -123,6 +137,7 @@ class TensorInspectionService:
                 return node
         raise TensorInspectionError("node_uninspectable", "The selected node is not in this session", status_code=422)
 
+    # -------------------------------------------------------------------------
     def view(self, session_id: str, request: TensorInspectionViewRequest) -> TensorInspectionViewResponse:
         path, session = self._load(session_id)
         descriptor = self._descriptor(session, request.tensor_id)

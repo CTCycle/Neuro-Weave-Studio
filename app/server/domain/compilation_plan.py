@@ -6,14 +6,12 @@ from pydantic import BaseModel, Field
 
 CompilerId = Literal["tensorflow_function", "pytorch_compile", "jax_jit"]
 
-
 ###############################################################################
 class CompilationObject(BaseModel):
     """A catalog-backed executable choice with normalized parameters."""
 
     id: str = Field(min_length=1, max_length=160)
     parameters: dict[str, Any] = Field(default_factory=dict)
-
 
 ###############################################################################
 class CompilationPlan(BaseModel):
@@ -32,12 +30,10 @@ class CompilationPlan(BaseModel):
     default_regularizer: CompilationObject | None = None
     default_constraint: CompilationObject | None = None
 
-
 ###############################################################################
 class CompilerObject(BaseModel):
     id: CompilerId
     parameters: dict[str, Any] = Field(default_factory=dict)
-
 
 ###############################################################################
 def normalize_compilation_object(
@@ -58,7 +54,6 @@ def normalize_compilation_object(
     if default_id is not None:
         return CompilationObject(id=default_id)
     raise ValueError("Compilation choices must be strings or objects")
-
 
 ###############################################################################
 def normalize_compilation_plan(value: Any) -> CompilationPlan:
