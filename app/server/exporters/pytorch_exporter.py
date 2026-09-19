@@ -17,8 +17,10 @@ from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse
 from domain.ports import materialized_outputs
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
+from exporters.node_emitters import NodeEmitterContext, registry_for_backend
 from validation.output_resolution import output_selectors, resolved_outputs
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
+
 
 ###############################################################################
 class PyTorchSourceExporter(SourceExporter):
@@ -943,6 +945,7 @@ class PyTorchSourceExporter(SourceExporter):
         )
         variables: dict[str, str] = {}
         port_variables: dict[tuple[str, str], str] = {}
+        emitter_registry = registry_for_backend("pytorch")
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
             definition = item.definition_id
@@ -962,7 +965,66 @@ class PyTorchSourceExporter(SourceExporter):
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
 
             manifest = catalog.get(definition, node.definition_version)
-            if manifest.operation is not None:
+            mapping = manifest.implementations.get("pytorch")
+            registry_managed = {
+                "input.constant",
+                "input.parameter",
+                "merge.average",
+                "merge.split",
+                "output.detection",
+            }
+            if (
+                definition in registry_managed
+                and mapping is not None
+                and mapping.adapter is not None
+                and emitter_registry.has(mapping.adapter)
+            ):
+                output_ports = [
+                    port
+                    for port in materialized_outputs(manifest, params)
+                    if not port.enabled_when
+                    or all(
+                        params.get(key) in expected
+                        if isinstance(expected, list)
+                        else params.get(key) == expected
+                        for key, expected in port.enabled_when.items()
+                    )
+                ]
+                if not output_ports:
+                    raise ValueError(
+                        f"No enabled PyTorch output port registered for {definition}"
+                    )
+                input_expressions = {
+                    f"{binding.target_port_id}:{index}": port_variables[
+                        (binding.source_node_id, binding.source_port_id)
+                    ]
+                    for index, binding in enumerate(item.input_bindings)
+                }
+                emission = emitter_registry.resolve(mapping.adapter)(
+                    NodeEmitterContext(
+                        graph=graph,
+                        canonical_ir_node=item,
+                        manifest=manifest,
+                        implementation_mapping=mapping,
+                        normalized_parameters=params,
+                        input_expressions_by_target_port=input_expressions,
+                        materialized_output_ports=tuple(output_ports),
+                    )
+                )
+                lines.extend(f"        {statement}" for statement in emission.setup_statements)
+                expressions = [
+                    emission.output_expressions.get(port.id) for port in output_ports
+                ]
+                if any(expression is None for expression in expressions):
+                    raise ValueError(
+                        f"PyTorch adapter {mapping.adapter} emitted an incomplete output set"
+                    )
+                if len(expressions) == 1:
+                    lines.append(f"        {name} = {expressions[0]}")
+                else:
+                    lines.append(f"        {name} = ({', '.join(expressions)},)")
+                variables[item.node_id] = name
+            elif manifest.operation is not None:
                 lines.append(
                     f"        {name} = {emit_operation_source(manifest, 'pytorch', source_vars, params)}"
                 )

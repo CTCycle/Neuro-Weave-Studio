@@ -23,7 +23,31 @@ def _constant(context: NodeEmitterContext) -> EmissionResult:
 
 ###############################################################################
 def _parameter(context: NodeEmitterContext) -> EmissionResult:
-    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: context.canonical_ir_node.variable_name})
+    parameters = context.normalized_parameters
+    initializer = str(parameters.get("initializer", "zeros"))
+    initializer_name = {
+        "zeros": "zeros",
+        "ones": "ones",
+        "uniform": "uniform",
+        "normal": "normal",
+    }.get(initializer, "zeros")
+    initializer_expression = f"nn.initializers.{initializer_name}"
+    shape = tuple(parameters.get("shape", [1]))
+    dtype = parameters.get("dtype", "float32")
+    name = context.canonical_ir_node.variable_name
+    if bool(parameters.get("trainable", True)):
+        expression = (
+            f"self.param({name!r}, {initializer_expression}, {shape!r}, "
+            f"jnp.dtype({dtype!r}))"
+        )
+    else:
+        expression = (
+            f"self.variable('constants', {name!r}, lambda: "
+            f"jnp.zeros({shape!r}, dtype=jnp.dtype({dtype!r}))).value"
+        )
+    return EmissionResult(
+        output_expressions={context.materialized_output_ports[0].id: expression}
+    )
 
 
 ###############################################################################
@@ -122,4 +146,11 @@ def build_registry() -> NodeEmitterRegistry:
         "safe_expression": _simple,
     }.items():
         registry.register(adapter, emitter)
+    registry.declare_parameter_ids("constant", {"shape", "value", "dtype"})
+    registry.declare_parameter_ids(
+        "parameter", {"shape", "initializer", "dtype", "trainable"}
+    )
+    registry.declare_parameter_ids("average", set())
+    registry.declare_parameter_ids("split", {"sections", "axis"})
+    registry.declare_parameter_ids("detection", set())
     return registry

@@ -17,8 +17,10 @@ from domain.graph import ModelGraph
 from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
 from domain.ports import materialized_outputs
 from exporters.base import SourceExporter
+from exporters.node_emitters import NodeEmitterContext, registry_for_backend
 from validation.output_resolution import output_selectors, resolved_outputs
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
+
 
 ###############################################################################
 class KerasSourceExporter(SourceExporter):
@@ -499,6 +501,7 @@ class KerasSourceExporter(SourceExporter):
 
         variables: dict[str, str] = {}
         port_variables: dict[tuple[str, str], str] = {}
+        emitter_registry = registry_for_backend("keras")
         for item in ir.ordered_nodes:
             node = nodes[item.node_id]
             parameters = node.parameters
@@ -511,6 +514,57 @@ class KerasSourceExporter(SourceExporter):
             source = inputs[0] if inputs else ""
             definition = item.definition_id
             manifest = catalog.get(definition, node.definition_version)
+            mapping = manifest.implementations.get("keras")
+            registry_managed = {
+                "input.constant",
+                "input.parameter",
+                "merge.average",
+                "merge.split",
+                "output.detection",
+            }
+            if (
+                definition in registry_managed
+                and mapping is not None
+                and mapping.adapter is not None
+                and emitter_registry.has(mapping.adapter)
+            ):
+                output_ports = [
+                    port
+                    for port in materialized_outputs(manifest, parameters)
+                    if self._condition_matches(port.enabled_when, parameters)
+                ]
+                if not output_ports:
+                    raise ValueError(f"No enabled Keras output port registered for {definition}")
+                input_expressions = {
+                    f"{binding.target_port_id}:{index}": port_variables[
+                        (binding.source_node_id, binding.source_port_id)
+                    ]
+                    for index, binding in enumerate(item.input_bindings)
+                }
+                emission = emitter_registry.resolve(mapping.adapter)(
+                    NodeEmitterContext(
+                        graph=graph,
+                        canonical_ir_node=item,
+                        manifest=manifest,
+                        implementation_mapping=mapping,
+                        normalized_parameters=parameters,
+                        input_expressions_by_target_port=input_expressions,
+                        materialized_output_ports=tuple(output_ports),
+                    )
+                )
+                lines.extend(f"    {statement}" for statement in emission.setup_statements)
+                for index, port in enumerate(output_ports):
+                    expression = emission.output_expressions.get(port.id)
+                    if expression is None:
+                        raise ValueError(
+                            f"Keras adapter {mapping.adapter} did not emit output port {port.id}"
+                        )
+                    output_variable = variable if index == 0 else f"{variable}_{port.id}"
+                    lines.append(f"    {output_variable} = {expression}")
+                    port_variables[(item.node_id, port.id)] = output_variable
+                    if index == 0:
+                        variables[item.node_id] = output_variable
+                continue
             if manifest.operation is not None:
                 lines.append(
                     f"    {variable} = {emit_operation_source(manifest, 'keras', inputs, parameters)}"
