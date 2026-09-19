@@ -1,4 +1,76 @@
 {
+  "parameter_groups": {
+    "base_layer": [
+      {"id": "dtype", "display_name": "Dtype", "type": "dtype", "default": null, "nullable": true, "options": ["float16", "float32", "float64", "bfloat16", "int8", "int16", "int32", "int64", "uint8", "uint16", "bool"], "group": "Advanced"},
+      {"id": "trainable", "display_name": "Trainable", "type": "boolean", "default": true, "group": "Advanced"},
+      {"id": "autocast", "display_name": "Autocast", "type": "boolean", "default": true, "group": "Advanced"}
+    ],
+    "kernel_layer": [
+      {"id": "kernel_initializer", "display_name": "Kernel initializer", "type": "initializer", "default": "glorot_uniform", "group": "Initializers"},
+      {"id": "bias_initializer", "display_name": "Bias initializer", "type": "initializer", "default": "zeros", "group": "Initializers"},
+      {"id": "kernel_regularizer", "display_name": "Kernel regularizer", "type": "regularizer", "default": "none", "group": "Regularization"},
+      {"id": "bias_regularizer", "display_name": "Bias regularizer", "type": "regularizer", "default": "none", "group": "Regularization"},
+      {"id": "activity_regularizer", "display_name": "Activity regularizer", "type": "regularizer", "default": "none", "group": "Regularization"},
+      {"id": "kernel_constraint", "display_name": "Kernel constraint", "type": "constraint", "default": "none", "group": "Constraints"},
+      {"id": "bias_constraint", "display_name": "Bias constraint", "type": "constraint", "default": "none", "group": "Constraints"}
+    ],
+    "spatial_1d": [
+      {"id": "strides", "display_name": "Strides", "type": "shape", "default": [1], "constraints": {"length": 1, "item_min": 1}, "group": "Spatial configuration"},
+      {"id": "padding", "display_name": "Padding", "type": "enum", "default": "valid", "options": ["valid", "same"], "group": "Spatial configuration"},
+      {"id": "data_format", "display_name": "Data format", "type": "enum", "default": "channels_last", "options": ["channels_last", "channels_first"], "group": "Spatial configuration"},
+      {"id": "dilation_rate", "display_name": "Dilation rate", "type": "shape", "default": [1], "constraints": {"length": 1, "item_min": 1}, "group": "Spatial configuration"}
+    ],
+    "spatial_2d": [
+      {"id": "strides", "display_name": "Strides", "type": "shape", "default": [1, 1], "constraints": {"length": 2, "item_min": 1}, "group": "Spatial configuration"},
+      {"id": "padding", "display_name": "Padding", "type": "enum", "default": "valid", "options": ["valid", "same"], "group": "Spatial configuration"},
+      {"id": "data_format", "display_name": "Data format", "type": "enum", "default": "channels_last", "options": ["channels_last", "channels_first"], "group": "Spatial configuration"},
+      {"id": "dilation_rate", "display_name": "Dilation rate", "type": "shape", "default": [1, 1], "constraints": {"length": 2, "item_min": 1}, "group": "Spatial configuration"}
+    ],
+    "spatial_3d": [
+      {"id": "strides", "display_name": "Strides", "type": "shape", "default": [1, 1, 1], "constraints": {"length": 3, "item_min": 1}, "group": "Spatial configuration"},
+      {"id": "padding", "display_name": "Padding", "type": "enum", "default": "valid", "options": ["valid", "same"], "group": "Spatial configuration"},
+      {"id": "data_format", "display_name": "Data format", "type": "enum", "default": "channels_last", "options": ["channels_last", "channels_first"], "group": "Spatial configuration"},
+      {"id": "dilation_rate", "display_name": "Dilation rate", "type": "shape", "default": [1, 1, 1], "constraints": {"length": 3, "item_min": 1}, "group": "Spatial configuration"}
+    ],
+    "recurrent_common": [
+      {"id": "activation", "display_name": "Activation", "type": "activation", "default": "tanh", "group": "Activation"},
+      {"id": "recurrent_activation", "display_name": "Recurrent activation", "type": "activation", "default": "sigmoid", "group": "Activation"},
+      {"id": "use_bias", "display_name": "Use bias", "type": "boolean", "default": true, "group": "General"},
+      {"id": "dropout", "display_name": "Dropout", "type": "number", "default": 0.0, "constraints": {"min": 0, "max": 0.999}, "group": "Regularization"},
+      {"id": "recurrent_dropout", "display_name": "Recurrent dropout", "type": "number", "default": 0.0, "constraints": {"min": 0, "max": 0.999}, "group": "Regularization"},
+      {"id": "return_sequences", "display_name": "Return sequences", "type": "boolean", "default": false, "group": "Behavior"},
+      {"id": "return_state", "display_name": "Return state", "type": "boolean", "default": false, "group": "Behavior"},
+      {"id": "go_backwards", "display_name": "Go backwards", "type": "boolean", "default": false, "group": "Behavior"},
+      {"id": "stateful", "display_name": "Stateful", "type": "boolean", "default": false, "group": "Behavior"},
+      {"id": "unroll", "display_name": "Unroll", "type": "boolean", "default": false, "group": "Behavior"},
+      {"id": "seed", "display_name": "Seed", "type": "integer", "default": null, "nullable": true, "group": "Behavior"}
+    ],
+    "normalization_common": [
+      {"id": "axis", "display_name": "Axis", "type": "axis", "default": -1, "group": "Shape"},
+      {"id": "center", "display_name": "Center", "type": "boolean", "default": true, "group": "Behavior"},
+      {"id": "scale", "display_name": "Scale", "type": "boolean", "default": true, "group": "Behavior"},
+      {"id": "beta_initializer", "display_name": "Beta initializer", "type": "initializer", "default": "zeros", "group": "Initializers"},
+      {"id": "gamma_initializer", "display_name": "Gamma initializer", "type": "initializer", "default": "ones", "group": "Initializers"},
+      {"id": "beta_regularizer", "display_name": "Beta regularizer", "type": "regularizer", "default": "none", "group": "Regularization"},
+      {"id": "gamma_regularizer", "display_name": "Gamma regularizer", "type": "regularizer", "default": "none", "group": "Regularization"},
+      {"id": "beta_constraint", "display_name": "Beta constraint", "type": "constraint", "default": "none", "group": "Constraints"},
+      {"id": "gamma_constraint", "display_name": "Gamma constraint", "type": "constraint", "default": "none", "group": "Constraints"}
+    ]
+  },
+  "parameter_group_assignments": {
+    "layer.dense": ["base_layer", "kernel_layer"],
+    "conv.conv1d": ["base_layer", "spatial_1d", "kernel_layer"],
+    "conv.conv2d": ["base_layer", "spatial_2d", "kernel_layer"],
+    "conv.conv3d": ["base_layer", "spatial_3d", "kernel_layer"],
+    "recurrent.simple_rnn": ["base_layer", "recurrent_common"],
+    "recurrent.gru": ["base_layer", "recurrent_common"],
+    "recurrent.lstm": ["base_layer", "recurrent_common"],
+    "recurrent.bidirectional": ["base_layer", "recurrent_common"],
+    "recurrent.stack": ["base_layer", "recurrent_common"],
+    "layer.batch_norm": ["base_layer", "normalization_common"],
+    "layer.layer_norm": ["base_layer", "normalization_common"],
+    "layer.group_norm": ["base_layer", "normalization_common"]
+  },
   "shared_parameter_capabilities": {
     "tensorflow": {
       "kernel_initializer": {"supported": false, "notes": "Native inference uses deterministic worker-owned parameters."},

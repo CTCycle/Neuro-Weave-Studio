@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+from common.catalogs import loader
 from common.catalogs.loader import get_node_catalog
 from compilation.compiler import compile_to_ir
 from domain.enums import ExecutionBackend
@@ -19,6 +21,27 @@ def test_catalog_contract_is_unique_and_round_trips() -> None:
             manifest.parameters
         )
         assert manifest.__class__.model_validate(manifest.model_dump()) == manifest
+
+
+def test_declarative_parameter_groups_expand_and_reject_group_collisions() -> None:
+    catalog = get_node_catalog()
+    dense = catalog.get("layer.dense")
+
+    assert dense.parameter_groups == ["base_layer", "kernel_layer"]
+    assert {parameter.id for parameter in dense.parameters} >= {
+        "dtype",
+        "kernel_initializer",
+        "units",
+    }
+
+    with pytest.raises(RuntimeError, match="Parameter group collision"):
+        loader._expand_parameter_groups(  # pyright: ignore[reportPrivateUsage]
+            {"id": "test", "parameter_groups": ["first", "second"]},
+            {
+                "first": [{"id": "duplicate"}],
+                "second": [{"id": "duplicate"}],
+            },
+        )
 
 
 ###############################################################################

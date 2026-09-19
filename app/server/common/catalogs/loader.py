@@ -178,6 +178,44 @@ def _constraint_parameter(identifier: str, label: str) -> dict[str, Any]:
     )
 
 ###############################################################################
+def _expand_parameter_groups(
+    raw: dict[str, Any], parameter_groups: dict[str, list[dict[str, Any]]]
+) -> dict[str, Any]:
+    """Expand resource-declared parameter groups before normalization."""
+
+    item = dict(raw)
+    references = item.get("parameter_groups", [])
+    if references is None:
+        references = []
+    if not isinstance(references, list) or any(
+        not isinstance(reference, str) for reference in references
+    ):
+        raise RuntimeError(f"Parameter groups for {item.get('id', '<unknown>')} must be a list")
+    expanded: list[dict[str, Any]] = []
+    seen_group_parameters: set[str] = set()
+    for reference in references:
+        group = parameter_groups.get(reference)
+        if group is None:
+            raise RuntimeError(
+                f"Unknown parameter group '{reference}' for {item.get('id', '<unknown>')}"
+            )
+        for parameter in group:
+            identifier = str(parameter.get("id", ""))
+            if identifier in seen_group_parameters:
+                raise RuntimeError(
+                    f"Parameter group collision for {item.get('id', '<unknown>')}: {identifier}"
+                )
+            seen_group_parameters.add(identifier)
+            expanded.append(dict(parameter))
+    explicit = item.get("parameters", [])
+    if explicit is None:
+        explicit = []
+    if not isinstance(explicit, list):
+        raise RuntimeError(f"Parameters for {item.get('id', '<unknown>')} must be a list")
+    item["parameters"] = [*expanded, *cast(list[dict[str, Any]], explicit)]
+    return item
+
+###############################################################################
 def _base_layer_parameters() -> list[dict[str, Any]]:
     """Safe Keras ``Layer`` constructor controls shared by layer nodes.
 
@@ -810,10 +848,13 @@ def _safe_layer_parameters(node_id: str) -> list[dict[str, Any]]:
     return []
 
 ###############################################################################
-def _enrich_manifest_parameters(raw: dict[str, Any]) -> dict[str, Any]:
+def _enrich_manifest_parameters(
+    raw: dict[str, Any],
+    parameter_groups: dict[str, list[dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
     """Normalize the catalog into the complete safe inspector contract."""
 
-    item = dict(raw)
+    item = _expand_parameter_groups(raw, parameter_groups or {})
     node_id = str(item.get("id", ""))
     parameters: list[dict[str, Any]] = []
     extra_parameters = _safe_layer_parameters(node_id)
@@ -938,12 +979,17 @@ def _merge_manifest_data(
     override: dict[str, Any] | None,
     shared_parameter_capabilities: dict[str, dict[str, Any]] | None = None,
     default_implementation_adapters: dict[str, str] | None = None,
+    parameter_groups: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Apply checked-in declarative capability/operation data to a node."""
 
     item = dict(raw)
     raw_parameters = raw.get("parameters", [])
     parameter_items = [*cast(list[Any], raw_parameters)] if isinstance(raw_parameters, list) else []
+    for group_id in cast(list[Any], raw.get("parameter_groups", [])):
+        if not isinstance(group_id, str):
+            continue
+        parameter_items.extend((parameter_groups or {}).get(group_id, []))
     parameter_items.extend(_safe_layer_parameters(str(raw.get("id", ""))))
     known_parameter_ids = {
         str(cast(dict[str, Any], parameter).get("id", ""))
@@ -1099,6 +1145,30 @@ def _catalog_extensions() -> dict[str, Any]:
     return cast(dict[str, Any], raw)
 
 ###############################################################################
+def _parameter_group_catalog(
+    extensions: dict[str, Any],
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, list[str]]]:
+    raw_groups = extensions.get("parameter_groups", {})
+    if not isinstance(raw_groups, dict):
+        raise RuntimeError("parameter_groups must be an object")
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for group_id, values in raw_groups.items():
+        if not isinstance(group_id, str) or not isinstance(values, list):
+            raise RuntimeError("Each parameter group must be a list of definitions")
+        if any(not isinstance(value, dict) for value in values):
+            raise RuntimeError(f"Parameter group '{group_id}' contains a non-object definition")
+        groups[group_id] = [dict(value) for value in values]
+    raw_assignments = extensions.get("parameter_group_assignments", {})
+    if not isinstance(raw_assignments, dict):
+        raise RuntimeError("parameter_group_assignments must be an object")
+    assignments: dict[str, list[str]] = {}
+    for node_id, references in raw_assignments.items():
+        if not isinstance(node_id, str) or not isinstance(references, list):
+            raise RuntimeError("Each parameter group assignment must be a list")
+        assignments[node_id] = [str(reference) for reference in references]
+    return groups, assignments
+
+###############################################################################
 def _combined_override(
     capability: dict[str, Any] | None,
     override: dict[str, Any] | None,
@@ -1147,6 +1217,7 @@ class NodeCatalog:
 ###############################################################################
 def get_node_catalog() -> NodeCatalog:
     extensions = _catalog_extensions()
+    parameter_groups, group_assignments = _parameter_group_catalog(extensions)
     overrides = cast(dict[str, dict[str, Any]], extensions.get("overrides", {}))
     capabilities = cast(dict[str, dict[str, Any]], extensions.get("capabilities", {}))
     shared_parameter_capabilities = cast(
@@ -1159,27 +1230,34 @@ def get_node_catalog() -> NodeCatalog:
     for path in sorted(RESOURCE_ROOT.glob("*.json")):
         raw = json.loads(path.read_text(encoding="utf-8"))
         items = cast(list[dict[str, Any]], raw if isinstance(raw, list) else raw["nodes"])
-        manifests.extend(
-            NodeManifest.model_validate(
+        normalized_items: list[dict[str, Any]] = []
+        for item in items:
+            item_with_groups = dict(item)
+            assigned_groups = group_assignments.get(str(item.get("id", "")))
+            if assigned_groups:
+                item_with_groups["parameter_groups"] = assigned_groups
+            normalized_items.append(
                 _enrich_manifest_parameters(
                     _merge_manifest_data(
-                        item,
+                        item_with_groups,
                         _combined_override(
                             capabilities.get(str(item.get("id", ""))),
                             overrides.get(str(item.get("id", ""))),
                         ),
                         shared_parameter_capabilities,
                         default_implementation_adapters,
-                    )
+                        parameter_groups,
+                    ),
+                    parameter_groups,
                 )
             )
-            for item in items
-        )
+        manifests.extend(NodeManifest.model_validate(item) for item in normalized_items)
     extension_nodes = cast(list[dict[str, Any]], extensions.get("nodes", []))
     operation_specs = cast(list[dict[str, Any]], extensions.get("operation_specs", []))
     extension_nodes.extend(_expand_operation_spec(spec) for spec in operation_specs)
     manifests.extend(
-        NodeManifest.model_validate(_enrich_manifest_parameters(item)) for item in extension_nodes
+        NodeManifest.model_validate(_enrich_manifest_parameters(item, parameter_groups))
+        for item in extension_nodes
     )
     if not manifests:
         raise RuntimeError(f"No node manifests found under {RESOURCE_ROOT}")
