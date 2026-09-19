@@ -29,7 +29,7 @@ class CustomNodeDefinitionRecord(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('mathematical', 'composite', 'repository')",
+            "kind IN ('mathematical', 'graph_template', 'repository')",
             name="ck_custom_node_definitions_kind",
         ),
         CheckConstraint("version >= 1", name="ck_custom_node_definitions_version"),

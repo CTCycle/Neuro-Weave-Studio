@@ -48,7 +48,7 @@ type CompatibilityFilter = 'all' | 'current' | 'keras' | ExecutionBackend
           <section class="catalog-category custom-category">
             <div class="custom-heading"><span><strong>Custom templates</strong><small>Expand into canonical graph nodes</small></span></div>
             @for (definition of customTemplates(); track definition.id) {
-              <button class="catalog-item custom-item" type="button" [disabled]="!isCustomSupported(definition)" [title]="customTitle(definition)" (click)="addCustom(definition)"><span class="node-accent" aria-hidden="true"></span><span class="catalog-item-copy"><strong>{{ definition.display_name }}</strong><small>{{ definition.kind === 'composite' ? 'Sequential block' : 'Mathematical operation' }} · v{{ definition.version }}</small></span>@if (!isCustomSupported(definition)) { <span class="compatibility-badge">Limited</span> } @else { <span class="custom-badge">Custom</span> }</button>
+              <button class="catalog-item custom-item" type="button" [disabled]="!isCustomSupported(definition)" [title]="customTitle(definition)" (click)="addCustom(definition)"><span class="node-accent" aria-hidden="true"></span><span class="catalog-item-copy"><strong>{{ definition.display_name }}</strong><small>{{ definition.kind === 'graph_template' ? 'Graph template' : 'Mathematical operation' }} · v{{ definition.version }}</small></span>@if (!isCustomSupported(definition)) { <span class="compatibility-badge">Limited</span> } @else { <span class="custom-badge">Custom</span> }</button>
             }
             @for (definition of referenceDefinitions(); track definition.id) {
               <button class="catalog-item reference-item" type="button" disabled title="Verified repository reference only; no trusted execution adapter is installed"><span class="node-accent" aria-hidden="true"></span><span class="catalog-item-copy"><strong>{{ definition.display_name }}</strong><small>Hugging Face reference · not executable</small></span><span class="reference-badge">Reference</span></button>
@@ -187,7 +187,7 @@ export class NodeCatalogComponent {
   isCustomSupported(definition: CustomNodeDefinition): boolean { return this.materializer.compatibility(definition).available }
   customTitle(definition: CustomNodeDefinition): string {
     const result = this.materializer.compatibility(definition)
-    return result.available ? (definition.kind === 'composite' ? 'Insert sequential built-in block' : 'Insert safe mathematical operation') : result.reason
+    return result.available ? (definition.kind === 'graph_template' ? 'Insert graph template' : 'Insert safe mathematical operation') : result.reason
   }
   clearFilters(): void { this.categoryFilter.set('all'); this.compatibilityFilter.set('all'); this.portKindFilter.set('all'); this.familyFilter.set('all'); this.operationFilter.set('all') }
   clearFilter(key: string): void {

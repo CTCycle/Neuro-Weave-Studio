@@ -7,16 +7,17 @@ from common.catalogs.loader import NodeCatalog
 from common.timestamps import utc_now
 from domain.custom_math import CustomMathFormulaError, parse_custom_math_formula
 from domain.custom_nodes import (
-    CompositeNodeComponent,
     CustomNodeCatalogResponse,
     CustomNodeDefinitionCreate,
     CustomNodeDefinitionResponse,
     CustomNodeDefinitionUpdate,
     CustomNodeSpec,
+    GraphTemplateNodeSpec,
     MathematicalNodeSpec,
     RepositoryNodeSpec,
 )
 from domain.manifests import NodeManifest
+from domain.ports import materialized_inputs, materialized_outputs
 from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
 from repositories.custom_nodes import CustomNodeDefinitionRecord
 from services.huggingface_repository_service import HuggingFaceRepositoryService
@@ -130,8 +131,12 @@ class CustomNodeService:
                     "pipeline_tag": metadata.pipeline_tag,
                 }
             )
-        normalized_components: list[CompositeNodeComponent] = []
-        manifests: list[NodeManifest] = []
+        if not isinstance(spec, GraphTemplateNodeSpec):
+            raise TypeError(f"Unsupported custom node specification: {spec.type}")
+
+        normalized_components = []
+        manifests: dict[str, NodeManifest] = {}
+        parameters_by_id: dict[str, dict[str, object]] = {}
         for component in spec.components:
             try:
                 manifest = self._catalog.get(component.definition_id, component.definition_version)
@@ -139,44 +144,74 @@ class CustomNodeService:
                 raise ValueError(
                     f"Unknown built-in node definition: {component.definition_id}@{component.definition_version}"
                 ) from exc
-            if manifest.semantic_role != "operation" or manifest.deprecated:
+            if manifest.deprecated:
                 raise ValueError(
-                    f"Composite templates may only use active operation nodes; {manifest.id} is not eligible"
+                    f"Graph templates may only use active built-in nodes; {manifest.id} is not eligible"
                 )
             try:
                 parameters = normalize_manifest_parameters(manifest, component.parameters)
             except ParameterValueError as exc:
                 raise ValueError(f"Invalid parameters for {manifest.id}: {exc}") from exc
-            manifests.append(manifest)
+            manifests[component.id] = manifest
+            parameters_by_id[component.id] = parameters
             normalized_components.append(component.model_copy(update={"parameters": parameters}))
 
-        for index in range(len(manifests) - 1):
-            source_manifest = manifests[index]
-            target_manifest = manifests[index + 1]
-            source_parameters = normalized_components[index].parameters
-            target_parameters = normalized_components[index + 1].parameters
-            source_ports = [
-                port
-                for port in source_manifest.outputs
-                if condition_matches(port.enabled_when, source_parameters)
-            ]
-            target_ports = [
-                port
-                for port in target_manifest.inputs
-                if condition_matches(port.enabled_when, target_parameters)
-            ]
-            compatible = any(
-                source_port.kind == target_port.kind
-                or (
-                    target_port.kind.value == "tensor_list"
-                    and target_port.element_kind == source_port.kind
-                )
-                for source_port in source_ports
-                for target_port in target_ports
+        for edge in spec.edges:
+            source_manifest = manifests[edge.source_component_id]
+            target_manifest = manifests[edge.target_component_id]
+            source_parameters = parameters_by_id[edge.source_component_id]
+            target_parameters = parameters_by_id[edge.target_component_id]
+            source_port = next(
+                (
+                    port
+                    for port in materialized_outputs(source_manifest, source_parameters)
+                    if port.id == edge.source_port_id
+                    and condition_matches(port.enabled_when, source_parameters)
+                ),
+                None,
             )
-            if not compatible:
+            target_port = next(
+                (
+                    port
+                    for port in materialized_inputs(target_manifest, target_parameters)
+                    if port.id == edge.target_port_id
+                    and condition_matches(port.enabled_when, target_parameters)
+                ),
+                None,
+            )
+            if source_port is None or target_port is None:
                 raise ValueError(
-                    f"Sequential components {source_manifest.id} and {target_manifest.id} do not expose compatible active ports"
+                    f"Graph template edge references an unavailable port: "
+                    f"{edge.source_component_id}.{edge.source_port_id} -> "
+                    f"{edge.target_component_id}.{edge.target_port_id}"
+                )
+            expected_kind = (
+                target_port.element_kind
+                if target_port.kind.value == "tensor_list"
+                else target_port.kind
+            )
+            if source_port.kind != expected_kind:
+                raise ValueError(
+                    f"Graph template edge {edge.source_component_id}.{edge.source_port_id} -> "
+                    f"{edge.target_component_id}.{edge.target_port_id} has incompatible port kinds"
+                )
+
+        for binding in [*spec.input_bindings, *spec.output_bindings]:
+            manifest = manifests[binding.component_id]
+            parameters = parameters_by_id[binding.component_id]
+            ports = (
+                materialized_inputs(manifest, parameters)
+                if binding in spec.input_bindings
+                else materialized_outputs(manifest, parameters)
+            )
+            if not any(
+                port.id == binding.port_id
+                and condition_matches(port.enabled_when, parameters)
+                for port in ports
+            ):
+                raise ValueError(
+                    f"Graph template binding references an unavailable port: "
+                    f"{binding.component_id}.{binding.port_id}"
                 )
         return spec.model_copy(update={"components": normalized_components})
 
@@ -218,7 +253,7 @@ class CustomNodeService:
                 "description": record.description,
                 "kind": record.kind,
                 "spec": record.spec_json,
-                "executable_template": record.kind in {"mathematical", "composite"},
+                "executable_template": record.kind in {"mathematical", "graph_template"},
                 "created_at": record.created_at,
                 "updated_at": record.updated_at,
             }

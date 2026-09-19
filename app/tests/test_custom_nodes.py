@@ -117,7 +117,7 @@ def test_custom_node_lifecycle_versions_and_builtin_locking(client: httpx.Client
     assert client.delete(f"/api/nodes/custom/{definition_id}").status_code == 204
 
 ###############################################################################
-def test_composite_nodes_validate_full_manifest_parameter_contract(client: httpx.Client) -> None:
+def test_graph_template_nodes_validate_full_manifest_parameter_contract(client: httpx.Client) -> None:
     created = client.post(
         "/api/nodes/custom",
         json={
@@ -125,21 +125,36 @@ def test_composite_nodes_validate_full_manifest_parameter_contract(client: httpx
             "category": "blocks",
             "description": "A reusable dense projection followed by activation.",
             "spec": {
-                "type": "composite",
-                "connection_mode": "sequential",
+                "type": "graph_template",
                 "components": [
                     {
+                        "id": "projection",
                         "definition_id": "layer.dense",
                         "definition_version": 1,
                         "label": "Projection",
                         "parameters": {"units": 64},
                     },
                     {
+                        "id": "activation",
                         "definition_id": "layer.activation",
                         "definition_version": 1,
                         "label": "Activation",
                         "parameters": {"activation": "gelu"},
                     },
+                ],
+                "edges": [
+                    {
+                        "source_component_id": "projection",
+                        "source_port_id": "output",
+                        "target_component_id": "activation",
+                        "target_port_id": "input",
+                    }
+                ],
+                "input_bindings": [
+                    {"template_port_id": "input", "component_id": "projection", "port_id": "input"}
+                ],
+                "output_bindings": [
+                    {"template_port_id": "output", "component_id": "activation", "port_id": "output"}
                 ],
             },
         },
@@ -157,9 +172,9 @@ def test_composite_nodes_validate_full_manifest_parameter_contract(client: httpx
             "category": "blocks",
             "description": "References a node that does not exist.",
             "spec": {
-                "type": "composite",
+                "type": "graph_template",
                 "components": [
-                    {"definition_id": "layer.does_not_exist", "parameters": dict[str, object]()}
+                    {"id": "missing", "definition_id": "layer.does_not_exist", "parameters": dict[str, object]()}
                 ],
             },
         },
@@ -173,8 +188,8 @@ def test_composite_nodes_validate_full_manifest_parameter_contract(client: httpx
             "category": "blocks",
             "description": "Uses a wrong parameter type.",
             "spec": {
-                "type": "composite",
-                "components": [{"definition_id": "layer.dense", "parameters": {"units": "many"}}],
+                "type": "graph_template",
+                "components": [{"id": "projection", "definition_id": "layer.dense", "parameters": {"units": "many"}}],
             },
         },
     )
@@ -187,9 +202,9 @@ def test_composite_nodes_validate_full_manifest_parameter_contract(client: httpx
             "category": "blocks",
             "description": "Uses an unsupported activation option.",
             "spec": {
-                "type": "composite",
+                "type": "graph_template",
                 "components": [
-                    {"definition_id": "layer.activation", "parameters": {"activation": "not-real"}}
+                    {"id": "activation", "definition_id": "layer.activation", "parameters": {"activation": "not-real"}}
                 ],
             },
         },
