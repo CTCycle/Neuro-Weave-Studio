@@ -89,7 +89,7 @@ export function projectDocumentToSession(
 
 export function sessionToGraph(session: GraphEditorSession): ModelGraph {
   return {
-    schema_version: 5,
+    schema_version: 6,
     nodes: session.nodes.map((node) => ({
       id: node.id,
       definition_id: node.data.manifest.id,

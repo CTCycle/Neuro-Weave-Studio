@@ -35,7 +35,7 @@ const classificationManifests = [
 ]
 
 const graph = (output_bindings: ModelGraph['output_bindings'] = []): ModelGraph => ({
-  schema_version: 5,
+  schema_version: 6,
   nodes: [
     { id: 'features', definition_id: 'input.tensor', definition_version: 1, label: 'Features', position: { x: 0, y: 0 }, parameters: { shape: [8] }, locked: false },
     { id: 'head', definition_id: 'layer.head', definition_version: 1, label: 'Primary', position: { x: 200, y: 0 }, parameters: {}, locked: false },

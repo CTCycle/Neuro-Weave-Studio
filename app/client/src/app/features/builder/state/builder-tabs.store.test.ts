@@ -3,7 +3,7 @@ import { emptyModelConfiguration } from '../../../domain/types'
 import type { GraphEditorSession } from '../../../domain/graph-mapper'
 import { BuilderTabsStore } from './builder-tabs.store'
 
-const session = (label: string): GraphEditorSession => ({ nodes: [], edges: [], outputBindings: [], modelConfiguration: { ...emptyModelConfiguration(), keras: { ...emptyModelConfiguration().keras, optimizer: label } }, exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' }, futureTrainingConfiguration: {}, selectedNodeId: null, selectedEdgeId: null, copiedNodeIds: [], past: [], future: [] })
+const session = (label: string): GraphEditorSession => ({ nodes: [], edges: [], outputBindings: [], modelConfiguration: { ...emptyModelConfiguration(), keras: { ...emptyModelConfiguration().keras, compilation: { ...emptyModelConfiguration().keras.compilation, optimizer: { id: label, parameters: {} } } } }, exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' }, futureTrainingConfiguration: {}, selectedNodeId: null, selectedEdgeId: null, copiedNodeIds: [], past: [], future: [] })
 function tab(projectId: string | null, label: string) { return { projectId, name: projectId ? `Project ${projectId}` : 'Untitled model', description: '', executionBackend: 'pytorch' as const, kerasEnabled: true, revision: 1, graph: session(label), validation: null, validationExpanded: false, validationHeight: 160, savedBaseline: label } }
 
 describe('builder tabs store', () => {
@@ -28,11 +28,11 @@ describe('builder tabs store', () => {
     store.updateTab(secondId, { graph: { ...session('second-edited'), selectedNodeId: 'node-second' }, validation: { valid: false, diagnostics: [{ code: 'SECOND', severity: 'error', message: 'SECOND finding', details: {} }], shape_summaries: [], total_parameters: 0 } })
     const first = store.tabs().find((item) => item.id === firstId)
     const second = store.tabs().find((item) => item.id === secondId)
-    expect(first?.graph.modelConfiguration.keras.optimizer).toBe('first-edited')
+    expect(first?.graph.modelConfiguration.keras.compilation.optimizer.id).toBe('first-edited')
     expect(first?.validation?.diagnostics[0].code).toBe('FIRST')
     expect(first?.validationExpanded).toBe(true)
     expect(first?.validationHeight).toBe(240)
-    expect(second?.graph.modelConfiguration.keras.optimizer).toBe('second-edited')
+    expect(second?.graph.modelConfiguration.keras.compilation.optimizer.id).toBe('second-edited')
     expect(second?.validation?.diagnostics[0].code).toBe('SECOND')
     expect(second?.validationExpanded).toBe(false)
     store.focusTab(firstId)

@@ -1,11 +1,13 @@
 import { Component, computed, effect, input, output, signal } from '@angular/core'
 import type {
+  CompilationObject,
   CompilationCatalog,
   CompilationOption,
-  CompilationParameter,
+  CompilationPlan,
   ExecutionBackend,
   ModelConfiguration,
   NativeCompilationCapability,
+  ParameterDefinition,
 } from '../../domain/types'
 import { emptyModelConfiguration } from '../../domain/types'
 import { MathFormulaComponent } from '../../shared/components/math-formula.component'
@@ -45,7 +47,7 @@ type CompilationTab = 'optimizer' | 'outputs' | 'advanced' | 'native'
               <div class="section-heading"><div><span class="eyebrow">OPTIMIZER</span><h3>Update rule</h3></div></div>
               <label class="field"><span>Optimizer</span><select [value]="optimizerId()" (change)="chooseOptimizer($event, catalog)">@for (item of catalog.optimizers; track item.id) { <option [value]="item.id">{{ item.label }}</option> }</select></label>
               @if (optimizer(); as selected) { <p class="compilation-description">{{ selected.description }}</p> }
-              <div class="compilation-parameter-grid">@for (parameter of optimizerParameters(); track parameter.id) { <label class="field"><span>{{ parameter.label }}<small>{{ parameter.description }}</small></span>@if (parameter.type === 'boolean') { <input type="checkbox" [checked]="booleanParameterValue(parameter, optimizerParameterValues())" (change)="setOptimizerParameter(parameter, $event)" /> } @else { <input type="number" [value]="parameterValue(parameter, optimizerParameterValues())" [min]="numericConstraint(parameter, 'min')" [max]="numericConstraint(parameter, 'max')" step="any" (change)="setOptimizerParameter(parameter, $event)" /> }</label> }</div>
+              <div class="compilation-parameter-grid">@for (parameter of optimizerParameters(); track parameter.id) { <label class="field"><span>{{ parameter.display_name }}<small>{{ parameter.description }}</small></span>@if (parameter.type === 'boolean') { <input type="checkbox" [checked]="booleanParameterValue(parameter, optimizerParameterValues())" (change)="setOptimizerParameter(parameter, $event)" /> } @else if (parameter.type === 'enum') { <select [value]="parameterValue(parameter, optimizerParameterValues())" (change)="setOptimizerParameter(parameter, $event)">@for (option of parameter.options; track option) { <option [value]="option">{{ option }}</option> }</select> } @else { <input type="number" [value]="parameterValue(parameter, optimizerParameterValues())" [min]="numericConstraint(parameter, 'min')" [max]="numericConstraint(parameter, 'max')" step="any" (change)="setOptimizerParameter(parameter, $event)" /> }</label> }</div>
             </section>
           }
 
@@ -72,7 +74,7 @@ type CompilationTab = 'optimizer' | 'outputs' | 'advanced' | 'native'
           @if (activeTab() === 'advanced' && kerasEnabled() && kerasCatalog(); as catalog) {
             <section class="compilation-section compilation-tab-panel" role="tabpanel">
               <div class="section-heading"><div><span class="eyebrow">ADVANCED OPTIONS</span><h3>Model defaults</h3></div></div>
-              <div class="compilation-parameter-grid"><label class="field"><span>Initializer</span><select [value]="draft().keras.default_initializer" (change)="setKerasText('default_initializer', $event)">@for (item of catalog.initializers; track item) { <option [value]="item">{{ item }}</option> }</select></label><label class="field"><span>Regularizer</span><select [value]="draft().keras.default_regularizer" (change)="setKerasText('default_regularizer', $event)">@for (item of catalog.regularizers; track item) { <option [value]="item">{{ item }}</option> }</select></label><label class="field"><span>Constraint</span><select [value]="draft().keras.default_constraint" (change)="setKerasText('default_constraint', $event)">@for (item of catalog.constraints; track item) { <option [value]="item">{{ item }}</option> }</select></label><label class="toggle-field"><span>Mixed precision</span><input type="checkbox" [checked]="draft().keras.mixed_precision" (change)="setKerasMixedPrecision($event)" /></label></div>
+              <div class="compilation-parameter-grid"><label class="field"><span>Initializer</span><select [value]="draft().keras.compilation.default_initializer.id" (change)="setKerasText('default_initializer', $event)">@for (item of catalog.initializers; track item) { <option [value]="item">{{ item }}</option> }</select></label><label class="field"><span>Regularizer</span><select [value]="draft().keras.compilation.default_regularizer?.id ?? 'none'" (change)="setKerasText('default_regularizer', $event)">@for (item of catalog.regularizers; track item) { <option [value]="item">{{ item }}</option> }</select></label><label class="field"><span>Constraint</span><select [value]="draft().keras.compilation.default_constraint?.id ?? 'none'" (change)="setKerasText('default_constraint', $event)">@for (item of catalog.constraints; track item) { <option [value]="item">{{ item }}</option> }</select></label><label class="toggle-field"><span>Mixed precision</span><input type="checkbox" [checked]="draft().keras.mixed_precision" (change)="setKerasMixedPrecision($event)" /></label></div>
             </section>
           }
 
@@ -80,7 +82,7 @@ type CompilationTab = 'optimizer' | 'outputs' | 'advanced' | 'native'
             <section class="compilation-section compilation-tab-panel" role="tabpanel">
               <div class="section-heading"><div><span class="eyebrow">{{ capability.compiler }}</span><h3>Backend-native execution</h3></div></div>
               @if (!capability.available) { <p class="compilation-unavailable">{{ capability.reason ?? 'This compiler is not operational in the current environment. Settings can still be saved for a later runtime.' }}</p> }
-              <div class="compilation-parameter-grid">@for (parameter of capability.parameters; track parameter.id) { <label [class.toggle-field]="parameter.type === 'boolean'" [class.field]="parameter.type !== 'boolean'"><span>{{ parameter.label }}<small>{{ parameter.description }}</small></span>@if (parameter.type === 'boolean') { <input type="checkbox" [checked]="nativeParameterValue(parameter) === true" (change)="setNativeParameter(parameter, $event)" /> } @else if (parameter.type === 'enum') { <select [value]="nativeParameterValue(parameter)" (change)="setNativeParameter(parameter, $event)">@for (option of parameter.options ?? []; track option) { <option [value]="option">{{ option }}</option> }</select> } @else { <input type="number" [value]="nativeParameterValue(parameter)" (change)="setNativeParameter(parameter, $event)" /> }</label> }</div>
+              <div class="compilation-parameter-grid">@for (parameter of capability.parameters; track parameter.id) { <label [class.toggle-field]="parameter.type === 'boolean'" [class.field]="parameter.type !== 'boolean'"><span>{{ parameter.display_name }}<small>{{ parameter.description }}</small></span>@if (parameter.type === 'boolean') { <input type="checkbox" [checked]="nativeParameterValue(parameter) === true" (change)="setNativeParameter(parameter, $event)" /> } @else if (parameter.type === 'enum') { <select [value]="nativeParameterValue(parameter)" (change)="setNativeParameter(parameter, $event)">@for (option of parameter.options; track option) { <option [value]="option">{{ option }}</option> }</select> } @else { <input type="number" [value]="nativeParameterValue(parameter)" (change)="setNativeParameter(parameter, $event)" /> }</label> }</div>
             </section>
           }
         </div>
@@ -119,9 +121,9 @@ export class CompilationConfigurationDialogComponent {
   readonly nativeCatalog = computed(() => this.nativeCapability()?.backend === 'pytorch' ? this.nativeCapability()?.catalog ?? null : null)
   readonly activeCatalog = computed(() => this.kerasEnabled() ? this.kerasCatalog() : this.nativeCatalog())
   readonly optimizer = computed(() => this.findOption(this.activeCatalog(), this.optimizerId(), 'optimizers'))
-  readonly optimizerId = computed(() => this.kerasEnabled() ? this.draft().keras.optimizer : this.nativeCapability()?.backend === 'pytorch' ? this.draft().native.pytorch.optimizer : '')
+  readonly optimizerId = computed(() => this.kerasEnabled() ? this.draft().keras.compilation.optimizer.id : this.nativeCapability() ? this.nativeConfiguration(this.draft()).compilation.optimizer.id : '')
   readonly optimizerParameters = computed(() => this.optimizer()?.parameters ?? [])
-  readonly optimizerParameterValues = computed(() => this.kerasEnabled() ? this.draft().keras.optimizer_parameters : this.nativeCapability()?.backend === 'pytorch' ? this.draft().native.pytorch.optimizer_parameters : {})
+  readonly optimizerParameterValues = computed(() => this.kerasEnabled() ? this.draft().keras.compilation.optimizer.parameters : this.nativeCapability() ? this.nativeConfiguration(this.draft()).compilation.optimizer.parameters : {})
   readonly optimizerLabel = computed(() => this.optimizer()?.label ?? this.optimizerId())
 
   constructor() {
@@ -138,38 +140,39 @@ export class CompilationConfigurationDialogComponent {
   lossOption(catalog: CompilationCatalog, id: string): CompilationOption | null { return catalog.losses.find((item) => item.id === id) ?? null }
   compatibleOptions(options: CompilationOption[], modelOutput: CompilationOutputDescriptor): CompilationOption[] { const task = normalizedTask(modelOutput.task_hint); return task ? options.filter((item) => !item.supported_tasks?.length || item.supported_tasks.includes(task)) : options }
   taskLabel(value?: string | null): string | null { return normalizedTask(value)?.replaceAll('_', ' ') ?? null }
-  selectedLoss(outputId: string): string { const mapping = this.lossMapping(); return this.mappingValue(mapping, outputId) ?? '' }
-  selectedMetrics(outputId: string): string[] { const mapping = this.metricMapping(); return this.mappingValue(mapping, outputId) ?? [] }
+  selectedLoss(outputId: string): string { const mapping = this.lossMapping(); return this.mappingValue(mapping, outputId)?.id ?? '' }
+  selectedMetrics(outputId: string): string[] { const mapping = this.metricMapping(); return (this.mappingValue(mapping, outputId) ?? []).map((item) => item.id) }
 
   chooseOptimizer(event: Event, catalog: CompilationCatalog): void {
     const id = (event.target as HTMLSelectElement).value
     const option = catalog.optimizers.find((item) => item.id === id)
     const parameters = Object.fromEntries((option?.parameters ?? []).map((parameter) => [parameter.id, parameter.default]))
-    this.draft.update((current) => this.kerasEnabled()
-      ? { ...current, keras: { ...current.keras, optimizer: id, optimizer_parameters: parameters } }
-      : updateNativeConfiguration(current, this.nativeBackend(), { optimizer: id, optimizer_parameters: parameters }))
+    this.draft.update((current) => this.withCompilation(current, {
+      optimizer: { id, parameters },
+    }))
   }
 
-  setOptimizerParameter(parameter: CompilationParameter, event: Event): void {
-    const element = event.target as HTMLInputElement
-    const value: unknown = parameter.type === 'boolean' ? element.checked : parameter.type === 'integer' ? Number.parseInt(element.value, 10) : Number(element.value)
-    if (!this.kerasEnabled() && this.nativeBackend() !== 'pytorch') return
-    this.draft.update((current) => this.kerasEnabled()
-      ? { ...current, keras: { ...current.keras, optimizer_parameters: { ...current.keras.optimizer_parameters, [parameter.id]: value } } }
-      : updateNativeConfiguration(current, this.nativeBackend(), { optimizer_parameters: { ...current.native.pytorch.optimizer_parameters, [parameter.id]: value } }))
+  setOptimizerParameter(parameter: ParameterDefinition, event: Event): void {
+    const element = event.target as HTMLInputElement | HTMLSelectElement
+    this.draft.update((current) => {
+      const compilation = this.currentCompilation(current)
+      return this.withCompilation(current, {
+        optimizer: {
+          ...compilation.optimizer,
+          parameters: { ...compilation.optimizer.parameters, [parameter.id]: parseCompilationParameter(parameter, element) },
+        },
+      })
+    })
   }
 
   setOutputLoss(outputId: string, event: Event): void {
     const value = (event.target as HTMLSelectElement).value
     const key = this.outputKey(outputId)
     this.draft.update((current) => {
-      if (!this.kerasEnabled() && this.nativeBackend() !== 'pytorch') return current
-      const mapping = { ...(this.kerasEnabled() ? current.keras.losses : current.native.pytorch.losses) }
-      if (value) mapping[key] = value
+      const mapping = { ...this.currentCompilation(current).losses }
+      if (value) mapping[key] = { id: value, parameters: {} }
       else delete mapping[key]
-      return this.kerasEnabled()
-        ? { ...current, keras: { ...current.keras, losses: mapping } }
-        : updateNativeConfiguration(current, this.nativeBackend(), { losses: mapping })
+      return this.withCompilation(current, { losses: mapping })
     })
   }
 
@@ -177,40 +180,50 @@ export class CompilationConfigurationDialogComponent {
     const checked = (event.target as HTMLInputElement).checked
     const key = this.outputKey(outputId)
     this.draft.update((current) => {
-      if (!this.kerasEnabled() && this.nativeBackend() !== 'pytorch') return current
-      const mapping = { ...(this.kerasEnabled() ? current.keras.metrics : current.native.pytorch.metrics) }
-      const selected = new Set(mapping[key] ?? mapping['__default__'] ?? [])
+      const mapping = { ...this.currentCompilation(current).metrics }
+      const selected = new Set((mapping[key] ?? mapping['__default__'] ?? []).map((item) => item.id))
       if (checked) selected.add(metricId)
       else selected.delete(metricId)
-      mapping[key] = [...selected]
-      return this.kerasEnabled()
-        ? { ...current, keras: { ...current.keras, metrics: mapping } }
-        : updateNativeConfiguration(current, this.nativeBackend(), { metrics: mapping })
+      mapping[key] = [...selected].map((id) => ({ id, parameters: {} }))
+      return this.withCompilation(current, { metrics: mapping })
     })
   }
 
-  setKerasText(key: 'default_initializer' | 'default_regularizer' | 'default_constraint', event: Event): void { const value = (event.target as HTMLSelectElement).value; this.draft.update((current) => ({ ...current, keras: { ...current.keras, [key]: value } })) }
+  setKerasText(key: 'default_initializer' | 'default_regularizer' | 'default_constraint', event: Event): void {
+    const value = (event.target as HTMLSelectElement).value
+    this.draft.update((current) => ({
+      ...current,
+      keras: {
+        ...current.keras,
+        compilation: {
+          ...current.keras.compilation,
+          [key]: value === 'none' && key !== 'default_initializer' ? null : { id: value, parameters: {} },
+        },
+      },
+    }))
+  }
   setKerasMixedPrecision(event: Event): void { const value = (event.target as HTMLInputElement).checked; this.draft.update((current) => ({ ...current, keras: { ...current.keras, mixed_precision: value } })) }
-  parameterValue(parameter: CompilationParameter, values: Record<string, unknown>): unknown { return values[parameter.id] ?? parameter.default }
-  booleanParameterValue(parameter: CompilationParameter, values: Record<string, unknown>): boolean { return Boolean(this.parameterValue(parameter, values)) }
-  numericConstraint(parameter: CompilationParameter, key: 'min' | 'max'): number | null { const value = parameter.constraints[key]; return typeof value === 'number' ? value : null }
+  parameterValue(parameter: ParameterDefinition, values: Record<string, unknown>): unknown { return values[parameter.id] ?? parameter.default }
+  booleanParameterValue(parameter: ParameterDefinition, values: Record<string, unknown>): boolean { return Boolean(this.parameterValue(parameter, values)) }
+  numericConstraint(parameter: ParameterDefinition, key: 'min' | 'max'): number | null { const value = parameter.constraints[key]; return typeof value === 'number' ? value : null }
 
-  nativeParameterValue(parameter: CompilationParameter): unknown {
-    const project = this.draft().native
-    const backend = this.nativeCapability()?.backend
-    if (backend === 'tensorflow') return project.tensorflow[parameter.id as keyof typeof project.tensorflow] ?? parameter.default
-    if (backend === 'jax') return project.jax[parameter.id as keyof typeof project.jax] ?? parameter.default
-    return project.pytorch[parameter.id as keyof typeof project.pytorch] ?? parameter.default
+  nativeParameterValue(parameter: ParameterDefinition): unknown {
+    return this.nativeConfiguration(this.draft()).compiler.parameters[parameter.id] ?? parameter.default
   }
 
-  setNativeParameter(parameter: CompilationParameter, event: Event): void {
+  setNativeParameter(parameter: ParameterDefinition, event: Event): void {
     const element = event.target as HTMLInputElement | HTMLSelectElement
-    const value: unknown = parameter.type === 'boolean' ? (element as HTMLInputElement).checked : parameter.type === 'integer' ? Number.parseInt(element.value, 10) : parameter.type === 'number' ? Number(element.value) : element.value
+    const value = parseCompilationParameter(parameter, element)
     const backend = this.nativeCapability()?.backend
     this.draft.update((current) => {
-      if (backend === 'tensorflow') return { ...current, native: { ...current.native, tensorflow: { ...current.native.tensorflow, [parameter.id]: value } } }
-      if (backend === 'jax') return { ...current, native: { ...current.native, jax: { ...current.native.jax, [parameter.id]: value } } }
-      return { ...current, native: { ...current.native, pytorch: { ...current.native.pytorch, [parameter.id]: value } } }
+      if (!backend) return current
+      const profile = this.nativeConfiguration(current)
+      return updateNativeConfiguration(current, backend, {
+        compiler: {
+          ...profile.compiler,
+          parameters: { ...profile.compiler.parameters, [parameter.id]: value },
+        },
+      })
     })
   }
 
@@ -221,23 +234,30 @@ export class CompilationConfigurationDialogComponent {
     }
     return mapping['__default__']
   }
-  private lossMapping(): Record<string, string> { return this.kerasEnabled() || this.nativeBackend() === 'pytorch' ? this.kerasEnabled() ? this.draft().keras.losses : this.draft().native.pytorch.losses : {} }
-  private metricMapping(): Record<string, string[]> { return this.kerasEnabled() || this.nativeBackend() === 'pytorch' ? this.kerasEnabled() ? this.draft().keras.metrics : this.draft().native.pytorch.metrics : {} }
+  private lossMapping(): Record<string, CompilationObject> { return this.currentCompilation(this.draft()).losses }
+  private metricMapping(): Record<string, CompilationObject[]> { return this.currentCompilation(this.draft()).metrics }
   private nativeBackend(): ExecutionBackend { return this.nativeCapability()?.backend ?? 'pytorch' }
+  private nativeConfiguration(configuration: ModelConfiguration): ModelConfiguration['native'][ExecutionBackend] { return configuration.native[this.nativeBackend()] }
+  private currentCompilation(configuration: ModelConfiguration): CompilationPlan { return this.kerasEnabled() ? configuration.keras.compilation : this.nativeConfiguration(configuration).compilation }
+  private withCompilation(configuration: ModelConfiguration, patch: Partial<CompilationPlan>): ModelConfiguration {
+    const compilation = { ...this.currentCompilation(configuration), ...patch }
+    if (this.kerasEnabled()) return { ...configuration, keras: { ...configuration.keras, compilation } }
+    return updateNativeConfiguration(configuration, this.nativeBackend(), { compilation })
+  }
   private findOption(catalog: CompilationCatalog | null, id: string | undefined, field: 'optimizers' | 'losses' | 'metrics'): CompilationOption | null { return catalog?.[field].find((item) => item.id === id) ?? null }
 }
 
 function updateNativeConfiguration(
   configuration: ModelConfiguration,
   backend: ExecutionBackend,
-  patch: Record<string, unknown>,
+  patch: { compilation?: CompilationPlan; compiler?: ModelConfiguration['native'][ExecutionBackend]['compiler'] },
 ): ModelConfiguration {
   if (backend === 'tensorflow') {
     return {
       ...configuration,
       native: {
         ...configuration.native,
-        tensorflow: { ...configuration.native.tensorflow, ...patch } as ModelConfiguration['native']['tensorflow'],
+        tensorflow: { ...configuration.native.tensorflow, ...patch },
       },
     }
   }
@@ -246,7 +266,7 @@ function updateNativeConfiguration(
       ...configuration,
       native: {
         ...configuration.native,
-        jax: { ...configuration.native.jax, ...patch } as ModelConfiguration['native']['jax'],
+        jax: { ...configuration.native.jax, ...patch },
       },
     }
   }
@@ -254,7 +274,7 @@ function updateNativeConfiguration(
     ...configuration,
     native: {
       ...configuration.native,
-      pytorch: { ...configuration.native.pytorch, ...patch } as ModelConfiguration['native']['pytorch'],
+      pytorch: { ...configuration.native.pytorch, ...patch },
     },
   }
 }
@@ -267,26 +287,26 @@ function withOutputSuggestions(
   backend: ExecutionBackend,
 ): ModelConfiguration {
   if (!outputs.length) return configuration
-  if (!keras && backend !== 'pytorch') return configuration
-  const losses = { ...(keras ? configuration.keras.losses : configuration.native.pytorch.losses) }
-  const metrics = { ...(keras ? configuration.keras.metrics : configuration.native.pytorch.metrics) }
+  const current = keras ? configuration.keras.compilation : configuration.native[backend].compilation
+  const losses = { ...current.losses }
+  const metrics = { ...current.metrics }
   for (const modelOutput of outputs) {
     const key = outputs.length === 1 ? '__default__' : modelOutput.id
     const task = normalizedTask(modelOutput.task_hint)
     if (!task) continue
-    const currentLoss = mappingValue(losses, key, modelOutput.selectors)
+    const currentLoss = mappingValue(losses, key, modelOutput.selectors)?.id
     const currentLossOption = catalog.losses.find((item) => item.id === currentLoss)
     if (!currentLossOption || (currentLossOption.supported_tasks?.length && !currentLossOption.supported_tasks.includes(task))) {
       const suggested = catalog.losses.find((item) => !item.supported_tasks?.length || item.supported_tasks.includes(task))
-      if (suggested) losses[key] = suggested.id
+      if (suggested) losses[key] = { id: suggested.id, parameters: {} }
     }
     const currentMetrics = mappingValue(metrics, key, modelOutput.selectors) ?? []
-    const compatibleCurrent = currentMetrics.filter((id) => { const option = catalog.metrics.find((item) => item.id === id); return option && (!option.supported_tasks?.length || option.supported_tasks.includes(task)) })
-    if (!compatibleCurrent.length) metrics[key] = catalog.metrics.filter((item) => !item.supported_tasks?.length || item.supported_tasks.includes(task)).slice(0, 2).map((item) => item.id)
+    const compatibleCurrent = currentMetrics.filter((item) => { const option = catalog.metrics.find((candidate) => candidate.id === item.id); return option && (!option.supported_tasks?.length || option.supported_tasks.includes(task)) })
+    if (!compatibleCurrent.length) metrics[key] = catalog.metrics.filter((item) => !item.supported_tasks?.length || item.supported_tasks.includes(task)).slice(0, 2).map((item) => ({ id: item.id, parameters: {} }))
   }
   return keras
-    ? { ...configuration, keras: { ...configuration.keras, losses, metrics } }
-    : { ...configuration, native: { ...configuration.native, pytorch: { ...configuration.native.pytorch, losses, metrics } } }
+    ? { ...configuration, keras: { ...configuration.keras, compilation: { ...configuration.keras.compilation, losses, metrics } } }
+    : updateNativeConfiguration(configuration, backend, { compilation: { ...configuration.native[backend].compilation, losses, metrics } })
 }
 
 function mappingValue<T>(mapping: Record<string, T>, key: string, selectors?: string[]): T | undefined {
@@ -294,6 +314,13 @@ function mappingValue<T>(mapping: Record<string, T>, key: string, selectors?: st
     if (mapping[selector] !== undefined) return mapping[selector]
   }
   return mapping['__default__']
+}
+
+function parseCompilationParameter(parameter: ParameterDefinition, element: HTMLInputElement | HTMLSelectElement): unknown {
+  if (parameter.type === 'boolean') return (element as HTMLInputElement).checked
+  if (parameter.type === 'integer') return Number.parseInt(element.value, 10)
+  if (parameter.type === 'number') return Number(element.value)
+  return element.value
 }
 
 function normalizedTask(value?: string | null): 'regression' | 'binary_classification' | 'multiclass_classification' | null {

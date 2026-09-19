@@ -38,13 +38,13 @@ describe('neutral graph editor store', () => {
   it('preserves export and future-training metadata across undo and redo', () => {
     store = new GraphEditorStore()
     store.restoreEditorSession({ nodes: [], edges: [], outputBindings: [], modelConfiguration: emptyModelConfiguration(), exportSettings: { include_comments: false, include_shape_assertions: false, preferred_binary_format: 'keras' }, futureTrainingConfiguration: { dataset: 'deferred' }, selectedNodeId: null, selectedEdgeId: null, copiedNodeIds: [], past: [], future: [] })
-    store.updateConfiguration({ ...emptyModelConfiguration(), keras: { ...emptyModelConfiguration().keras, optimizer: 'sgd' } })
+    store.updateConfiguration({ ...emptyModelConfiguration(), keras: { ...emptyModelConfiguration().keras, compilation: { ...emptyModelConfiguration().keras.compilation, optimizer: { id: 'sgd', parameters: {} } } } })
     expect(store.toGraph().export_settings.include_comments).toBe(false)
     expect(store.toGraph().future_training_configuration).toEqual({ dataset: 'deferred' })
     store.undo()
-    expect(store.toGraph().model_configuration.keras.optimizer).toBe('adam')
+    expect(store.toGraph().model_configuration.keras.compilation.optimizer.id).toBe('adam')
     store.redo()
-    expect(store.toGraph().model_configuration.keras.optimizer).toBe('sgd')
+    expect(store.toGraph().model_configuration.keras.compilation.optimizer.id).toBe('sgd')
   })
 
   it('captures and restores a detached session with selection and history', () => {
