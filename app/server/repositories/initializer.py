@@ -28,7 +28,7 @@ from repositories.migration_lock import database_migration_lock
 LOGGER = logging.getLogger(__name__)
 
 ALEMBIC_CONFIG_PATH = Path(__file__).resolve().parents[1] / "alembic.ini"
-HEAD_REVISION = "20260915_remove_graph_schema_tracking"
+HEAD_REVISION = "20260919_execution_node_compilation_consolidation"
 ALEMBIC_VERSION_TABLE = "alembic_version"
 
 ###############################################################################
