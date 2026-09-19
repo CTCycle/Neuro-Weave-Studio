@@ -96,6 +96,10 @@ def build_registry() -> NodeEmitterRegistry:
         "upsampling": _simple,
         "padding": _simple,
         "cropping": _simple,
+        "conv3d": _simple,
+        "depthwise": _simple,
+        "separable": _simple,
+        "transposed": _simple,
         "safe_expression": _simple,
     }.items():
         registry.register(adapter, emitter)
