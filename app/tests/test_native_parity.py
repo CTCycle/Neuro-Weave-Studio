@@ -7,7 +7,6 @@ from typing import Any
 
 import numpy as np
 import pytest
-
 from common.catalogs.loader import get_node_catalog
 from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
@@ -139,6 +138,36 @@ def activation_graph() -> ModelGraph:
 
 
 ###############################################################################
+def layer_reshape_graph() -> ModelGraph:
+    return chain_graph(
+        "input.tensor",
+        [2, 2],
+        "layer.reshape",
+        {"target_shape": [4]},
+    )
+
+
+###############################################################################
+def layer_permute_graph() -> ModelGraph:
+    return chain_graph(
+        "input.tensor",
+        [2, 3],
+        "layer.permute",
+        {"axes": [2, 1]},
+    )
+
+
+###############################################################################
+def layer_repeat_graph() -> ModelGraph:
+    return chain_graph(
+        "input.tensor",
+        [4],
+        "layer.repeat",
+        {"repeats": 2, "axis": 1},
+    )
+
+
+###############################################################################
 def cnn_graph() -> ModelGraph:
     return chain_graph(
         "input.image",
@@ -225,9 +254,11 @@ def test_native_dense_values_are_deterministic_across_frameworks(
     ("case_name", "graph_factory", "expected_shape"),
     [
         ("activation", activation_graph, (1, 4)),
+        ("layer_reshape", layer_reshape_graph, (1, 4)),
+        ("layer_permute", layer_permute_graph, (1, 3, 2)),
+        ("layer_repeat", layer_repeat_graph, (1, 2, 4)),
         ("cnn", cnn_graph, (1, 4, 4, 2)),
         ("recurrent", recurrent_graph, (1, 3)),
-        # math.reshape is the supported native reshape operation; layer.reshape is not.
         ("reshape_flatten", reshape_flatten_graph, (1, 4)),
         ("merge_add", merge_add_graph, (1, 4)),
     ],

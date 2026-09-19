@@ -7,6 +7,7 @@ from compilation.compiler import compile_to_ir
 from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.keras_exporter import KerasSourceExporter
+from exporters.node_emitters import registry_for_backend
 
 
 ###############################################################################
@@ -220,3 +221,22 @@ def test_every_supported_keras_node_has_a_source_adapter() -> None:
         )
         source = exporter.generate(graph, ir, catalog)
         assert "No Keras adapter registered" not in source
+
+
+###############################################################################
+def test_native_shape_layer_mappings_are_declarative() -> None:
+    catalog = get_node_catalog()
+    expected = {
+        "layer.reshape": {"tensorflow": "reshape", "pytorch": "reshape", "jax": "reshape"},
+        "layer.permute": {"tensorflow": "permute", "pytorch": "permute", "jax": "permute"},
+        "layer.repeat": {"tensorflow": "repeat", "pytorch": "repeat", "jax": "repeat"},
+    }
+
+    for node_id, adapters in expected.items():
+        manifest = catalog.get(node_id)
+        for backend, adapter in adapters.items():
+            mapping = manifest.implementations[backend]
+            assert mapping.supported
+            assert mapping.adapter == adapter
+            assert mapping.symbol
+            assert registry_for_backend(backend).has(adapter)

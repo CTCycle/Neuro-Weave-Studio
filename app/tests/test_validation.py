@@ -445,6 +445,30 @@ def test_reshape_rejects_impossible_target_and_identifies_cause() -> None:
     assert "reshape" in diagnostic.message.lower()
 
 ###############################################################################
+def test_repeat_vector_shape_matches_native_and_keras_semantics() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            make_node("repeat", "layer.repeat", {"repeats": 3, "axis": 1}),
+            make_node("output", "output.regression"),
+        ],
+        edges=[
+            EdgeInstance(id="e1", source_node_id="input", source_port_id="output", target_node_id="repeat", target_port_id="input"),
+            EdgeInstance(id="e2", source_node_id="repeat", source_port_id="output", target_node_id="output", target_port_id="input"),
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert result.valid
+    summary = next(item for item in result.shape_summaries if item.node_id == "repeat")
+    assert summary.outputs["output"].shape == [None, 3, 4]
+
+###############################################################################
 def test_shape_summaries_recompute_after_an_upstream_parameter_change() -> None:
     graph = ModelGraph(
         nodes=[

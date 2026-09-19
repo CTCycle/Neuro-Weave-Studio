@@ -889,7 +889,7 @@
         }
       ],
       "shape_rule": {
-        "kind": "identity",
+        "kind": "repeat",
         "config": {}
       },
       "implementations": {

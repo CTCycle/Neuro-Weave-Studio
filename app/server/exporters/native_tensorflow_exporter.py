@@ -461,6 +461,25 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(f"        {name} = {source}")
             elif definition == "layer.flatten":
                 lines.append(f"        {name} = tf.reshape({source}, [tf.shape({source})[0], -1])")
+            elif definition == "layer.reshape":
+                target_shape = [int(value) for value in params.get("target_shape", [-1])]
+                lines.append(
+                    f"        {name} = tf.reshape({source}, [tf.shape({source})[0]] + {target_shape!r})"
+                )
+            elif definition == "layer.permute":
+                axes = [int(value) for value in params.get("axes", [2, 1])]
+                lines.append(f"        {name} = tf.transpose({source}, [0] + {axes!r})")
+            elif definition == "layer.repeat":
+                repeats = int(params.get("repeats", 2))
+                axis = int(params.get("axis", 1))
+                if axis == 1:
+                    lines.append(
+                        f"        {name} = tf.repeat(tf.expand_dims({source}, axis=1), {repeats!r}, axis=1)"
+                    )
+                else:
+                    lines.append(
+                        f"        {name} = tf.repeat({source}, {repeats!r}, axis={axis!r})"
+                    )
             elif definition == "layer.embedding":
                 lines.append(
                     f"        {name} = tf.gather(self.{name}_table, tf.cast({source}, tf.int32))"
