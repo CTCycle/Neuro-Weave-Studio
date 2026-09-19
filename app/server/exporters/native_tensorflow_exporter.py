@@ -181,6 +181,12 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             "    raise ValueError(f'Unsupported TensorFlow activation: {name}')",
             "",
             "",
+            "def _layer_norm(value, gamma, beta, epsilon=0.001):",
+            "    mean, variance = tf.nn.moments(value, axes=[-1], keepdims=True)",
+            "    normalized = (value - mean) * tf.math.rsqrt(variance + epsilon)",
+            "    return normalized * gamma + beta",
+            "",
+            "",
             "def _same_pad(value, kernel_size, strides, dilation, fill_value=0.0):",
             "    shape = tf.shape(value)",
             "    output_height = (shape[1] + strides[0] - 1) // strides[0]",
@@ -861,6 +867,74 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     lines.append(
                         f"        self.{name}_embedding = tf.Variable(tf.zeros([{sequence_length}, {feature_dimension}], tf.float32), trainable={bool(params.get('trainable', True))!r}, name={name + '_embedding'!r})"
                     )
+            elif definition in {"transformer.encoder_block", "transformer.decoder_block"}:
+                if source_spec is None or source_spec.rank != 3:
+                    raise ValueError(f"TensorFlow {definition} node {node.id} requires a rank-3 query input")
+                if float(params.get("dropout", 0.0)) != 0.0:
+                    raise ValueError("Native TensorFlow transformer blocks support dropout=0 only")
+                query_dimension = self._static_dimension(source_spec, -1)
+                context_spec = source_spec
+                for binding in item.input_bindings:
+                    if binding.target_port_id == "context":
+                        context_spec = summaries.get(binding.source_node_id)
+                if query_dimension is None or (
+                    definition == "transformer.decoder_block"
+                    and (context_spec is None or context_spec.rank != 3)
+                ):
+                    raise ValueError(f"TensorFlow {definition} node {node.id} requires known rank-3 dimensions")
+                context_dimension = self._static_dimension(context_spec, -1)
+                if context_dimension is None:
+                    raise ValueError(f"TensorFlow {definition} node {node.id} requires a known context dimension")
+                layer_count = int(params.get("layers", 1))
+                if layer_count < 1:
+                    raise ValueError("Transformer block layers must be positive")
+                heads = int(params.get("num_heads", 8))
+                key_dimension = int(params.get("key_dim", 64))
+                hidden_dimension = query_dimension * int(params.get("ffn_multiplier", 4))
+                pre_norm = bool(params.get("pre_norm", True))
+                for layer_index in range(layer_count):
+                    prefix = f"{name}_layer{layer_index}"
+                    attention_specs = [("self", query_dimension)]
+                    if definition == "transformer.decoder_block":
+                        attention_specs.append(("cross", context_dimension))
+                    for attention_kind, attention_context_dimension in attention_specs:
+                        projection_shapes = {
+                            "query": (query_dimension, heads * key_dimension),
+                            "key": (attention_context_dimension, heads * key_dimension),
+                            "value": (attention_context_dimension, heads * key_dimension),
+                            "output": (heads * key_dimension, query_dimension),
+                        }
+                        for projection, (input_dimension, output_width) in projection_shapes.items():
+                            lines.append(
+                                f"        self.{prefix}_{attention_kind}_{projection}_kernel = tf.Variable(tf.zeros([{input_dimension}, {output_width}], tf.float32), name={prefix + '_' + attention_kind + '_' + projection + '_kernel'!r})"
+                            )
+                            lines.append(
+                                f"        self.{prefix}_{attention_kind}_{projection}_bias = tf.Variable(tf.zeros([{output_width}], tf.float32), name={prefix + '_' + attention_kind + '_' + projection + '_bias'!r})"
+                            )
+                    lines.extend(
+                        [
+                            f"        self.{prefix}_expand_kernel = tf.Variable(tf.zeros([{query_dimension}, {hidden_dimension}], tf.float32), name={prefix + '_expand_kernel'!r})",
+                            f"        self.{prefix}_expand_bias = tf.Variable(tf.zeros([{hidden_dimension}], tf.float32), name={prefix + '_expand_bias'!r})",
+                            f"        self.{prefix}_project_kernel = tf.Variable(tf.zeros([{hidden_dimension}, {query_dimension}], tf.float32), name={prefix + '_project_kernel'!r})",
+                            f"        self.{prefix}_project_bias = tf.Variable(tf.zeros([{query_dimension}], tf.float32), name={prefix + '_project_bias'!r})",
+                        ]
+                    )
+                    norm_names = (
+                        ["self_norm", "cross_norm", "ffn_norm"]
+                        if definition == "transformer.decoder_block" and pre_norm
+                        else ["self_norm", "cross_norm", "output_norm"]
+                        if definition == "transformer.decoder_block"
+                        else ["attention_norm", "ffn_norm"]
+                        if pre_norm
+                        else ["attention_norm", "output_norm"]
+                    )
+                    for norm_name in norm_names:
+                        lines.extend(
+                            [
+                                f"        self.{prefix}_{norm_name}_gamma = tf.Variable(tf.ones([{query_dimension}], tf.float32), name={prefix + '_' + norm_name + '_gamma'!r})",
+                                f"        self.{prefix}_{norm_name}_beta = tf.Variable(tf.zeros([{query_dimension}], tf.float32), name={prefix + '_' + norm_name + '_beta'!r})",
+                            ]
+                        )
             elif definition == "transformer.feed_forward":
                 if source_spec is None or source_spec.rank != 3:
                     raise ValueError(f"TensorFlow feed-forward node {node.id} requires a rank-3 input")
@@ -1276,6 +1350,101 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                         f"        {layer_name} = _recurrent({current}, {cell!r}, self.{layer_name}_kernel, self.{layer_name}_bias, {int(params.get('units', 64))}, {layer_return_sequences!r})"
                     )
                     current = layer_name
+                lines.append(f"        {name} = {current}")
+            elif definition in {"transformer.encoder_block", "transformer.decoder_block"}:
+                query = source_by_port.get("query", source)
+                context = source_by_port.get("context", query)
+                current = query
+                layer_count = int(params.get("layers", 1))
+                heads = int(params.get("num_heads", 8))
+                key_dimension = int(params.get("key_dim", 64))
+                activation = str(params.get("activation", "gelu"))
+                pre_norm = bool(params.get("pre_norm", True))
+                for layer_index in range(layer_count):
+                    prefix = f"{name}_layer{layer_index}"
+                    if definition == "transformer.encoder_block":
+                        attention_input = f"{prefix}_attention_input"
+                        if pre_norm:
+                            lines.append(
+                                f"        {attention_input} = _layer_norm({current}, self.{prefix}_attention_norm_gamma, self.{prefix}_attention_norm_beta)"
+                            )
+                        else:
+                            lines.append(f"        {attention_input} = {current}")
+                        attention = f"{prefix}_attention"
+                        lines.append(
+                            f"        {attention} = _multi_head_attention({attention_input}, {attention_input}, self.{prefix}_self_query_kernel, self.{prefix}_self_query_bias, self.{prefix}_self_key_kernel, self.{prefix}_self_key_bias, self.{prefix}_self_value_kernel, self.{prefix}_self_value_bias, self.{prefix}_self_output_kernel, self.{prefix}_self_output_bias, {heads}, {key_dimension}, {key_dimension}, None)"
+                        )
+                        attention_residual = f"{prefix}_attention_residual"
+                        lines.append(f"        {attention_residual} = {current} + {attention}")
+                        ffn_input = f"{prefix}_ffn_input"
+                        norm_name = "ffn_norm" if pre_norm else "attention_norm"
+                        lines.append(
+                            f"        {ffn_input} = _layer_norm({attention_residual}, self.{prefix}_{norm_name}_gamma, self.{prefix}_{norm_name}_beta)"
+                        )
+                        current_cross = attention_residual
+                    else:
+                        self_input = f"{prefix}_self_input"
+                        if pre_norm:
+                            lines.append(
+                                f"        {self_input} = _layer_norm({current}, self.{prefix}_self_norm_gamma, self.{prefix}_self_norm_beta)"
+                            )
+                        else:
+                            lines.append(f"        {self_input} = {current}")
+                        self_attention = f"{prefix}_self_attention"
+                        lines.append(
+                            f"        {self_attention} = _multi_head_attention({self_input}, {self_input}, self.{prefix}_self_query_kernel, self.{prefix}_self_query_bias, self.{prefix}_self_key_kernel, self.{prefix}_self_key_bias, self.{prefix}_self_value_kernel, self.{prefix}_self_value_bias, self.{prefix}_self_output_kernel, self.{prefix}_self_output_bias, {heads}, {key_dimension}, {key_dimension}, None)"
+                        )
+                        self_residual = f"{prefix}_self_residual"
+                        lines.append(f"        {self_residual} = {current} + {self_attention}")
+                        current_self = f"{prefix}_current_self"
+                        if pre_norm:
+                            lines.append(f"        {current_self} = {self_residual}")
+                        else:
+                            lines.append(
+                                f"        {current_self} = _layer_norm({self_residual}, self.{prefix}_self_norm_gamma, self.{prefix}_self_norm_beta)"
+                            )
+                        cross_input = f"{prefix}_cross_input"
+                        if pre_norm:
+                            lines.append(
+                                f"        {cross_input} = _layer_norm({current_self}, self.{prefix}_cross_norm_gamma, self.{prefix}_cross_norm_beta)"
+                            )
+                        else:
+                            lines.append(f"        {cross_input} = {current_self}")
+                        cross_attention = f"{prefix}_cross_attention"
+                        lines.append(
+                            f"        {cross_attention} = _multi_head_attention({cross_input}, {context}, self.{prefix}_cross_query_kernel, self.{prefix}_cross_query_bias, self.{prefix}_cross_key_kernel, self.{prefix}_cross_key_bias, self.{prefix}_cross_value_kernel, self.{prefix}_cross_value_bias, self.{prefix}_cross_output_kernel, self.{prefix}_cross_output_bias, {heads}, {key_dimension}, {key_dimension}, None)"
+                        )
+                        cross_residual = f"{prefix}_cross_residual"
+                        lines.append(f"        {cross_residual} = {current_self} + {cross_attention}")
+                        current_cross = f"{prefix}_current_cross"
+                        if pre_norm:
+                            lines.append(f"        {current_cross} = {cross_residual}")
+                        else:
+                            lines.append(
+                                f"        {current_cross} = _layer_norm({cross_residual}, self.{prefix}_cross_norm_gamma, self.{prefix}_cross_norm_beta)"
+                            )
+                        ffn_input = f"{prefix}_ffn_input"
+                        if pre_norm:
+                            lines.append(
+                                f"        {ffn_input} = _layer_norm({current_cross}, self.{prefix}_ffn_norm_gamma, self.{prefix}_ffn_norm_beta)"
+                            )
+                        else:
+                            lines.append(f"        {ffn_input} = {current_cross}")
+                    lines.append(
+                        f"        {prefix}_feed_forward = tf.matmul({ffn_input}, self.{prefix}_expand_kernel) + self.{prefix}_expand_bias"
+                    )
+                    lines.append(
+                        f"        {prefix}_feed_forward = _activation({prefix}_feed_forward, {activation!r})"
+                    )
+                    lines.append(
+                        f"        {prefix}_feed_forward = tf.matmul({prefix}_feed_forward, self.{prefix}_project_kernel) + self.{prefix}_project_bias"
+                    )
+                    current = f"{prefix}_output"
+                    lines.append(f"        {current} = {current_cross} + {prefix}_feed_forward")
+                    if not pre_norm:
+                        lines.append(
+                            f"        {current} = _layer_norm({current}, self.{prefix}_output_norm_gamma, self.{prefix}_output_norm_beta)"
+                        )
                 lines.append(f"        {name} = {current}")
             elif definition in {"attention.multi_head", "attention.self", "attention.cross"}:
                 if int(params.get("layers", 1)) != 1:

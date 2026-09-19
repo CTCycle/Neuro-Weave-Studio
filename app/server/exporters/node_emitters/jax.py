@@ -105,6 +105,7 @@ def build_registry() -> NodeEmitterRegistry:
         "stack": _simple,
         "attention": _simple,
         "feed_forward": _simple,
+        "transformer_block": _simple,
         "positional_encoding": _simple,
         "residual": _simple,
         "safe_expression": _simple,

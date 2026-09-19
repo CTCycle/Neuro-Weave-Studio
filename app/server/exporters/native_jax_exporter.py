@@ -753,6 +753,153 @@ class NativeJaxSourceExporter(SourceExporter):
                 lines.append(
                     f"        {name} = nn.Dense(features={input_dimension}, name={name + '_project'!r})({name})"
                 )
+            elif definition in {"transformer.encoder_block", "transformer.decoder_block"}:
+                query = source_by_port.get("query", source)
+                context = source_by_port.get("context", query)
+                query_spec = source_spec
+                context_spec = source_spec
+                for binding in item.input_bindings:
+                    binding_spec = summaries.get(binding.source_node_id)
+                    if binding.target_port_id == "query":
+                        query_spec = binding_spec
+                    elif binding.target_port_id == "context":
+                        context_spec = binding_spec
+                if query_spec is None or query_spec.rank != 3:
+                    raise ValueError(f"Native JAX {definition} node {node.id} requires a rank-3 query input")
+                if definition == "transformer.decoder_block" and (context_spec is None or context_spec.rank != 3):
+                    raise ValueError(f"Native JAX {definition} node {node.id} requires a rank-3 context input")
+                query_dimension = self._static_dimension(query_spec, -1)
+                if query_dimension is None:
+                    raise ValueError(f"Native JAX {definition} node {node.id} requires a known query dimension")
+                layer_count = int(params.get("layers", 1))
+                if layer_count < 1:
+                    raise ValueError("Transformer block layers must be positive")
+                heads = int(params.get("num_heads", 8))
+                key_dimension = int(params.get("key_dim", 64))
+                hidden_dimension = query_dimension * int(params.get("ffn_multiplier", 4))
+                activation = str(params.get("activation", "gelu"))
+                pre_norm = bool(params.get("pre_norm", True))
+                if float(params.get("dropout", 0.0)) != 0.0:
+                    raise ValueError("Native JAX transformer blocks support dropout=0 only")
+                current = query
+                for layer_index in range(layer_count):
+                    prefix = f"{name}_layer{layer_index}"
+                    if definition == "transformer.encoder_block":
+                        attention_input = f"{prefix}_attention_input"
+                        if pre_norm:
+                            lines.append(
+                                f"        {attention_input} = nn.LayerNorm(epsilon=0.001, name={prefix + '_attention_norm'!r})({current})"
+                            )
+                        else:
+                            lines.append(f"        {attention_input} = {current}")
+                        lines.append(
+                            f"        {prefix}_self_query = nn.Dense(features={heads * key_dimension}, name={prefix + '_self_query'!r})({attention_input})"
+                        )
+                        lines.append(
+                            f"        {prefix}_self_key = nn.Dense(features={heads * key_dimension}, name={prefix + '_self_key'!r})({attention_input})"
+                        )
+                        lines.append(
+                            f"        {prefix}_self_value = nn.Dense(features={heads * key_dimension}, name={prefix + '_self_value'!r})({attention_input})"
+                        )
+                        lines.append(
+                            f"        {prefix}_self_attended = _scaled_dot_product_attention({prefix}_self_query, {prefix}_self_key, {prefix}_self_value, {heads}, {key_dimension}, {key_dimension})"
+                        )
+                        lines.append(
+                            f"        {prefix}_attention = nn.Dense(features={query_dimension}, name={prefix + '_self_output'!r})({prefix}_self_attended)"
+                        )
+                        attention_residual = f"{prefix}_attention_residual"
+                        lines.append(f"        {attention_residual} = {current} + {prefix}_attention")
+                        norm_name = "ffn_norm" if pre_norm else "attention_norm"
+                        ffn_input = f"{prefix}_ffn_input"
+                        lines.append(
+                            f"        {ffn_input} = nn.LayerNorm(epsilon=0.001, name={prefix + '_' + norm_name!r})({attention_residual})"
+                        )
+                        current_cross = attention_residual
+                    else:
+                        self_input = f"{prefix}_self_input"
+                        if pre_norm:
+                            lines.append(
+                                f"        {self_input} = nn.LayerNorm(epsilon=0.001, name={prefix + '_self_norm'!r})({current})"
+                            )
+                        else:
+                            lines.append(f"        {self_input} = {current}")
+                        lines.append(
+                            f"        {prefix}_self_query = nn.Dense(features={heads * key_dimension}, name={prefix + '_self_query'!r})({self_input})"
+                        )
+                        lines.append(
+                            f"        {prefix}_self_key = nn.Dense(features={heads * key_dimension}, name={prefix + '_self_key'!r})({self_input})"
+                        )
+                        lines.append(
+                            f"        {prefix}_self_value = nn.Dense(features={heads * key_dimension}, name={prefix + '_self_value'!r})({self_input})"
+                        )
+                        lines.append(
+                            f"        {prefix}_self_attended = _scaled_dot_product_attention({prefix}_self_query, {prefix}_self_key, {prefix}_self_value, {heads}, {key_dimension}, {key_dimension})"
+                        )
+                        lines.append(
+                            f"        {prefix}_self_attention = nn.Dense(features={query_dimension}, name={prefix + '_self_output'!r})({prefix}_self_attended)"
+                        )
+                        self_residual = f"{prefix}_self_residual"
+                        lines.append(f"        {self_residual} = {current} + {prefix}_self_attention")
+                        current_self = f"{prefix}_current_self"
+                        if pre_norm:
+                            lines.append(f"        {current_self} = {self_residual}")
+                        else:
+                            lines.append(
+                                f"        {current_self} = nn.LayerNorm(epsilon=0.001, name={prefix + '_self_norm'!r})({self_residual})"
+                            )
+                        cross_input = f"{prefix}_cross_input"
+                        if pre_norm:
+                            lines.append(
+                                f"        {cross_input} = nn.LayerNorm(epsilon=0.001, name={prefix + '_cross_norm'!r})({current_self})"
+                            )
+                        else:
+                            lines.append(f"        {cross_input} = {current_self}")
+                        lines.append(
+                            f"        {prefix}_cross_query = nn.Dense(features={heads * key_dimension}, name={prefix + '_cross_query'!r})({cross_input})"
+                        )
+                        lines.append(
+                            f"        {prefix}_cross_key = nn.Dense(features={heads * key_dimension}, name={prefix + '_cross_key'!r})({context})"
+                        )
+                        lines.append(
+                            f"        {prefix}_cross_value = nn.Dense(features={heads * key_dimension}, name={prefix + '_cross_value'!r})({context})"
+                        )
+                        lines.append(
+                            f"        {prefix}_cross_attended = _scaled_dot_product_attention({prefix}_cross_query, {prefix}_cross_key, {prefix}_cross_value, {heads}, {key_dimension}, {key_dimension})"
+                        )
+                        lines.append(
+                            f"        {prefix}_cross_attention = nn.Dense(features={query_dimension}, name={prefix + '_cross_output'!r})({prefix}_cross_attended)"
+                        )
+                        cross_residual = f"{prefix}_cross_residual"
+                        lines.append(f"        {cross_residual} = {current_self} + {prefix}_cross_attention")
+                        current_cross = f"{prefix}_current_cross"
+                        if pre_norm:
+                            lines.append(f"        {current_cross} = {cross_residual}")
+                        else:
+                            lines.append(
+                                f"        {current_cross} = nn.LayerNorm(epsilon=0.001, name={prefix + '_cross_norm'!r})({cross_residual})"
+                            )
+                        ffn_input = f"{prefix}_ffn_input"
+                        if pre_norm:
+                            lines.append(
+                                f"        {ffn_input} = nn.LayerNorm(epsilon=0.001, name={prefix + '_ffn_norm'!r})({current_cross})"
+                            )
+                        else:
+                            lines.append(f"        {ffn_input} = {current_cross}")
+                    lines.append(
+                        f"        {prefix}_feed_forward = nn.Dense(features={hidden_dimension}, name={prefix + '_expand'!r})({ffn_input})"
+                    )
+                    if activation != "linear":
+                        lines.append(f"        {prefix}_feed_forward = {self._activation(activation)}({prefix}_feed_forward)")
+                    lines.append(
+                        f"        {prefix}_feed_forward = nn.Dense(features={query_dimension}, name={prefix + '_project'!r})({prefix}_feed_forward)"
+                    )
+                    current = f"{prefix}_output"
+                    lines.append(f"        {current} = {current_cross} + {prefix}_feed_forward")
+                    if not pre_norm:
+                        lines.append(
+                            f"        {current} = nn.LayerNorm(epsilon=0.001, name={prefix + '_output_norm'!r})({current})"
+                        )
+                lines.append(f"        {name} = {current}")
             elif definition == "transformer.attention_mask":
                 lines.append(f"        {name} = {source}")
             elif definition == "transformer.residual":

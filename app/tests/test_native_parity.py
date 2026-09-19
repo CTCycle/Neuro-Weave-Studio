@@ -330,6 +330,44 @@ def feed_forward_graph(parameters: dict[str, Any] | None = None) -> ModelGraph:
 
 
 ###############################################################################
+def transformer_block_graph(
+    definition_id: str,
+    parameters: dict[str, Any] | None = None,
+) -> ModelGraph:
+    configuration: dict[str, Any] = {
+        "num_heads": 2,
+        "key_dim": 4,
+        "layers": 2 if definition_id == "transformer.encoder_block" else 1,
+        "ffn_multiplier": 2,
+        "activation": "gelu",
+        "dropout": 0.0,
+        "pre_norm": True,
+    }
+    if parameters:
+        configuration.update(parameters)
+    if definition_id != "transformer.decoder_block":
+        return chain_graph(
+            "input.sequence",
+            [5, 8],
+            definition_id,
+            configuration,
+        )
+    return ModelGraph(
+        nodes=[
+            node("query", "input.sequence", {"shape": [5, 8], "dtype": "float32"}),
+            node("context", "input.sequence", {"shape": [3, 8], "dtype": "float32"}),
+            node("operation", definition_id, configuration),
+            node("output", "output.custom"),
+        ],
+        edges=[
+            edge("query-operation", "query", "operation", "query"),
+            edge("context-operation", "context", "operation", "context"),
+            edge("operation-output", "operation", "output"),
+        ],
+    )
+
+
+###############################################################################
 def reshape_flatten_graph() -> ModelGraph:
     graph = chain_graph(
         "input.tensor",
@@ -555,6 +593,16 @@ def test_native_dense_values_are_deterministic_across_frameworks(
         ("transformer_residual", transformer_residual_graph, (1, 6, 8)),
         ("feed_forward", feed_forward_graph, (1, 5, 8)),
         (
+            "encoder_block",
+            lambda: transformer_block_graph("transformer.encoder_block"),
+            (1, 5, 8),
+        ),
+        (
+            "decoder_block",
+            lambda: transformer_block_graph("transformer.decoder_block"),
+            (1, 5, 8),
+        ),
+        (
             "simple_rnn",
             lambda: recurrent_wrapper_graph(
                 "recurrent.simple_rnn", {"units": 3, "return_sequences": False}
@@ -769,6 +817,26 @@ def test_native_attention_parameter_count_includes_all_projections(
 
 
 ###############################################################################
+@pytest.mark.parametrize("definition_id", ["transformer.encoder_block", "transformer.decoder_block"])
+@pytest.mark.parametrize("pre_norm", [True, False])
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_transformer_blocks_support_pre_and_post_normalization(
+    definition_id: str,
+    pre_norm: bool,
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    graph = transformer_block_graph(definition_id, {"layers": 1, "pre_norm": pre_norm})
+    outputs = forward_native(build_native_model(graph, backend))
+
+    assert len(outputs) == 1
+    values = to_numpy(outputs[0])
+    assert values.shape == (1, 5, 8)
+    assert values.dtype == np.float32
+    assert np.isfinite(values).all()
+
+
+###############################################################################
 @pytest.mark.parametrize(
     ("definition_id", "parameters", "expected_parameter_count"),
     [
@@ -802,6 +870,16 @@ def test_native_attention_parameter_count_includes_all_projections(
             {"tensorflow": 48, "pytorch": 48, "jax": 48},
         ),
         ("transformer.feed_forward", {"ffn_multiplier": 2}, 280),
+        (
+            "transformer.encoder_block",
+            {"num_heads": 2, "key_dim": 4, "layers": 2, "ffn_multiplier": 2},
+            1200,
+        ),
+        (
+            "transformer.decoder_block",
+            {"num_heads": 2, "key_dim": 4, "layers": 1, "ffn_multiplier": 2},
+            904,
+        ),
         (
             "conv.conv3d",
             {
@@ -884,6 +962,8 @@ def test_native_parameter_counts(
         graph = positional_encoding_graph(str(parameters.get("mode", "sinusoidal")))
     elif definition_id == "transformer.feed_forward":
         graph = feed_forward_graph(parameters)
+    elif definition_id in {"transformer.encoder_block", "transformer.decoder_block"}:
+        graph = transformer_block_graph(definition_id, parameters)
     else:
         graph = normalization_graph(definition_id, parameters)
     handle = build_native_model(graph, backend)

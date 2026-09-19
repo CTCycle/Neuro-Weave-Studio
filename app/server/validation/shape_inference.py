@@ -1180,7 +1180,11 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                             output_dimension=source_dimension,
                             use_bias=True,
                         )
-                        attention_count = None if self_attention_count is None else cross_attention_count
+                        attention_count = (
+                            None
+                            if self_attention_count is None or cross_attention_count is None
+                            else self_attention_count + cross_attention_count
+                        )
                         normalization_count = 6 * source_dimension
                     else:
                         attention_count = self_attention_count
