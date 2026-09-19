@@ -230,6 +230,10 @@ def test_native_shape_layer_mappings_are_declarative() -> None:
         "layer.reshape": {"tensorflow": "reshape", "pytorch": "reshape", "jax": "reshape"},
         "layer.permute": {"tensorflow": "permute", "pytorch": "permute", "jax": "permute"},
         "layer.repeat": {"tensorflow": "repeat", "pytorch": "repeat", "jax": "repeat"},
+        "layer.group_norm": {"tensorflow": "group_norm", "pytorch": "group_norm", "jax": "group_norm"},
+        "layer.prelu": {"tensorflow": "prelu", "pytorch": "prelu", "jax": "prelu"},
+        "layer.rms_norm": {"tensorflow": "rms_norm", "pytorch": "rms_norm", "jax": "rms_norm"},
+        "layer.unit_norm": {"tensorflow": "unit_norm", "pytorch": "unit_norm", "jax": "unit_norm"},
     }
 
     for node_id, adapters in expected.items():

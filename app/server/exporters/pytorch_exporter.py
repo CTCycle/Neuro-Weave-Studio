@@ -273,6 +273,67 @@ class PyTorchSourceExporter(SourceExporter):
                     )
                 else:
                     lines.append(f"        self.register_buffer({name!r}, {expression})")
+            elif definition == "layer.prelu":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch PReLU node {node.id} requires a known input shape")
+                alpha_shape = list(source_spec.shape[1:])
+                if not all(isinstance(value, int) for value in alpha_shape):
+                    raise ValueError(f"PyTorch PReLU node {node.id} requires known input dimensions")
+                shared_axes = params.get("shared_axes")
+                if shared_axes is not None:
+                    if not isinstance(shared_axes, list):
+                        raise ValueError("PyTorch PReLU shared_axes must be a list or null")
+                    for shared_axis in shared_axes:
+                        if not isinstance(shared_axis, int) or not 1 <= shared_axis < source_spec.rank:
+                            raise ValueError("PyTorch PReLU shared_axes must contain non-batch axes")
+                        alpha_shape[shared_axis - 1] = 1
+                lines.append(
+                    f"        self.{name}_alpha = nn.Parameter(_initialize({alpha_shape!r}, {params.get('alpha_initializer', 'zeros')!r}, torch.float32))"
+                )
+                lines.append(f"        self.{name}_alpha_broadcast = {(1, *alpha_shape)!r}")
+            elif definition == "layer.rms_norm":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch RMSNormalization node {node.id} requires a known input shape")
+                axis = self._axis(params.get("axis", -1), source_spec.rank)
+                dimension = self._static_dimension(source_spec, axis)
+                if dimension is None:
+                    raise ValueError(f"PyTorch RMSNormalization node {node.id} requires a known normalized dimension")
+                broadcast = [1] * source_spec.rank
+                broadcast[axis] = -1
+                lines.append(
+                    f"        self.{name}_scale = nn.Parameter(torch.ones([{dimension}], dtype=torch.float32))"
+                )
+                lines.append(f"        self.{name}_axis = {axis}")
+                lines.append(f"        self.{name}_broadcast = {tuple(broadcast)!r}")
+                lines.append(f"        self.{name}_epsilon = {float(params.get('epsilon', 1e-6))!r}")
+            elif definition == "layer.unit_norm":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch UnitNormalization node {node.id} requires a known input rank")
+                lines.append(f"        self.{name}_axis = {self._axis(params.get('axis', -1), source_spec.rank)}")
+            elif definition == "layer.group_norm":
+                if source_spec is None:
+                    raise ValueError(f"PyTorch GroupNormalization node {node.id} requires a known input shape")
+                rank = source_spec.rank
+                axis = self._axis(params.get("axis", -1), rank)
+                channels = self._static_dimension(source_spec, axis)
+                groups = int(params.get("groups", 32))
+                if channels is None:
+                    raise ValueError(f"PyTorch GroupNormalization node {node.id} requires a known channel dimension")
+                if channels % groups != 0:
+                    raise ValueError("PyTorch GroupNormalization channels must be divisible by groups")
+                lines.append(f"        self.{name}_axis = {axis}")
+                lines.append(f"        self.{name}_groups = {groups}")
+                lines.append(f"        self.{name}_epsilon = {float(params.get('epsilon', 0.001))!r}")
+                lines.append(
+                    f"        self.{name}_gamma = nn.Parameter(_initialize([{channels}], {params.get('gamma_initializer', 'ones')!r}, torch.float32))"
+                    if bool(params.get("scale", True))
+                    else f"        self.{name}_gamma = None"
+                )
+                lines.append(
+                    f"        self.{name}_beta = nn.Parameter(_initialize([{channels}], {params.get('beta_initializer', 'zeros')!r}, torch.float32))"
+                    if bool(params.get("center", True))
+                    else f"        self.{name}_beta = None"
+                )
             elif definition == "layer.dense":
                 input_features = self._static_dimension(source_spec, -1)
                 units = int(params.get("units", 32))
@@ -508,6 +569,41 @@ class PyTorchSourceExporter(SourceExporter):
                 activation = params.get("activation", "linear")
                 if definition == "layer.dense" and activation != "linear":
                     lines.append(f"        {name} = ({self._activation(str(activation))})({name})")
+                variables[item.node_id] = name
+            elif definition == "layer.prelu":
+                alpha = f"self.{name}_alpha.reshape(self.{name}_alpha_broadcast)"
+                lines.append(f"        {name} = torch.where({source} >= 0, {source}, {source} * {alpha})")
+                variables[item.node_id] = name
+            elif definition == "layer.rms_norm":
+                lines.append(
+                    f"        {name} = {source} / torch.sqrt(torch.mean({source} * {source}, dim=self.{name}_axis, keepdim=True) + self.{name}_epsilon)"
+                )
+                lines.append(
+                    f"        {name} = {name} * self.{name}_scale.reshape(self.{name}_broadcast)"
+                )
+                variables[item.node_id] = name
+            elif definition == "layer.unit_norm":
+                lines.append(
+                    f"        {name} = {source} / torch.linalg.vector_norm({source}, ord=2, dim=self.{name}_axis, keepdim=True).clamp_min(1e-12)"
+                )
+                variables[item.node_id] = name
+            elif definition == "layer.group_norm":
+                lines.append(f"        {name}_current = {source}.movedim(self.{name}_axis, 1)")
+                lines.append(
+                    f"        {name}_grouped = {name}_current.reshape({name}_current.shape[0], self.{name}_groups, -1)"
+                )
+                lines.append(f"        {name}_mean = {name}_grouped.mean(dim=2, keepdim=True)")
+                lines.append(f"        {name}_variance = {name}_grouped.var(dim=2, keepdim=True, unbiased=False)")
+                lines.append(
+                    f"        {name}_current = (({name}_grouped - {name}_mean) / torch.sqrt({name}_variance + self.{name}_epsilon)).reshape({name}_current.shape)"
+                )
+                lines.append(
+                    f"        if self.{name}_gamma is not None: {name}_current = {name}_current * self.{name}_gamma.reshape((1, -1) + (1,) * ({name}_current.dim() - 2))"
+                )
+                lines.append(
+                    f"        if self.{name}_beta is not None: {name}_current = {name}_current + self.{name}_beta.reshape((1, -1) + (1,) * ({name}_current.dim() - 2))"
+                )
+                lines.append(f"        {name} = {name}_current.movedim(1, self.{name}_axis)")
                 variables[item.node_id] = name
             elif definition == "layer.reshape":
                 target_shape = tuple(int(value) for value in params.get("target_shape", [-1]))

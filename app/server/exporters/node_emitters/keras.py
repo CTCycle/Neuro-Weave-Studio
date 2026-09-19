@@ -99,6 +99,10 @@ def build_registry() -> NodeEmitterRegistry:
         "keras_reshape": _reshape,
         "keras_permute": _permute,
         "keras_repeat": _repeat,
+        "keras_group_norm": _identity,
+        "prelu": _identity,
+        "rms_norm": _identity,
+        "unit_norm": _identity,
         "safe_expression": _identity,
     }.items():
         registry.register(adapter, emitter)

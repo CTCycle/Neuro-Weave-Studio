@@ -245,6 +245,79 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(
                     f"        self.{name} = tf.Variable(_initialize({shape!r}, {initializer!r}, {dtype!r}), trainable={bool(params.get('trainable', True))!r}, name={name!r})"
                 )
+            elif definition == "layer.prelu":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow PReLU node {node.id} requires a known input shape")
+                alpha_shape = list(source_spec.shape[1:])
+                if not all(isinstance(value, int) for value in alpha_shape):
+                    raise ValueError(f"TensorFlow PReLU node {node.id} requires known input dimensions")
+                shared_axes = params.get("shared_axes")
+                if shared_axes is not None:
+                    if not isinstance(shared_axes, list):
+                        raise ValueError("TensorFlow PReLU shared_axes must be a list or null")
+                    for shared_axis in shared_axes:
+                        if not isinstance(shared_axis, int) or not 1 <= shared_axis < source_spec.rank:
+                            raise ValueError("TensorFlow PReLU shared_axes must contain non-batch axes")
+                        alpha_shape[shared_axis - 1] = 1
+                lines.append(
+                    f"        self.{name}_alpha = tf.Variable(_initialize({alpha_shape!r}, {params.get('alpha_initializer', 'zeros')!r}, 'float32'), name={name + '_alpha'!r})"
+                )
+            elif definition == "layer.rms_norm":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow RMSNormalization node {node.id} requires a known input shape")
+                axis = self._axis(params.get("axis", -1), source_spec.rank)
+                dimension = self._static_dimension(source_spec, axis)
+                if dimension is None:
+                    raise ValueError(f"TensorFlow RMSNormalization node {node.id} requires a known normalized dimension")
+                broadcast = [1] * source_spec.rank
+                broadcast[axis] = dimension
+                lines.append(f"        self.{name}_axis = {axis}")
+                lines.append(f"        self.{name}_broadcast = {broadcast!r}")
+                lines.append(
+                    f"        self.{name}_epsilon = {float(params.get('epsilon', 1e-6))!r}"
+                )
+                lines.append(
+                    f"        self.{name}_scale = tf.Variable(tf.ones([{dimension}], tf.float32), name={name + '_scale'!r})"
+                )
+            elif definition == "layer.unit_norm":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow UnitNormalization node {node.id} requires a known input rank")
+                lines.append(f"        self.{name}_axis = {self._axis(params.get('axis', -1), source_spec.rank)}")
+            elif definition == "layer.group_norm":
+                if source_spec is None:
+                    raise ValueError(f"TensorFlow GroupNormalization node {node.id} requires a known input shape")
+                rank = source_spec.rank
+                axis = self._axis(params.get("axis", -1), rank)
+                channels = self._static_dimension(source_spec, axis)
+                groups = int(params.get("groups", 32))
+                if channels is None:
+                    raise ValueError(f"TensorFlow GroupNormalization node {node.id} requires a known channel dimension")
+                if channels % groups != 0:
+                    raise ValueError("TensorFlow GroupNormalization channels must be divisible by groups")
+                permutation = [index for index in range(rank) if index != axis] + [axis]
+                inverse = [permutation.index(index) for index in range(rank)]
+                reduction_axes = [index for index in range(1, rank + 1) if index != rank - 1]
+                broadcast = [1] * rank
+                broadcast[-1] = channels
+                lines.append(f"        self.{name}_axis = {axis}")
+                lines.append(f"        self.{name}_groups = {groups}")
+                lines.append(f"        self.{name}_permutation = {permutation!r}")
+                lines.append(f"        self.{name}_inverse = {inverse!r}")
+                lines.append(f"        self.{name}_reduction_axes = {reduction_axes!r}")
+                lines.append(f"        self.{name}_broadcast = {broadcast!r}")
+                lines.append(
+                    f"        self.{name}_epsilon = {float(params.get('epsilon', 0.001))!r}"
+                )
+                lines.append(
+                    f"        self.{name}_gamma = tf.Variable(_initialize([{channels}], {params.get('gamma_initializer', 'ones')!r}, 'float32'), name={name + '_gamma'!r})"
+                    if bool(params.get("scale", True))
+                    else f"        self.{name}_gamma = None"
+                )
+                lines.append(
+                    f"        self.{name}_beta = tf.Variable(_initialize([{channels}], {params.get('beta_initializer', 'zeros')!r}, 'float32'), name={name + '_beta'!r})"
+                    if bool(params.get("center", True))
+                    else f"        self.{name}_beta = None"
+                )
             elif definition == "layer.dense":
                 input_features = self._static_dimension(source_spec, -1)
                 if input_features is None:
@@ -461,6 +534,41 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 lines.append(f"        {name} = {source}")
             elif definition == "layer.flatten":
                 lines.append(f"        {name} = tf.reshape({source}, [tf.shape({source})[0], -1])")
+            elif definition == "layer.prelu":
+                alpha_shape = [1, *[int(value) for value in summaries[item.input_node_ids[0]].shape[1:]]]
+                shared_axes = params.get("shared_axes")
+                if isinstance(shared_axes, list):
+                    for shared_axis in shared_axes:
+                        alpha_shape[int(shared_axis)] = 1
+                alpha = f"tf.reshape(self.{name}_alpha, {alpha_shape!r})"
+                lines.append(f"        {name} = tf.where({source} >= 0, {source}, {source} * {alpha})")
+            elif definition == "layer.rms_norm":
+                lines.append(
+                    f"        {name} = {source} / tf.sqrt(tf.reduce_mean(tf.square({source}), axis=self.{name}_axis, keepdims=True) + self.{name}_epsilon)"
+                )
+                lines.append(
+                    f"        {name} = {name} * tf.reshape(self.{name}_scale, self.{name}_broadcast)"
+                )
+            elif definition == "layer.unit_norm":
+                lines.append(f"        {name} = tf.math.l2_normalize({source}, axis=self.{name}_axis)")
+            elif definition == "layer.group_norm":
+                lines.append(f"        {name}_current = tf.transpose({source}, self.{name}_permutation)")
+                lines.append(
+                    f"        {name}_grouped = tf.reshape({name}_current, tf.concat([tf.shape({name}_current)[:-1], [self.{name}_groups, tf.shape({name}_current)[-1] // self.{name}_groups]], axis=0))"
+                )
+                lines.append(
+                    f"        {name}_mean, {name}_variance = tf.nn.moments({name}_grouped, axes=self.{name}_reduction_axes, keepdims=True)"
+                )
+                lines.append(
+                    f"        {name}_current = tf.reshape(({name}_grouped - {name}_mean) / tf.sqrt({name}_variance + self.{name}_epsilon), tf.shape({name}_current))"
+                )
+                lines.append(
+                    f"        if self.{name}_gamma is not None: {name}_current = {name}_current * tf.reshape(self.{name}_gamma, self.{name}_broadcast)"
+                )
+                lines.append(
+                    f"        if self.{name}_beta is not None: {name}_current = {name}_current + tf.reshape(self.{name}_beta, self.{name}_broadcast)"
+                )
+                lines.append(f"        {name} = tf.transpose({name}_current, self.{name}_inverse)")
             elif definition == "layer.reshape":
                 target_shape = [int(value) for value in params.get("target_shape", [-1])]
                 lines.append(

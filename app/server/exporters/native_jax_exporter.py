@@ -39,6 +39,24 @@ class NativeJaxSourceExporter(SourceExporter):
         return expression
 
     # -------------------------------------------------------------------------
+    @staticmethod
+    def _initializer_expression(value: object, default: str) -> str:
+        identifier = value.get("id", default) if isinstance(value, dict) else value
+        init_name = {
+            "ones": "ones",
+            "random_normal": "normal",
+            "normal": "normal",
+            "random_uniform": "uniform",
+            "uniform": "uniform",
+            "zeros": "zeros",
+        }.get(identifier if isinstance(identifier, str) else default, default)
+        return (
+            f"nn.initializers.{init_name}"
+            if init_name in {"ones", "zeros"}
+            else f"nn.initializers.{init_name}()"
+        )
+
+    # -------------------------------------------------------------------------
     def generate(
         self,
         graph: ModelGraph,
@@ -90,16 +108,10 @@ class NativeJaxSourceExporter(SourceExporter):
                 shape = tuple(params.get("shape", [1]))
                 dtype = params.get("dtype", "float32")
                 initializer = params.get("initializer", "zeros")
-                init_name = {
-                    "ones": "ones",
-                    "random_normal": "normal",
-                    "normal": "normal",
-                    "random_uniform": "uniform",
-                    "uniform": "uniform",
-                }.get(initializer if isinstance(initializer, str) else "zeros", "zeros")
+                initializer_expression = self._initializer_expression(initializer, "zeros")
                 if bool(params.get("trainable", True)):
                     lines.append(
-                        f"        {name} = self.param({name!r}, nn.initializers.{init_name}(), {shape!r}, jnp.dtype({dtype!r}))"
+                        f"        {name} = self.param({name!r}, {initializer_expression}, {shape!r}, jnp.dtype({dtype!r}))"
                     )
                 else:
                     lines.append(
@@ -152,6 +164,78 @@ class NativeJaxSourceExporter(SourceExporter):
                     lines.append(
                         f"        {name} = jnp.repeat({source}, {repeats!r}, axis={axis!r})"
                     )
+            elif definition == "layer.prelu":
+                initializer = params.get("alpha_initializer", "zeros")
+                initializer_expression = self._initializer_expression(initializer, "zeros")
+                shared_axes = params.get("shared_axes")
+                lines.append(f"        {name}_alpha_shape = list({source}.shape[1:])")
+                if isinstance(shared_axes, list):
+                    for shared_axis in shared_axes:
+                        lines.append(f"        {name}_alpha_shape[{int(shared_axis) - 1}] = 1")
+                lines.append(
+                    f"        {name}_alpha = self.param({name + '_alpha'!r}, {initializer_expression}, tuple({name}_alpha_shape))"
+                )
+                lines.append(
+                    f"        {name} = jnp.where({source} >= 0, {source}, {source} * {name}_alpha.reshape((1,) + tuple({name}_alpha_shape)))"
+                )
+            elif definition == "layer.rms_norm":
+                axis = int(params.get("axis", -1))
+                lines.append(
+                    f"        {name}_scale = self.param({name + '_scale'!r}, nn.initializers.ones, ({source}.shape[{axis}],))"
+                )
+                lines.append(
+                    f"        {name} = {source} / jnp.sqrt(jnp.mean({source} * {source}, axis={axis!r}, keepdims=True) + {float(params.get('epsilon', 1e-6))!r})"
+                )
+                lines.append(f"        {name}_scale_shape = [1] * {source}.ndim")
+                lines.append(f"        {name}_scale_shape[{axis}] = -1")
+                lines.append(f"        {name} = {name} * {name}_scale.reshape(tuple({name}_scale_shape))")
+            elif definition == "layer.unit_norm":
+                axis = int(params.get("axis", -1))
+                lines.append(
+                    f"        {name} = {source} / jnp.maximum(jnp.linalg.norm({source}, axis={axis!r}, keepdims=True), jnp.asarray(1e-12, dtype={source}.dtype))"
+                )
+            elif definition == "layer.group_norm":
+                axis = int(params.get("axis", -1))
+                groups = int(params.get("groups", 32))
+                gamma_expression = self._initializer_expression(
+                    params.get("gamma_initializer", "ones"), "ones"
+                )
+                beta_expression = self._initializer_expression(
+                    params.get("beta_initializer", "zeros"), "zeros"
+                )
+                lines.append(f"        {name}_current = jnp.moveaxis({source}, {axis}, -1)")
+                lines.append(
+                    f"        {name}_grouped = {name}_current.reshape({name}_current.shape[:-1] + ({groups}, {name}_current.shape[-1] // {groups}))"
+                )
+                lines.append(
+                    f"        {name}_reduction_axes = tuple(index for index in range(1, {name}_grouped.ndim) if index != {name}_grouped.ndim - 2)"
+                )
+                lines.append(
+                    f"        {name}_mean = jnp.mean({name}_grouped, axis={name}_reduction_axes, keepdims=True)"
+                )
+                lines.append(
+                    f"        {name}_variance = jnp.mean(({name}_grouped - {name}_mean) * ({name}_grouped - {name}_mean), axis={name}_reduction_axes, keepdims=True)"
+                )
+                lines.append(
+                    f"        {name}_current = (({name}_grouped - {name}_mean) / jnp.sqrt({name}_variance + {float(params.get('epsilon', 0.001))!r})).reshape({name}_current.shape)"
+                )
+                lines.append(
+                    f"        {name}_gamma = self.param({name + '_gamma'!r}, {gamma_expression}, ({name}_current.shape[-1],))"
+                    if bool(params.get("scale", True))
+                    else f"        {name}_gamma = None"
+                )
+                lines.append(
+                    f"        {name}_beta = self.param({name + '_beta'!r}, {beta_expression}, ({name}_current.shape[-1],))"
+                    if bool(params.get("center", True))
+                    else f"        {name}_beta = None"
+                )
+                lines.append(
+                    f"        if {name}_gamma is not None: {name}_current = {name}_current * {name}_gamma.reshape((1,) * ({name}_current.ndim - 1) + ({name}_current.shape[-1],))"
+                )
+                lines.append(
+                    f"        if {name}_beta is not None: {name}_current = {name}_current + {name}_beta.reshape((1,) * ({name}_current.ndim - 1) + ({name}_current.shape[-1],))"
+                )
+                lines.append(f"        {name} = jnp.moveaxis({name}_current, -1, {axis})")
             elif definition == "layer.embedding":
                 lines.append(
                     f"        {name} = nn.Embed(num_embeddings={int(params.get('vocabulary_size', 10000))}, features={int(params.get('embedding_dim', 128))}, name={name!r})({source}.astype(jnp.int32))"

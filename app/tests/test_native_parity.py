@@ -168,6 +168,16 @@ def layer_repeat_graph() -> ModelGraph:
 
 
 ###############################################################################
+def normalization_graph(definition_id: str, parameters: dict[str, Any] | None = None) -> ModelGraph:
+    return chain_graph(
+        "input.tensor",
+        [4],
+        definition_id,
+        parameters,
+    )
+
+
+###############################################################################
 def cnn_graph() -> ModelGraph:
     return chain_graph(
         "input.image",
@@ -257,6 +267,10 @@ def test_native_dense_values_are_deterministic_across_frameworks(
         ("layer_reshape", layer_reshape_graph, (1, 4)),
         ("layer_permute", layer_permute_graph, (1, 3, 2)),
         ("layer_repeat", layer_repeat_graph, (1, 2, 4)),
+        ("group_norm", lambda: normalization_graph("layer.group_norm", {"groups": 2}), (1, 4)),
+        ("prelu", lambda: normalization_graph("layer.prelu"), (1, 4)),
+        ("rms_norm", lambda: normalization_graph("layer.rms_norm"), (1, 4)),
+        ("unit_norm", lambda: normalization_graph("layer.unit_norm"), (1, 4)),
         ("cnn", cnn_graph, (1, 4, 4, 2)),
         ("recurrent", recurrent_graph, (1, 3)),
         ("reshape_flatten", reshape_flatten_graph, (1, 4)),
@@ -286,6 +300,29 @@ def test_native_representative_cases(
     value = to_numpy(outputs[0])
     assert value.shape == expected_shape
     assert value.dtype == np.float32
+
+
+###############################################################################
+@pytest.mark.parametrize(
+    ("definition_id", "parameters", "expected_parameter_count"),
+    [
+        ("layer.group_norm", {"groups": 2}, 8),
+        ("layer.prelu", {}, 4),
+        ("layer.rms_norm", {}, 4),
+        ("layer.unit_norm", {}, 0),
+    ],
+)
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_normalization_parameter_counts(
+    definition_id: str,
+    parameters: dict[str, Any],
+    expected_parameter_count: int,
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    handle = build_native_model(normalization_graph(definition_id, parameters), backend)
+
+    assert handle.parameter_count() == expected_parameter_count
 
 ###############################################################################
 @pytest.mark.parametrize("backend", native_parity_backends())
