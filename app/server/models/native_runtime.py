@@ -191,8 +191,11 @@ def _dummy_inputs(
     for node in nodes:
         shape_value = node.parameters.get("shape", [None, 1])
         shape = [
-            1 if value is None or not isinstance(value, int) or value <= 0 else value
-            for value in shape_value
+            1,
+            *(
+                1 if value is None or not isinstance(value, int) or value <= 0 else value
+                for value in shape_value
+            ),
         ]
         dtype = str(node.parameters.get("dtype", "float32"))
         if backend is ExecutionBackend.PYTORCH:

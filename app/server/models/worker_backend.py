@@ -341,9 +341,11 @@ def run_native_inspection(
     from models.native_runtime import build_native_model, forward_native_with_trace
 
     native_configuration = getattr(graph.model_configuration.native, backend.value)
-    compiler_enabled = any(
-        bool(getattr(native_configuration, field, False))
-        for field in ("jit_compile", "compile_enabled", "jit_enabled")
+    compiler_enabled = bool(
+        native_configuration.compiler.parameters.get(
+            "jit_compile" if backend is ExecutionBackend.TENSORFLOW else "enabled",
+            False,
+        )
     )
     # Instrumentation must observe the same backend without allowing an
     # optimized wrapper to erase the trace contract. Build an isolated copy
@@ -353,9 +355,11 @@ def run_native_inspection(
     inspection_graph = graph.model_copy(deep=True)
     if compiler_enabled:
         inspection_configuration = getattr(inspection_graph.model_configuration.native, backend.value)
-        for field in ("jit_compile", "compile_enabled", "jit_enabled"):
-            if hasattr(inspection_configuration, field):
-                setattr(inspection_configuration, field, False)
+        parameters = dict(inspection_configuration.compiler.parameters)
+        parameters["jit_compile" if backend is ExecutionBackend.TENSORFLOW else "enabled"] = False
+        inspection_configuration.compiler = inspection_configuration.compiler.model_copy(
+            update={"parameters": parameters}
+        )
 
     raw_arrays = _inspection_input_arrays(graph, seed=seed)
     if backend is ExecutionBackend.PYTORCH:
@@ -471,24 +475,34 @@ def _configured_compilation_summary(graph: ModelGraph, api: str) -> dict[str, ob
                 break
         return value
 
+    compilation = configuration.compilation
+
     return {
         "verified": True,
         "optimizer": {
-            "id": configuration.optimizer,
+            "id": compilation.optimizer.id,
             "instantiated": True,
         },
         "losses": {
-            output.name: selected(configuration.losses, output, None)
+            output.name: _compilation_summary_value(selected(compilation.losses, output, None))
             for output in output_items
-            if selected(configuration.losses, output, None) is not None
+            if selected(compilation.losses, output, None) is not None
         },
         "metrics": {
-            output.name: selected(configuration.metrics, output, [])
+            output.name: _compilation_summary_value(selected(compilation.metrics, output, []))
             for output in output_items
-            if selected(configuration.metrics, output, [])
+            if selected(compilation.metrics, output, [])
         },
         "training": "not_run",
     }
+
+
+def _compilation_summary_value(value: Any) -> Any:
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json")
+    if isinstance(value, list):
+        return [_compilation_summary_value(item) for item in value]
+    return value
 
 ###############################################################################
 def _output_metadata(output: Any, tensor: Any) -> dict[str, object]:
@@ -519,9 +533,9 @@ def _verify_native_compilation(
         output.name: value
         for output, value in zip(output_bindings, handle.outputs, strict=True)
     }
-    loss_functions = compilation.get("losses", {})
-    loss_ids = compilation.get("loss_ids", {})
-    metric_functions = compilation.get("metrics", {})
+    loss_functions = compilation.get("loss_functions", {})
+    loss_objects = compilation.get("losses", {})
+    metric_functions = compilation.get("metric_functions", {})
     target_contracts = compilation.get("target_contracts", {})
     metric_target_contracts = compilation.get("metric_target_contracts", {})
     loss_summary: dict[str, object] = {}
@@ -532,8 +546,14 @@ def _verify_native_compilation(
             contract = str(target_contracts.get(output_id, "continuous_same_shape"))
             value = function(prediction, _synthetic_target(prediction, contract))
             _assert_finite_scalar(value, f"loss for output {output_id}")
+            loss_object = loss_objects.get(output_id, {})
             loss_summary[output_id] = {
-                "id": loss_ids.get(output_id),
+                "id": loss_object.get("id") if isinstance(loss_object, dict) else None,
+                "parameters": (
+                    loss_object.get("parameters", {})
+                    if isinstance(loss_object, dict)
+                    else {}
+                ),
                 "value": float(value.detach().cpu().item()),
                 "target_contract": contract,
             }
@@ -552,12 +572,13 @@ def _verify_native_compilation(
                 checkpoint()
             if values:
                 metric_summary[output_id] = values
-    optimizer = compilation.get("optimizer")
+    optimizer_object = compilation.get("optimizer", {})
+    optimizer_runtime = compilation.get("optimizer_runtime")
     return {
         "verified": True,
         "optimizer": {
-            "id": compilation.get("optimizer_id"),
-            "instantiated": optimizer is not None,
+            "id": optimizer_object.get("id"),
+            "instantiated": optimizer_runtime is not None,
         },
         "losses": loss_summary,
         "metrics": metric_summary,

@@ -10,6 +10,7 @@ from domain.compilation_catalog import (
     get_compilation_catalog,
     get_compilation_catalog_for_implementation,
 )
+from domain.compilation_plan import CompilationObject
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
@@ -81,25 +82,27 @@ def _validate_optimizer(
 ) -> list[ValidationDiagnostic]:
     diagnostics: list[ValidationDiagnostic] = []
     optimizer_by_id = {item.id: item for item in catalog.optimizers}
-    optimizer = optimizer_by_id.get(configuration.optimizer)
+    compilation = configuration.compilation
+    optimizer_value = compilation.optimizer
+    optimizer = optimizer_by_id.get(optimizer_value.id)
     if optimizer is None:
         diagnostics.append(
             _error(
                 "invalid_compile_optimizer",
-                f"Optimizer '{configuration.optimizer}' is not supported by {runtime_label}",
+                f"Optimizer '{optimizer_value.id}' is not supported by {runtime_label}",
             )
         )
         return diagnostics
     allowed_parameters = {parameter.id: parameter for parameter in optimizer.parameters}
-    unknown_parameters = set(configuration.optimizer_parameters) - set(allowed_parameters)
+    unknown_parameters = set(optimizer_value.parameters) - set(allowed_parameters)
     if unknown_parameters:
         diagnostics.append(
             _error(
                 "unsupported_optimizer_parameter",
-                f"Optimizer '{configuration.optimizer}' does not support: {', '.join(sorted(unknown_parameters))}",
+                f"Optimizer '{optimizer_value.id}' does not support: {', '.join(sorted(unknown_parameters))}",
             )
         )
-    for parameter_id, value in configuration.optimizer_parameters.items():
+    for parameter_id, value in optimizer_value.parameters.items():
         parameter = allowed_parameters.get(parameter_id)
         if parameter is None:
             continue
@@ -108,7 +111,7 @@ def _validate_optimizer(
                 diagnostics.append(
                     _error(
                         "invalid_optimizer_parameter",
-                        f"optimizer_parameters.{parameter_id} must be a boolean",
+                        f"optimizer.parameters.{parameter_id} must be a boolean",
                     )
                 )
             continue
@@ -120,7 +123,7 @@ def _validate_optimizer(
             diagnostics.append(
                 _error(
                     "invalid_optimizer_parameter",
-                    f"optimizer_parameters.{parameter_id} must be a finite number",
+                    f"optimizer.parameters.{parameter_id} must be a finite number",
                 )
             )
             continue
@@ -130,21 +133,21 @@ def _validate_optimizer(
             diagnostics.append(
                 _error(
                     "invalid_optimizer_parameter",
-                    f"optimizer_parameters.{parameter_id} is outside its supported range",
+                    f"optimizer.parameters.{parameter_id} is outside its supported range",
                 )
             )
         if isinstance(maximum, int | float) and value > maximum:
             diagnostics.append(
                 _error(
                     "invalid_optimizer_parameter",
-                    f"optimizer_parameters.{parameter_id} is outside its supported range",
+                    f"optimizer.parameters.{parameter_id} is outside its supported range",
                 )
             )
         if parameter_id == "learning_rate" and value <= 0:
             diagnostics.append(
                 _error(
                     "invalid_optimizer_learning_rate",
-                    "optimizer_parameters.learning_rate must be a finite positive number",
+                    "optimizer.parameters.learning_rate must be a finite positive number",
                 )
             )
     return diagnostics
@@ -160,7 +163,8 @@ def _validate_mappings(
     supported_losses = {item.id for item in catalog.losses}
     supported_metrics = {item.id for item in catalog.metrics}
     selectors = _output_selectors(outputs)
-    for output_selector, loss in configuration.losses.items():
+    compilation = configuration.compilation
+    for output_selector, loss in compilation.losses.items():
         targets = _matching_outputs(output_selector, outputs)
         if output_selector != "__default__" and not targets:
             diagnostics.append(
@@ -186,12 +190,12 @@ def _validate_mappings(
                     },
                 )
             )
-        if loss not in supported_losses:
+        if loss.id not in supported_losses:
             for target in targets or [None]:
                 diagnostics.append(
                     _error(
                         "invalid_compile_loss",
-                        f"Loss '{loss}' is not supported by {runtime_label}"
+                        f"Loss '{loss.id}' is not supported by {runtime_label}"
                         + (f" for output '{target.name}'" if target is not None else ""),
                         node_id=target.binding.node_id if target is not None else None,
                         parameter_id="losses",
@@ -202,7 +206,7 @@ def _validate_mappings(
                         ),
                     )
                 )
-    for output_selector, metric_values in configuration.metrics.items():
+    for output_selector, metric_values in compilation.metrics.items():
         targets = _matching_outputs(output_selector, outputs)
         if output_selector != "__default__" and not targets:
             diagnostics.append(
@@ -229,12 +233,12 @@ def _validate_mappings(
                 )
             )
         for metric in metric_values:
-            if metric not in supported_metrics:
+            if metric.id not in supported_metrics:
                 for target in targets or [None]:
                     diagnostics.append(
                         _error(
                             "invalid_compile_metric",
-                            f"Metric '{metric}' is not supported by {runtime_label}"
+                            f"Metric '{metric.id}' is not supported by {runtime_label}"
                             + (f" for output '{target.name}'" if target is not None else ""),
                             node_id=target.binding.node_id if target is not None else None,
                             parameter_id="metrics",
@@ -349,8 +353,12 @@ def _validate_semantics(
                 )
             )
 
-        selected_loss = _selected_value(configuration.losses, output, None)
-        loss = losses.get(selected_loss) if isinstance(selected_loss, str) else None
+        selected_loss = _selected_value(configuration.compilation.losses, output, None)
+        loss = (
+            losses.get(selected_loss.id)
+            if isinstance(selected_loss, CompilationObject)
+            else None
+        )
         if loss is not None:
             if task not in loss.supported_tasks:
                 diagnostics.append(
@@ -382,10 +390,10 @@ def _validate_semantics(
                     )
                 )
 
-        selected_metrics = _selected_value(configuration.metrics, output, [])
+        selected_metrics = _selected_value(configuration.compilation.metrics, output, [])
         if isinstance(selected_metrics, list):
-            for metric_id in cast(list[Any], selected_metrics):
-                if not isinstance(metric_id, str):
+            for metric_value in cast(list[Any], selected_metrics):
+                if not isinstance(metric_value, CompilationObject):
                     diagnostics.append(
                         _error(
                             "invalid_compile_metric",
@@ -396,7 +404,7 @@ def _validate_semantics(
                         )
                     )
                     continue
-                metric = metrics.get(metric_id)
+                metric = metrics.get(metric_value.id)
                 if metric is not None and task not in metric.supported_tasks:
                     diagnostics.append(
                         _error(
@@ -430,7 +438,7 @@ def validate_model_configuration(
     if not keras_enabled:
         configuration = graph.model_configuration.native
         if execution_backend is ExecutionBackend.TENSORFLOW:
-            if not isinstance(configuration.tensorflow.jit_compile, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            if not isinstance(configuration.tensorflow.compiler.parameters.get("jit_compile", False), bool):  # pyright: ignore[reportUnnecessaryIsInstance]
                 return [
                     _error("invalid_native_compilation", "TensorFlow jit_compile must be boolean")
                 ]
@@ -441,14 +449,15 @@ def validate_model_configuration(
             diagnostics = _validate_mappings(
                 native, native_catalog, "the native PyTorch runtime", resolved
             )
-            if native.mode not in {"default", "reduce-overhead", "max-autotune"}:
+            mode = native.compiler.parameters.get("mode", "default")
+            if mode not in {"default", "reduce-overhead", "max-autotune"}:
                 diagnostics.append(
                     _error("invalid_native_compilation", "PyTorch compile mode is unsupported")
                 )
             for parameter_id, value in {
-                "compile_enabled": native.compile_enabled,
-                "fullgraph": native.fullgraph,
-                "dynamic": native.dynamic,
+                "compile_enabled": native.compiler.parameters.get("enabled", False),
+                "fullgraph": native.compiler.parameters.get("fullgraph", False),
+                "dynamic": native.compiler.parameters.get("dynamic", False),
             }.items():
                 if not isinstance(value, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
                     diagnostics.append(
@@ -458,7 +467,7 @@ def validate_model_configuration(
                     )
             diagnostics.extend(_validate_semantics(graph, native, native_catalog, resolved))
             return diagnostics
-        if not isinstance(configuration.jax.jit_enabled, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+        if not isinstance(configuration.jax.compiler.parameters.get("enabled", False), bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             return [_error("invalid_native_compilation", "JAX jit_enabled must be boolean")]
         return []
 
@@ -467,25 +476,26 @@ def validate_model_configuration(
     supported_initializers = frozenset(catalog.initializers)
     supported_regularizers = frozenset(catalog.regularizers)
     supported_constraints = frozenset(catalog.constraints)
-    if configuration.default_initializer not in supported_initializers:
+    compilation = configuration.compilation
+    if compilation.default_initializer.id not in supported_initializers:
         diagnostics.append(
             _error(
                 "invalid_default_initializer",
-                f"Initializer '{configuration.default_initializer}' is not supported",
+                f"Initializer '{compilation.default_initializer.id}' is not supported",
             )
         )
-    if configuration.default_regularizer not in supported_regularizers:
+    if compilation.default_regularizer and compilation.default_regularizer.id not in supported_regularizers:
         diagnostics.append(
             _error(
                 "invalid_default_regularizer",
-                f"Regularizer '{configuration.default_regularizer}' is not supported",
+                f"Regularizer '{compilation.default_regularizer.id}' is not supported",
             )
         )
-    if configuration.default_constraint not in supported_constraints:
+    if compilation.default_constraint and compilation.default_constraint.id not in supported_constraints:
         diagnostics.append(
             _error(
                 "invalid_default_constraint",
-                f"Constraint '{configuration.default_constraint}' is not supported",
+                f"Constraint '{compilation.default_constraint.id}' is not supported",
             )
         )
     diagnostics.extend(_validate_semantics(graph, configuration, catalog, resolved))

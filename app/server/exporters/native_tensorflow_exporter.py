@@ -80,9 +80,9 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     return False
                 if "not_in" in expected and actual in expected["not_in"]:
                     return False
-            elif isinstance(expected, list) and actual not in expected:
-                return False
-            elif not isinstance(expected, (dict, list)) and actual != expected:
+            elif (
+                isinstance(expected, list) and actual not in expected
+            ) or (not isinstance(expected, (dict, list)) and actual != expected):
                 return False
         return True
 
@@ -400,7 +400,11 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     else f"        self.{name}_bias = None"
                 )
 
-        jit_compile = graph.model_configuration.native.tensorflow.jit_compile
+        jit_compile = bool(
+            graph.model_configuration.native.tensorflow.compiler.parameters.get(
+                "jit_compile", False
+            )
+        )
         lines.extend(
             [
                 "",
