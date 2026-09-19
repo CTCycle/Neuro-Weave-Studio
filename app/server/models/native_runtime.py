@@ -17,7 +17,6 @@ from exporters.native_tensorflow_exporter import NativeTensorFlowSourceExporter
 from exporters.pytorch_exporter import PyTorchSourceExporter
 from validation.output_resolution import input_nodes
 
-
 ###############################################################################
 @dataclass
 class NativeModelHandle:
@@ -161,6 +160,7 @@ def forward_native(handle: NativeModelHandle) -> list[Any]:
     return _as_list(apply(handle.variables, handle.model_input))
 
 
+###############################################################################
 def forward_native_with_trace(handle: NativeModelHandle) -> tuple[list[Any], dict[str, dict[str, Any]]]:
     """Run the generated native model once and retain canonical node outputs."""
 
@@ -264,6 +264,7 @@ def _zero_jax_variables(variables: Any) -> Any:
     return unflatten_dict(flattened)
 
 
+###############################################################################
 def _initialize_tensorflow_parameters(model: Any, seed: int) -> None:
     """Give the native TensorFlow inspection path normal deterministic weights."""
 

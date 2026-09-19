@@ -10,7 +10,6 @@ down_revision = "20260903_custom_metric_definitions"
 branch_labels = None
 depends_on = None
 
-
 ###############################################################################
 def upgrade() -> None:
     op.create_table(
@@ -54,7 +53,6 @@ def upgrade() -> None:
         "custom_node_definitions",
         ["category"],
     )
-
 
 ###############################################################################
 def downgrade() -> None:

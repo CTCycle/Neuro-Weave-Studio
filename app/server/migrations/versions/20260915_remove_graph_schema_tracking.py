@@ -10,7 +10,6 @@ down_revision = "20260910_dataset_registrations"
 branch_labels = None
 depends_on = None
 
-
 ###############################################################################
 def upgrade() -> None:
     with op.batch_alter_table("projects", recreate="always") as batch_op:
@@ -20,7 +19,6 @@ def upgrade() -> None:
     with op.batch_alter_table("project_revisions", recreate="always") as batch_op:
         batch_op.drop_constraint("ck_project_revisions_graph_version", type_="check")
         batch_op.drop_column("graph_schema_version")
-
 
 ###############################################################################
 def downgrade() -> None:

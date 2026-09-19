@@ -28,7 +28,6 @@ from domain.jobs import (
 from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
 from services.runtime_controller import RuntimeController
 
-
 ###############################################################################
 def _node(node_id: str, definition_id: str, parameters: dict[str, object]) -> NodeInstance:
     return NodeInstance(
@@ -37,7 +36,6 @@ def _node(node_id: str, definition_id: str, parameters: dict[str, object]) -> No
         position=Position(x=0, y=0),
         parameters=parameters,
     )
-
 
 ###############################################################################
 def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
@@ -48,7 +46,6 @@ def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
         target_node_id=target,
         target_port_id="input",
     )
-
 
 ###############################################################################
 def _dense_graph(*, jit_compile: bool = False) -> ModelGraph:
@@ -65,7 +62,6 @@ def _dense_graph(*, jit_compile: bool = False) -> ModelGraph:
             ),
         ),
     )
-
 
 ###############################################################################
 def _jax_transformer_graph() -> ModelGraph:
@@ -103,7 +99,6 @@ def _jax_transformer_graph() -> ModelGraph:
         ],
     )
 
-
 ###############################################################################
 def _native_jax_multi_input_graph() -> ModelGraph:
     return ModelGraph(
@@ -139,7 +134,6 @@ def _native_jax_multi_input_graph() -> ModelGraph:
         ),
     )
 
-
 ###############################################################################
 def _worker(controller: RuntimeController, backend: ExecutionBackend, api: RuntimeApi) -> WorkerConfiguration:
     status = controller.backend_statuses.get(backend)
@@ -159,7 +153,6 @@ def _worker(controller: RuntimeController, backend: ExecutionBackend, api: Runti
         precision="float32",
     )
 
-
 ###############################################################################
 def _wait(controller: RuntimeController, job_id: str) -> JobResponse:
     deadline = time.monotonic() + 300
@@ -170,7 +163,6 @@ def _wait(controller: RuntimeController, job_id: str) -> JobResponse:
         time.sleep(0.05)
     controller.stop(job_id)
     raise TimeoutError(f"ML worker job {job_id} timed out")
-
 
 ###############################################################################
 def _export(
@@ -208,7 +200,6 @@ def _export(
     assert destination.is_file()
     return result
 
-
 ###############################################################################
 @pytest.fixture
 def controller(tmp_path: Path):
@@ -221,7 +212,6 @@ def controller(tmp_path: Path):
     runtime.probe_statuses(force_refresh=True)
     yield runtime
     runtime.shutdown()
-
 
 ###############################################################################
 def test_native_tensorflow_onnx_export_inlines_jit_call_graph(
@@ -236,7 +226,6 @@ def test_native_tensorflow_onnx_export_inlines_jit_call_graph(
         ExportFormat.ONNX,
         tmp_path / "native_tensorflow_jit.onnx",
     )
-
 
 ###############################################################################
 def test_native_smoke_reports_training_not_run(
@@ -259,7 +248,6 @@ def test_native_smoke_reports_training_not_run(
     assert result.result is not None
     assert result.result["training"] == "not_run"
 
-
 ###############################################################################
 def test_keras_jax_positional_encoding_onnx_export_uses_static_sequence_shape(
     controller: RuntimeController,
@@ -273,7 +261,6 @@ def test_keras_jax_positional_encoding_onnx_export_uses_static_sequence_shape(
         ExportFormat.ONNX,
         tmp_path / "keras_jax_positional.onnx",
     )
-
 
 ###############################################################################
 def test_native_jax_onnx_export_uses_direct_jax2onnx_bridge(
@@ -291,11 +278,9 @@ def test_native_jax_onnx_export_uses_direct_jax2onnx_bridge(
     assert result.artifact is not None
     assert result.artifact.conversion is ExportConversion.NATIVE
 
-
 ###############################################################################
 def _missing_executable(_name: str) -> None:
     return None
-
 
 ###############################################################################
 def test_pytorch_compile_capability_requires_msvc_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -16,7 +16,6 @@ from domain.graph import ModelGraph
 from domain.metric_formula import MetricFormulaError, evaluate_metric_formula, parse_metric_formula
 from validation.output_resolution import output_selectors, resolved_outputs
 
-
 ###############################################################################
 def option(value: Any) -> Any:
     """Convert the catalog's explicit ``none`` option into Keras ``None``."""
@@ -60,9 +59,11 @@ def prepare_runtime(graph: ModelGraph) -> None:
     )
 
 
+###############################################################################
 class PredictionAggregateMetric(keras.metrics.Metric):
     """Stateful metric whose input is explicitly the prediction tensor."""
 
+    # -------------------------------------------------------------------------
     def __init__(self, mode: str, name: str | None = None, **kwargs: Any) -> None:
         super().__init__(name=name or f"prediction_{mode}", **kwargs)
         if mode not in {"mean", "sum"}:
@@ -71,6 +72,7 @@ class PredictionAggregateMetric(keras.metrics.Metric):
         self.total = self.add_weight(name="total", initializer="zeros")
         self.count = self.add_weight(name="count", initializer="zeros")
 
+    # -------------------------------------------------------------------------
     def update_state(
         self, y_true: Any, y_pred: Any, sample_weight: Any = None
     ) -> None:
@@ -84,11 +86,13 @@ class PredictionAggregateMetric(keras.metrics.Metric):
         else:
             self.count.assign_add(keras.ops.cast(1, self.dtype))
 
+    # -------------------------------------------------------------------------
     def result(self) -> Any:
         if self.mode == "sum":
             return self.total
         return self.total / keras.ops.maximum(self.count, keras.ops.cast(1, self.dtype))
 
+    # -------------------------------------------------------------------------
     def get_config(self) -> dict[str, Any]:
         return {**super().get_config(), "mode": self.mode}
 
@@ -176,7 +180,6 @@ def _custom_formula(option: CompilationOption) -> Any:
 
     custom.__name__ = option.id
     return custom
-
 
 ###############################################################################
 def _compile_option(

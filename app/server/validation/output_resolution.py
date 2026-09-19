@@ -26,7 +26,6 @@ class ResolvedOutput:
     port: PortDefinition | None
     explicit: bool
 
-
 ###############################################################################
 def is_effective_output(output: ResolvedOutput) -> bool:
     """Return whether a resolved binding can produce a model output."""
@@ -39,7 +38,6 @@ def is_effective_output(output: ResolvedOutput) -> bool:
         and _condition_matches(output.port.enabled_when, output.node.parameters)
         and output.port.kind.value in {"tensor", "tensor_list", "mask", "scalar"}
     )
-
 
 ###############################################################################
 def output_selectors(output: ResolvedOutput) -> tuple[str, ...]:
@@ -100,7 +98,6 @@ def _condition_matches(condition: dict[str, object], parameters: dict[str, objec
             return False
     return True
 
-
 ###############################################################################
 def _tensor_output_ports(
     manifest: NodeManifest, parameters: dict[str, object] | None = None
@@ -112,7 +109,6 @@ def _tensor_output_ports(
         if _condition_matches(port.enabled_when, effective_parameters)
         if port.kind.value in {"tensor", "tensor_list", "mask", "scalar"}
     )
-
 
 ###############################################################################
 def _output_name(node: NodeInstance | None, manifest: NodeManifest | None, port: PortDefinition | None, fallback: str) -> str:

@@ -33,11 +33,9 @@ TEXT_EXTENSIONS = frozenset({".jsonl", ".md", ".text", ".txt"})
 TYPE_INFERENCE_LIMIT = 512
 PARQUET = cast(Any, parquet)
 
-
 ###############################################################################
 class DatasetInspectionError(ValueError):
     pass
-
 
 ###############################################################################
 class DatasetInspectionService:
@@ -341,7 +339,6 @@ class DatasetInspectionService:
         except PermissionError as exc:
             raise DatasetInspectionError(f"Permission denied while reading text folder: {path}") from exc
 
-
 ###############################################################################
 class _DTypeState:
 
@@ -369,7 +366,6 @@ class _DTypeState:
             self.dtype = "string"
         return self
 
-
 ###############################################################################
 def _scalar_dtype(value: str) -> str:
     if value.casefold() in {"true", "false"}:
@@ -385,7 +381,6 @@ def _scalar_dtype(value: str) -> str:
     except ValueError:
         return "string"
 
-
 ###############################################################################
 def _merge_dtype(current: str, observed: str) -> str:
     if current in {"unknown", observed}:
@@ -393,7 +388,6 @@ def _merge_dtype(current: str, observed: str) -> str:
     if {current, observed} <= {"int64", "float64"}:
         return "float64"
     return "string"
-
 
 ###############################################################################
 def _read_npy_header(handle: IO[bytes]) -> tuple[tuple[int, ...], str]:

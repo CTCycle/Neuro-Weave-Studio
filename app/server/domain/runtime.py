@@ -8,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from domain.enums import ExecutionBackend
 
-
 ###############################################################################
 class RuntimeApi(StrEnum):
     """The model API used inside an isolated worker."""

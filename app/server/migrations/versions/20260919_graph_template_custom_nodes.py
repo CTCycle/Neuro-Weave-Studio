@@ -10,7 +10,6 @@ down_revision = "20260919_execution_node_compilation_consolidation"
 branch_labels = None
 depends_on = None
 
-
 ###############################################################################
 def upgrade() -> None:
     with op.batch_alter_table("custom_node_definitions", recreate="always") as batch_op:
@@ -26,7 +25,6 @@ def upgrade() -> None:
             "WHERE kind = 'composite'"
         )
     )
-
 
 ###############################################################################
 def downgrade() -> None:

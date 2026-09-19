@@ -11,7 +11,6 @@ from domain.exports import ExportArtifactManifest, ExportFormat, ExportOptions
 from domain.graph import ModelGraph
 from domain.runtime import DeviceLeaseStatus, WorkerConfiguration
 
-
 ###############################################################################
 class JobOperation(StrEnum):
     SMOKE_INFERENCE = "smoke_inference"
@@ -35,7 +34,6 @@ class SmokeInferenceOperation(BaseModel):
     type: Literal[JobOperation.SMOKE_INFERENCE] = JobOperation.SMOKE_INFERENCE
     project_id: UUID
     graph: ModelGraph
-
 
 ###############################################################################
 class TensorInspectionOperation(BaseModel):

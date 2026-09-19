@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 
 from services.filesystem_service import MAX_DIRECTORY_ENTRIES, FilesystemService
 
-
 ###############################################################################
 def test_browse_lists_directories_before_files_and_filters_extensions(tmp_path: Path) -> None:
     (tmp_path / "images").mkdir()
@@ -26,7 +25,6 @@ def test_browse_lists_directories_before_files_and_filters_extensions(tmp_path: 
     assert response.items[0].is_dir is True
     assert response.items[1].suffix == ".csv"
 
-
 ###############################################################################
 def test_browse_directory_only_omits_files(tmp_path: Path) -> None:
     (tmp_path / "child").mkdir()
@@ -36,12 +34,10 @@ def test_browse_directory_only_omits_files(tmp_path: Path) -> None:
 
     assert [item.name for item in response.items] == ["child"]
 
-
 ###############################################################################
 def test_browse_rejects_missing_path(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         FilesystemService().browse(str(tmp_path / "missing"))
-
 
 ###############################################################################
 def test_browse_caps_large_directory_results(tmp_path: Path) -> None:
@@ -52,7 +48,6 @@ def test_browse_caps_large_directory_results(tmp_path: Path) -> None:
 
     assert len(response.items) == MAX_DIRECTORY_ENTRIES
     assert response.truncated is True
-
 
 ###############################################################################
 def test_filesystem_browse_api_returns_real_paths_and_filters_files(
@@ -75,7 +70,6 @@ def test_filesystem_browse_api_returns_real_paths_and_filters_files(
     assert payload["current_path"] == str(source_path.resolve())
     assert [item["name"] for item in payload["items"]] == ["nested", "keep.csv"]
     assert payload["items"][0]["path"] == str((source_path / "nested").resolve())
-
 
 ###############################################################################
 def test_filesystem_browse_api_rejects_missing_path(client: TestClient, tmp_path: Path) -> None:

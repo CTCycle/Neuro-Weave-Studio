@@ -4,7 +4,6 @@ import re
 
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 
-
 ###############################################################################
 class CustomMathFormulaError(ValueError):
     pass
@@ -25,7 +24,6 @@ _OPERATOR_FUNCTIONS = {
     "softmax": "softmax",
 }
 
-
 ###############################################################################
 def _read_group(value: str, start: int) -> tuple[str, int]:
     if start >= len(value) or value[start] not in "{(":
@@ -42,7 +40,6 @@ def _read_group(value: str, start: int) -> tuple[str, int]:
             if depth == 0:
                 return value[start + 1 : index], index + 1
     raise CustomMathFormulaError("Formula contains an unclosed group")
-
 
 ###############################################################################
 def _replace_fractions(value: str) -> str:
@@ -61,7 +58,6 @@ def _replace_fractions(value: str) -> str:
         index = value.find(marker, index + len(replacement))
     return value
 
-
 ###############################################################################
 def _replace_grouped_command(value: str, command: str, function: str) -> str:
     marker = f"\\{command}"
@@ -76,7 +72,6 @@ def _replace_grouped_command(value: str, command: str, function: str) -> str:
         index = value.find(marker, index + len(replacement))
     return value
 
-
 ###############################################################################
 def _replace_operatorname(value: str) -> str:
     pattern = re.compile(r"\\operatorname\s*\{([A-Za-z]+)\}")
@@ -90,7 +85,6 @@ def _replace_operatorname(value: str) -> str:
 
     return pattern.sub(replace, value)
 
-
 ###############################################################################
 def _strip_equation_label(value: str) -> str:
     depth = 0
@@ -102,7 +96,6 @@ def _strip_equation_label(value: str) -> str:
         elif character == "=" and depth == 0:
             return value[index + 1 :].strip()
     return value
-
 
 ###############################################################################
 def _normalize_latex(formula: str) -> str:
@@ -122,7 +115,6 @@ def _normalize_latex(formula: str) -> str:
     value = re.sub(r"\bx\s*(?=\()", "x*", value)
     value = re.sub(r"\s+", " ", value).strip()
     return value
-
 
 ###############################################################################
 def parse_custom_math_formula(formula: str) -> str:

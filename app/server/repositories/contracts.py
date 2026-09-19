@@ -9,7 +9,6 @@ from uuid import UUID
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import ModelGraph
 
-
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class ProjectMetadata:
@@ -136,13 +135,11 @@ class CodeSnapshotRepositoryProtocol(Protocol):
     # -------------------------------------------------------------------------
     def delete_for_projects(self, project_ids: Sequence[UUID]) -> int: ...
 
-
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class MetricUsage:
     project_id: UUID
     project_name: str
-
 
 ###############################################################################
 class MetricRepositoryProtocol(Protocol):

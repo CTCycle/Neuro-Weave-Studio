@@ -32,10 +32,12 @@ MAX_SAMPLE_ELEMENTS = 65_536
 HISTOGRAM_BINS = 64
 
 
+###############################################################################
 def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+###############################################################################
 def _as_numpy(value: Any) -> np.ndarray:
     detached = value.detach() if callable(getattr(value, "detach", None)) else value
     # Only PyTorch tensors need an explicit CPU hop here.  TensorFlow eager
@@ -52,6 +54,7 @@ def _as_numpy(value: Any) -> np.ndarray:
     return np.asarray(on_cpu)
 
 
+###############################################################################
 def _safe_array(value: Any) -> np.ndarray:
     array = _as_numpy(value)
     if array.dtype.kind in {"O", "U", "S", "V", "c"}:
@@ -59,6 +62,7 @@ def _safe_array(value: Any) -> np.ndarray:
     return array
 
 
+###############################################################################
 def _sample(array: np.ndarray) -> tuple[np.ndarray, DataMode]:
     flat = array.reshape(-1)
     if flat.size <= MAX_EXACT_ELEMENTS:
@@ -69,6 +73,7 @@ def _sample(array: np.ndarray) -> tuple[np.ndarray, DataMode]:
     return flat[indexes], "sampled"
 
 
+###############################################################################
 def _statistics(array: np.ndarray) -> tuple[TensorStatistics, TensorHistogram]:
     bins: list[float]
     counts: list[int]
@@ -116,12 +121,14 @@ def _statistics(array: np.ndarray) -> tuple[TensorStatistics, TensorHistogram]:
     )
 
 
+###############################################################################
 def _port_items(value: Any) -> list[Any]:
     if isinstance(value, (list, tuple)):
         return list(cast(list[Any] | tuple[Any, ...], value))
     return [value]
 
 
+###############################################################################
 def _trace_values(trace: Mapping[str, Any], node_id: str) -> dict[str, Any]:
     raw = trace.get(node_id, {})
     if isinstance(raw, Mapping):
@@ -130,6 +137,7 @@ def _trace_values(trace: Mapping[str, Any], node_id: str) -> dict[str, Any]:
     return {"output": raw}
 
 
+###############################################################################
 def _depths(graph: ModelGraph, ordered: list[str]) -> dict[str, int]:
     depths = {node_id: 0 for node_id in ordered}
     for node_id in ordered:
@@ -138,6 +146,7 @@ def _depths(graph: ModelGraph, ordered: list[str]) -> dict[str, int]:
     return depths
 
 
+###############################################################################
 def persist_inspection(
     graph: ModelGraph,
     *,

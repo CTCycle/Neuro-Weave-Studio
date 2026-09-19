@@ -25,7 +25,6 @@ from models.worker_backend import (
     run_native_smoke,
 )
 
-
 ###############################################################################
 class JaxWorker:
     backend = ExecutionBackend.JAX

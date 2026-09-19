@@ -12,7 +12,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from models.native_runtime import build_native_model, forward_native
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def _node(
     node_id: str,
@@ -25,7 +24,6 @@ def _node(
         position=Position(x=0, y=0),
         parameters=parameters or {},
     )
-
 
 ###############################################################################
 def _edge(
@@ -43,7 +41,6 @@ def _edge(
         target_port_id=target_port_id,
     )
 
-
 ###############################################################################
 def _source_graph(
     definition_id: str,
@@ -59,7 +56,6 @@ def _source_graph(
         edges=[_edge("source-output", "source", "output", "output", "input")],
     )
 
-
 ###############################################################################
 def _index_graph() -> ModelGraph:
     return ModelGraph(
@@ -73,7 +69,6 @@ def _index_graph() -> ModelGraph:
             _edge("index-output", "index", "output", "output", "input"),
         ],
     )
-
 
 ###############################################################################
 def _average_graph() -> ModelGraph:
@@ -93,7 +88,6 @@ def _average_graph() -> ModelGraph:
         ],
     )
 
-
 ###############################################################################
 def _split_graph() -> ModelGraph:
     return ModelGraph(
@@ -109,7 +103,6 @@ def _split_graph() -> ModelGraph:
             _edge("split-second", "split", "output_1", "second", "input"),
         ],
     )
-
 
 ###############################################################################
 def _detection_graph() -> ModelGraph:
@@ -158,7 +151,6 @@ GRAPH_FACTORIES: list[tuple[str, Callable[[], ModelGraph], list[tuple[int, ...]]
     ),
 ]
 
-
 ###############################################################################
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
 @pytest.mark.parametrize("keras_enabled", [True, False])
@@ -178,7 +170,6 @@ def test_universal_nodes_validate_across_all_profiles(
     result = ValidationService(get_node_catalog()).validate(factory(), backend, keras_enabled)
 
     assert result.valid, result.diagnostics
-
 
 ###############################################################################
 @pytest.mark.parametrize("backend", list(ExecutionBackend))

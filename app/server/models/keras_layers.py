@@ -6,7 +6,6 @@ from typing import Any
 import keras
 from keras import layers
 
-
 ###############################################################################
 @keras.saving.register_keras_serializable(package="NeuroWeave")
 class SinusoidalPositionalEncoding(layers.Layer):
@@ -82,6 +81,7 @@ class GeluActivation(layers.Layer):
 class ConstantSource(layers.Layer):
     """Serializable constant graph source that is not a public model input."""
 
+    # -------------------------------------------------------------------------
     def __init__(
         self,
         shape: list[int],
@@ -94,12 +94,14 @@ class ConstantSource(layers.Layer):
         self.source_value = value
         self.value_dtype = value_dtype
 
+    # -------------------------------------------------------------------------
     def call(self, anchor: Any = None) -> Any:
         value = keras.ops.cast(
             keras.ops.convert_to_tensor(self.source_value), self.value_dtype
         )
         return keras.ops.broadcast_to(value, self.source_shape)
 
+    # -------------------------------------------------------------------------
     def get_config(self) -> dict[str, Any]:
         return {
             **super().get_config(),
@@ -113,6 +115,7 @@ class ConstantSource(layers.Layer):
 class ParameterSource(layers.Layer):
     """Serializable tracked source parameter with explicit trainability."""
 
+    # -------------------------------------------------------------------------
     def __init__(
         self,
         shape: list[int],
@@ -126,6 +129,7 @@ class ParameterSource(layers.Layer):
         self.source_initializer = initializer
         self.value_dtype = value_dtype
 
+    # -------------------------------------------------------------------------
     def build(self, input_shape: Any = None) -> None:
         del input_shape
         self.source_value = self.add_weight(
@@ -136,10 +140,12 @@ class ParameterSource(layers.Layer):
             trainable=self.trainable,
         )
 
+    # -------------------------------------------------------------------------
     def call(self, anchor: Any = None) -> Any:
         del anchor
         return self.source_value
 
+    # -------------------------------------------------------------------------
     def get_config(self) -> dict[str, Any]:
         return {
             **super().get_config(),

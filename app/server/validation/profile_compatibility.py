@@ -14,6 +14,7 @@ CompatibilityReasonCode = Literal[
 ]
 
 
+###############################################################################
 @dataclass(frozen=True)
 class ImplementationCompatibility:
     available: bool
@@ -22,6 +23,7 @@ class ImplementationCompatibility:
     mapping: ImplementationMapping | None = None
 
 
+###############################################################################
 def resolve_implementation_compatibility(
     manifest: NodeManifest | None,
     execution_backend: ExecutionBackend,

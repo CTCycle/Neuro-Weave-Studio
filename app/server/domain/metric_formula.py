@@ -5,11 +5,9 @@ import re
 from dataclasses import dataclass
 from typing import Any, cast
 
-
 ###############################################################################
 class MetricFormulaError(ValueError):
     """Raised when a user formula is outside the supported safe subset."""
-
 
 ###############################################################################
 @dataclass(frozen=True, slots=True)
@@ -59,7 +57,6 @@ _BINARY = {
     ast.Div: "div",
 }
 
-
 ###############################################################################
 def _read_group(value: str, start: int) -> tuple[str, int]:
     opening = value[start]
@@ -74,7 +71,6 @@ def _read_group(value: str, start: int) -> tuple[str, int]:
             if depth == 0:
                 return value[start + 1 : index], index + 1
     raise MetricFormulaError("Formula contains an unclosed group")
-
 
 ###############################################################################
 def _replace_frac(value: str) -> str:
@@ -97,7 +93,6 @@ def _replace_frac(value: str) -> str:
         index = value.find(marker, index + len(replacement))
     return value
 
-
 ###############################################################################
 def _replace_command_groups(value: str, command: str, function: str) -> str:
     marker = f"\\{command}"
@@ -114,7 +109,6 @@ def _replace_command_groups(value: str, command: str, function: str) -> str:
         index = value.find(marker, index + len(replacement))
     return value
 
-
 ###############################################################################
 def _replace_absolute(value: str) -> str:
     value = value.replace("\\left|", "|").replace("\\right|", "|")
@@ -127,7 +121,6 @@ def _replace_absolute(value: str) -> str:
         value = value[:start] + f"abs({value[start + 1:end]})" + value[end + 1 :]
     return value
 
-
 ###############################################################################
 def _replace_sums(value: str) -> str:
     pattern = re.compile(r"\\sum\s*_(?:\{[^{}]*\}|[^\s^]+)\s*\^(?:\{[^{}]*\}|[^\s]+)")
@@ -135,7 +128,6 @@ def _replace_sums(value: str) -> str:
     value = re.sub(r"\bsum\s*\{", "sum(", value)
     value = re.sub(r"(?:\(\s*1(?:\.0+)?\s*\)|1)\s*/\s*(?:\(\s*n\s*\)|n)\s*\*?\s*sum\s*\(", "mean(", value)
     return value
-
 
 ###############################################################################
 def _strip_equation_label(value: str) -> str:
@@ -150,7 +142,6 @@ def _strip_equation_label(value: str) -> str:
         elif char == "=" and depth == 0 and (index + 1 >= len(value) or value[index + 1] != "="):
             return value[index + 1 :].strip()
     return value
-
 
 ###############################################################################
 def _normalize_latex(value: str) -> str:
@@ -181,7 +172,6 @@ def _normalize_latex(value: str) -> str:
     if not value:
         raise MetricFormulaError("Formula cannot be empty")
     return value
-
 
 ###############################################################################
 def _from_python(node: ast.AST, depth: int, count: list[int]) -> FormulaNode:
@@ -215,7 +205,6 @@ def _from_python(node: ast.AST, depth: int, count: list[int]) -> FormulaNode:
         return FormulaNode(node.func.id, args=(_from_python(node.args[0], depth + 1, count),))
     raise MetricFormulaError("Formula contains an unsupported expression")
 
-
 ###############################################################################
 def parse_metric_formula(formula: str) -> FormulaNode:
     """Parse the bounded LaTeX-like formula subset without evaluating it."""
@@ -229,7 +218,6 @@ def parse_metric_formula(formula: str) -> FormulaNode:
     except SyntaxError as exc:
         raise MetricFormulaError("Formula syntax is invalid") from exc
     return _from_python(tree.body, 0, [0])
-
 
 ###############################################################################
 def emit_metric_formula(node: FormulaNode, backend: str, target: str = "y_true", prediction: str = "y_pred") -> str:
@@ -267,7 +255,6 @@ def emit_metric_formula(node: FormulaNode, backend: str, target: str = "y_true",
     if backend == "jax":
         return f"jnp.{function}({argument})"
     raise MetricFormulaError(f"Unsupported formula backend '{backend}'")
-
 
 ###############################################################################
 def evaluate_metric_formula(

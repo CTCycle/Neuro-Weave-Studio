@@ -8,7 +8,6 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-
 ###############################################################################
 def stable_graph_payload(graph: Any) -> bytes:
     return json.dumps(

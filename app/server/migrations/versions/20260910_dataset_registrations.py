@@ -10,7 +10,6 @@ down_revision = "20260903_custom_node_definitions"
 branch_labels = None
 depends_on = None
 
-
 ###############################################################################
 def upgrade() -> None:
     op.create_table(
@@ -45,7 +44,6 @@ def upgrade() -> None:
     )
     op.create_index("ix_datasets_updated_at", "datasets", ["updated_at"])
     op.create_index("ix_datasets_type", "datasets", ["dataset_type"])
-
 
 ###############################################################################
 def downgrade() -> None:

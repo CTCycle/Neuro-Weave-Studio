@@ -15,7 +15,6 @@ from domain.compilation_plan import (
     normalize_compilation_plan,
 )
 
-
 ###############################################################################
 class InputBinding(BaseModel):
     """A compiled edge retaining both endpoint port identities."""

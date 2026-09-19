@@ -21,7 +21,6 @@ from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 from models.tensor_inspection_runtime import persist_inspection
 from validation.output_resolution import input_nodes, output_selectors, resolved_outputs
 
-
 ###############################################################################
 class BackendWorker(Protocol):
     """Common contract implemented by one isolated execution-backend worker."""
@@ -188,7 +187,6 @@ def run_keras_smoke(
         "compilation": _configured_compilation_summary(graph, "keras"),
     }
 
-
 ###############################################################################
 def _inspection_input_arrays(graph: ModelGraph, *, seed: int) -> list[np.ndarray]:
     rng = np.random.default_rng(seed)
@@ -231,7 +229,6 @@ def _inspection_input_arrays(graph: ModelGraph, *, seed: int) -> list[np.ndarray
             raise ValueError(f"unsupported_dtype: input node '{node.id}' uses {dtype}")
         result.append(values)
     return result
-
 
 ###############################################################################
 def run_keras_inspection(
@@ -320,7 +317,6 @@ def run_keras_inspection(
         )
         result.update({"status": "succeeded", "device_name": capabilities.get("device_name", "CPU"), "accelerator": capabilities.get("accelerator", "cpu")})
         return result
-
 
 ###############################################################################
 def run_native_inspection(
@@ -497,6 +493,7 @@ def _configured_compilation_summary(graph: ModelGraph, api: str) -> dict[str, ob
     }
 
 
+###############################################################################
 def _compilation_summary_value(value: Any) -> Any:
     if hasattr(value, "model_dump"):
         return value.model_dump(mode="json")

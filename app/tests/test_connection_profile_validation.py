@@ -4,7 +4,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from services.connection_validation_service import ConnectionValidationService
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def make_node(
     node_id: str,
@@ -18,12 +17,10 @@ def make_node(
         parameters=parameters or {},
     )
 
-
 ###############################################################################
 def make_service() -> ConnectionValidationService:
     catalog = get_node_catalog()
     return ConnectionValidationService(catalog, ValidationService(catalog))
-
 
 ###############################################################################
 def test_proposed_edge_respects_execution_profile() -> None:
@@ -57,7 +54,6 @@ def test_proposed_edge_respects_execution_profile() -> None:
 
     assert keras_result.valid
     assert native_tensorflow_result.valid
-
 
 ###############################################################################
 def test_candidate_batch_returns_only_authoritatively_valid_edges() -> None:

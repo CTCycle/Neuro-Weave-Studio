@@ -15,6 +15,7 @@ NEW_NODE_IDS = {
 }
 
 
+###############################################################################
 def _graph_for_node(definition_id: str, catalog: NodeCatalog) -> ModelGraph:
     manifest = catalog.get(definition_id)
     parameters = {
@@ -50,6 +51,7 @@ def _graph_for_node(definition_id: str, catalog: NodeCatalog) -> ModelGraph:
     )
 
 
+###############################################################################
 def _keras_source(definition_id: str) -> str:
     catalog = get_node_catalog()
     graph = _graph_for_node(definition_id, catalog)
@@ -63,6 +65,7 @@ def _keras_source(definition_id: str) -> str:
     return KerasSourceExporter().generate(graph, ir, catalog)
 
 
+###############################################################################
 def test_modern_nodes_are_canonical_catalog_entries() -> None:
     catalog = get_node_catalog()
     manifest_ids = {manifest.id for manifest in catalog.manifests}
@@ -87,6 +90,7 @@ def test_modern_nodes_are_canonical_catalog_entries() -> None:
             assert manifest.implementations[native_target].supported is True
 
 
+###############################################################################
 def test_modern_core_nodes_emit_explicit_keras_layers() -> None:
     expected_layer = {
         "layer.rms_norm": "layers.RMSNormalization(",
@@ -100,6 +104,7 @@ def test_modern_core_nodes_emit_explicit_keras_layers() -> None:
         assert "No Keras adapter registered" not in source
 
 
+###############################################################################
 def test_stop_gradient_uses_verified_backend_operations() -> None:
     catalog = get_node_catalog()
     manifest = catalog.get("math.stop_gradient")

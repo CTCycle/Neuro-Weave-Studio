@@ -12,7 +12,6 @@ from services.keras_import_service import (
     parse_keras_architecture,
 )
 
-
 ###############################################################################
 def keras_archive(document: dict[str, object]) -> bytes:
     buffer = io.BytesIO()
@@ -90,7 +89,6 @@ def test_import_reconstructs_allowlisted_functional_architecture_without_weights
     assert parsed.payload.graph.nodes[0].model_dump(mode="json")["parameters"]["shape"] == [4]
     assert any("weights" in warning for warning in parsed.warnings)
 
-
 ###############################################################################
 @pytest.mark.parametrize(
     ("parameter_name", "shape", "definition_id", "persisted_shape"),
@@ -117,7 +115,6 @@ def test_import_normalizes_input_shapes_to_feature_only_persistence(
     assert input_node.parameters["shape"] == persisted_shape
     assert input_node.model_dump(mode="json")["parameters"]["shape"] == persisted_shape
 
-
 ###############################################################################
 def test_import_warns_when_discarding_a_fixed_runtime_batch_dimension() -> None:
     parsed = parse_keras_architecture(
@@ -126,7 +123,6 @@ def test_import_warns_when_discarding_a_fixed_runtime_batch_dimension() -> None:
     )
 
     assert any("Fixed batch dimension 16" in warning for warning in parsed.warnings)
-
 
 ###############################################################################
 @pytest.mark.parametrize(

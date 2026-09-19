@@ -9,7 +9,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-
 ###############################################################################
 def process_rss_bytes(pid: int) -> int | None:
     """Return best-effort resident memory without importing an optional package."""

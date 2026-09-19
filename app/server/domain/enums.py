@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-
 ###############################################################################
 class ExecutionBackend(StrEnum):
     TENSORFLOW = "tensorflow"

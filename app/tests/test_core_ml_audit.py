@@ -34,7 +34,6 @@ from exporters.keras_exporter import KerasSourceExporter
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def node(
     node_id: str,

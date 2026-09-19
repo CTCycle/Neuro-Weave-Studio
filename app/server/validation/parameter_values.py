@@ -5,11 +5,9 @@ from typing import Any, cast
 from domain.manifests import NodeManifest, ParameterDefinition, ParameterValueSchema
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 
-
 ###############################################################################
 class ParameterValueError(ValueError):
     pass
-
 
 ###############################################################################
 def condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
@@ -30,7 +28,6 @@ def condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> 
         elif actual != expected:
             return False
     return True
-
 
 ###############################################################################
 def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
@@ -64,7 +61,6 @@ def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
     if schema.type in {"initializer", "regularizer", "constraint"}:
         return isinstance(value, (str, dict))
     return True
-
 
 ###############################################################################
 def parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
@@ -102,13 +98,11 @@ def parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
         return isinstance(value, list)
     return True
 
-
 ###############################################################################
 def _default(parameter: ParameterDefinition) -> Any:
     if "editor_default" in parameter.model_fields_set:
         return parameter.editor_default
     return parameter.default
-
 
 ###############################################################################
 def _validate_constraints(parameter: ParameterDefinition, value: Any) -> None:
@@ -157,7 +151,6 @@ def _validate_constraints(parameter: ParameterDefinition, value: Any) -> None:
         raise ParameterValueError(
             f"Parameter '{parameter.display_name}' contains a value above {item_maximum}"
         )
-
 
 ###############################################################################
 def normalize_manifest_parameters(

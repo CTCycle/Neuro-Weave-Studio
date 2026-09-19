@@ -26,7 +26,6 @@ _ADAM_DEFAULTS = {
     "epsilon": 1e-7,
 }
 
-
 ###############################################################################
 def _object(value: Any, default_id: str | None = None) -> dict[str, Any] | None:
     if value is None:
@@ -45,6 +44,7 @@ def _object(value: Any, default_id: str | None = None) -> dict[str, Any] | None:
     return {"id": default_id or "adam", "parameters": {}}
 
 
+###############################################################################
 def _plan(value: Any, *, native_backend: str | None = None) -> dict[str, Any]:
     raw = dict(value) if isinstance(value, dict) else {}
     source = raw.get("compilation")
@@ -85,6 +85,7 @@ def _plan(value: Any, *, native_backend: str | None = None) -> dict[str, Any]:
     }
 
 
+###############################################################################
 def _compiler(value: Any, backend: str) -> dict[str, Any]:
     raw = dict(value) if isinstance(value, dict) else {}
     existing = raw.get("compiler")
@@ -118,6 +119,7 @@ def _compiler(value: Any, backend: str) -> dict[str, Any]:
     return {"id": identifier, "parameters": parameters}
 
 
+###############################################################################
 def _configuration(value: Any) -> dict[str, Any]:
     raw = dict(_json(value, {}))
     keras_raw = raw.get("keras", raw)
@@ -144,6 +146,7 @@ def _configuration(value: Any) -> dict[str, Any]:
     }
 
 
+###############################################################################
 def _json(value: Any, default: Any) -> Any:
     if isinstance(value, str):
         try:
@@ -153,6 +156,7 @@ def _json(value: Any, default: Any) -> Any:
     return value if value is not None else default
 
 
+###############################################################################
 def _without_placeholder(value: Any) -> dict[str, Any]:
     raw = dict(_json(value, {}))
     removed = {
@@ -179,6 +183,7 @@ def _without_placeholder(value: Any) -> dict[str, Any]:
     return raw
 
 
+###############################################################################
 def _formula_capabilities(expression: Any) -> dict[str, bool]:
     try:
         from domain.metric_formula import FormulaNode, MetricFormulaError, emit_metric_formula
@@ -197,6 +202,7 @@ def _formula_capabilities(expression: Any) -> dict[str, bool]:
         return {backend: False for backend in ("keras", "tensorflow", "pytorch", "jax")}
 
 
+###############################################################################
 def _graph_template(spec: Any) -> Any:
     raw = dict(spec) if isinstance(spec, dict) else {}
     if raw.get("type") != "composite":
@@ -244,7 +250,6 @@ def _graph_template(spec: Any) -> Any:
             }
         ],
     }
-
 
 ###############################################################################
 def upgrade() -> None:
@@ -322,7 +327,6 @@ def upgrade() -> None:
         )
 
     connection.execute(sa.text("DELETE FROM generated_code_snapshots"))
-
 
 ###############################################################################
 def downgrade() -> None:

@@ -11,7 +11,6 @@ from domain.compilation_catalog import CompilationTask, TargetContract
 MetricKind = Literal["metric", "loss"]
 MetricOrigin = Literal["builtin", "custom"]
 
-
 ###############################################################################
 class MetricDefinitionResponse(BaseModel):
     id: str
@@ -29,11 +28,9 @@ class MetricDefinitionResponse(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-
 ###############################################################################
 class MetricCatalogResponse(BaseModel):
     definitions: list[MetricDefinitionResponse]
-
 
 ###############################################################################
 class MetricDefinitionCreate(BaseModel):
@@ -51,7 +48,6 @@ class MetricDefinitionCreate(BaseModel):
             raise ValueError("Value cannot be empty")
         return cleaned
 
-
 ###############################################################################
 class MetricDefinitionUpdate(BaseModel):
     label: str
@@ -66,7 +62,6 @@ class MetricDefinitionUpdate(BaseModel):
         if not cleaned:
             raise ValueError("Value cannot be empty")
         return cleaned
-
 
 ###############################################################################
 class MetricUsageResponse(BaseModel):

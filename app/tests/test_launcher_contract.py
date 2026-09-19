@@ -2,18 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 ###############################################################################
 def launcher_source() -> str:
     repository_root = Path(__file__).resolve().parents[2]
     return (repository_root / "start_on_windows.ps1").read_text(encoding="utf-8")
 
 
+###############################################################################
 def function_body(source: str, function_name: str, next_function: str) -> str:
     start = source.index(f"function {function_name} {{")
     end = source.index(f"function {next_function} {{", start)
     return source[start:end]
-
 
 ###############################################################################
 def test_launcher_opens_browser_only_after_backend_readiness() -> None:
@@ -29,7 +28,6 @@ def test_launcher_opens_browser_only_after_backend_readiness() -> None:
 
     assert frontend_ready < backend_wait < backend_healthy < browser_open
 
-
 ###############################################################################
 def test_installation_orders_dependency_sync_database_initialization_and_build() -> None:
     launcher = launcher_source()
@@ -39,7 +37,6 @@ def test_installation_orders_dependency_sync_database_initialization_and_build()
     assert install.index("Sync-Dependencies") < install.index("Invoke-DatabaseInitialization") < install.index("Invoke-FrontendBuild")
     assert database.index("Test-DependenciesReady") < database.index("initialize_database.py") < database.index("& $venvPython $initializer")
 
-
 ###############################################################################
 def test_dependency_sync_uses_lockfile_and_propagates_backend_and_frontend_failures() -> None:
     launcher = launcher_source()
@@ -48,7 +45,6 @@ def test_dependency_sync_uses_lockfile_and_propagates_backend_and_frontend_failu
     assert "if (Test-Path -LiteralPath (Join-Path $script:ServerDir 'uv.lock')) { $uvArguments += '--locked' }" in sync
     assert sync.index("& $uv @uvArguments") < sync.index("Backend dependency synchronization failed")
     assert sync.index("& $npm ci") < sync.index("Frontend dependency installation failed")
-
 
 ###############################################################################
 def test_managed_process_shutdown_cleans_descendants_before_roots() -> None:
@@ -63,7 +59,6 @@ def test_managed_process_shutdown_cleans_descendants_before_roots() -> None:
     assert descendant_stop < root_stop
     assert "taskkill.exe /PID $rootProcessId /T /F" in shutdown
 
-
 ###############################################################################
 def test_launcher_rejects_invalid_ports_and_optional_backend_setup_can_reuse_state() -> None:
     launcher = launcher_source()
@@ -73,7 +68,6 @@ def test_launcher_rejects_invalid_ports_and_optional_backend_setup_can_reuse_sta
     assert "valid TCP port between 1 and 65535" in port
     assert "Test-Path -LiteralPath $venvPython" in launcher
     assert "Backend setup is already complete; reused the recorded environment" in optional_setup
-
 
 ###############################################################################
 def test_launcher_routes_generated_data_to_the_canonical_cache_root() -> None:

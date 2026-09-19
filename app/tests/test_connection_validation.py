@@ -4,7 +4,6 @@ from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def make_node(
     node_id: str,
@@ -17,7 +16,6 @@ def make_node(
         position=Position(x=0, y=0),
         parameters=parameters or {},
     )
-
 
 ###############################################################################
 def proposed_edge(
@@ -35,7 +33,6 @@ def proposed_edge(
         target_port_id=target_port_id,
     )
 
-
 ###############################################################################
 def validate_connection(graph: ModelGraph, edge: EdgeInstance) -> ConnectionValidationResult:
     return ValidationService(get_node_catalog()).validate_connection(
@@ -44,7 +41,6 @@ def validate_connection(graph: ModelGraph, edge: EdgeInstance) -> ConnectionVali
         ExecutionBackend.PYTORCH,
         True,
     )
-
 
 ###############################################################################
 def test_connection_validation_allows_incomplete_draft_edges() -> None:
@@ -59,7 +55,6 @@ def test_connection_validation_allows_incomplete_draft_edges() -> None:
 
     assert result.valid
     assert not any(item.severity == DiagnosticSeverity.ERROR for item in result.diagnostics)
-
 
 ###############################################################################
 def test_connection_validation_reports_expected_and_received_rank() -> None:
@@ -79,7 +74,6 @@ def test_connection_validation_reports_expected_and_received_rank() -> None:
     assert diagnostic.details["expected_rank"] == 4
     assert diagnostic.details["received_rank"] == 2
     assert diagnostic.details["received_shape"] == [None, 8]
-
 
 ###############################################################################
 def test_connection_validation_rejects_duplicate_and_cycle_edges() -> None:
@@ -114,7 +108,6 @@ def test_connection_validation_rejects_duplicate_and_cycle_edges() -> None:
     assert any(item.code == "duplicate_connection" for item in duplicate.diagnostics)
     assert not cycle.valid
     assert any(item.code == "cycle_detected" for item in cycle.diagnostics)
-
 
 ###############################################################################
 def test_connection_validation_rejects_incompatible_merge_shape() -> None:

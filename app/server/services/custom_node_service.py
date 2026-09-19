@@ -27,7 +27,6 @@ from validation.parameter_values import (
     normalize_manifest_parameters,
 )
 
-
 ###############################################################################
 class CustomNodeDefinitionConflictError(ValueError):
     pass
@@ -258,7 +257,6 @@ class CustomNodeService:
                 "updated_at": record.updated_at,
             }
         )
-
 
 ###############################################################################
 def _normalized_name(value: str) -> str:

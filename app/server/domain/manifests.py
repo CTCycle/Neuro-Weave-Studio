@@ -83,7 +83,6 @@ class PortCardinality(BaseModel):
             raise ValueError("Parameter-cardinality display_name_pattern must contain {index}")
         return self
 
-
 ###############################################################################
 class PortDefinition(BaseModel):
     id: str = Field(min_length=1, max_length=80)

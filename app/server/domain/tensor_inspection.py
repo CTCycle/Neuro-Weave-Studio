@@ -13,6 +13,7 @@ StorageMode = Literal["full", "sampled", "summary_only"]
 DataMode = Literal["exact", "sampled", "downsampled"]
 
 
+###############################################################################
 class TensorInspectionSubmit(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -22,6 +23,7 @@ class TensorInspectionSubmit(BaseModel):
     worker: WorkerConfiguration
 
 
+###############################################################################
 class TensorStatistics(BaseModel):
     mode: DataMode
     count: int = Field(ge=0)
@@ -35,12 +37,14 @@ class TensorStatistics(BaseModel):
     infinite_count: int = Field(default=0, ge=0)
 
 
+###############################################################################
 class TensorHistogram(BaseModel):
     mode: DataMode
     bins: list[float] = Field(default_factory=lambda: list[float]())
     counts: list[int] = Field(default_factory=lambda: list[int]())
 
 
+###############################################################################
 class TensorDescriptor(BaseModel):
     id: str
     storage_id: str
@@ -57,6 +61,7 @@ class TensorDescriptor(BaseModel):
     histogram: TensorHistogram | None = None
 
 
+###############################################################################
 class TensorInspectionNode(BaseModel):
     node_id: str
     node_name: str
@@ -71,6 +76,7 @@ class TensorInspectionNode(BaseModel):
     outputs: list[TensorDescriptor] = Field(default_factory=lambda: list[TensorDescriptor]())
 
 
+###############################################################################
 class TensorInspectionSession(BaseModel):
     id: str
     project_id: UUID
@@ -87,6 +93,7 @@ class TensorInspectionSession(BaseModel):
     nodes: list[TensorInspectionNode]
 
 
+###############################################################################
 class TensorInspectionViewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -97,6 +104,7 @@ class TensorInspectionViewRequest(BaseModel):
     limit: int = Field(default=256, ge=1, le=4096)
 
 
+###############################################################################
 class TensorInspectionViewResponse(BaseModel):
     tensor_id: str
     shape: list[int]

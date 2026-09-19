@@ -19,7 +19,6 @@ from domain.tensor import TensorSpec
 GRAPH_SCHEMA_VERSION = 6
 PROJECT_BUNDLE_FORMAT_VERSION = 7
 
-
 ###############################################################################
 def _mapping_value(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
@@ -100,30 +99,38 @@ class KerasProfileConfiguration(BaseModel):
 
     # Read-only compatibility accessors keep older callers source-compatible
     # while all serialized and validated state is the normalized plan.
+
+    # -------------------------------------------------------------------------
     @property
     def optimizer(self) -> str:
         return self.compilation.optimizer.id
 
+    # -------------------------------------------------------------------------
     @property
     def optimizer_parameters(self) -> dict[str, Any]:
         return self.compilation.optimizer.parameters
 
+    # -------------------------------------------------------------------------
     @property
     def losses(self) -> dict[str, str]:
         return {key: value.id for key, value in self.compilation.losses.items()}
 
+    # -------------------------------------------------------------------------
     @property
     def metrics(self) -> dict[str, list[str]]:
         return {key: [value.id for value in values] for key, values in self.compilation.metrics.items()}
 
+    # -------------------------------------------------------------------------
     @property
     def default_initializer(self) -> str:
         return self.compilation.default_initializer.id
 
+    # -------------------------------------------------------------------------
     @property
     def default_regularizer(self) -> str:
         return self.compilation.default_regularizer.id if self.compilation.default_regularizer else "none"
 
+    # -------------------------------------------------------------------------
     @property
     def default_constraint(self) -> str:
         return self.compilation.default_constraint.id if self.compilation.default_constraint else "none"
@@ -160,6 +167,7 @@ class TensorFlowNativeConfiguration(BaseModel):
             )
         return raw
 
+    # -------------------------------------------------------------------------
     @property
     def jit_compile(self) -> bool:
         return bool(self.compiler.parameters.get("jit_compile", False))
@@ -197,34 +205,42 @@ class PyTorchNativeConfiguration(BaseModel):
             )
         return raw
 
+    # -------------------------------------------------------------------------
     @property
     def optimizer(self) -> str:
         return self.compilation.optimizer.id
 
+    # -------------------------------------------------------------------------
     @property
     def optimizer_parameters(self) -> dict[str, Any]:
         return self.compilation.optimizer.parameters
 
+    # -------------------------------------------------------------------------
     @property
     def losses(self) -> dict[str, str]:
         return {key: value.id for key, value in self.compilation.losses.items()}
 
+    # -------------------------------------------------------------------------
     @property
     def metrics(self) -> dict[str, list[str]]:
         return {key: [value.id for value in values] for key, values in self.compilation.metrics.items()}
 
+    # -------------------------------------------------------------------------
     @property
     def compile_enabled(self) -> bool:
         return bool(self.compiler.parameters.get("enabled", False))
 
+    # -------------------------------------------------------------------------
     @property
     def mode(self) -> str:
         return str(self.compiler.parameters.get("mode", "default"))
 
+    # -------------------------------------------------------------------------
     @property
     def fullgraph(self) -> bool:
         return bool(self.compiler.parameters.get("fullgraph", False))
 
+    # -------------------------------------------------------------------------
     @property
     def dynamic(self) -> bool:
         return bool(self.compiler.parameters.get("dynamic", False))
@@ -253,6 +269,7 @@ class JaxNativeConfiguration(BaseModel):
             )
         return raw
 
+    # -------------------------------------------------------------------------
     @property
     def jit_enabled(self) -> bool:
         return bool(self.compiler.parameters.get("enabled", False))
@@ -393,7 +410,6 @@ class ShapeSummary(BaseModel):
     node_id: str
     outputs: dict[str, TensorSpec]
     parameter_count: int | None = None
-
 
 ###############################################################################
 def _empty_quantization_config(value: Any) -> bool:

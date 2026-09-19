@@ -97,6 +97,7 @@ def _number(
     )
 
 
+###############################################################################
 def _boolean(
     identifier: str,
     label: str,
@@ -112,6 +113,7 @@ def _boolean(
     )
 
 
+###############################################################################
 def _integer(
     identifier: str,
     label: str,
@@ -138,6 +140,7 @@ def _integer(
     )
 
 
+###############################################################################
 def _enum(
     identifier: str,
     label: str,
@@ -155,6 +158,7 @@ def _enum(
     )
 
 
+###############################################################################
 def _number_list(
     identifier: str,
     label: str,
@@ -1243,7 +1247,6 @@ _COMPILATION_CATALOG_PROVIDER = StaticCompilationCatalogProvider()
 ###############################################################################
 def get_compilation_catalog_provider() -> CompilationCatalogProvider:
     return _COMPILATION_CATALOG_PROVIDER
-
 
 ###############################################################################
 class PersistentCompilationCatalogProvider:

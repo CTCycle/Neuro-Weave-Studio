@@ -24,7 +24,6 @@ from validation.compile_configuration import validate_model_configuration
 from models.native_runtime import build_native_model
 from models.worker_backend import _verify_native_compilation
 
-
 ###############################################################################
 def _native_graph() -> ModelGraph:
     return ModelGraph(
@@ -160,7 +159,6 @@ def test_native_compilation_source_uses_each_backend_native_compiler() -> None:
     assert "keras.Model" not in pytorch.code
     assert "keras.Model" not in jax.code
 
-
 ###############################################################################
 def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
     tensorflow = pytest.importorskip("tensorflow")
@@ -211,6 +209,7 @@ def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
     assert bool(tensorflow.math.is_finite(parameter))
 
 
+###############################################################################
 @pytest.mark.parametrize(
     ("optimizer_id", "parameters"),
     [
@@ -341,7 +340,6 @@ def test_native_tensorflow_optimizer_catalog_variants_update(
     assert float(parameter.numpy()) != pytest.approx(1.0)
     assert bool(tensorflow.math.is_finite(parameter))
 
-
 ###############################################################################
 def test_native_tensorflow_compilation_builds_raw_loss_and_metric_functions() -> None:
     tensorflow = pytest.importorskip("tensorflow")
@@ -400,7 +398,6 @@ def test_native_tensorflow_compilation_builds_raw_loss_and_metric_functions() ->
     assert handle.compilation["losses"]["output"]["parameters"]["delta"] == pytest.approx(0.7)
     assert handle.compilation["metrics"]["output"][0]["id"] == "precision"
 
-
 ###############################################################################
 def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
     jax = pytest.importorskip("jax")
@@ -443,6 +440,7 @@ def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
     assert bool(jax.numpy.isfinite(updated))
 
 
+###############################################################################
 @pytest.mark.parametrize(
     ("optimizer_id", "parameters"),
     [
@@ -542,7 +540,6 @@ def test_native_jax_optimizer_catalog_variants_update(
     assert float(updated) != pytest.approx(1.0)
     assert bool(jax.numpy.isfinite(updated))
 
-
 ###############################################################################
 def test_native_jax_compilation_builds_raw_loss_and_metric_functions() -> None:
     jax = pytest.importorskip("jax")
@@ -595,7 +592,6 @@ def test_native_jax_compilation_builds_raw_loss_and_metric_functions() -> None:
     assert handle.compilation["losses"]["output"]["parameters"]["delta"] == pytest.approx(0.7)
     assert handle.compilation["metrics"]["output"][0]["id"] == "precision"
 
-
 ###############################################################################
 @pytest.mark.parametrize("backend", [ExecutionBackend.TENSORFLOW, ExecutionBackend.JAX])
 def test_native_compilation_verifier_runs_raw_optimizer_update(
@@ -626,7 +622,6 @@ def test_native_compilation_verifier_runs_raw_optimizer_update(
     assert result["verified"] is True
     assert result["optimizer"]["instantiated"] is True
     assert result["optimizer"]["updated"] is True
-
 
 ###############################################################################
 @pytest.mark.parametrize("backend", [ExecutionBackend.TENSORFLOW, ExecutionBackend.JAX])

@@ -26,7 +26,6 @@ from domain.runtime import (
 )
 from services.runtime_controller import RuntimeController, RuntimeControllerError
 
-
 ###############################################################################
 def status(*devices: RuntimeDevice) -> ExecutionBackendStatus:
     return ExecutionBackendStatus(

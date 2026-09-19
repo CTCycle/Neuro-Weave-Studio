@@ -9,7 +9,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.keras_exporter import KerasSourceExporter
 from exporters.node_emitters import registry_for_backend
 
-
 ###############################################################################
 def test_catalog_contract_is_unique_and_round_trips() -> None:
     catalog = get_node_catalog()
@@ -24,6 +23,7 @@ def test_catalog_contract_is_unique_and_round_trips() -> None:
         assert manifest.__class__.model_validate(manifest.model_dump()) == manifest
 
 
+###############################################################################
 def test_declarative_parameter_groups_expand_and_reject_group_collisions() -> None:
     catalog = get_node_catalog()
     dense = catalog.get("layer.dense")
@@ -44,7 +44,6 @@ def test_declarative_parameter_groups_expand_and_reject_group_collisions() -> No
             },
         )
 
-
 ###############################################################################
 def test_supported_keras_mappings_are_explicit_and_non_legacy() -> None:
     catalog = get_node_catalog()
@@ -55,7 +54,6 @@ def test_supported_keras_mappings_are_explicit_and_non_legacy() -> None:
             continue
         assert mapping.symbol or mapping.adapter
         assert "legacy" not in (mapping.adapter or "").lower()
-
 
 ###############################################################################
 def test_keras_layer_surface_matches_current_constructor_contract() -> None:
@@ -161,7 +159,6 @@ def test_keras_layer_surface_matches_current_constructor_contract() -> None:
     )
     assert padding.default == "valid"
 
-
 ###############################################################################
 def test_every_supported_keras_node_has_a_source_adapter() -> None:
     catalog = get_node_catalog()
@@ -221,7 +218,6 @@ def test_every_supported_keras_node_has_a_source_adapter() -> None:
         )
         source = exporter.generate(graph, ir, catalog)
         assert "No Keras adapter registered" not in source
-
 
 ###############################################################################
 def test_native_shape_layer_mappings_are_declarative() -> None:

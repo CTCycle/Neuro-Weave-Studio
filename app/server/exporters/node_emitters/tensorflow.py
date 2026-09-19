@@ -8,21 +8,25 @@ from .contracts import (
 )
 
 
+###############################################################################
 def _simple(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()), "")
     return EmissionResult(output_expressions=emit_multi_output_assignment(source, context.materialized_output_ports))
 
 
+###############################################################################
 def _constant(context: NodeEmitterContext) -> EmissionResult:
     parameters = context.normalized_parameters
     expression = f"tf.broadcast_to(tf.cast(tf.convert_to_tensor({parameters.get('value', 0)!r}), {parameters.get('dtype', 'float32')!r}), {parameters.get('shape', [1])!r})"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
 
+###############################################################################
 def _parameter(context: NodeEmitterContext) -> EmissionResult:
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: f"self.{context.canonical_ir_node.variable_name}"})
 
 
+###############################################################################
 def _index(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     value = context.normalized_parameters.get("expression", ":")
@@ -30,11 +34,13 @@ def _index(context: NodeEmitterContext) -> EmissionResult:
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression.replace("x", source, 1)})
 
 
+###############################################################################
 def _average(context: NodeEmitterContext) -> EmissionResult:
     inputs = list(context.input_expressions_by_target_port.values())
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: f"tf.add_n([{', '.join(inputs)}]) / {len(inputs)}"})
 
 
+###############################################################################
 def _split(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     parameters = context.normalized_parameters
@@ -42,11 +48,13 @@ def _split(context: NodeEmitterContext) -> EmissionResult:
     return EmissionResult(output_expressions=emit_multi_output_assignment(expression, context.materialized_output_ports))
 
 
+###############################################################################
 def _detection(context: NodeEmitterContext) -> EmissionResult:
     expression = "(" + ", ".join(context.input_expressions_by_target_port.values()) + ")"
     return EmissionResult(output_expressions=emit_multi_output_assignment(expression, context.materialized_output_ports))
 
 
+###############################################################################
 def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     target_shape = [int(value) for value in context.normalized_parameters.get("target_shape", [-1])]
@@ -54,6 +62,7 @@ def _reshape(context: NodeEmitterContext) -> EmissionResult:
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
 
+###############################################################################
 def _permute(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     axes = [int(value) for value in context.normalized_parameters.get("axes", [2, 1])]
@@ -61,6 +70,7 @@ def _permute(context: NodeEmitterContext) -> EmissionResult:
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
 
+###############################################################################
 def _repeat(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     parameters = context.normalized_parameters
@@ -74,6 +84,7 @@ def _repeat(context: NodeEmitterContext) -> EmissionResult:
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
 
+###############################################################################
 def build_registry() -> NodeEmitterRegistry:
     registry = NodeEmitterRegistry("tensorflow")
     for adapter, emitter in {

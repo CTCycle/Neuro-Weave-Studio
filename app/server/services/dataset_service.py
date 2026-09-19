@@ -44,7 +44,6 @@ from repositories.contracts import UnitOfWorkFactory
 from repositories.datasets import DatasetRecord
 from services.dataset_inspection_service import DatasetInspectionError, DatasetInspectionService
 
-
 ###############################################################################
 class DatasetDefinitionInvalidError(ValueError):
 
@@ -52,7 +51,6 @@ class DatasetDefinitionInvalidError(ValueError):
     def __init__(self, result: DatasetValidationResult) -> None:
         self.result = result
         super().__init__("Dataset definition is invalid")
-
 
 ###############################################################################
 class DatasetService:

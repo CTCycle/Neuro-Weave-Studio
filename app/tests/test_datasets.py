@@ -13,17 +13,22 @@ from fastapi.testclient import TestClient
 from app import create_app
 
 
+###############################################################################
 class _PyArrowModule(Protocol):
+
+    # -------------------------------------------------------------------------
     def table(self, data: object) -> object: ...
 
 
+###############################################################################
 class _ParquetModule(Protocol):
+
+    # -------------------------------------------------------------------------
     def write_table(self, table: object, where: Path) -> None: ...
 
 
 pa = cast(_PyArrowModule, import_module("pyarrow"))
 parquet = cast(_ParquetModule, import_module("pyarrow.parquet"))
-
 
 ###############################################################################
 def _table_source(path: Path, source_id: str = "table") -> dict[str, object]:
@@ -35,7 +40,6 @@ def _table_source(path: Path, source_id: str = "table") -> dict[str, object]:
         "has_header": True,
         "delimiter": ",",
     }
-
 
 ###############################################################################
 def _tabular_payload(path: Path, *, subset: dict[str, object] | None = None) -> dict[str, object]:
@@ -56,7 +60,6 @@ def _tabular_payload(path: Path, *, subset: dict[str, object] | None = None) -> 
         "sequence_definition": None,
         "subset_definition": subset or {"type": "all"},
     }
-
 
 ###############################################################################
 def test_tabular_registration_persists_metadata_only_and_lists_summary(
@@ -90,7 +93,6 @@ def test_tabular_registration_persists_metadata_only_and_lists_summary(
     assert "positive" not in serialized
     assert "negative" not in serialized
 
-
 ###############################################################################
 def test_validate_rejects_missing_columns_and_create_returns_structured_findings(
     client: TestClient, tmp_path: Path
@@ -115,7 +117,6 @@ def test_validate_rejects_missing_columns_and_create_returns_structured_findings
     registration_validation = detail["validation"]
     validation_payload["validation"]["checked_at"] = registration_validation["validation"]["checked_at"]
     assert registration_validation == validation_payload
-
 
 ###############################################################################
 def test_invalid_update_returns_complete_validation_without_mutating_registration(
@@ -145,7 +146,6 @@ def test_invalid_update_returns_complete_validation_without_mutating_registratio
     assert registration_validation == validation_payload
     assert client.get(f"/api/datasets/{dataset_id}").json()["name"] == "Patient outcomes"
 
-
 ###############################################################################
 def test_update_keeps_registered_dataset_type_immutable(client: TestClient, tmp_path: Path) -> None:
     source = tmp_path / "type-stable.csv"
@@ -165,7 +165,6 @@ def test_update_keeps_registered_dataset_type_immutable(client: TestClient, tmp_
     persisted = client.get(f"/api/datasets/{dataset_id}").json()
     assert persisted["dataset_type"] == "tabular"
     assert persisted["name"] == "Patient outcomes"
-
 
 ###############################################################################
 def test_text_folder_inspection_streams_exact_count_and_extensions(
@@ -200,7 +199,6 @@ def test_text_folder_inspection_streams_exact_count_and_extensions(
     assert inspection["sample_count"] == 3
     assert inspection["sources"][0]["sample_count"] == 3
     assert inspection["sources"][0]["extensions"] == [".jsonl", ".md", ".txt"]
-
 
 ###############################################################################
 def test_text_file_registration_and_text_table_composed_mapping(
@@ -279,7 +277,6 @@ def test_text_file_registration_and_text_table_composed_mapping(
     assert composed_created.status_code == 201
     assert composed_created.json()["sample_count"] == 2
 
-
 ###############################################################################
 def test_tsv_time_series_registration_preserves_structural_columns(
     client: TestClient, tmp_path: Path
@@ -308,7 +305,6 @@ def test_tsv_time_series_registration_preserves_structural_columns(
     assert created.json()["sample_count"] == 2
     assert created.json()["sequence_definition"] == payload["sequence_definition"]
 
-
 ###############################################################################
 def test_source_extension_mismatch_is_blocking(
     client: TestClient, tmp_path: Path
@@ -326,7 +322,6 @@ def test_source_extension_mismatch_is_blocking(
         item["code"] == "source_inspection_failed"
         for item in validation.json()["validation"]["errors"]
     )
-
 
 ###############################################################################
 def test_first_n_subset_is_persisted_and_out_of_bounds_is_blocking(
@@ -347,7 +342,6 @@ def test_first_n_subset_is_persisted_and_out_of_bounds_is_blocking(
     validation = client.post("/api/datasets/validate", json=invalid)
     assert validation.json()["valid"] is False
     assert any(item["code"] == "subset_out_of_bounds" for item in validation.json()["validation"]["errors"])
-
 
 ###############################################################################
 def test_image_folder_and_label_table_require_exact_mapping(
@@ -405,7 +399,6 @@ def test_image_folder_and_label_table_require_exact_mapping(
     assert any(item["code"] == "files_without_rows" for item in invalid.json()["validation"]["errors"])
     assert any(item["code"] == "rows_without_files" for item in invalid.json()["validation"]["errors"])
 
-
 ###############################################################################
 def test_array_sources_validate_leading_sample_dimensions(
     client: TestClient, tmp_path: Path
@@ -438,7 +431,6 @@ def test_array_sources_validate_leading_sample_dimensions(
     assert created.json()["sample_count"] == 4
     assert created.json()["inspection"]["sources"][0]["arrays"][0]["shape"] == [4, 3]
 
-
 ###############################################################################
 def test_npz_inspection_exposes_keys_without_persisting_array_values(
     client: TestClient, tmp_path: Path
@@ -465,7 +457,6 @@ def test_npz_inspection_exposes_keys_without_persisting_array_values(
         {"key": "targets", "shape": [3], "dtype": "int64"},
     ]
 
-
 ###############################################################################
 def test_parquet_inspection_uses_schema_metadata_and_supports_input_only(
     client: TestClient, tmp_path: Path
@@ -485,7 +476,6 @@ def test_parquet_inspection_uses_schema_metadata_and_supports_input_only(
     assert created.json()["selected_sample_count"] == 2
     assert created.json()["output_definition"]["bindings"] == []
 
-
 ###############################################################################
 def test_delimited_inspection_rejects_duplicate_headers_and_malformed_rows(
     client: TestClient, tmp_path: Path
@@ -503,7 +493,6 @@ def test_delimited_inspection_rejects_duplicate_headers_and_malformed_rows(
     assert malformed_response.status_code == 422
     assert "column counts" in malformed_response.json()["detail"]["message"]
 
-
 ###############################################################################
 def test_range_subset_is_zero_based_and_inclusive(
     client: TestClient, tmp_path: Path
@@ -515,7 +504,6 @@ def test_range_subset_is_zero_based_and_inclusive(
 
     assert created.status_code == 201
     assert created.json()["selected_sample_count"] == 2
-
 
 ###############################################################################
 def test_missing_source_remains_registered_and_delete_does_not_remove_source(
@@ -538,7 +526,6 @@ def test_missing_source_remains_registered_and_delete_does_not_remove_source(
     assert deleted.status_code == 204
     assert client.get(f"/api/datasets/{dataset_id}").status_code == 404
 
-
 ###############################################################################
 def test_delete_registration_leaves_external_source_untouched(
     client: TestClient, tmp_path: Path
@@ -553,7 +540,6 @@ def test_delete_registration_leaves_external_source_untouched(
     assert created.status_code == 201
     assert client.delete(f"/api/datasets/{created.json()['id']}").status_code == 204
     assert source.read_text(encoding="utf-8") == "feature,target\n1,yes\n"
-
 
 ###############################################################################
 def test_update_relink_refreshes_definition_and_inspection_snapshot(
@@ -573,7 +559,6 @@ def test_update_relink_refreshes_definition_and_inspection_snapshot(
     assert updated.json()["name"] == "Relinked outcomes"
     assert updated.json()["sources"][0]["path"] == str(second.resolve())
     assert updated.json()["sample_count"] == 2
-
 
 ###############################################################################
 def test_dataset_registration_survives_application_restart(
@@ -596,7 +581,6 @@ def test_dataset_registration_survives_application_restart(
         listed = second.get("/api/datasets")
         assert listed.status_code == 200
         assert listed.json()["datasets"][0]["name"] == "Patient outcomes"
-
 
 ###############################################################################
 def test_split_definition_is_typed_persisted_and_validated(
@@ -631,7 +615,6 @@ def test_split_definition_is_typed_persisted_and_validated(
     assert invalid.json()["valid"] is False
     assert any(item["code"] == "split_fractions_not_one" for item in invalid.json()["validation"]["errors"])
 
-
 ###############################################################################
 def test_revalidation_persists_invalid_schema_and_recovers(
     client: TestClient, tmp_path: Path
@@ -657,7 +640,6 @@ def test_revalidation_persists_invalid_schema_and_recovers(
     assert repaired.json()["sample_count"] == 3
     assert repaired.json()["selected_sample_count"] == 3
 
-
 ###############################################################################
 def test_revalidation_preserves_previous_inspection_when_source_is_unavailable(
     client: TestClient, tmp_path: Path
@@ -677,7 +659,6 @@ def test_revalidation_preserves_previous_inspection_when_source_is_unavailable(
     assert document["validation"]["status"] == "invalid"
     assert document["inspection"]["sample_count"] == 2
     assert document["sample_count"] == 2
-
 
 ###############################################################################
 def test_legacy_definition_without_split_definition_remains_loadable(
