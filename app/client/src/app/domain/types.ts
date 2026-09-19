@@ -48,6 +48,7 @@ export type ParameterType =
 
 export interface ParameterValueSchema {
   type: ParameterType
+  nullable?: boolean
   item?: ParameterValueSchema | null
   properties?: Record<string, ParameterValueSchema>
   required_properties?: string[]

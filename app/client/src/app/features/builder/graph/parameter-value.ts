@@ -1,7 +1,7 @@
-import type { ParameterCapability, ParameterDefinition } from '../../../domain/types'
+import { parameterValueMatchesDefinition, type ParameterCapability, type ParameterDefinition } from '../../../domain/types'
 import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
 
-export type ParameterDraftValue = string | boolean | number | null
+export type ParameterDraftValue = string | boolean | number | null | unknown[] | Record<string, unknown>
 
 const finiteParameterTypes = new Set<ParameterDefinition['type']>([
   'boolean',
@@ -37,6 +37,9 @@ export function parseParameterValue(
   raw: ParameterDraftValue,
   capability?: ParameterCapability,
 ): ParsedParameterValue {
+  if (Array.isArray(raw) || (typeof raw === 'object' && raw !== null)) {
+    return { valid: parameterValueMatchesDefinition(definition, raw, capability), value: raw }
+  }
   if (definition.type === 'boolean') {
     if (raw === null || raw === '') {
       if (definition.nullable) return { valid: capabilityAllowsValue(capability, null), value: null }
