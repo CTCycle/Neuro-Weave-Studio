@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from itertools import pairwise
+from math import isfinite
 from typing import Any, cast
 
 import pytest
@@ -513,3 +514,51 @@ def test_native_loss_helpers_cover_remaining_catalog_variants(
         checkpoint=lambda: None,
     )
     assert result["compilation"]["losses"]["output"]["id"] == loss_id
+
+
+###############################################################################
+@pytest.mark.parametrize(
+    ("workflow", "metric_id", "parameters"),
+    [
+        ("multiclass_classification", "top_k_categorical_accuracy", {"k": 2}),
+        ("multiclass_classification", "sparse_top_k_categorical_accuracy", {"k": 2}),
+        ("binary_classification", "true_positives", {"threshold": 0.4}),
+        ("binary_classification", "true_negatives", {"threshold": 0.4}),
+        ("binary_classification", "false_positives", {"threshold": 0.4}),
+        ("binary_classification", "false_negatives", {"threshold": 0.4}),
+        ("dense_regression", "mean_absolute_percentage_error", {}),
+        ("dense_regression", "mean_squared_logarithmic_error", {}),
+        ("dense_regression", "cosine_similarity", {"axis": -1}),
+        ("dense_regression", "log_cosh_error", {}),
+    ],
+)
+def test_native_metric_helpers_cover_remaining_catalog_variants(
+    workflow: str, metric_id: str, parameters: dict[str, Any]
+) -> None:
+    graph, _, _ = _workflow_graphs()[workflow]
+    graph = graph.model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    pytorch=PyTorchNativeConfiguration(
+                        metrics={
+                            "__default__": [
+                                {"id": metric_id, "parameters": parameters}
+                            ]
+                        }
+                    )
+                )
+            )
+        }
+    )
+    result = run_native_smoke(
+        graph,
+        backend=ExecutionBackend.PYTORCH,
+        capabilities={"accelerator": "cpu", "device_name": "CPU"},
+        scope=nullcontext(),
+        synchronize=lambda values: None,
+        checkpoint=lambda: None,
+    )
+    value = result["compilation"]["metrics"]["output"][metric_id]
+    assert isinstance(value, float)
+    assert isfinite(value)

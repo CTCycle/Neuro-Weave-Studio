@@ -77,9 +77,14 @@ def _configuration_references(configuration: object, metric_id: str) -> bool:
             if not isinstance(item, dict):
                 continue
             item_map = cast(dict[str, Any], item)
-            for key in ("losses", "metrics"):
-                if _contains_metric_id(item_map.get(key), metric_id):
-                    return True
+            candidates = [item_map]
+            compilation = item_map.get("compilation")
+            if isinstance(compilation, dict):
+                candidates.append(cast(dict[str, Any], compilation))
+            for candidate in candidates:
+                for key in ("losses", "metrics"):
+                    if _contains_metric_id(candidate.get(key), metric_id):
+                        return True
     return False
 
 
