@@ -1455,40 +1455,15 @@ class PyTorchSourceExporter(SourceExporter):
             parameter.id: optimizer_value.parameters.get(parameter.id, parameter.default)
             for parameter in optimizer_option.parameters
         }
-        optimizer_kwargs = [
-            f"        lr={optimizer_parameters['learning_rate']!r},",
-        ]
-        if optimizer_value.id == "adam":
-            optimizer_kwargs.extend(
-                [
-                    f"        betas=({optimizer_parameters['beta_1']!r}, {optimizer_parameters['beta_2']!r}),",
-                    f"        eps={optimizer_parameters['epsilon']!r},",
-                ]
-            )
-        elif optimizer_value.id == "adamw":
-            optimizer_kwargs.extend(
-                [
-                    f"        betas=({optimizer_parameters['beta_1']!r}, {optimizer_parameters['beta_2']!r}),",
-                    f"        eps={optimizer_parameters['epsilon']!r},",
-                    f"        weight_decay={optimizer_parameters['weight_decay']!r},",
-                ]
-            )
-        elif optimizer_value.id == "sgd":
-            optimizer_kwargs.extend(
-                [
-                    f"        momentum={optimizer_parameters['momentum']!r},",
-                    f"        nesterov={optimizer_parameters['nesterov']!r},",
-                ]
-            )
-        elif optimizer_value.id == "rmsprop":
-            optimizer_kwargs.extend(
-                [
-                    f"        alpha={optimizer_parameters['rho']!r},",
-                    f"        momentum={optimizer_parameters['momentum']!r},",
-                    f"        eps={optimizer_parameters['epsilon']!r},",
-                    f"        centered={optimizer_parameters['centered']!r},",
-                ]
-            )
+        parameter_mapping = optimizer_option.implementations["pytorch"].parameter_mapping
+        mapped_parameters: dict[str, list[Any]] = {}
+        for parameter in optimizer_option.parameters:
+            target = parameter_mapping.get(parameter.id, parameter.id)
+            mapped_parameters.setdefault(target, []).append(optimizer_parameters[parameter.id])
+        optimizer_kwargs = []
+        for target, values in mapped_parameters.items():
+            value: Any = values[0] if len(values) == 1 else tuple(values)
+            optimizer_kwargs.append(f"        {target}={value!r},")
 
         custom_loss_lines: list[str] = []
         custom_metric_lines: list[str] = []
