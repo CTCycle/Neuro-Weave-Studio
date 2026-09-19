@@ -1302,16 +1302,27 @@ class NativeJaxSourceExporter(SourceExporter):
             for key, value in optimizer_value.parameters.items()
             if key in accepted_parameters
         }
+        weight_decay_supported = "weight_decay" in optimizer_implementation.parameter_mapping
+        weight_decay_value = optimizer_parameters.get("weight_decay")
         optimizer_arguments = ", ".join(
             f"{optimizer_implementation.parameter_mapping.get(key, key)}={value!r}"
             for key, value in optimizer_parameters.items()
+            if key != "weight_decay" or weight_decay_supported
         )
         lines.extend(
             [
                 "",
                 "",
                 "def build_optimizer():",
-                f"    return optax.{optimizer_implementation.adapter}({optimizer_arguments})",
+                f"    optimizer_runtime = optax.{optimizer_implementation.adapter}({optimizer_arguments})",
+                *(
+                    [
+                        f"    optimizer_runtime = optax.chain(optax.add_decayed_weights({weight_decay_value!r}), optimizer_runtime)"
+                    ]
+                    if weight_decay_value is not None and not weight_decay_supported
+                    else []
+                ),
+                "    return optimizer_runtime",
                 "",
                 "",
                 "def configured_compilation() -> dict[str, object]:",
