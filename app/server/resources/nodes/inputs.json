@@ -522,7 +522,7 @@
           "options": [],
           "constraints": {"finite": true},
           "nullable": false,
-          "value_schema": {"type": "number", "nullable": false}
+          "value_schema": {"type": "number", "nullable": false, "recursive": true}
         },
         {
           "id": "dtype",

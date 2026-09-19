@@ -63,6 +63,7 @@ export class ParameterEditorComponent {
   isStructured(): boolean {
     const definition = this.definition()
     return definition.type === 'shape' || definition.type === 'list' || definition.type === 'tuple' || definition.type === 'object'
+      || definition.value_schema?.recursive === true
       || ((definition.type === 'initializer' || definition.type === 'regularizer' || definition.type === 'constraint') && typeof this.currentValue() === 'object' && this.currentValue() !== null)
   }
   isMultiline(): boolean { return this.definition().type === 'expression' }

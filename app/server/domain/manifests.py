@@ -116,6 +116,7 @@ class ParameterValueSchema(BaseModel):
     properties: dict[str, ParameterValueSchema] = Field(default_factory=dict)
     required_properties: list[str] = Field(default_factory=list)
     nullable: bool = False
+    recursive: bool = False
 
 ###############################################################################
 class ParameterDefinition(BaseModel):

@@ -39,6 +39,7 @@ from validation.output_resolution import (
     resolved_outputs,
 )
 from validation.output_resolution import input_nodes as catalog_input_nodes
+from validation.output_resolution import source_nodes as catalog_source_nodes
 from validation.profile_compatibility import resolve_implementation_compatibility
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
@@ -81,6 +82,10 @@ def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
 
 ###############################################################################
 def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
+    if value is None:
+        return schema.nullable
+    if schema.recursive and isinstance(value, list):
+        return all(_value_matches_schema(schema, item) for item in value)
     if schema.type == "object":
         if not isinstance(value, dict):
             return False
@@ -1156,28 +1161,33 @@ class ValidationService:
                     details={"labels": duplicate_output_names},
                 )
             )
-        if not catalog_input_nodes(graph, self._catalog):
+        source_nodes = catalog_source_nodes(graph, self._catalog)
+        if not source_nodes:
             diagnostics.append(
                 ValidationDiagnostic(
                     code="missing_model_input",
                     severity=DiagnosticSeverity.ERROR,
-                    message="The model graph requires at least one input node",
+                    message="The model graph requires at least one source node",
                 )
             )
 
         input_nodes = catalog_input_nodes(graph, self._catalog)
         input_ids = {node.id for node in input_nodes}
+        source_ids = {node.id for node in source_nodes}
         output_ids = {item.node_id for item in effective_outputs}
-        input_reachable = reachable_nodes(graph, input_ids)
+        input_reachable = reachable_nodes(graph, source_ids)
         output_reachable = nodes_reaching(graph, output_ids)
         active_node_ids = input_reachable & output_reachable
-        if input_ids and output_ids:
+        if source_ids and output_ids:
             for node in graph.nodes:
                 if node.id in active_node_ids:
                     continue
                 if node.id in input_ids:
                     code = "unreachable_model_input"
                     message = "Model input does not contribute to any model output"
+                elif node.id in source_ids:
+                    code = "unreachable_source_node"
+                    message = "Source node does not contribute to any model output"
                 elif node.id in output_ids:
                     code = "unreachable_model_output"
                     message = "Model output cannot be reached from a model input"
