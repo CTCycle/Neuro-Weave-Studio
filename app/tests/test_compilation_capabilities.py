@@ -211,6 +211,137 @@ def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
     assert bool(tensorflow.math.is_finite(parameter))
 
 
+@pytest.mark.parametrize(
+    ("optimizer_id", "parameters"),
+    [
+        (
+            "adam",
+            {
+                "learning_rate": 0.007,
+                "weight_decay": 0.021,
+                "beta_1": 0.81,
+                "beta_2": 0.97,
+                "epsilon": 1e-6,
+            },
+        ),
+        (
+            "adamw",
+            {
+                "learning_rate": 0.007,
+                "weight_decay": 0.021,
+                "beta_1": 0.81,
+                "beta_2": 0.97,
+                "epsilon": 1e-6,
+            },
+        ),
+        (
+            "sgd",
+            {
+                "learning_rate": 0.007,
+                "momentum": 0.2,
+                "nesterov": True,
+                "weight_decay": 0.03,
+            },
+        ),
+        (
+            "rmsprop",
+            {
+                "learning_rate": 0.007,
+                "rho": 0.8,
+                "momentum": 0.1,
+                "epsilon": 1e-6,
+                "centered": True,
+                "weight_decay": 0.03,
+            },
+        ),
+        (
+            "adagrad",
+            {
+                "learning_rate": 0.007,
+                "initial_accumulator_value": 0.2,
+                "epsilon": 1e-6,
+                "weight_decay": 0.03,
+            },
+        ),
+        (
+            "adadelta",
+            {
+                "learning_rate": 0.007,
+                "rho": 0.8,
+                "epsilon": 1e-6,
+                "weight_decay": 0.03,
+            },
+        ),
+        (
+            "adamax",
+            {
+                "learning_rate": 0.007,
+                "beta_1": 0.81,
+                "beta_2": 0.97,
+                "epsilon": 1e-6,
+                "weight_decay": 0.03,
+            },
+        ),
+        (
+            "nadam",
+            {
+                "learning_rate": 0.007,
+                "beta_1": 0.81,
+                "beta_2": 0.97,
+                "epsilon": 1e-6,
+                "weight_decay": 0.03,
+            },
+        ),
+    ],
+)
+def test_native_tensorflow_optimizer_catalog_variants_update(
+    optimizer_id: str,
+    parameters: dict[str, object],
+) -> None:
+    tensorflow = pytest.importorskip("tensorflow")
+    graph = _native_graph().model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    tensorflow=TensorFlowNativeConfiguration(
+                        compilation={
+                            "optimizer": {
+                                "id": optimizer_id,
+                                "parameters": parameters,
+                            }
+                        },
+                        compiler={
+                            "id": "tensorflow_function",
+                            "parameters": {"jit_compile": False},
+                        },
+                    )
+                )
+            )
+        }
+    )
+
+    handle = build_native_model(graph, ExecutionBackend.TENSORFLOW, zero_parameters=True)
+
+    assert handle.compilation is not None
+    optimizer = handle.compilation["optimizer_runtime"]
+    configuration = optimizer.get_config()
+    assert optimizer.__class__.__name__.lower() == optimizer_id.replace("_", "")
+    assert configuration["learning_rate"] == pytest.approx(0.007)
+    for parameter_id in ("weight_decay", "beta_1", "beta_2", "epsilon", "rho", "momentum"):
+        if parameter_id in parameters:
+            assert configuration[parameter_id] == pytest.approx(parameters[parameter_id])
+    for parameter_id in ("nesterov", "centered"):
+        if parameter_id in parameters:
+            assert configuration[parameter_id] is parameters[parameter_id]
+    parameter = tensorflow.Variable(1.0)
+    with tensorflow.GradientTape() as tape:
+        loss = parameter * parameter
+    gradient = tape.gradient(loss, parameter)
+    optimizer.apply_gradients([(gradient, parameter)])
+    assert float(parameter.numpy()) != pytest.approx(1.0)
+    assert bool(tensorflow.math.is_finite(parameter))
+
+
 ###############################################################################
 def test_native_tensorflow_compilation_builds_raw_loss_and_metric_functions() -> None:
     tensorflow = pytest.importorskip("tensorflow")
@@ -317,7 +448,12 @@ def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
     [
         (
             "sgd",
-            {"learning_rate": 0.007, "momentum": 0.2, "nesterov": True},
+            {
+                "learning_rate": 0.007,
+                "momentum": 0.2,
+                "nesterov": True,
+                "weight_decay": 0.03,
+            },
         ),
         (
             "rmsprop",
@@ -327,6 +463,7 @@ def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
                 "momentum": 0.1,
                 "epsilon": 1e-6,
                 "centered": True,
+                "weight_decay": 0.03,
             },
         ),
         (

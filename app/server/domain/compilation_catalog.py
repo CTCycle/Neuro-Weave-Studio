@@ -297,6 +297,7 @@ def _build_compilation_catalog() -> CompilationCatalog:
                         "Step size for each update.",
                         minimum=0.0,
                     ),
+                    _number("weight_decay", "Weight decay", 0.0, "L2 weight decay coefficient.", minimum=0.0),
                     _number(
                         "beta_1",
                         "Beta 1",
@@ -317,6 +318,7 @@ def _build_compilation_catalog() -> CompilationCatalog:
                 ],
                 pytorch_parameter_mapping={
                     "learning_rate": "lr",
+                    "weight_decay": "weight_decay",
                     "beta_1": "betas",
                     "beta_2": "betas",
                     "epsilon": "eps",
@@ -403,8 +405,12 @@ def _build_compilation_catalog() -> CompilationCatalog:
                         maximum=1.0,
                     ),
                     _boolean("nesterov", "Nesterov", False, "Use Nesterov momentum."),
+                    _number("weight_decay", "Weight decay", 0.0, "L2 weight decay coefficient.", minimum=0.0),
                 ],
-                pytorch_parameter_mapping={"learning_rate": "lr"},
+                pytorch_parameter_mapping={
+                    "learning_rate": "lr",
+                    "weight_decay": "weight_decay",
+                },
                 jax_adapter="sgd",
                 jax_parameter_mapping={
                     "learning_rate": "learning_rate",
@@ -447,11 +453,13 @@ def _build_compilation_catalog() -> CompilationCatalog:
                         False,
                         "Normalize gradients using their centered variance.",
                     ),
+                    _number("weight_decay", "Weight decay", 0.0, "L2 weight decay coefficient.", minimum=0.0),
                 ],
                 pytorch_parameter_mapping={
                     "learning_rate": "lr",
                     "rho": "alpha",
                     "epsilon": "eps",
+                    "weight_decay": "weight_decay",
                 },
                 jax_adapter="rmsprop",
                 jax_parameter_mapping={

@@ -76,15 +76,21 @@ def normalize_compilation_plan(value: Any) -> CompilationPlan:
         optimizer = optimizer.model_copy(update={"parameters": optimizer_parameters})
     if not optimizer.parameters:
         default_parameters = {
-            "adam": {"learning_rate": 0.001},
+            "adam": {"learning_rate": 0.001, "weight_decay": 0.0},
             "adamw": {"learning_rate": 0.001, "weight_decay": 0.004},
-            "sgd": {"learning_rate": 0.01, "momentum": 0.0, "nesterov": False},
+            "sgd": {
+                "learning_rate": 0.01,
+                "momentum": 0.0,
+                "nesterov": False,
+                "weight_decay": 0.0,
+            },
             "rmsprop": {
                 "learning_rate": 0.001,
                 "rho": 0.9,
                 "momentum": 0.0,
                 "epsilon": 1e-7,
                 "centered": False,
+                "weight_decay": 0.0,
             },
             "adagrad": {
                 "learning_rate": 0.001,
