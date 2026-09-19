@@ -310,6 +310,59 @@ def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
     assert float(updated) != pytest.approx(1.0)
     assert bool(jax.numpy.isfinite(updated))
 
+
+###############################################################################
+def test_native_jax_compilation_builds_raw_loss_and_metric_functions() -> None:
+    jax = pytest.importorskip("jax")
+    graph = _native_graph().model_copy(
+        update={
+            "model_configuration": ModelConfiguration(
+                native=NativeCompilationConfiguration(
+                    jax=JaxNativeConfiguration(
+                        compilation={
+                            "optimizer": {"id": "adam", "parameters": {"learning_rate": 0.002}},
+                            "losses": {
+                                "__default__": {
+                                    "id": "huber",
+                                    "parameters": {"delta": 0.7},
+                                }
+                            },
+                            "metrics": {
+                                "__default__": [
+                                    {
+                                        "id": "precision",
+                                        "parameters": {
+                                            "threshold": 0.35,
+                                            "top_k": None,
+                                            "class_id": None,
+                                        },
+                                    },
+                                    {"id": "prediction_mean", "parameters": {}},
+                                ]
+                            },
+                        },
+                        compiler={"id": "jax_jit", "parameters": {"enabled": False}},
+                    )
+                )
+            )
+        }
+    )
+
+    handle = build_native_model(graph, ExecutionBackend.JAX, zero_parameters=True)
+
+    assert handle.compilation is not None
+    prediction = handle.outputs[0]
+    target = jax.numpy.zeros_like(prediction)
+    loss_value = handle.compilation["loss_functions"]["output"](prediction, target)
+    metric_values = {
+        metric_id: function(prediction, target)
+        for metric_id, function in handle.compilation["metric_functions"]["output"].items()
+    }
+    assert float(loss_value) >= 0.0
+    assert all(bool(jax.numpy.isfinite(value)) for value in metric_values.values())
+    assert handle.compilation["losses"]["output"]["parameters"]["delta"] == pytest.approx(0.7)
+    assert handle.compilation["metrics"]["output"][0]["id"] == "precision"
+
 ###############################################################################
 def test_compilation_rejects_a_native_parameter_without_falling_back_to_keras() -> None:
     graph = _native_graph().model_copy(deep=True)
