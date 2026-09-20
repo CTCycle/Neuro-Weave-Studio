@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import pytest
+
 from common.catalogs.loader import get_node_catalog
-from exporters.node_emitters import registry_for_backend
+from exporters.node_emitters import build_catalog_adapter_audit, registry_for_backend
 from exporters.node_emitters.contracts import EmissionResult, NodeEmitterRegistry
 
 MANAGED_ADAPTERS = {"constant", "parameter", "average", "split", "detection"}
@@ -52,3 +53,30 @@ def test_registry_reports_ignored_editable_parameters() -> None:
 
     with pytest.raises(ValueError, match="ignores editable parameters"):
         registry.validate_catalog(get_node_catalog(), adapter_ids={"constant"})
+
+
+def test_catalog_adapter_audit_keeps_mapping_counts_separate_from_execution_proof() -> None:
+    report = build_catalog_adapter_audit(
+        get_node_catalog(),
+        {
+            backend: registry_for_backend(backend)
+            for backend in ("keras", "tensorflow", "pytorch", "jax")
+        },
+    )
+
+    assert report["evidence_basis"] == "declarative_catalog_and_registered_emitters_only"
+    assert report["execution_proof"] is False
+    assert report["active_manifest_count"] == 149
+    for backend in ("keras", "tensorflow", "pytorch", "jax"):
+        backend_report = report["backends"][backend]
+        assert backend_report["active_manifests"] == 149
+        assert backend_report["catalog_mapping_counts"] == {
+            "verified": 149,
+            "unsupported": 0,
+            "unverified": 0,
+            "missing": 0,
+        }
+
+    native_unresolved = report["backends"]["tensorflow"]["unresolved_adapters"]
+    assert {item["adapter"] for item in native_unresolved} >= {"conv1d", "conv2d"}
+    assert report["native_to_keras_fallbacks"] == []
