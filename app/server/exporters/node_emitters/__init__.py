@@ -12,6 +12,7 @@ from .contracts import (
     layout_permutation,
     render_structured_value,
     safe_identifier,
+    safe_index_expression,
 )
 from .jax import build_registry as build_jax_registry
 from .keras import build_registry as build_keras_registry
@@ -51,5 +52,6 @@ __all__ = [
     "registry_for_backend",
     "render_structured_value",
     "safe_identifier",
+    "safe_index_expression",
     "validate_emitter_coverage",
 ]

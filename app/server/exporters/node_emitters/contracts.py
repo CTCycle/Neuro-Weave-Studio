@@ -215,6 +215,16 @@ def render_structured_value(value: Any) -> str:
     return repr(value)
 
 
+def safe_index_expression(value: Any) -> str:
+    """Normalize and validate an index expression before source emission."""
+
+    from validation.safe_expression import normalize_index_expression, validate_safe_expression
+
+    expression = normalize_index_expression(value if isinstance(value, str) else ":")
+    validate_safe_expression(expression)
+    return expression
+
+
 ###############################################################################
 def layout_permutation(rank: int, *, to_channels_first: bool) -> tuple[int, ...]:
     if rank < 3:
