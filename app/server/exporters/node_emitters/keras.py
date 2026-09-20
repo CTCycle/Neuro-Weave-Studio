@@ -163,6 +163,17 @@ def _repeat(context: NodeEmitterContext) -> EmissionResult:
 ###############################################################################
 def build_registry() -> NodeEmitterRegistry:
     registry = NodeEmitterRegistry("keras")
+    authoritative_adapters = {
+        "constant",
+        "parameter",
+        "index",
+        "average",
+        "split",
+        "detection",
+        "keras_reshape",
+        "keras_permute",
+        "keras_repeat",
+    }
     runtime_emitters = {
         "constant": _runtime_constant,
         "parameter": _runtime_parameter,
@@ -204,7 +215,12 @@ def build_registry() -> NodeEmitterRegistry:
         "keras_transposed": _identity,
         "safe_expression": _identity,
     }.items():
-        registry.register(adapter, emitter, runtime=runtime_emitters.get(adapter))
+        registry.register(
+            adapter,
+            emitter,
+            runtime=runtime_emitters.get(adapter),
+            authoritative=adapter in authoritative_adapters,
+        )
     registry.declare_parameter_ids("constant", {"shape", "value", "dtype"})
     registry.declare_parameter_ids(
         "parameter", {"shape", "initializer", "dtype", "trainable"}

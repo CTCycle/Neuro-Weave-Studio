@@ -542,18 +542,9 @@ class NativeJaxSourceExporter(SourceExporter):
             source_spec = summaries.get(item.input_node_ids[0]) if item.input_node_ids else None
             manifest = catalog.get(definition, node.definition_version)
             mapping = manifest.implementations.get("jax")
-            registry_managed = {
-                "input.constant",
-                "input.parameter",
-                "merge.average",
-                "merge.split",
-                "output.detection",
-            }
             if (
-                definition in registry_managed
-                and mapping is not None
-                and mapping.adapter is not None
-                and emitter_registry.has(mapping.adapter)
+                mapping is not None
+                and emitter_registry.has_authoritative(mapping.adapter)
             ):
                 output_ports = [
                     port

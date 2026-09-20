@@ -111,6 +111,17 @@ def _repeat(context: NodeEmitterContext) -> EmissionResult:
 ###############################################################################
 def build_registry() -> NodeEmitterRegistry:
     registry = NodeEmitterRegistry("jax")
+    authoritative_adapters = {
+        "constant",
+        "parameter",
+        "index",
+        "average",
+        "split",
+        "detection",
+        "reshape",
+        "permute",
+        "repeat",
+    }
     for adapter, emitter in {
         "identity": _simple,
         "constant": _constant,
@@ -145,7 +156,7 @@ def build_registry() -> NodeEmitterRegistry:
         "residual": _simple,
         "safe_expression": _simple,
     }.items():
-        registry.register(adapter, emitter)
+        registry.register(adapter, emitter, authoritative=adapter in authoritative_adapters)
     registry.declare_parameter_ids("constant", {"shape", "value", "dtype"})
     registry.declare_parameter_ids(
         "parameter", {"shape", "initializer", "dtype", "trainable"}
