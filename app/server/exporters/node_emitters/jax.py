@@ -124,6 +124,52 @@ def _flatten(context: NodeEmitterContext) -> EmissionResult:
 
 
 ###############################################################################
+def _conv1d(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    name = context.canonical_ir_node.variable_name
+    data_format = str(parameters.get("data_format", "channels_last"))
+    input_name = f"{name}_input"
+    setup = [
+        f"{input_name} = {source}.transpose(0, 2, 1)"
+        if data_format == "channels_first"
+        else f"{input_name} = {source}",
+    ]
+    kernel_size = int(parameters.get("kernel_size", [3])[0])
+    stride = int(parameters.get("strides", [1])[0])
+    dilation = int(parameters.get("dilation_rate", [1])[0])
+    padding = str(parameters.get("padding", "same")).upper()
+    setup.append(
+        f"{name} = nn.Conv(features={int(parameters.get('filters', 32))}, "
+        f"kernel_size={(kernel_size,)!r}, strides={(stride,)!r}, "
+        f"kernel_dilation={(dilation,)!r}, padding={padding!r}, "
+        f"feature_group_count={int(parameters.get('groups', 1))}, "
+        f"use_bias={bool(parameters.get('use_bias', True))!r}, name={name!r})({input_name})"
+    )
+    if data_format == "channels_first":
+        setup.append(f"{name} = {name}.transpose(0, 2, 1)")
+    activation = str(parameters.get("activation", "linear"))
+    expression = name
+    if activation != "linear":
+        function = {
+            "relu": "nn.relu",
+            "gelu": "nn.gelu",
+            "sigmoid": "nn.sigmoid",
+            "tanh": "nn.tanh",
+            "softmax": "(lambda value: nn.softmax(value, axis=-1))",
+        }.get(activation)
+        if function is None:
+            raise ValueError(f"No native JAX activation adapter registered for {activation}")
+        expression = f"({function})({name})"
+    if parameters.get("dtype") is not None:
+        expression = f"jnp.asarray({expression}, dtype=jnp.dtype({parameters['dtype']!r}))"
+    return EmissionResult(
+        setup_statements=tuple(setup),
+        output_expressions={context.materialized_output_ports[0].id: expression},
+    )
+
+
+###############################################################################
 def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     target_shape = tuple(int(value) for value in context.normalized_parameters.get("target_shape", [-1]))
@@ -172,6 +218,7 @@ def build_registry() -> NodeEmitterRegistry:
         "activation",
         "dropout",
         "flatten",
+        "conv1d",
         "reshape",
         "permute",
         "repeat",
@@ -187,6 +234,7 @@ def build_registry() -> NodeEmitterRegistry:
         "activation": _activation,
         "dropout": _dropout,
         "flatten": _flatten,
+        "conv1d": _conv1d,
         "reshape": _reshape,
         "permute": _permute,
         "repeat": _repeat,
@@ -225,6 +273,21 @@ def build_registry() -> NodeEmitterRegistry:
     registry.declare_parameter_ids("activation", {"activation", "dtype"})
     registry.declare_parameter_ids("dropout", {"rate", "dtype"})
     registry.declare_parameter_ids("flatten", {"data_format", "dtype"})
+    registry.declare_parameter_ids(
+        "conv1d",
+        {
+            "dtype",
+            "strides",
+            "padding",
+            "data_format",
+            "dilation_rate",
+            "filters",
+            "kernel_size",
+            "activation",
+            "use_bias",
+            "groups",
+        },
+    )
     registry.declare_parameter_ids("reshape", {"target_shape", "dtype"})
     registry.declare_parameter_ids("permute", {"axes", "dtype"})
     registry.declare_parameter_ids("repeat", {"repeats", "axis", "dtype"})
