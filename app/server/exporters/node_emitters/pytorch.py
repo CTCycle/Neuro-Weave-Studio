@@ -55,6 +55,47 @@ def _detection(context: NodeEmitterContext) -> EmissionResult:
 
 
 ###############################################################################
+def _activation(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    activation = str(context.normalized_parameters.get("activation", "relu"))
+    function = {
+        "linear": "lambda value: value",
+        "relu": "torch.relu",
+        "sigmoid": "torch.sigmoid",
+        "tanh": "torch.tanh",
+        "gelu": "torch.nn.functional.gelu",
+        "softmax": "lambda value: torch.softmax(value, dim=-1)",
+    }.get(activation)
+    if function is None:
+        raise ValueError(f"No PyTorch activation adapter registered for {activation}")
+    expression = f"({function})({source})"
+    dtype = context.normalized_parameters.get("dtype")
+    if dtype is not None:
+        expression = f"({expression}).to(dtype=getattr(torch, {dtype!r}))"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
+def _dropout(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    expression = f"self.{context.canonical_ir_node.variable_name}({source})"
+    dtype = context.normalized_parameters.get("dtype")
+    if dtype is not None:
+        expression = f"({expression}).to(dtype=getattr(torch, {dtype!r}))"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
+def _flatten(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    expression = f"self.{context.canonical_ir_node.variable_name}({source})"
+    dtype = context.normalized_parameters.get("dtype")
+    if dtype is not None:
+        expression = f"({expression}).to(dtype=getattr(torch, {dtype!r}))"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
 def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     target_shape = tuple(int(value) for value in context.normalized_parameters.get("target_shape", [-1]))
@@ -100,6 +141,9 @@ def build_registry() -> NodeEmitterRegistry:
         "average",
         "split",
         "detection",
+        "activation",
+        "dropout",
+        "flatten",
         "reshape",
         "permute",
         "repeat",
@@ -112,6 +156,9 @@ def build_registry() -> NodeEmitterRegistry:
         "average": _average,
         "split": _split,
         "detection": _detection,
+        "activation": _activation,
+        "dropout": _dropout,
+        "flatten": _flatten,
         "reshape": _reshape,
         "permute": _permute,
         "repeat": _repeat,
@@ -147,6 +194,9 @@ def build_registry() -> NodeEmitterRegistry:
     registry.declare_parameter_ids("split", {"sections", "axis"})
     registry.declare_parameter_ids("detection", set())
     registry.declare_parameter_ids("index", {"expression"})
+    registry.declare_parameter_ids("activation", {"activation", "dtype"})
+    registry.declare_parameter_ids("dropout", {"rate", "dtype"})
+    registry.declare_parameter_ids("flatten", {"data_format", "dtype"})
     registry.declare_parameter_ids("reshape", {"target_shape", "dtype"})
     registry.declare_parameter_ids("permute", {"axes", "dtype"})
     registry.declare_parameter_ids("repeat", {"repeats", "axis", "dtype"})

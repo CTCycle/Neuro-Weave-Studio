@@ -79,6 +79,51 @@ def _detection(context: NodeEmitterContext) -> EmissionResult:
 
 
 ###############################################################################
+def _activation(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    activation = str(context.normalized_parameters.get("activation", "relu"))
+    function = {
+        "linear": "lambda value: value",
+        "relu": "nn.relu",
+        "sigmoid": "nn.sigmoid",
+        "tanh": "nn.tanh",
+        "gelu": "nn.gelu",
+        "softmax": "(lambda value: nn.softmax(value, axis=-1))",
+    }.get(activation)
+    if function is None:
+        raise ValueError(f"No native JAX activation adapter registered for {activation}")
+    expression = f"({function})({source})"
+    dtype = context.normalized_parameters.get("dtype")
+    if dtype is not None:
+        expression = f"jnp.asarray({expression}, dtype=jnp.dtype({dtype!r}))"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
+def _dropout(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    expression = (
+        f"nn.Dropout(rate={float(parameters.get('rate', 0.5))!r}, "
+        f"deterministic=True, name={context.canonical_ir_node.variable_name!r})({source})"
+    )
+    dtype = parameters.get("dtype")
+    if dtype is not None:
+        expression = f"jnp.asarray({expression}, dtype=jnp.dtype({dtype!r}))"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
+def _flatten(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    expression = f"jnp.reshape({source}, ({source}.shape[0], -1))"
+    dtype = context.normalized_parameters.get("dtype")
+    if dtype is not None:
+        expression = f"jnp.asarray({expression}, dtype=jnp.dtype({dtype!r}))"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
 def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     target_shape = tuple(int(value) for value in context.normalized_parameters.get("target_shape", [-1]))
@@ -124,6 +169,9 @@ def build_registry() -> NodeEmitterRegistry:
         "average",
         "split",
         "detection",
+        "activation",
+        "dropout",
+        "flatten",
         "reshape",
         "permute",
         "repeat",
@@ -136,6 +184,9 @@ def build_registry() -> NodeEmitterRegistry:
         "average": _average,
         "split": _split,
         "detection": _detection,
+        "activation": _activation,
+        "dropout": _dropout,
+        "flatten": _flatten,
         "reshape": _reshape,
         "permute": _permute,
         "repeat": _repeat,
@@ -171,6 +222,9 @@ def build_registry() -> NodeEmitterRegistry:
     registry.declare_parameter_ids("split", {"sections", "axis"})
     registry.declare_parameter_ids("detection", set())
     registry.declare_parameter_ids("index", {"expression"})
+    registry.declare_parameter_ids("activation", {"activation", "dtype"})
+    registry.declare_parameter_ids("dropout", {"rate", "dtype"})
+    registry.declare_parameter_ids("flatten", {"data_format", "dtype"})
     registry.declare_parameter_ids("reshape", {"target_shape", "dtype"})
     registry.declare_parameter_ids("permute", {"axes", "dtype"})
     registry.declare_parameter_ids("repeat", {"repeats", "axis", "dtype"})
