@@ -1,10 +1,16 @@
 # NeuroWeave Documentation Index
 
-Last updated: 2026-09-10
+Last updated: 2026-09-20
 
 ## Purpose
 
 This is the root navigation document for the repository. Read it first, then open only the narrowest leaf documents required for the current task.
+
+## Operational status
+
+- [`project_status_ledger.md`](project_status_ledger.md): canonical current operational status catalog. It records what is validated, working, partial, blocked, unvalidated, not implemented, or deprecated; active issues; validation debt; resolved findings; and the next revalidation actions.
+- Update the ledger after implementation changes, meaningful validation, regression discovery, remediation, or changes to an external/runtime blocker.
+- Architecture and ontology documents define contracts and concepts, validation reports provide detailed evidence, and product/implementation plans describe intended future work. The ledger summarizes the current state across those sources and does not replace them.
 
 ## Product
 
@@ -86,3 +92,4 @@ This is the root navigation document for the repository. Read it first, then ope
 3. Keep each leaf focused on one concern.
 4. Update architecture, ontology, and user-facing documentation with implementation changes.
 5. Include an explicit `Last updated` date in every document.
+6. Keep `project_status_ledger.md` synchronized with the repository and use it as the canonical source for current operational project status.
