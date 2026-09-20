@@ -109,6 +109,13 @@ class NodeEmitterRegistry:
         return bool(adapter_id and adapter_id in self._emitters)
 
     # -------------------------------------------------------------------------
+    @property
+    def adapter_ids(self) -> tuple[str, ...]:
+        """Return registered adapter identifiers in stable order."""
+
+        return tuple(sorted(self._emitters))
+
+    # -------------------------------------------------------------------------
     def resolve_runtime(self, adapter_id: str | None) -> RuntimeEmitter:
         if not adapter_id or adapter_id not in self._emitters:
             raise KeyError(

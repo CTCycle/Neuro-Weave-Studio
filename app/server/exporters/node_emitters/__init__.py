@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from common.catalogs.loader import NodeCatalog
 
+from .audit import build_catalog_adapter_audit
 from .contracts import (
     EmissionResult,
     NodeEmitterContext,
@@ -44,6 +45,7 @@ __all__ = [
     "NodeEmitterContext",
     "NodeEmitterRegistry",
     "NodeRuntimeContext",
+    "build_catalog_adapter_audit",
     "emit_multi_output_assignment",
     "layout_permutation",
     "registry_for_backend",
