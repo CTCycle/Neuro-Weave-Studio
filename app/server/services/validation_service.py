@@ -660,6 +660,8 @@ class ValidationService:
                         )
                     )
                     continue
+                if value is None:
+                    continue
                 if not _parameter_type_matches(parameter, value):
                     diagnostics.append(
                         ValidationDiagnostic(

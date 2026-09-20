@@ -656,7 +656,7 @@ export class GraphEditorStore {
 
   private editorParameters(manifest: NodeManifest): Record<string, unknown> {
     return Object.fromEntries(manifest.parameters.flatMap((definition) => {
-      const value = definition.editor_default !== undefined ? definition.editor_default : definition.default
+      const value = definition.editor_default ?? definition.default
       return value === undefined ? [] : [[definition.id, structuredClone(value)]]
     }))
   }

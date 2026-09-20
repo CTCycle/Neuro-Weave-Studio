@@ -95,6 +95,10 @@ export function displayParameterValue(value: unknown): string {
   return value === null || value === undefined ? '' : String(value)
 }
 
+export function isSelectedParameterOption(option: unknown, value: unknown): boolean {
+  return displayParameterValue(option) === displayParameterValue(value)
+}
+
 export function helpfulParameterDescription(definition: ParameterDefinition): string | null {
   const description = definition.description?.trim()
   if (!description) return null

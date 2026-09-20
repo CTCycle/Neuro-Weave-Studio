@@ -204,7 +204,7 @@ export class PropertiesInspectorComponent {
       this.kerasEnabled(),
     )
     if (compatibility.reasonCode === 'parameter_fixed' || compatibility.reasonCode === 'disabled_parameter') return 'fixed'
-    if (compatibility.reasonCode === 'unsupported_parameter' || compatibility.reasonCode === 'unsupported_parameter_option' || compatibility.reasonCode === 'unverified_parameter' || !capability?.supported) return 'backend-inapplicable'
+    if (compatibility.reasonCode === 'unsupported_parameter' || compatibility.reasonCode === 'unsupported_parameter_option' || compatibility.reasonCode === 'unverified_parameter' || capability?.supported === false) return 'backend-inapplicable'
     if (!compatibility.valueCompatible) return 'invalid'
     return 'editable'
   }

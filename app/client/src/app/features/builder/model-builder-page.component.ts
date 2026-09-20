@@ -8,7 +8,7 @@ import type { ExecutionBackend, ExecutionBackendStatus, ProjectDocument, Validat
 import { executionBackendShortLabels } from '../../domain/types'
 import type { GraphEditorSession } from '../../domain/graph-mapper'
 import { GraphEditorStore } from './state/graph-editor.store'
-import { BuilderTabsStore, type BuilderTab, type NewBuilderTab } from './state/builder-tabs.store'
+import { BuilderTabsStore, shouldReuseProjectTab, type BuilderTab, type NewBuilderTab } from './state/builder-tabs.store'
 import { GraphCanvasComponent } from './components/graph-canvas.component'
 import { NodeCatalogComponent } from './components/node-catalog.component'
 import { PropertiesInspectorComponent } from './components/properties-inspector.component'
@@ -16,10 +16,7 @@ import { ResizableValidationRegionComponent, DEFAULT_VALIDATION_HEIGHT } from '.
 import { ValidationPanelComponent } from './components/validation-panel.component'
 import { ThemedSelectComponent, type ThemedSelectOption } from '../../shared/components/themed-select.component'
 import { ModalGuardDirective } from '../../shared/components/modal-guard.directive'
-
-function draftSnapshot(name: string, description: string, executionBackend: ExecutionBackend, kerasEnabled: boolean, graph: unknown): string {
-  return JSON.stringify({ name, description, executionBackend, kerasEnabled, graph })
-}
+import { draftSnapshot } from './state/builder-draft-snapshot'
 
 function preferredBuilderRuntime(statuses: ExecutionBackendStatus[]): { backend: ExecutionBackend | null; kerasEnabled: boolean } {
   const kerasBackend = preferredBackendForApi(statuses, 'keras')
@@ -193,8 +190,9 @@ export class ModelBuilderPageComponent {
     const existing = modelId
       ? this.tabsStore.tabs().find((tab) => tab.projectId === modelId)
       : this.tabsStore.tabs().find((tab) => tab.id === this.tabsStore.activeTabId() && tab.projectId === null)
-    if (existing) { this.restoreTab(existing); this.tabsStore.focusTab(existing.id); this.initialized.set(true); return }
-    if (!this.canOpenTab()) {
+    if (existing && !modelId) { this.restoreTab(existing); this.tabsStore.focusTab(existing.id); this.initialized.set(true); return }
+    if (existing?.dirty) { this.restoreTab(existing); this.tabsStore.focusTab(existing.id); this.initialized.set(true); return }
+    if (!existing && !this.canOpenTab()) {
       const active = this.tabsStore.tabs().find((tab) => tab.id === this.tabsStore.activeTabId())
       if (active) this.restoreTab(active)
       this.notice.set('Eight model tabs are already open. Close a tab before opening another model.')
@@ -218,9 +216,17 @@ export class ModelBuilderPageComponent {
     try {
       const project = await this.api.getProject(modelId)
       if (sequence !== this.loadSequence) return
+      if (existing && shouldReuseProjectTab(existing, project.current_revision)) {
+        this.restoreTab(existing)
+        this.tabsStore.focusTab(existing.id)
+        return
+      }
       this.store.replaceGraph(project)
       const graph = this.store.captureEditorSession()
-      const tabId = this.tabsStore.openTab(projectTabInput(project, graph))
+      const nextTab = projectTabInput(project, graph)
+      const tabId = existing
+        ? (this.tabsStore.updateTab(existing.id, nextTab), existing.id)
+        : this.tabsStore.openTab(nextTab)
       this.restoreTab(this.tabsStore.tabs().find((tab) => tab.id === tabId) as BuilderTab)
     } catch (reason) {
       if (sequence === this.loadSequence) this.notice.set(`Unable to open model: ${reason instanceof Error ? reason.message : String(reason)}`)

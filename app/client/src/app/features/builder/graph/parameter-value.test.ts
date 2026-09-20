@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ParameterDefinition } from '../../../domain/types'
 import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
-import { displayParameterValue, hasInvalidParameter, isFiniteParameter, parameterOptions, parseParameterValue } from './parameter-value'
+import { displayParameterValue, hasInvalidParameter, isFiniteParameter, isSelectedParameterOption, parameterOptions, parseParameterValue } from './parameter-value'
 
 const definition = (type: ParameterDefinition['type'], overrides: Partial<ParameterDefinition> = {}): ParameterDefinition => ({
   id: 'value', display_name: 'Value', type, default: 0, required: true, constraints: {}, options: [], description: '', ...overrides,
@@ -64,6 +64,11 @@ describe('parameter value parser', () => {
       valid: true,
       value: { enabled: false, count: 0 },
     })
+  })
+
+  it('matches the selected option even when it is not the first option', () => {
+    expect(isSelectedParameterOption('float32', 'float32')).toBe(true)
+    expect(isSelectedParameterOption('float16', 'float32')).toBe(false)
   })
 
   it('accepts normalized structured values emitted by shared editors', () => {

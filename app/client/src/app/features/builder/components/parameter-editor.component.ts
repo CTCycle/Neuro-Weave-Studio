@@ -1,9 +1,13 @@
 import { Component, computed, forwardRef, input, output, signal } from '@angular/core'
 import type { ParameterCapability, ParameterDefinition } from '../../../domain/types'
-import { displayParameterValue, isFiniteParameter, parameterOptions, parseParameterValue, type ParameterDraftValue } from '../graph/parameter-value'
+import { displayParameterValue, isFiniteParameter, isSelectedParameterOption, parameterOptions, parseParameterValue, type ParameterDraftValue } from '../graph/parameter-value'
 import { StructuredParameterEditorComponent } from './structured-parameter-editor.component'
 
 export type ParameterEditorState = 'editable' | 'fixed' | 'backend-inapplicable' | 'invalid'
+
+export function parameterEditorReadOnly(disabled: boolean, state: ParameterEditorState): boolean {
+  return disabled || state === 'fixed' || state === 'backend-inapplicable'
+}
 
 @Component({
   selector: 'nw-parameter-editor',
@@ -17,7 +21,7 @@ export type ParameterEditorState = 'editable' | 'fixed' | 'backend-inapplicable'
       } @else if (isChoice()) {
         <select [value]="displayValue()" [disabled]="readOnly()" [attr.aria-invalid]="invalid() ? 'true' : null" (change)="commit(($any($event.target)).value)">
           @if (definition().nullable) { <option value="">None</option> }
-          @for (option of options(); track $index) { <option [value]="optionValue(option)">{{ optionLabel(option) }}</option> }
+          @for (option of options(); track $index) { <option [value]="optionValue(option)" [selected]="isSelectedParameterOption(option, currentValue())">{{ optionLabel(option) }}</option> }
         </select>
       } @else if (isStructured()) {
         <nw-structured-parameter-editor [definition]="definition()" [value]="currentValue()" [capability]="capability()" [disabled]="readOnly()" [state]="state()" (valueChange)="commit($event)" (validChange)="invalid.set(!$event)" />
@@ -56,7 +60,7 @@ export class ParameterEditorComponent {
     const capability = this.capability()
     return parameterOptions(this.definition()).filter((option) => !capability?.allowed_values || capability.allowed_values.some((allowed) => JSON.stringify(allowed) === JSON.stringify(option)))
   })
-  readonly readOnly = computed(() => this.disabled() || this.state() !== 'editable')
+  readonly readOnly = computed(() => parameterEditorReadOnly(this.disabled(), this.state()))
 
   isCheckbox(): boolean { return this.definition().type === 'boolean' && !this.definition().nullable }
   isChoice(): boolean { return isFiniteParameter(this.definition()) }
@@ -70,6 +74,7 @@ export class ParameterEditorComponent {
   inputType(): 'number' | 'text' { return this.definition().type === 'number' || this.definition().type === 'integer' ? 'number' : 'text' }
   displayValue(): string { return displayParameterValue(this.currentValue()) }
   optionValue(value: unknown): string { return displayParameterValue(value) }
+  isSelectedParameterOption(option: unknown, value: unknown): boolean { return isSelectedParameterOption(option, value) }
   optionLabel(value: unknown): string { return value === null ? 'None' : typeof value === 'boolean' ? value ? 'Enabled' : 'Disabled' : String(value) }
   stateLabel(): string { return this.invalid() || this.state() === 'invalid' ? 'Invalid' : this.state().replaceAll('-', ' ') }
   bounds(): { min?: number; max?: number; step?: number } {

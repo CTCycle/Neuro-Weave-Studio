@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { emptyModelConfiguration } from '../../../domain/types'
 import type { GraphEditorSession } from '../../../domain/graph-mapper'
-import { BuilderTabsStore } from './builder-tabs.store'
+import { BuilderTabsStore, shouldReuseProjectTab } from './builder-tabs.store'
 
 const session = (label: string): GraphEditorSession => ({ nodes: [], edges: [], outputBindings: [], modelConfiguration: { ...emptyModelConfiguration(), keras: { ...emptyModelConfiguration().keras, compilation: { ...emptyModelConfiguration().keras.compilation, optimizer: { id: label, parameters: {} } } } }, exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' }, futureTrainingConfiguration: {}, selectedNodeId: null, selectedEdgeId: null, copiedNodeIds: [], past: [], future: [] })
 function tab(projectId: string | null, label: string) { return { projectId, name: projectId ? `Project ${projectId}` : 'Untitled model', description: '', executionBackend: 'pytorch' as const, kerasEnabled: true, revision: 1, graph: session(label), validation: null, validationExpanded: false, validationHeight: 160, savedBaseline: label } }
@@ -9,6 +9,12 @@ function tab(projectId: string | null, label: string) { return { projectId, name
 describe('builder tabs store', () => {
   let store: BuilderTabsStore
   afterEach(() => store?.reset())
+
+  it('refreshes a clean project tab when the persisted revision advanced elsewhere', () => {
+    expect(shouldReuseProjectTab({ dirty: false, revision: 1 }, 2)).toBe(false)
+    expect(shouldReuseProjectTab({ dirty: false, revision: 2 }, 2)).toBe(true)
+    expect(shouldReuseProjectTab({ dirty: true, revision: 1 }, 2)).toBe(true)
+  })
 
   it('focuses an already-open project instead of duplicating its workspace', () => {
     store = new BuilderTabsStore()

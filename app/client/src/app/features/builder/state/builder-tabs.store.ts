@@ -25,6 +25,10 @@ export type NewBuilderTab = Omit<BuilderTab, 'id' | 'dirty'> & {
 
 export const MAX_OPEN_BUILDER_TABS = 8
 
+export function shouldReuseProjectTab(tab: Pick<BuilderTab, 'dirty' | 'revision'>, currentRevision: number): boolean {
+  return tab.dirty || tab.revision === currentRevision
+}
+
 @Injectable({ providedIn: 'root' })
 export class BuilderTabsStore {
   readonly tabs = signal<BuilderTab[]>([])
