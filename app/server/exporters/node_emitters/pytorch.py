@@ -180,6 +180,53 @@ def _conv2d(context: NodeEmitterContext) -> EmissionResult:
 
 
 ###############################################################################
+def _conv3d(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    name = context.canonical_ir_node.variable_name
+    kernel_size = tuple(int(value) for value in parameters.get("kernel_size", [3, 3, 3]))
+    strides = tuple(int(value) for value in parameters.get("strides", [1, 1, 1]))
+    dilation = tuple(int(value) for value in parameters.get("dilation_rate", [1, 1, 1]))
+    padding = str(parameters.get("padding", "same"))
+    data_format = str(parameters.get("data_format", "channels_last"))
+    conv_input = f"{name}_input"
+    setup = [f"{conv_input} = {source}"]
+    if data_format == "channels_last":
+        setup.append(
+            f"{conv_input} = {conv_input}.permute((0, 4, 1, 2, 3)).contiguous()"
+        )
+    if padding == "same":
+        setup.append(
+            f"{conv_input} = _same_pad_nd({conv_input}, {kernel_size!r}, "
+            f"{strides!r}, 0.0, {dilation!r})"
+        )
+    setup.append(f"{name} = self.{name}({conv_input})")
+    if data_format == "channels_last":
+        setup.append(
+            f"{name} = {name}.permute((0, 2, 3, 4, 1)).contiguous()"
+        )
+    activation = str(parameters.get("activation", "linear"))
+    expression = name
+    if activation != "linear":
+        function = {
+            "relu": "torch.relu",
+            "gelu": "torch.nn.functional.gelu",
+            "sigmoid": "torch.sigmoid",
+            "tanh": "torch.tanh",
+            "softmax": "lambda value: torch.softmax(value, dim=-1)",
+        }.get(activation)
+        if function is None:
+            raise ValueError(f"No PyTorch activation adapter registered for {activation}")
+        expression = f"({function})({name})"
+    if parameters.get("dtype") is not None:
+        expression = f"({expression}).to(dtype=getattr(torch, {parameters['dtype']!r}))"
+    return EmissionResult(
+        setup_statements=tuple(setup),
+        output_expressions={context.materialized_output_ports[0].id: expression},
+    )
+
+
+###############################################################################
 def _dense(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     parameters = context.normalized_parameters
@@ -253,6 +300,7 @@ def build_registry() -> NodeEmitterRegistry:
         "flatten",
         "conv1d",
         "conv2d",
+        "conv3d",
         "dense",
         "reshape",
         "permute",
@@ -271,6 +319,7 @@ def build_registry() -> NodeEmitterRegistry:
         "flatten": _flatten,
         "conv1d": _conv1d,
         "conv2d": _conv2d,
+        "conv3d": _conv3d,
         "dense": _dense,
         "reshape": _reshape,
         "permute": _permute,
@@ -284,7 +333,6 @@ def build_registry() -> NodeEmitterRegistry:
         "upsampling": _simple,
         "padding": _simple,
         "cropping": _simple,
-        "conv3d": _simple,
         "depthwise": _simple,
         "separable": _simple,
         "transposed": _simple,
@@ -327,6 +375,21 @@ def build_registry() -> NodeEmitterRegistry:
     )
     registry.declare_parameter_ids(
         "conv2d",
+        {
+            "dtype",
+            "strides",
+            "padding",
+            "data_format",
+            "dilation_rate",
+            "filters",
+            "kernel_size",
+            "activation",
+            "use_bias",
+            "groups",
+        },
+    )
+    registry.declare_parameter_ids(
+        "conv3d",
         {
             "dtype",
             "strides",
