@@ -130,6 +130,28 @@ def _conv2d(context: NodeEmitterContext) -> EmissionResult:
 
 
 ###############################################################################
+def _conv3d(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    strides = tuple(int(value) for value in parameters.get("strides", [1, 1, 1]))
+    dilation = tuple(int(value) for value in parameters.get("dilation_rate", [1, 1, 1]))
+    padding = str(parameters.get("padding", "same"))
+    data_format = str(parameters.get("data_format", "channels_last"))
+    groups = int(parameters.get("groups", 1))
+    name = context.canonical_ir_node.variable_name
+    expression = (
+        f"_conv3d({source}, self.{name}_kernel, self.{name}_bias, "
+        f"{strides!r}, {dilation!r}, {padding!r}, {data_format!r}, {groups!r})"
+    )
+    activation = str(parameters.get("activation", "linear"))
+    if activation != "linear":
+        expression = f"_activation({expression}, {activation!r})"
+    if parameters.get("dtype") is not None:
+        expression = f"tf.cast({expression}, {parameters['dtype']!r})"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
 def _dense(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     parameters = context.normalized_parameters
@@ -195,6 +217,7 @@ def build_registry() -> NodeEmitterRegistry:
         "flatten",
         "conv1d",
         "conv2d",
+        "conv3d",
         "dense",
         "reshape",
         "permute",
@@ -213,6 +236,7 @@ def build_registry() -> NodeEmitterRegistry:
         "flatten": _flatten,
         "conv1d": _conv1d,
         "conv2d": _conv2d,
+        "conv3d": _conv3d,
         "dense": _dense,
         "reshape": _reshape,
         "permute": _permute,
@@ -226,7 +250,6 @@ def build_registry() -> NodeEmitterRegistry:
         "upsampling": _simple,
         "padding": _simple,
         "cropping": _simple,
-        "conv3d": _simple,
         "depthwise": _simple,
         "separable": _simple,
         "transposed": _simple,
@@ -269,6 +292,21 @@ def build_registry() -> NodeEmitterRegistry:
     )
     registry.declare_parameter_ids(
         "conv2d",
+        {
+            "dtype",
+            "strides",
+            "padding",
+            "data_format",
+            "dilation_rate",
+            "filters",
+            "kernel_size",
+            "activation",
+            "use_bias",
+            "groups",
+        },
+    )
+    registry.declare_parameter_ids(
+        "conv3d",
         {
             "dtype",
             "strides",
