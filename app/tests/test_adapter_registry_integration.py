@@ -100,4 +100,8 @@ def test_catalog_adapter_audit_keeps_mapping_counts_separate_from_execution_proo
 
     native_unresolved = report["backends"]["tensorflow"]["unresolved_adapters"]
     assert {item["adapter"] for item in native_unresolved} >= {"conv1d", "conv2d"}
+    assert all(
+        not backend_report["ignored_editable_parameters"]
+        for backend_report in report["backends"].values()
+    )
     assert report["native_to_keras_fallbacks"] == []

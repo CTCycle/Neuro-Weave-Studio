@@ -8,6 +8,7 @@ from .contracts import (
     NodeEmitterRegistry,
     NodeRuntimeContext,
     emit_multi_output_assignment,
+    safe_index_expression,
 )
 
 
@@ -47,8 +48,7 @@ def _parameter(context: NodeEmitterContext) -> EmissionResult:
 ###############################################################################
 def _index(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
-    value = context.normalized_parameters.get("expression", ":")
-    expression = value if isinstance(value, str) and value.startswith("x") else f"x[{value}]"
+    expression = safe_index_expression(context.normalized_parameters.get("expression", ":"))
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression.replace("x", source, 1)})
 
 
@@ -134,7 +134,13 @@ def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     parameters = context.normalized_parameters
     target_shape = tuple(int(value) for value in parameters.get("target_shape", [-1]))
-    expression = f"keras.layers.Reshape({target_shape!r}, name={context.canonical_ir_node.variable_name!r})({source})"
+    expression = (
+        f"keras.layers.Reshape({target_shape!r}, "
+        f"dtype={parameters.get('dtype')!r}, "
+        f"trainable={bool(parameters.get('trainable', True))!r}, "
+        f"autocast={bool(parameters.get('autocast', True))!r}, "
+        f"name={context.canonical_ir_node.variable_name!r})({source})"
+    )
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
 
@@ -143,7 +149,13 @@ def _permute(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     parameters = context.normalized_parameters
     axes = tuple(int(value) for value in parameters.get("axes", [2, 1]))
-    expression = f"keras.layers.Permute({axes!r}, name={context.canonical_ir_node.variable_name!r})({source})"
+    expression = (
+        f"keras.layers.Permute({axes!r}, "
+        f"dtype={parameters.get('dtype')!r}, "
+        f"trainable={bool(parameters.get('trainable', True))!r}, "
+        f"autocast={bool(parameters.get('autocast', True))!r}, "
+        f"name={context.canonical_ir_node.variable_name!r})({source})"
+    )
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
 
@@ -154,9 +166,17 @@ def _repeat(context: NodeEmitterContext) -> EmissionResult:
     repeats = int(parameters.get("repeats", 2))
     axis = int(parameters.get("axis", 1))
     if axis == 1:
-        expression = f"keras.layers.RepeatVector({repeats}, name={context.canonical_ir_node.variable_name!r})({source})"
+        expression = (
+            f"keras.layers.RepeatVector({repeats}, "
+            f"dtype={parameters.get('dtype')!r}, "
+            f"trainable={bool(parameters.get('trainable', True))!r}, "
+            f"autocast={bool(parameters.get('autocast', True))!r}, "
+            f"name={context.canonical_ir_node.variable_name!r})({source})"
+        )
     else:
         expression = f"keras.ops.repeat({source}, {repeats}, axis={axis})"
+        if parameters.get("dtype") is not None:
+            expression = f"keras.ops.cast({expression}, {parameters['dtype']!r})"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
 
@@ -228,4 +248,14 @@ def build_registry() -> NodeEmitterRegistry:
     registry.declare_parameter_ids("average", set())
     registry.declare_parameter_ids("split", {"sections", "axis"})
     registry.declare_parameter_ids("detection", set())
+    registry.declare_parameter_ids("index", {"expression"})
+    registry.declare_parameter_ids(
+        "keras_reshape", {"target_shape", "dtype", "trainable", "autocast"}
+    )
+    registry.declare_parameter_ids(
+        "keras_permute", {"axes", "dtype", "trainable", "autocast"}
+    )
+    registry.declare_parameter_ids(
+        "keras_repeat", {"repeats", "axis", "dtype", "trainable", "autocast"}
+    )
     return registry

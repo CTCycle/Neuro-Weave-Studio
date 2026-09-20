@@ -5,6 +5,7 @@ from .contracts import (
     NodeEmitterContext,
     NodeEmitterRegistry,
     emit_multi_output_assignment,
+    safe_index_expression,
 )
 
 
@@ -29,8 +30,7 @@ def _parameter(context: NodeEmitterContext) -> EmissionResult:
 ###############################################################################
 def _index(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
-    value = context.normalized_parameters.get("expression", ":")
-    expression = value if isinstance(value, str) and value.startswith("x") else f"x[{value}]"
+    expression = safe_index_expression(context.normalized_parameters.get("expression", ":"))
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression.replace("x", source, 1)})
 
 
@@ -59,6 +59,8 @@ def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     target_shape = tuple(int(value) for value in context.normalized_parameters.get("target_shape", [-1]))
     expression = f"torch.reshape({source}, ({source}.shape[0],) + {target_shape!r})"
+    if context.normalized_parameters.get("dtype") is not None:
+        expression = f"({expression}).to(dtype=getattr(torch, {context.normalized_parameters['dtype']!r}))"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
 
@@ -67,6 +69,8 @@ def _permute(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     axes = tuple(int(value) for value in context.normalized_parameters.get("axes", [2, 1]))
     expression = f"{source}.permute((0,) + {axes!r})"
+    if context.normalized_parameters.get("dtype") is not None:
+        expression = f"({expression}).to(dtype=getattr(torch, {context.normalized_parameters['dtype']!r}))"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
 
@@ -81,6 +85,8 @@ def _repeat(context: NodeEmitterContext) -> EmissionResult:
         if axis == 1
         else f"torch.repeat_interleave({source}, {repeats}, dim={axis})"
     )
+    if parameters.get("dtype") is not None:
+        expression = f"({expression}).to(dtype=getattr(torch, {parameters['dtype']!r}))"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
 
@@ -140,4 +146,8 @@ def build_registry() -> NodeEmitterRegistry:
     registry.declare_parameter_ids("average", set())
     registry.declare_parameter_ids("split", {"sections", "axis"})
     registry.declare_parameter_ids("detection", set())
+    registry.declare_parameter_ids("index", {"expression"})
+    registry.declare_parameter_ids("reshape", {"target_shape", "dtype"})
+    registry.declare_parameter_ids("permute", {"axes", "dtype"})
+    registry.declare_parameter_ids("repeat", {"repeats", "axis", "dtype"})
     return registry
