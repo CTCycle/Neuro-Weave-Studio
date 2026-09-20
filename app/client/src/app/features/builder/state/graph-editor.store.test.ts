@@ -125,6 +125,33 @@ describe('neutral graph editor store', () => {
     expect(store.nodes().find((node) => node.id === nodeId)?.data.parameters).toEqual({ units: 16 })
   })
 
+  it('falls back to the declared default when API metadata leaves editor defaults null', () => {
+    store = new GraphEditorStore()
+    const apiManifest = {
+      ...manifest,
+      semantic_role: 'input' as const,
+      id: 'input.tabular',
+      parameters: [{
+        id: 'shape',
+        display_name: 'Shape',
+        type: 'shape' as const,
+        default: [20],
+        framework_default: null,
+        editor_default: null,
+        required: false,
+        constraints: {},
+        options: [],
+        description: '',
+      }],
+    }
+    store.setManifests([apiManifest])
+
+    const nodeId = store.addNode(apiManifest, { x: 40, y: 60 })
+
+    expect(nodeId).not.toBeNull()
+    expect(store.nodes()[0].data.parameters).toEqual({ shape: [20] })
+  })
+
   it('uses the selected implementation capability default when one is declared', () => {
     store = new GraphEditorStore()
     const capabilityManifest = {

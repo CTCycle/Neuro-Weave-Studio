@@ -300,6 +300,45 @@ def test_declared_parameter_contract_rejects_null_and_unknown_values() -> None:
     )
 
 ###############################################################################
+def test_nullable_optional_parameter_null_is_treated_as_unset() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.tabular", {"shape": [4], "dtype": "float32"}),
+            make_node(
+                "dense",
+                "layer.dense",
+                {"units": 2, "activation": "softmax", "use_bias": True, "dtype": None},
+            ),
+            make_node("output", "output.classification"),
+        ],
+        edges=[
+            EdgeInstance(
+                id="e1",
+                source_node_id="input",
+                source_port_id="output",
+                target_node_id="dense",
+                target_port_id="input",
+            ),
+            EdgeInstance(
+                id="e2",
+                source_node_id="dense",
+                source_port_id="output",
+                target_node_id="output",
+                target_port_id="input",
+            ),
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert result.valid
+    assert not any(item.parameter_id == "dtype" for item in result.diagnostics)
+
+###############################################################################
 def test_native_backend_rejects_parameter_values_without_verified_mapping() -> None:
     graph = ModelGraph(
         nodes=[

@@ -204,15 +204,12 @@ class KerasSourceExporter(SourceExporter):
                     value = configuration[selector]
                     break
             if category == "losses":
-                if not isinstance(value, str):
+                if not isinstance(value, CompilationObject):
                     values.append("None")
-                else:
-                    if not isinstance(value, CompilationObject):
-                        values.append("None")
-                        continue
-                    option = cls._catalog_option(compilation_catalog, category, value.id)
-                    symbol = cls._keras_value_source(option, value=value)
-                    values.append(symbol)
+                    continue
+                option = cls._catalog_option(compilation_catalog, category, value.id)
+                symbol = cls._keras_value_source(option, value=value)
+                values.append(symbol)
             else:
                 metric_expressions: list[str] = []
                 metric_values = cast(list[Any], value) if isinstance(value, list) else []

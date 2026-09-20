@@ -828,8 +828,7 @@ export function effectiveParameterDefault(
   capability?: ParameterCapability,
 ): unknown {
   if (capability?.default !== undefined && capability.default !== null) return capability.default
-  if (Object.prototype.hasOwnProperty.call(definition, 'framework_default')) return definition.framework_default
-  return definition.default
+  return definition.framework_default ?? definition.default
 }
 
 /**

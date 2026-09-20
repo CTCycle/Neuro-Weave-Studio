@@ -168,7 +168,7 @@ function backendCompatibilityGraph() {
     ...base,
     nodes: [
       { ...base.nodes[0], id: 'input-sequence-compat-e2e', definition_id: 'input.sequence', label: 'Sequence input', position: { x: 48, y: 160 }, parameters: { shape: [4, 3], dtype: 'float32' } },
-      { ...base.nodes[1], id: 'simple-rnn-compat-e2e', definition_id: 'recurrent.simple_rnn', label: 'Simple RNN', position: { x: 400, y: 160 }, parameters: { units: 8, return_sequences: true } },
+      { ...base.nodes[1], id: 'simple-rnn-compat-e2e', definition_id: 'recurrent.simple_rnn', label: 'Simple RNN', position: { x: 400, y: 160 }, parameters: { units: 8, return_sequences: true, return_state: true } },
       { ...base.nodes[3], id: 'output-sequence-compat-e2e', definition_id: 'output.sequence', label: 'Sequence output', position: { x: 752, y: 160 }, parameters: {} },
     ],
     edges: [
@@ -300,7 +300,7 @@ test('keeps saved builder profile, validation, and API payload synchronized', as
     expect(saved.description).toBe('Persisted from the Angular builder.')
     expect(saved.execution_backend).toBe('pytorch')
     expect(saved.keras_enabled).toBe(true)
-    expect(saved.graph).toMatchObject({ schema_version: 5 })
+    expect(saved.graph).toMatchObject({ schema_version: 6 })
     expect(saved.graph.nodes).toHaveLength(4)
     expect(saved.graph.edges).toHaveLength(3)
     await expect(page.getByText(`Saved revision ${saved.current_revision}`)).toBeVisible()
@@ -380,7 +380,7 @@ test('renders stable connection previews, fan-out connections, and cycle rejecti
   }
 })
 
-test('retains incompatible drafts while disabling catalog, compilation, and export actions', async ({ page, request }) => {
+test('retains parameter-incompatible drafts while disabling compilation and export actions', async ({ page, request }) => {
   test.setTimeout(90_000)
   const fixture = await createProject(request, `Angular compatibility ${Date.now()}`, backendCompatibilityGraph())
   const evidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'backend-compatibility-consolidation')
@@ -392,19 +392,19 @@ test('retains incompatible drafts while disabling catalog, compilation, and expo
     await kerasToggle.uncheck()
 
     const incompatibleNode = page.locator('[data-node-id="simple-rnn-compat-e2e"]')
-    await expect(incompatibleNode).toHaveClass(/is-profile-incompatible/)
-    await expect(incompatibleNode).toHaveAttribute('aria-label', /Repair required/)
+    await expect(incompatibleNode).toHaveClass(/has-validation-error/)
+    await expect(incompatibleNode).toHaveAttribute('aria-label', 'Node Simple RNN')
 
     await page.getByRole('textbox', { name: 'Search nodes' }).fill('Simple RNN')
     const catalogItem = page.locator('.catalog-item').filter({ hasText: 'Simple RNN' }).first()
-    await expect(catalogItem).toBeDisabled()
-    await expect(catalogItem).toHaveAttribute('title', /not supported by Native PyTorch/i)
+    await expect(catalogItem).toBeEnabled()
 
     await incompatibleNode.click()
     const inspector = page.getByRole('complementary', { name: 'Properties inspector' })
-    await expect(inspector.locator('label.inspector-field').filter({ hasText: 'Units' }).locator('input')).toBeDisabled()
-    await expect(inspector.locator('label.inspector-field').filter({ hasText: 'Return Sequences' }).locator('input')).toBeDisabled()
-    await page.screenshot({ path: path.join(evidenceDir, 'profile-incompatible-builder.png'), fullPage: true })
+    await expect(inspector.locator('label.inspector-field').filter({ hasText: 'Units' }).locator('input')).toBeEnabled()
+    await expect(inspector.locator('label.inspector-field').filter({ hasText: 'Return Sequences' }).locator('input')).toBeEnabled()
+    await expect(inspector.locator('label.inspector-field').filter({ hasText: 'Return state' }).locator('input')).toBeDisabled()
+    await page.screenshot({ path: path.join(evidenceDir, 'profile-parameter-incompatible-builder.png'), fullPage: true })
 
     const saveResponse = page.waitForResponse((response) => response.url().includes(`/api/projects/${fixture.id}`) && response.request().method() === 'PUT')
     await page.getByRole('button', { name: 'Save model', exact: true }).click()
@@ -421,7 +421,7 @@ test('retains incompatible drafts while disabling catalog, compilation, and expo
     await page.goto(`/models/${fixture.id}/compilation`)
     await expect(page.getByRole('button', { name: 'Compile source', exact: true })).toBeDisabled()
     await page.getByRole('button', { name: 'Validate profile', exact: true }).click()
-    await expect(page.getByText(/Simple RNN is not supported by native pytorch/i)).toBeVisible()
+    await expect(page.getByText(/Parameter 'Return state' is not supported for Native PyTorch/i)).toBeVisible()
     await page.screenshot({ path: path.join(evidenceDir, 'invalid-compilation.png'), fullPage: true })
 
     await page.goto(`/models/${fixture.id}/export`)
@@ -436,7 +436,7 @@ test('retains incompatible drafts while disabling catalog, compilation, and expo
     await page.goto(`/builder/${fixture.id}`)
     await expect(page.getByLabel('Enable Keras', { exact: true })).not.toBeChecked()
     await page.getByLabel('Enable Keras', { exact: true }).check()
-    await expect(page.locator('[data-node-id="simple-rnn-compat-e2e"]')).not.toHaveClass(/is-profile-incompatible/)
+    await expect(page.locator('[data-node-id="simple-rnn-compat-e2e"]')).not.toHaveClass(/has-validation-error/)
   } finally {
     await deleteProject(request, fixture.id)
   }

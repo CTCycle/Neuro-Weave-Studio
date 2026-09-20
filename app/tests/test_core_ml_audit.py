@@ -275,6 +275,7 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
             get_node_catalog(),
         ),
     )
+    assert "loss=keras.losses.CategoricalCrossentropy()" in source
     source_path = tmp_path / "generated_model.py"
     source_path.write_text(source, encoding="utf-8")
 

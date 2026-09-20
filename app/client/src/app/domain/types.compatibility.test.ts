@@ -87,6 +87,12 @@ describe('profile compatibility resolver', () => {
     expect(nonDefaultValue).toMatchObject({ editable: false, valueCompatible: false, reasonCode: 'unsupported_parameter' })
   })
 
+  it('keeps parameters editable when the verified node has no target-specific capability entry', () => {
+    const result = resolveParameterCompatibility(manifest(verifiedMapping()), parameter, 'auto', { mode: 'auto' }, 'pytorch', false)
+
+    expect(result).toMatchObject({ editable: true, valueCompatible: true, reasonCode: null })
+  })
+
   it('treats an unverified parameter mapping as unavailable for every value', () => {
     const node = manifest(verifiedMapping({
       parameters: {
