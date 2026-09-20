@@ -99,7 +99,8 @@ def test_catalog_adapter_audit_keeps_mapping_counts_separate_from_execution_proo
         }
 
     native_unresolved = report["backends"]["tensorflow"]["unresolved_adapters"]
-    assert {item["adapter"] for item in native_unresolved} >= {"conv1d", "conv2d"}
+    assert "conv1d" not in {item["adapter"] for item in native_unresolved}
+    assert "conv2d" in {item["adapter"] for item in native_unresolved}
     assert all(
         not backend_report["ignored_editable_parameters"]
         for backend_report in report["backends"].values()

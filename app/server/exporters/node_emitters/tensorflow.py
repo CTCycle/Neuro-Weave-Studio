@@ -85,6 +85,30 @@ def _flatten(context: NodeEmitterContext) -> EmissionResult:
 
 
 ###############################################################################
+def _conv1d(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    kernel_size = int(parameters.get("kernel_size", [3])[0])
+    strides = int(parameters.get("strides", [1])[0])
+    dilation = int(parameters.get("dilation_rate", [1])[0])
+    padding = str(parameters.get("padding", "same"))
+    data_format = str(parameters.get("data_format", "channels_last"))
+    groups = int(parameters.get("groups", 1))
+    name = context.canonical_ir_node.variable_name
+    expression = (
+        f"_conv1d({source}, self.{name}_kernel, self.{name}_bias, "
+        f"{strides!r}, {dilation!r}, {padding!r}, {data_format!r}, {groups!r})"
+    )
+    activation = str(parameters.get("activation", "linear"))
+    if activation != "linear":
+        expression = f"_activation({expression}, {activation!r})"
+    if parameters.get("dtype") is not None:
+        expression = f"tf.cast({expression}, {parameters['dtype']!r})"
+    _ = kernel_size
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
 def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     target_shape = [int(value) for value in context.normalized_parameters.get("target_shape", [-1])]
@@ -133,6 +157,7 @@ def build_registry() -> NodeEmitterRegistry:
         "activation",
         "dropout",
         "flatten",
+        "conv1d",
         "reshape",
         "permute",
         "repeat",
@@ -148,6 +173,7 @@ def build_registry() -> NodeEmitterRegistry:
         "activation": _activation,
         "dropout": _dropout,
         "flatten": _flatten,
+        "conv1d": _conv1d,
         "reshape": _reshape,
         "permute": _permute,
         "repeat": _repeat,
@@ -186,6 +212,21 @@ def build_registry() -> NodeEmitterRegistry:
     registry.declare_parameter_ids("activation", {"activation", "dtype"})
     registry.declare_parameter_ids("dropout", {"dtype"})
     registry.declare_parameter_ids("flatten", {"data_format", "dtype"})
+    registry.declare_parameter_ids(
+        "conv1d",
+        {
+            "dtype",
+            "strides",
+            "padding",
+            "data_format",
+            "dilation_rate",
+            "filters",
+            "kernel_size",
+            "activation",
+            "use_bias",
+            "groups",
+        },
+    )
     registry.declare_parameter_ids("reshape", {"target_shape", "dtype"})
     registry.declare_parameter_ids("permute", {"axes", "dtype"})
     registry.declare_parameter_ids("repeat", {"repeats", "axis", "dtype"})
