@@ -217,6 +217,32 @@ def _conv2d(context: NodeEmitterContext) -> EmissionResult:
 
 
 ###############################################################################
+def _dense(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    name = context.canonical_ir_node.variable_name
+    expression = (
+        f"nn.Dense({int(parameters.get('units', 32))}, "
+        f"use_bias={bool(parameters.get('use_bias', True))!r}, name={name!r})({source})"
+    )
+    activation = str(parameters.get("activation", "linear"))
+    if activation != "linear":
+        function = {
+            "relu": "nn.relu",
+            "gelu": "nn.gelu",
+            "sigmoid": "nn.sigmoid",
+            "tanh": "nn.tanh",
+            "softmax": "(lambda value: nn.softmax(value, axis=-1))",
+        }.get(activation)
+        if function is None:
+            raise ValueError(f"No native JAX activation adapter registered for {activation}")
+        expression = f"({function})({expression})"
+    if parameters.get("dtype") is not None:
+        expression = f"jnp.asarray({expression}, dtype=jnp.dtype({parameters['dtype']!r}))"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
 def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     target_shape = tuple(int(value) for value in context.normalized_parameters.get("target_shape", [-1]))
@@ -267,6 +293,7 @@ def build_registry() -> NodeEmitterRegistry:
         "flatten",
         "conv1d",
         "conv2d",
+        "dense",
         "reshape",
         "permute",
         "repeat",
@@ -284,6 +311,7 @@ def build_registry() -> NodeEmitterRegistry:
         "flatten": _flatten,
         "conv1d": _conv1d,
         "conv2d": _conv2d,
+        "dense": _dense,
         "reshape": _reshape,
         "permute": _permute,
         "repeat": _repeat,
@@ -352,6 +380,7 @@ def build_registry() -> NodeEmitterRegistry:
             "groups",
         },
     )
+    registry.declare_parameter_ids("dense", {"units", "activation", "use_bias", "dtype"})
     registry.declare_parameter_ids("reshape", {"target_shape", "dtype"})
     registry.declare_parameter_ids("permute", {"axes", "dtype"})
     registry.declare_parameter_ids("repeat", {"repeats", "axis", "dtype"})

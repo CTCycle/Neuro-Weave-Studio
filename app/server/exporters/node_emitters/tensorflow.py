@@ -130,6 +130,21 @@ def _conv2d(context: NodeEmitterContext) -> EmissionResult:
 
 
 ###############################################################################
+def _dense(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    name = context.canonical_ir_node.variable_name
+    expression = f"tf.matmul({source}, self.{name}_kernel)"
+    expression = f"({expression} + self.{name}_bias) if self.{name}_bias is not None else {expression}"
+    activation = str(parameters.get("activation", "linear"))
+    if activation != "linear":
+        expression = f"_activation({expression}, {activation!r})"
+    if parameters.get("dtype") is not None:
+        expression = f"tf.cast({expression}, {parameters['dtype']!r})"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
 def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     target_shape = [int(value) for value in context.normalized_parameters.get("target_shape", [-1])]
@@ -180,6 +195,7 @@ def build_registry() -> NodeEmitterRegistry:
         "flatten",
         "conv1d",
         "conv2d",
+        "dense",
         "reshape",
         "permute",
         "repeat",
@@ -197,6 +213,7 @@ def build_registry() -> NodeEmitterRegistry:
         "flatten": _flatten,
         "conv1d": _conv1d,
         "conv2d": _conv2d,
+        "dense": _dense,
         "reshape": _reshape,
         "permute": _permute,
         "repeat": _repeat,
@@ -265,6 +282,7 @@ def build_registry() -> NodeEmitterRegistry:
             "groups",
         },
     )
+    registry.declare_parameter_ids("dense", {"units", "activation", "use_bias", "dtype"})
     registry.declare_parameter_ids("reshape", {"target_shape", "dtype"})
     registry.declare_parameter_ids("permute", {"axes", "dtype"})
     registry.declare_parameter_ids("repeat", {"repeats", "axis", "dtype"})

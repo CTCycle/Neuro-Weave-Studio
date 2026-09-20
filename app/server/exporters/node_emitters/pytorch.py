@@ -180,6 +180,29 @@ def _conv2d(context: NodeEmitterContext) -> EmissionResult:
 
 
 ###############################################################################
+def _dense(context: NodeEmitterContext) -> EmissionResult:
+    source = next(iter(context.input_expressions_by_target_port.values()))
+    parameters = context.normalized_parameters
+    name = context.canonical_ir_node.variable_name
+    expression = f"self.{name}({source})"
+    activation = str(parameters.get("activation", "linear"))
+    if activation != "linear":
+        function = {
+            "relu": "torch.relu",
+            "gelu": "torch.nn.functional.gelu",
+            "sigmoid": "torch.sigmoid",
+            "tanh": "torch.tanh",
+            "softmax": "lambda value: torch.softmax(value, dim=-1)",
+        }.get(activation)
+        if function is None:
+            raise ValueError(f"No PyTorch activation adapter registered for {activation}")
+        expression = f"({function})({expression})"
+    if parameters.get("dtype") is not None:
+        expression = f"({expression}).to(dtype=getattr(torch, {parameters['dtype']!r}))"
+    return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
+
+
+###############################################################################
 def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     target_shape = tuple(int(value) for value in context.normalized_parameters.get("target_shape", [-1]))
@@ -230,6 +253,7 @@ def build_registry() -> NodeEmitterRegistry:
         "flatten",
         "conv1d",
         "conv2d",
+        "dense",
         "reshape",
         "permute",
         "repeat",
@@ -247,6 +271,7 @@ def build_registry() -> NodeEmitterRegistry:
         "flatten": _flatten,
         "conv1d": _conv1d,
         "conv2d": _conv2d,
+        "dense": _dense,
         "reshape": _reshape,
         "permute": _permute,
         "repeat": _repeat,
@@ -315,6 +340,7 @@ def build_registry() -> NodeEmitterRegistry:
             "groups",
         },
     )
+    registry.declare_parameter_ids("dense", {"units", "activation", "use_bias", "dtype"})
     registry.declare_parameter_ids("reshape", {"target_shape", "dtype"})
     registry.declare_parameter_ids("permute", {"axes", "dtype"})
     registry.declare_parameter_ids("repeat", {"repeats", "axis", "dtype"})
