@@ -132,7 +132,6 @@ def _merge_manifest_data(
     raw: dict[str, Any],
     override: dict[str, Any] | None,
     shared_parameter_capabilities: dict[str, dict[str, Any]] | None = None,
-    default_implementation_adapters: dict[str, dict[str, str]] | None = None,
     parameter_groups: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Apply checked-in declarative capability/operation data to a node."""
@@ -162,15 +161,6 @@ def _merge_manifest_data(
         )
         if parameters:
             mapping["parameters"] = parameters
-        implementations[implementation] = mapping
-    node_id = str(item.get("id", ""))
-    for implementation, adapters in (default_implementation_adapters or {}).items():
-        adapter = adapters.get(node_id)
-        if not adapter:
-            continue
-        mapping = dict(implementations.get(implementation, {}))
-        if mapping.get("supported", True) and not mapping.get("symbol") and not mapping.get("adapter"):
-            mapping["adapter"] = adapter
         implementations[implementation] = mapping
     if implementations:
         item["implementations"] = implementations
@@ -372,9 +362,6 @@ def get_node_catalog() -> NodeCatalog:
     shared_parameter_capabilities = cast(
         dict[str, dict[str, Any]], extensions.get("shared_parameter_capabilities", {})
     )
-    default_implementation_adapters = cast(
-        dict[str, dict[str, str]], extensions.get("default_implementation_adapters", {})
-    )
     manifests: list[NodeManifest] = []
     for path in sorted(RESOURCE_ROOT.glob("*.json")):
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -397,7 +384,6 @@ def get_node_catalog() -> NodeCatalog:
                             overrides.get(str(item.get("id", ""))),
                         ),
                         shared_parameter_capabilities,
-                        default_implementation_adapters,
                         parameter_groups,
                     ),
                     parameter_groups,
