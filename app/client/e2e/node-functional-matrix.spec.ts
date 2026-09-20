@@ -138,8 +138,10 @@ async function connectByLabels(
   targetLabel: string,
   expectedConnectionCount: number,
 ): Promise<void> {
-  const source = page.getByRole('button', { name: `Port Output (output) on ${sourceLabel}`, exact: true })
-  const target = page.getByRole('button', { name: `Port Input (input) on ${targetLabel}`, exact: true })
+  const sourceNode = page.getByRole('group', { name: `Node ${sourceLabel}`, exact: true })
+  const targetNode = page.getByRole('group', { name: `Node ${targetLabel}`, exact: true })
+  const source = sourceNode.getByRole('button', { name: /^Port Output \(output\)/ })
+  const target = targetNode.getByRole('button', { name: /^Port Input \(input\)/ })
   await expect(source).toBeVisible()
   await expect(target).toBeVisible()
   await source.press('Enter')
@@ -151,6 +153,7 @@ async function connectByLabels(
   const response = await validationResponsePromise
   expect(response.ok()).toBeTruthy()
   const payload = await response.json() as { valid: boolean; diagnostics: unknown[] }
+  console.log(`[NODE_MATRIX_CONNECTION] ${sourceLabel} -> ${targetLabel} ${JSON.stringify(payload)}`)
   expect(payload.valid, `${sourceLabel} → ${targetLabel} should be accepted by connection validation`).toBeTruthy()
   await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(expectedConnectionCount)
 }
