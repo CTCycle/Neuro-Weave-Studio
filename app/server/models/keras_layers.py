@@ -6,6 +6,7 @@ from typing import Any
 import keras
 from keras import layers
 
+
 ###############################################################################
 @keras.saving.register_keras_serializable(package="NeuroWeave")
 class SinusoidalPositionalEncoding(layers.Layer):
@@ -154,3 +155,49 @@ class ParameterSource(layers.Layer):
             "value_dtype": self.value_dtype,
             "trainable": self.trainable,
         }
+
+
+###############################################################################
+@keras.saving.register_keras_serializable(package="NeuroWeave")
+class StaticGraphModel(keras.Model):
+    """Serializable wrapper for graphs with no public runtime inputs."""
+
+    # -------------------------------------------------------------------------
+    def __init__(
+        self,
+        inner_model: keras.Model,
+        anchor_shape: tuple[int, ...] = (1,),
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.inner_model = inner_model
+        self.anchor_shape = tuple(anchor_shape)
+
+    # -------------------------------------------------------------------------
+    def call(self, inputs: Any = None, training: bool = False) -> Any:
+        del inputs
+        anchor = keras.ops.zeros((1, *self.anchor_shape), dtype="float32")
+        return self.inner_model(anchor, training=training)
+
+    # -------------------------------------------------------------------------
+    def get_build_config(self) -> dict[str, Any]:
+        return {}
+
+    # -------------------------------------------------------------------------
+    def build_from_config(self, config: dict[str, Any]) -> None:
+        del config
+        self.built = True
+
+    # -------------------------------------------------------------------------
+    def get_config(self) -> dict[str, Any]:
+        return {
+            **super().get_config(),
+            "inner_model": keras.saving.serialize_keras_object(self.inner_model),
+            "anchor_shape": list(self.anchor_shape),
+        }
+
+    # -------------------------------------------------------------------------
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> StaticGraphModel:
+        inner_model = keras.saving.deserialize_keras_object(config.pop("inner_model"))
+        return cls(inner_model=inner_model, **config)

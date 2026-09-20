@@ -15,6 +15,22 @@ def test_registered_universal_adapters_cover_all_editable_parameters(backend: st
     )
 
 
+def test_keras_runtime_registry_covers_universal_runtime_adapters() -> None:
+    registry = registry_for_backend("keras")
+
+    assert all(
+        registry.has_runtime(adapter)
+        for adapter in (
+            "constant",
+            "parameter",
+            "index",
+            "average",
+            "split",
+            "detection",
+        )
+    )
+
+
 def test_registry_rejects_duplicate_adapter_ids() -> None:
     registry = NodeEmitterRegistry("test")
 
