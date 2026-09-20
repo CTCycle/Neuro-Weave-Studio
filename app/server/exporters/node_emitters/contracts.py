@@ -53,6 +53,7 @@ RuntimeEmitter = Callable[[NodeRuntimeContext], Any]
 class _EmitterRegistration:
     emitter: Emitter
     runtime: RuntimeEmitter | None = None
+    authoritative: bool = False
     parameter_ids: frozenset[str] = frozenset()
 
 
@@ -72,6 +73,7 @@ class NodeEmitterRegistry:
         emitter: Emitter,
         *,
         runtime: RuntimeEmitter | None = None,
+        authoritative: bool = False,
         parameter_ids: Collection[str] = (),
     ) -> None:
         if not adapter_id or not re.fullmatch(r"[a-z][a-z0-9_]*", adapter_id):
@@ -83,6 +85,7 @@ class NodeEmitterRegistry:
         self._emitters[adapter_id] = _EmitterRegistration(
             emitter=emitter,
             runtime=runtime,
+            authoritative=authoritative,
             parameter_ids=frozenset(parameter_ids),
         )
 
@@ -107,6 +110,14 @@ class NodeEmitterRegistry:
     # -------------------------------------------------------------------------
     def has(self, adapter_id: str | None) -> bool:
         return bool(adapter_id and adapter_id in self._emitters)
+
+    # -------------------------------------------------------------------------
+    def has_authoritative(self, adapter_id: str | None) -> bool:
+        return bool(
+            adapter_id
+            and adapter_id in self._emitters
+            and self._emitters[adapter_id].authoritative
+        )
 
     # -------------------------------------------------------------------------
     @property
@@ -166,10 +177,10 @@ class NodeEmitterRegistry:
                 continue
             if selected_adapters is not None and mapping.adapter not in selected_adapters:
                 continue
-            if not self.has(mapping.adapter):
+            if not self.has_authoritative(mapping.adapter):
                 errors.append(
-                    f"{manifest.id}: verified {self.backend_key} mapping requires adapter "
-                    f"{mapping.adapter!r}"
+                    f"{manifest.id}: verified {self.backend_key} mapping requires "
+                    f"authoritative adapter {mapping.adapter!r}"
                 )
                 continue
             consumed = self.parameter_ids(mapping.adapter or "")

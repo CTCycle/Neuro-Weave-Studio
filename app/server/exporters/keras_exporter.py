@@ -547,19 +547,9 @@ class KerasSourceExporter(SourceExporter):
             definition = item.definition_id
             manifest = catalog.get(definition, node.definition_version)
             mapping = manifest.implementations.get("keras")
-            registry_managed = {
-                "input.constant",
-                "input.parameter",
-                "math.index",
-                "merge.average",
-                "merge.split",
-                "output.detection",
-            }
             if (
-                definition in registry_managed
-                and mapping is not None
-                and mapping.adapter is not None
-                and emitter_registry.has(mapping.adapter)
+                mapping is not None
+                and emitter_registry.has_authoritative(mapping.adapter)
             ):
                 output_ports = [
                     port

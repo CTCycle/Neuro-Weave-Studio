@@ -32,6 +32,27 @@ def test_keras_runtime_registry_covers_universal_runtime_adapters() -> None:
     )
 
 
+@pytest.mark.parametrize("backend", ["keras", "tensorflow", "pytorch", "jax"])
+def test_source_exporters_use_authoritative_manifest_adapters(backend: str) -> None:
+    registry = registry_for_backend(backend)
+
+    assert all(
+        registry.has_authoritative(adapter)
+        for adapter in ("constant", "parameter", "index", "average", "split", "detection")
+    )
+
+
+def test_source_exporters_no_longer_use_universal_node_id_allow_lists() -> None:
+    exporter_root = __import__("pathlib").Path(__file__).parents[1] / "server" / "exporters"
+    for filename in (
+        "keras_exporter.py",
+        "native_tensorflow_exporter.py",
+        "pytorch_exporter.py",
+        "native_jax_exporter.py",
+    ):
+        assert "registry_managed" not in (exporter_root / filename).read_text(encoding="utf-8")
+
+
 def test_registry_rejects_duplicate_adapter_ids() -> None:
     registry = NodeEmitterRegistry("test")
 
@@ -43,13 +64,13 @@ def test_registry_rejects_duplicate_adapter_ids() -> None:
 def test_registry_reports_unresolved_verified_mapping() -> None:
     registry = NodeEmitterRegistry("keras")
 
-    with pytest.raises(ValueError, match="requires adapter 'constant'"):
+    with pytest.raises(ValueError, match="requires authoritative adapter 'constant'"):
         registry.validate_catalog(get_node_catalog(), adapter_ids={"constant"})
 
 
 def test_registry_reports_ignored_editable_parameters() -> None:
     registry = NodeEmitterRegistry("keras")
-    registry.register("constant", lambda _context: EmissionResult())
+    registry.register("constant", lambda _context: EmissionResult(), authoritative=True)
 
     with pytest.raises(ValueError, match="ignores editable parameters"):
         registry.validate_catalog(get_node_catalog(), adapter_ids={"constant"})

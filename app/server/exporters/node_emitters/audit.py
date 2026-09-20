@@ -51,12 +51,12 @@ def _adapter_records(
             or (manifest.operation is not None and mapping.symbol is not None)
         ):
             continue
-        if mapping.adapter is None or not registry.has(mapping.adapter):
+        if mapping.adapter is None or not registry.has_authoritative(mapping.adapter):
             unresolved.append(
                 {
                     "manifest": manifest.id,
                     "adapter": mapping.adapter or "<none>",
-                    "reason": "missing_registry_adapter"
+                    "reason": "missing_authoritative_registry_adapter"
                     if mapping.adapter
                     else "verified_mapping_has_no_symbol_or_adapter",
                 }
@@ -134,6 +134,11 @@ def build_catalog_adapter_audit(
             "active_manifests": sum(not manifest.deprecated for manifest in catalog.manifests),
             "catalog_mapping_counts": _mapping_counts(catalog, backend),
             "registered_adapters": list(registry.adapter_ids),
+            "authoritative_adapters": [
+                adapter_id
+                for adapter_id in registry.adapter_ids
+                if registry.has_authoritative(adapter_id)
+            ],
             "registered_runtime_adapters": [
                 adapter_id
                 for adapter_id in registry.adapter_ids
