@@ -394,6 +394,34 @@ class KerasSourceExporter(SourceExporter):
             "    def get_config(self):",
             "        return {**super().get_config(), 'mode': self.mode}",
         ]
+        if not ir.input_node_ids:
+            lines.extend(
+                [
+                    "",
+                    "",
+                    "@keras.saving.register_keras_serializable(package='NeuroWeave')",
+                    "class StaticGraphModel(keras.Model):",
+                    "    def __init__(self, inner_model, anchor_shape=(1,), **kwargs):",
+                    "        super().__init__(**kwargs)",
+                    "        self.inner_model = inner_model",
+                    "        self.anchor_shape = tuple(anchor_shape)",
+                    "    def call(self, inputs=None, training=False):",
+                    "        del inputs",
+                    "        anchor = keras.ops.zeros((1, *self.anchor_shape), dtype='float32')",
+                    "        return self.inner_model(anchor, training=training)",
+                    "    def get_build_config(self):",
+                    "        return {}",
+                    "    def build_from_config(self, config):",
+                    "        del config",
+                    "        self.built = True",
+                    "    def get_config(self):",
+                    "        return {**super().get_config(), 'inner_model': keras.saving.serialize_keras_object(self.inner_model), 'anchor_shape': list(self.anchor_shape)}",
+                    "    @classmethod",
+                    "    def from_config(cls, config):",
+                    "        inner_model = keras.saving.deserialize_keras_object(config.pop('inner_model'))",
+                    "        return cls(inner_model=inner_model, **config)",
+                ]
+            )
         if any(node.definition_id == "transformer.positional_encoding" for node in graph.nodes):
             lines.extend(
                 [
@@ -498,6 +526,10 @@ class KerasSourceExporter(SourceExporter):
             )
         policy = "mixed_float16" if graph.model_configuration.keras.mixed_precision else "float32"
         lines.append(f"    keras.mixed_precision.set_global_policy({policy!r})")
+        if not ir.input_node_ids:
+            lines.append(
+                "    _static_anchor = keras.Input(shape=(1,), dtype='float32', name='_neuro_weave_static_anchor')"
+            )
 
         variables: dict[str, str] = {}
         port_variables: dict[tuple[str, str], str] = {}
@@ -518,6 +550,7 @@ class KerasSourceExporter(SourceExporter):
             registry_managed = {
                 "input.constant",
                 "input.parameter",
+                "math.index",
                 "merge.average",
                 "merge.split",
                 "output.detection",
@@ -535,6 +568,16 @@ class KerasSourceExporter(SourceExporter):
                 ]
                 if not output_ports:
                     raise ValueError(f"No enabled Keras output port registered for {definition}")
+                anchor_expression = next(
+                    (
+                        variables[prior.id]
+                        for prior in graph.nodes
+                        if prior.id in variables
+                        and catalog.get(prior.definition_id, prior.definition_version).source_kind
+                        == "runtime_input"
+                    ),
+                    "_static_anchor" if not ir.input_node_ids else None,
+                )
                 input_expressions = {
                     f"{binding.target_port_id}:{index}": port_variables[
                         (binding.source_node_id, binding.source_port_id)
@@ -550,6 +593,7 @@ class KerasSourceExporter(SourceExporter):
                         normalized_parameters=parameters,
                         input_expressions_by_target_port=input_expressions,
                         materialized_output_ports=tuple(output_ports),
+                        anchor_expression=anchor_expression,
                     )
                 )
                 lines.extend(f"    {statement}" for statement in emission.setup_statements)
@@ -1698,9 +1742,17 @@ class KerasSourceExporter(SourceExporter):
         output_variables = ", ".join(
             port_variables[(binding.node_id, binding.port_id)] for binding in ir.output_bindings
         )
-        lines.append(
-            f"    model = keras.Model(inputs=[{input_variables}], outputs=[{output_variables}], name='neuro_weave_model')"
-        )
+        if not ir.input_node_ids:
+            lines.extend(
+                [
+                    f"    inner_model = keras.Model(inputs=_static_anchor, outputs=[{output_variables}], name='neuro_weave_static_graph')",
+                    "    model = StaticGraphModel(inner_model=inner_model, anchor_shape=(1,), name='neuro_weave_model')",
+                ]
+            )
+        else:
+            lines.append(
+                f"    model = keras.Model(inputs=[{input_variables}], outputs=[{output_variables}], name='neuro_weave_model')"
+            )
         optimizer_name = self._optimizer_name(
             graph.model_configuration.keras.compilation.optimizer, compilation_catalog
         )

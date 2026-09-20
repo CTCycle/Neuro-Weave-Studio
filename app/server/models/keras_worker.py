@@ -9,19 +9,25 @@ import keras
 from keras import layers
 
 from common.catalogs.loader import NodeCatalog, get_node_catalog
-from common.catalogs.operation_emitter import apply_runtime_operation, evaluate_safe_index_expression
+from common.catalogs.operation_emitter import (
+    apply_runtime_operation,
+    evaluate_safe_index_expression,
+)
 from domain.graph import ModelGraph
 from domain.ports import materialized_outputs
+from exporters.node_emitters import NodeRuntimeContext, registry_for_backend
 from models.keras_layers import (
     ConstantSource,
     GeluActivation,
     ParameterSource,
     SinusoidalPositionalEncoding,
+    StaticGraphModel,
 )
 from models.keras_runtime import layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.output_resolution import input_nodes, resolved_outputs
 from validation.shape_inference import infer_shapes
+
 
 ###############################################################################
 def _checkpoint(callback: Callable[[], None] | None) -> None:
@@ -236,6 +242,16 @@ def build_model(
     nodes = {node.id: node for node in graph.nodes}
     tensors: dict[str, Any] = {}
     port_tensors: dict[tuple[str, str], Any] = {}
+    emitter_registry = registry_for_backend("keras")
+    has_runtime_inputs = any(
+        catalog.get(node.definition_id, node.definition_version).source_kind == "runtime_input"
+        for node in graph.nodes
+    )
+    internal_anchor = (
+        keras.Input(shape=(1,), dtype="float32", name="_neuro_weave_static_anchor")
+        if not has_runtime_inputs
+        else None
+    )
     for node_id in topological_order(graph):
         _checkpoint(checkpoint)
         node = nodes[node_id]
@@ -251,7 +267,39 @@ def build_model(
         if manifest.source_kind is None and source is None:
             raise RuntimeError(f"Node {node_id} requires an inbound connection")
         source = cast(Any, source)
-        if manifest.operation is not None:
+        mapping = manifest.implementations.get("keras")
+        runtime_emitter = (
+            emitter_registry.resolve_runtime(mapping.adapter)
+            if mapping is not None and emitter_registry.has_runtime(mapping.adapter)
+            else None
+        )
+        if runtime_emitter is not None:
+            anchor = next(
+                (
+                    tensors[prior.id]
+                    for prior in graph.nodes
+                    if prior.id in tensors
+                    and catalog.get(prior.definition_id, prior.definition_version).source_kind
+                    == "runtime_input"
+                ),
+                internal_anchor,
+            )
+            tensors[node_id] = runtime_emitter(
+                NodeRuntimeContext(
+                    node_id=node.id,
+                    inputs=tuple(inputs),
+                    source=source,
+                    normalized_parameters=params,
+                    runtime_services={
+                        "anchor": anchor,
+                        "constant_source": ConstantSource,
+                        "parameter_source": ParameterSource,
+                        "evaluate_safe_index_expression": evaluate_safe_index_expression,
+                        "keras_ops": keras.ops,
+                    },
+                )
+            )
+        elif manifest.operation is not None:
             if manifest.operation.shape_behavior == "reshape":
                 tensors[node_id] = layers.Reshape(
                     target_shape=params.get("target_shape", [-1]), name=node.id
@@ -274,57 +322,6 @@ def build_model(
                 dtype=params.get("dtype", "float32"),
                 name=node.id,
             )
-        elif definition == "input.constant":
-            anchor = next(
-                (
-                    tensors[prior.id]
-                    for prior in graph.nodes
-                    if prior.id in tensors
-                    and catalog.get(prior.definition_id, prior.definition_version).source_kind
-                    == "runtime_input"
-                ),
-                None,
-            )
-            layer = ConstantSource(
-                shape=list(params.get("shape", [1])),
-                value=params.get("value", 0),
-                value_dtype=params.get("dtype", "float32"),
-                name=node.id,
-            )
-            tensors[node_id] = layer(anchor) if anchor is not None else layer()
-        elif definition == "input.parameter":
-            anchor = next(
-                (
-                    tensors[prior.id]
-                    for prior in graph.nodes
-                    if prior.id in tensors
-                    and catalog.get(prior.definition_id, prior.definition_version).source_kind
-                    == "runtime_input"
-                ),
-                None,
-            )
-            layer = ParameterSource(
-                shape=list(params.get("shape", [1])),
-                initializer=params.get("initializer", "zeros"),
-                value_dtype=params.get("dtype", "float32"),
-                trainable=bool(params.get("trainable", True)),
-                name=node.id,
-            )
-            tensors[node_id] = layer(anchor) if anchor is not None else layer()
-        elif definition == "math.index":
-            tensors[node_id] = evaluate_safe_index_expression(
-                str(params.get("expression", ":")), source
-            )
-        elif definition == "merge.average":
-            tensors[node_id] = keras.ops.sum(keras.ops.stack(inputs, axis=0), axis=0) / len(inputs)
-        elif definition == "merge.split":
-            tensors[node_id] = keras.ops.split(
-                source,
-                int(params.get("sections", 2)),
-                axis=int(params.get("axis", -1)),
-            )
-        elif definition == "output.detection":
-            tensors[node_id] = list(inputs)
         elif definition == "layer.dense":
             tensors[node_id] = layers.Dense(
                 params.get("units", 32),
@@ -913,4 +910,15 @@ def build_model(
         port_tensors[(output.binding.node_id, output.binding.port_id)]
         for output in resolved_outputs(graph, catalog)
     ]
+    if internal_anchor is not None:
+        inner_model = keras.Model(
+            inputs=internal_anchor,
+            outputs=outputs,
+            name="neuro_weave_static_graph",
+        )
+        return StaticGraphModel(
+            inner_model=inner_model,
+            anchor_shape=(1,),
+            name="neuro_weave_model",
+        )
     return keras.Model(inputs=inputs, outputs=outputs, name="neuro_weave_model")

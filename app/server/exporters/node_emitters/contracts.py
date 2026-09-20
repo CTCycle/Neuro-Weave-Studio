@@ -24,6 +24,18 @@ class NodeEmitterContext:
     normalized_parameters: Mapping[str, Any]
     input_expressions_by_target_port: Mapping[str, str]
     materialized_output_ports: tuple[PortDefinition, ...]
+    anchor_expression: str | None = None
+
+
+@dataclass(frozen=True)
+class NodeRuntimeContext:
+    """Normalized runtime inputs and backend services for one adapter call."""
+
+    node_id: str
+    inputs: tuple[Any, ...]
+    source: Any | None
+    normalized_parameters: Mapping[str, Any]
+    runtime_services: Mapping[str, Any] = field(default_factory=dict)
 
 
 ###############################################################################
@@ -34,11 +46,13 @@ class EmissionResult:
 
 
 Emitter = Callable[[NodeEmitterContext], EmissionResult]
+RuntimeEmitter = Callable[[NodeRuntimeContext], Any]
 
 
 @dataclass
 class _EmitterRegistration:
     emitter: Emitter
+    runtime: RuntimeEmitter | None = None
     parameter_ids: frozenset[str] = frozenset()
 
 
@@ -57,6 +71,7 @@ class NodeEmitterRegistry:
         adapter_id: str,
         emitter: Emitter,
         *,
+        runtime: RuntimeEmitter | None = None,
         parameter_ids: Collection[str] = (),
     ) -> None:
         if not adapter_id or not re.fullmatch(r"[a-z][a-z0-9_]*", adapter_id):
@@ -67,6 +82,7 @@ class NodeEmitterRegistry:
             )
         self._emitters[adapter_id] = _EmitterRegistration(
             emitter=emitter,
+            runtime=runtime,
             parameter_ids=frozenset(parameter_ids),
         )
 
@@ -91,6 +107,27 @@ class NodeEmitterRegistry:
     # -------------------------------------------------------------------------
     def has(self, adapter_id: str | None) -> bool:
         return bool(adapter_id and adapter_id in self._emitters)
+
+    # -------------------------------------------------------------------------
+    def resolve_runtime(self, adapter_id: str | None) -> RuntimeEmitter:
+        if not adapter_id or adapter_id not in self._emitters:
+            raise KeyError(
+                f"No node runtime adapter '{adapter_id}' is registered for {self.backend_key}"
+            )
+        runtime = self._emitters[adapter_id].runtime
+        if runtime is None:
+            raise KeyError(
+                f"Node emitter '{adapter_id}' has no runtime adapter for {self.backend_key}"
+            )
+        return runtime
+
+    # -------------------------------------------------------------------------
+    def has_runtime(self, adapter_id: str | None) -> bool:
+        return bool(
+            adapter_id
+            and adapter_id in self._emitters
+            and self._emitters[adapter_id].runtime is not None
+        )
 
     # -------------------------------------------------------------------------
     def parameter_ids(self, adapter_id: str) -> frozenset[str]:

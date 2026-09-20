@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pytest
-
 from common.catalogs.loader import get_node_catalog
 from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from models.native_runtime import build_native_model, forward_native
 from services.validation_service import ValidationService
+
 
 ###############################################################################
 def _node(
@@ -204,3 +205,117 @@ def test_universal_nodes_execute_with_native_output_ports(
             value = np.asarray(output)
         assert value.shape == expected_shape, node_family
         assert np.isfinite(value).all(), node_family
+
+
+KERAS_RUNTIME_CASES: list[tuple[str, Callable[[], ModelGraph], dict[str, np.ndarray], list[tuple[int, ...]]]] = [
+    (
+        "index",
+        _index_graph,
+        {"input": np.zeros((1, 4, 3), dtype=np.float32)},
+        [(1, 2, 3)],
+    ),
+    (
+        "average",
+        _average_graph,
+        {
+            "left": np.zeros((1, 4), dtype=np.float32),
+            "middle": np.zeros((1, 4), dtype=np.float32),
+            "right": np.zeros((1, 4), dtype=np.float32),
+        },
+        [(1, 4)],
+    ),
+    (
+        "split",
+        _split_graph,
+        {"input": np.zeros((1, 4), dtype=np.float32)},
+        [(1, 2), (1, 2)],
+    ),
+    (
+        "detection",
+        _detection_graph,
+        {
+            "boxes": np.zeros((1, 5, 4), dtype=np.float32),
+            "scores": np.zeros((1, 5), dtype=np.float32),
+            "classes": np.zeros((1, 5), dtype=np.int32),
+        },
+        [(1, 5, 4), (1, 5), (1, 5)],
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("node_family", "factory", "inputs", "expected_shapes"),
+    KERAS_RUNTIME_CASES,
+    ids=[item[0] for item in KERAS_RUNTIME_CASES],
+)
+def test_universal_nodes_execute_through_keras_runtime_registry(
+    node_family: str,
+    factory: Callable[[], ModelGraph],
+    inputs: dict[str, np.ndarray],
+    expected_shapes: list[tuple[int, ...]],
+) -> None:
+    keras = pytest.importorskip("keras")
+    if keras.backend.backend() not in {"tensorflow", "torch", "jax"}:
+        pytest.skip("The selected Keras backend is not part of the supported profile set")
+    from models.keras_worker import build_model
+
+    model = build_model(factory())
+    outputs = model(inputs, training=False)
+    values = outputs if isinstance(outputs, (list, tuple)) else [outputs]
+    assert len(values) == len(expected_shapes), node_family
+    for value, expected_shape in zip(values, expected_shapes, strict=True):
+        detached = value.detach().cpu().numpy() if callable(getattr(value, "detach", None)) else np.asarray(value)
+        assert detached.shape == expected_shape, node_family
+        assert np.isfinite(detached).all(), node_family
+
+
+@pytest.mark.parametrize(
+    ("node_family", "factory", "trainable_count"),
+    [
+        (
+            "constant",
+            lambda: _source_graph(
+                "input.constant",
+                {"value": [[1.0, 2.0], [3.0, 4.0]]},
+                [2, 2],
+            ),
+            0,
+        ),
+        (
+            "parameter",
+            lambda: _source_graph(
+                "input.parameter",
+                {"initializer": "ones", "trainable": True},
+                [2, 2],
+            ),
+            1,
+        ),
+    ],
+    ids=["constant", "parameter"],
+)
+def test_keras_static_sources_have_no_public_inputs_and_reload(
+    node_family: str,
+    factory: Callable[[], ModelGraph],
+    trainable_count: int,
+    tmp_path: Path,
+) -> None:
+    keras = pytest.importorskip("keras")
+    if keras.backend.backend() not in {"tensorflow", "torch", "jax"}:
+        pytest.skip("The selected Keras backend is not part of the supported profile set")
+    from models.keras_worker import build_model
+
+    model = build_model(factory())
+    assert not getattr(model, "inputs", ())
+    assert len(model.trainable_variables) == trainable_count, node_family
+    initial = model({}, training=False)
+    initial_values = initial if isinstance(initial, (list, tuple)) else [initial]
+    assert initial_values[0].shape == (2, 2), node_family
+
+    path = tmp_path / f"{node_family}.keras"
+    model.save(path)
+    restored = keras.models.load_model(path)
+    assert not getattr(restored, "inputs", ())
+    assert len(restored.trainable_variables) == trainable_count, node_family
+    output = restored({}, training=False)
+    values = output if isinstance(output, (list, tuple)) else [output]
+    assert values[0].shape == (2, 2), node_family
