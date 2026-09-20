@@ -132,17 +132,27 @@ async function addCatalogNode(page: Page, displayName: string): Promise<string> 
   return created!
 }
 
-async function connect(page: Page, sourceNodeId: string, targetNodeId: string): Promise<void> {
-  const source = page.locator(`[data-f-connector-id="${sourceNodeId}|output|output"]`)
-  const target = page.locator(`[data-f-connector-id="${targetNodeId}|input|input"]`)
-  const sourceBounds = await source.boundingBox()
-  const targetBounds = await target.boundingBox()
-  expect(sourceBounds).not.toBeNull()
-  expect(targetBounds).not.toBeNull()
-  await page.mouse.move(sourceBounds!.x + sourceBounds!.width / 2, sourceBounds!.y + sourceBounds!.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(targetBounds!.x + targetBounds!.width / 2, targetBounds!.y + targetBounds!.height / 2, { steps: 8 })
-  await page.mouse.up()
+async function connectByLabels(
+  page: Page,
+  sourceLabel: string,
+  targetLabel: string,
+  expectedConnectionCount: number,
+): Promise<void> {
+  const source = page.getByRole('button', { name: `Port Output (output) on ${sourceLabel}`, exact: true })
+  const target = page.getByRole('button', { name: `Port Input (input) on ${targetLabel}`, exact: true })
+  await expect(source).toBeVisible()
+  await expect(target).toBeVisible()
+  await source.press('Enter')
+  await expect(source).toHaveAttribute('aria-pressed', 'true')
+  const validationResponsePromise = page.waitForResponse(
+    (response) => response.url().includes('/api/validation/connection') && response.request().method() === 'POST',
+  )
+  await target.press('Enter')
+  const response = await validationResponsePromise
+  expect(response.ok()).toBeTruthy()
+  const payload = await response.json() as { valid: boolean; diagnostics: unknown[] }
+  expect(payload.valid, `${sourceLabel} → ${targetLabel} should be accepted by connection validation`).toBeTruthy()
+  await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(expectedConnectionCount)
 }
 
 async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
@@ -240,18 +250,17 @@ async function runCnnCase(
       createdIds.push(await addCatalogNode(page, displayName))
     }
 
-    const chain = ['matrix-input', ...createdIds, 'matrix-output']
-    for (let index = 0; index < chain.length - 1; index += 1) {
-      await connect(page, chain[index]!, chain[index + 1]!)
+    const chainLabels = ['Matrix input', ...definition.catalogNodes, 'Matrix output']
+    for (let index = 0; index < chainLabels.length - 1; index += 1) {
+      await connectByLabels(page, chainLabels[index]!, chainLabels[index + 1]!, index + 1)
     }
 
-    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(chain.length - 1)
     await validateSaveAndRun(
       page,
       request,
       fixture,
-      chain.length,
-      chain.length - 1,
+      chainLabels.length,
+      chainLabels.length - 1,
       definition.name,
       kerasEnabled,
       testInfo,
@@ -289,8 +298,8 @@ async function runActivationCase(
     const activationField = inspector.locator('label.inspector-field').filter({ hasText: 'Activation' })
     await expect(activationField.locator('select')).toBeVisible()
     await activationField.locator('select').selectOption(activation)
-    await connect(page, 'matrix-input', activationNodeId)
-    await connect(page, activationNodeId, 'matrix-output')
+    await connectByLabels(page, 'Matrix input', 'Activation', 1)
+    await connectByLabels(page, 'Activation', 'Matrix output', 2)
     await validateSaveAndRun(page, request, fixture, 3, 2, caseName, true, testInfo)
     console.log(`[NODE_MATRIX_BROWSER_ERRORS] ${caseName} ${JSON.stringify(browserErrors)}`)
   } finally {
@@ -299,7 +308,6 @@ async function runActivationCase(
 }
 
 test.describe('focused CNN and activation node functional matrix', () => {
-  test.describe.configure({ mode: 'serial' })
   test.setTimeout(150_000)
 
   const cnnCases: CaseDefinition[] = [
