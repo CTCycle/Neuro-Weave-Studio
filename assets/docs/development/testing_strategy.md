@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Last updated: 2026-09-17
+Last updated: 2026-09-21
 
 NeuroWeave's automated suite is intentionally risk-oriented. Tests exist for behavior whose failure can corrupt saved models, produce invalid generated models, violate execution safety, or break an important user workflow. Tooling layout, source-tree shape, presentation details, and framework behavior are not unit-tested merely to increase coverage.
 
@@ -40,7 +40,8 @@ Frontend tests are deliberately limited to state and interaction contracts that 
 - browser file-input import of a `.keras` architecture, including persisted project retrieval and downstream route navigation;
 - exact runtime device/memory-policy local-storage round trips after a browser reload, using native select change events;
 - keyboard graph traversal, source/target port activation, authoritative connection validation, and accessible status feedback;
-- visible-control naming, document landmarks, language/title, and focus-visible baseline checks across the core browser routes.
+- visible-control naming, document landmarks, language/title, and focus-visible baseline checks across the core browser routes;
+- the focused CNN/activation Builder matrix covers catalog creation, keyboard port connections, static validation, save, and real Functional Validation for representative 1D/2D/3D convolution chains and activation values.
 
 Presentation details, button inventories, clipboard status, basic filtering, and collapsible UI behavior are covered by static checks and product QA rather than dedicated unit tests.
 
@@ -56,6 +57,6 @@ The repository reference path has two tiers. Hermetic tests stub the Hugging Fac
 
 The browser file-input test exercises Playwright's browser input path; it does not certify every native file chooser implementation. The accessibility baseline is not a substitute for full WCAG conformance or a screen-reader/assistive-technology matrix. When those environments are available, record the manual result under `assets/QA/` with browser, OS, assistive technology, and observed interaction details.
 
-The native parity matrix covers TensorFlow, PyTorch, and JAX common-subset representative graphs, including dense, activation, convolutional, recurrent, reshape/flatten, merge/Add, and multi-input/multi-output cases. It verifies catalog mappings, native helper construction/evaluation, forward shapes and dtypes, and deterministic outputs; the helper verification is synthetic forward-only. The separate native compilation gate retains its PyTorch and Keras-on-PyTorch scope, while compiler and export checks remain conditional on installed toolchains. Browser acceptance uses the official launcher and records graph creation, validation, compilation, functional validation, export capability results, logs, network/console failures, and cleanup under `assets/QA/`.
+The native parity matrix covers TensorFlow, PyTorch, and JAX common-subset representative graphs, including dense, activation, convolutional, recurrent, reshape/flatten, merge/Add, and multi-input/multi-output cases. It verifies catalog mappings, native helper construction/evaluation, forward shapes and dtypes, and deterministic outputs; the helper verification is synthetic forward-only. The separate native compilation gate retains its PyTorch and Keras-on-PyTorch scope, while compiler and export checks remain conditional on installed toolchains. Browser acceptance uses the official launcher and records graph creation, validation, compilation, functional validation, export capability results, logs, network/console failures, and cleanup under `assets/QA/`. The focused node matrix is a bounded supplement: its successful Keras/PyTorch and native-PyTorch Builder cases do not certify the remaining catalog or the other live profiles.
 
 Tensor inspection coverage adds deterministic seeded-run checks, revision/validation/runtime fail-closed checks, one-pass node/port trace population, authoritative shape/dtype comparison, NaN/infinity-safe statistics, sampled/full labels, bounded slice/payload behavior, expiry/deletion/cancellation, and persistence-integrity assertions. Browser acceptance covers both Builder and overview entry points, keyboard context menus, node/branch navigation, multi-port selection, vector plot/histogram, rank-two heatmap, higher-rank slicing, the initialized-untrained warning, and bounded DOM/canvas element counts. Runtime-dependent claims are recorded per installed profile; unavailable or unsupported profiles must produce explicit reasons rather than fallback evidence.
