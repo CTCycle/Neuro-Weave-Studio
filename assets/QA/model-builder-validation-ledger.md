@@ -1,0 +1,457 @@
+# Model Builder validation ledger
+
+Last updated: 2026-09-21
+
+Preparation status: READY FOR FUTURE VALIDATION. This document was prepared without running a new validation pass and without changing application code.
+
+## Purpose
+
+This is the working ledger for consolidating Model Builder confidence across:
+
+- every built-in node definition;
+- every declared parameter and backend-specific parameter capability;
+- every declared port/connection shape that can legally compose;
+- representative multi-node graph families, branches, fan-in, fan-out, and multi-output graphs;
+- all six execution profiles;
+- Builder interaction, static validation, save/reopen, source generation, functional validation, and export boundaries.
+
+The ledger is intentionally evidence-scoped. A node is not “green” merely because its manifest parses or a unit test covers its adapter. A profile is not “green” merely because capability discovery says that a mapping exists.
+
+## Status vocabulary
+
+Use these row-level values:
+
+| Value | Meaning |
+| --- | --- |
+| PENDING | In scope and not yet run for the current run ID. |
+| PASS | The required evidence for this row and profile is attached and matches the current revision. |
+| EXPECTED_UNSUPPORTED | The manifest/profile contract says the path is unavailable and the Builder/API blocks it with the expected reason. |
+| BLOCKED | The path should be tested, but the runtime, compiler, device, dependency, or environment is unavailable. Record the exact blocker. |
+| FAIL | A path expected to work failed, or an expected diagnostic/fail-closed boundary was not observed. |
+| STALE | Historical evidence exists, but it does not match the current revision or environment. Re-run before using it as closure evidence. |
+| N/A | Structurally not applicable; explain why rather than leaving the cell blank. |
+
+Use the project status ledger’s canonical component statuses when summarizing a completed run. Do not promote a component to VALIDATED from a PENDING, STALE, EXPECTED_UNSUPPORTED, or BLOCKED row.
+
+## Source-of-truth and run setup
+
+At the beginning of every run, freeze and record:
+
+1. branch, commit, working-tree state, and launcher command;
+2. the normalized response from /api/nodes/catalog, including count, category counts, definition IDs, versions, ports, parameters, and mappings;
+3. a deterministic catalog fingerprint based on the sorted normalized catalog;
+4. /api/metadata runtime and compiler discovery for the selected backend/API pair;
+5. Python/framework/exporter versions, device, compiler/toolchain state, and test database identity;
+6. the exact execution profile for each graph: execution_backend plus keras_enabled;
+7. the graph/project ID, revision, validation response, job ID, generated-source identity, and artifact IDs where applicable.
+
+The checked-in loader returned 149 manifests on 2026-09-21:
+
+| Category | Seed count |
+| --- | ---: |
+| inputs | 8 |
+| core | 14 |
+| convolutional | 18 |
+| recurrent | 5 |
+| transformer | 10 |
+| merge | 14 |
+| mathematical | 73 |
+| outputs | 7 |
+| Total | 149 |
+
+This is only the seed roster for this ledger. The manifest specification and framework-compatibility document contain different historical counts, so every future run must use the live normalized catalog and record the count/fingerprint instead of assuming that 149 remains current.
+
+## Six profile matrix
+
+The profile is part of the test identity. Never infer it from a request-local preference or accept a different worker/backend as a fallback.
+
+| Profile key | execution_backend | keras_enabled | Required runtime lane |
+| --- | --- | ---: | --- |
+| K/TensorFlow | tensorflow | true | Keras API using TensorFlow |
+| K/PyTorch | pytorch | true | Keras API using PyTorch |
+| K/JAX | jax | true | Keras API using JAX |
+| N/TensorFlow | tensorflow | false | Native TensorFlow |
+| N/PyTorch | pytorch | false | Native PyTorch |
+| N/JAX | jax | false | Native JAX/Flax |
+
+For every profile, record these gates independently:
+
+| Gate | Required evidence |
+| --- | --- |
+| Mapping | Selected node and parameter mappings are present, supported, and verified. |
+| Builder | Catalog availability, materialization, inspector behavior, connection candidates, and profile switching are correct. |
+| Static validation | The complete graph validates against the exact profile, including shapes and outputs. |
+| Source | Generated source names the exact selected API/backend and has no silent fallback. |
+| Functional validation | The selected worker succeeds, or returns the explicit expected unavailable diagnostic. |
+| Export | Capability gating, submission, artifact verification, and reload/forward check match the profile. |
+| Persistence | Save/reopen preserves graph, parameters, profile, outputs, and invalid repair state. |
+
+## Carry-forward evidence, not closure
+
+These reports provide useful starting points but do not close the full ledger:
+
+| Existing evidence | What it covers | Carry-forward treatment |
+| --- | --- | --- |
+| node-functional-matrix-20260921.md | K/PyTorch CNN 1D/2D/3D, N/PyTorch CNN 2D, and six Activation values through Builder, save, and functional validation. | PASS only for those named cases at the recorded revision; all other nodes/profiles remain PENDING. |
+| backend-compatibility-consolidation.md | Static six-profile mapping/parameter/connection contracts, repair retention, compiler/export boundaries, and focused browser evidence. | Use as static contract evidence; re-run live Builder/runtime rows on the current checkout. |
+| live-backend-compatibility-e2e-20260913.md | A historical simple Dense graph across all six profiles plus selected restrictions and exports. | STALE for a current full-catalog claim; use as a revalidation map. |
+| project_status_ledger.md | Current operational status, known blockers, and validation debt. | Inspect before each run and update only after new evidence. |
+
+Current boundaries to preserve:
+
+- Functional Validation is a deterministic, initialized, untrained forward check; it is not training or a real-user prediction workload.
+- Native TensorFlow XLA and native PyTorch torch.compile are separate environment/toolchain gates; an unavailable compiler is BLOCKED or an explicit runtime rejection, never a hidden Keras success.
+- Unsupported mappings and unsupported parameter values remain discoverable/repairable with typed diagnostics; they are not counted as successful execution.
+- layer.reshape retains a source-export limitation in the current MVP boundary.
+- Output adapters are optional semantic/task nodes; a valid graph may terminate at a value-producing computational node.
+
+## Coverage levels and closure rules
+
+| Level | Ledger unit | Minimum closure rule |
+| --- | --- | --- |
+| L0 | Catalog inventory | Live catalog captured; every definition/version appears exactly once. |
+| L1 | Single-node behavior | Every definition is added/materialized or correctly disabled for each profile; defaults, inspector, reset, and a structurally valid fixture are covered. |
+| L2 | Parameter behavior | Every declared parameter has default, valid, boundary/nullable, conditional, and profile-capability checks where applicable. |
+| L3 | Port/edge behavior | Every declared compatible output-to-input edge candidate is checked in a valid shape; representative incompatible pairs cover each diagnostic reason. |
+| L4 | Graph composition | Every node appears in at least one valid graph for each profile where its mapping is supported; special-port and shape-changing nodes have dedicated graphs. |
+| L5 | Runtime/profile | Each supported profile has Builder creation, validation, source, functional worker, profile-switch, and applicable export evidence. |
+| L6 | Persistence/recovery | Save/reopen, revision freshness, invalid repair, unsupported-profile retention, and failure cleanup are recorded. |
+
+“All combinations” means the generated L3 candidate-edge set plus the L4 graph-family set is closed. It does not require enumerating every arbitrary graph of unbounded depth. A node with multiple ports, conditional ports, state outputs, variadic inputs, or backend-specific parameters must receive a dedicated L4 case.
+
+## Node roster seed
+
+Use this roster to seed the per-run node sheet, then reconcile it against /api/nodes/catalog before testing. The ID is the stable ledger key; display names are only for Builder selection.
+
+### Inputs — 8
+
+- input.constant — Constant
+- input.image — Image Input
+- input.tensor — Input Tensor
+- input.mask — Mask Input
+- input.parameter — Parameter
+- input.sequence — Sequence Input
+- input.tabular — Tabular Input
+- input.token — Token Input
+
+### Core — 14
+
+- layer.activation — Activation
+- layer.batch_norm — Batch Normalization
+- layer.dense — Dense / Linear
+- layer.dropout — Dropout
+- layer.embedding — Embedding
+- layer.flatten — Flatten
+- layer.group_norm — Group Normalization
+- layer.layer_norm — Layer Normalization
+- layer.prelu — Parametric ReLU
+- layer.permute — Permute
+- layer.rms_norm — RMS Normalization
+- layer.repeat — Repeat
+- layer.reshape — Reshape
+- layer.unit_norm — Unit Normalization
+
+### Convolutional — 18
+
+- conv.average_pool1d — Average Pooling 1D
+- conv.average_pool2d — Average Pooling 2D
+- conv.average_pool3d — Average Pooling 3D
+- conv.conv1d — Conv1D
+- conv.conv2d — Conv2D
+- conv.conv3d — Conv3D
+- conv.cropping — Cropping
+- conv.depthwise — Depthwise Convolution
+- conv.global_pool1d — Global Pooling 1D
+- conv.global_pool2d — Global Pooling 2D
+- conv.global_pool3d — Global Pooling 3D
+- conv.max_pool1d — Max Pooling 1D
+- conv.max_pool2d — Max Pooling 2D
+- conv.max_pool3d — Max Pooling 3D
+- conv.padding — Padding
+- conv.separable — Separable Convolution
+- conv.transposed — Transposed Convolution
+- conv.upsampling — Upsampling
+
+### Recurrent — 5
+
+- recurrent.bidirectional — Bidirectional Recurrent Layer
+- recurrent.gru — GRU
+- recurrent.lstm — LSTM
+- recurrent.simple_rnn — Simple RNN
+- recurrent.stack — Recurrent Stack
+
+### Transformer — 10
+
+- attention.cross — Cross-attention
+- attention.multi_head — Multi-head Attention
+- attention.self — Self-attention
+- transformer.attention_mask — Attention Mask
+- transformer.decoder_block — Transformer Decoder Block
+- transformer.encoder_block — Transformer Encoder Block
+- transformer.feed_forward — Feed-forward Transformer Block
+- transformer.positional_encoding — Positional Encoding
+- transformer.residual — Residual Connection
+- transformer.stack — Complete Transformer Stack
+
+### Merge — 14
+
+- merge.add — Add
+- merge.average — Average
+- merge.concatenate — Concatenate
+- merge.divide — Divide
+- merge.dot — Dot Product
+- merge.matmul — Matrix Multiplication
+- merge.maximum — Maximum
+- merge.minimum — Minimum
+- merge.multiply — Multiply
+- merge.residual — Residual Connection
+- merge.skip — Skip Connection
+- merge.split — Split
+- merge.stack — Stack
+- merge.subtract — Subtract
+
+### Mathematical — 73
+
+- math.abs — Absolute Value
+- math.add — Add
+- math.all — All
+- math.any — Any
+- math.argmax — Argmax
+- math.argmin — Argmin
+- math.cast — Cast
+- math.ceil — Ceiling
+- math.clip — Clip
+- math.concatenate — Concatenate
+- math.cos — Cosine
+- math.divide — Divide
+- math.dot — Dot Product
+- math.equal — Equal
+- math.erf — Error Function
+- math.expand_dims — Expand Dimensions
+- math.exp — Exponential
+- math.flatten — Flatten
+- math.floor — Floor
+- math.gelu — GELU
+- math.greater — Greater Than
+- math.greater_equal — Greater or Equal
+- math.cosh — Hyperbolic Cosine
+- math.sinh — Hyperbolic Sine
+- math.tanh — Hyperbolic Tangent
+- math.less — Less Than
+- math.less_equal — Less or Equal
+- math.logsumexp — Log-Sum-Exp
+- math.log — Logarithm
+- math.log1p — Logarithm 1p
+- math.logical_and — Logical AND
+- math.logical_or — Logical OR
+- math.logical_xor — Logical XOR
+- math.matmul — Matrix Multiplication
+- math.maximum — Maximum
+- math.max — Maximum Reduction
+- math.mean — Mean
+- math.minimum — Minimum
+- math.min — Minimum Reduction
+- math.multiply — Multiply
+- math.negative — Negative
+- math.not_equal — Not Equal
+- math.power — Power
+- math.prod — Product Reduction
+- math.ravel — Ravel
+- math.relu — ReLU
+- math.reciprocal — Reciprocal
+- math.rsqrt — Reciprocal Square Root
+- math.reduce — Reduction Operations
+- math.repeat — Repeat
+- math.reshape — Reshape
+- math.round — Round
+- math.sqrt — Square Root
+- math.squeeze — Squeeze Dimensions
+- math.stack — Stack
+- math.stddev — Standard Deviation
+- math.stop_gradient — Stop Gradient
+- math.subtract — Subtract
+- math.sum — Sum
+- math.take — Take
+- math.tan — Tangent
+- math.transpose — Transpose
+- math.variance — Variance
+- math.expression — Safe Mathematical Expression
+- math.sigmoid — Sigmoid
+- math.softmax — Softmax
+- math.sign — Sign
+- math.sin — Sine
+- math.softplus — Softplus
+- math.square — Square
+- math.slice — Tensor Slicing
+- math.index — Tensor Indexing
+- math.tile — Tile
+
+### Outputs — 7
+
+- output.classification — Classification Output
+- output.custom — Custom Output Tensor
+- output.detection — Object Detection Output
+- output.multi_head — Multi-output Head
+- output.regression — Regression Output
+- output.segmentation — Segmentation Output
+- output.sequence — Sequence Output
+
+## Ledger A — per-node and parameter sheet
+
+Create one row for every node/profile pair from the live catalog. Keep expected capability status separate from observed runtime status.
+
+| Node ID | Category | Fixture family | K/Tf | K/PT | K/JAX | N/Tf | N/PT | N/JAX | Parameters | Composition | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| one row per live manifest |  |  | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING |  |
+
+For each supported node/profile row, the minimum Builder/runtime sequence is:
+
+1. find the catalog item and confirm its enabled/disabled state and reason;
+2. materialize the node through the user-facing Builder path;
+3. inspect defaults, edit a representative value, reset, and save/reopen;
+4. connect it in its fixture family and confirm server connection validation;
+5. run complete static validation and confirm inferred shapes/output bindings;
+6. compile source for the exact profile when the exporter contract supports it;
+7. run Functional Validation and confirm worker profile/API, state, metadata, and cleanup;
+8. record console/page errors, screenshots, request/job IDs, and artifact links.
+
+For EXPECTED_UNSUPPORTED or BLOCKED rows, perform the same catalog/profile setup and capture the explicit reason and fail-closed behavior. Do not attempt to make an unsupported row green by switching profiles mid-row.
+
+### Parameter sub-ledger
+
+Every node parameter needs a row or a linked parameter batch with:
+
+| Node ID | Parameter ID | Default | Valid boundary/nullable | Enum/options | Conditional state | Profile capability | Invalid diagnostic | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| one row per declared parameter |  | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING |  |
+
+At minimum, cover these interaction groups:
+
+| Group | Required combinations |
+| --- | --- |
+| Convolution/pooling | rank, filters/size, kernel, stride, padding, dilation, data format, channel transition, and spatial boundary behavior. |
+| Core shape layers | flatten/reshape/permute/repeat with valid and impossible targets, dynamic dimensions, and source-export boundary. |
+| Recurrent | rank-three input, units, return_sequences, return_state, state ports, dropout/recurrent dropout, stateful/backwards/unroll, and native restrictions. |
+| Attention/transformer | rank-three inputs, embedding/head divisibility, masks, self/cross inputs, residual paths, stack depth, and conditional parameters. |
+| Merge and tensor-list | equal-shape fan-in, concatenation axis, variadic inputs, split outputs, residual/skip shape equality, and multi-output selection. |
+| Mathematical | unary/binary/reduction/tensor families, rank changes, dtype changes, indexing/slicing, safe-expression allowlist, and invalid expressions. |
+| Output/task contracts | classification/regression/segmentation/sequence/multi-head semantics, activation/loss compatibility, and inferred versus explicit output bindings. |
+
+## Ledger B — exhaustive port/edge combinations
+
+Build this sheet from every output port × input port in the frozen catalog, not from a hand-picked list. Group candidates by port kind, rank, tensor-list element kind, required/enabled state, cardinality, and shape fixture.
+
+| Edge ID | Source node/port | Target node/port | Shape fixture | Profile | Positive connection | Static graph validation | Runtime composition | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| generated from frozen catalog |  |  |  | K/Tf, K/PT, K/JAX, N/Tf, N/PT, N/JAX | PENDING | PENDING | PENDING |  |
+
+Close the edge sheet only when:
+
+- every compatible candidate edge has one valid-shape positive result for every profile where both mappings are supported;
+- disabled/unavailable ports are rejected with the selected profile’s reason;
+- representative incompatible pairs cover wrong kind, wrong rank, tensor versus tensor-list, mask/scalar mismatch, duplicate occupancy, disabled port, and multiple-input/cardinality errors;
+- cycle, self-loop, dangling reference, unreachable component, and input/output contribution rules have evidence;
+- fan-out, fan-in, multi-output/state ports, explicit output bindings, and inferred outputs are represented.
+
+## Ledger C — graph composition families
+
+Use stable family IDs so the same graph intent can be compared across profiles and future revisions. Each family must record the exact node IDs, parameters, shapes, edges, outputs, and profile.
+
+| Family ID | Composition | Required focus | Current seed evidence | Future status |
+| --- | --- | --- | --- | --- |
+| GF-001 | Input → Dense/Activation → output | canonical linear path, activation options, output semantics | Existing representative Builder evidence | PENDING |
+| GF-002 | 1D input → Conv1D → pooling → global pooling → output | rank-3 shape and 1D spatial transitions | node-functional-matrix-20260921.md | PASS only for named K/PyTorch case; expand |
+| GF-003 | 2D image → Conv2D → pooling → global pooling → output | rank-4 shape, channels, 2D transitions | node-functional-matrix-20260921.md | PASS only for named K/PyTorch and N/PyTorch cases; expand |
+| GF-004 | 3D tensor → Conv3D → pooling → global pooling → output | rank-5 shape and 3D transitions | node-functional-matrix-20260921.md | PASS only for named K/PyTorch case; expand |
+| GF-005 | Sequence → Simple RNN/GRU/LSTM → sequence output | rank-three input and return_sequences | Historical compatibility report | STALE; re-run |
+| GF-006 | Recurrent node with return_state → multi-output/state consumers | state ports, output selection, serialization | Historical compatibility report | STALE; re-run |
+| GF-007 | Sequence → self/multi-head attention → output | head divisibility, attention axes, output rank | Static contract evidence | PENDING live Builder/runtime |
+| GF-008 | Query/key/value or mask → cross-attention/transformer block | multi-input ports, masks, residuals, conditional parameters | Static contract evidence | PENDING live Builder/runtime |
+| GF-009 | Two branches → merge/concatenate/stack/residual/skip → output | fan-in, shape equality, axis, tensor-list cardinality | Backend compatibility evidence | PENDING expanded matrix |
+| GF-010 | Input → mathematical unary/binary/reduction/tensor operations | dtype/rank/shape rules and safe expressions | Native parity supporting evidence | PENDING Builder catalog coverage |
+| GF-011 | Branch and fan-out graph | one output to multiple compatible consumers | Existing graph validation coverage | PENDING per profile |
+| GF-012 | Multi-input and multi-output graph | explicit output bindings, stable port IDs, independent terminals | Native parity supporting evidence | PENDING Builder/profile coverage |
+| GF-013 | Output adapter variants | classification, regression, segmentation, sequence, multi-head, custom, detection | Static/output contract evidence | PENDING live profile coverage |
+| GF-014 | Invalid graph → repair → valid graph | invalid parameter, unsupported node/value, cycle, shape mismatch, profile switch retention | Representative Builder investigation | PASS only for covered cases; expand |
+| GF-015 | Save → reopen → profile switch → revalidate | revision, stale validation, retained incompatible state, no pruning/fallback | Representative Builder investigation | PENDING all six profiles |
+
+For each family, repeat the graph over every profile that the frozen catalog marks supported. If the family is not supported by a profile, record EXPECTED_UNSUPPORTED or BLOCKED with the exact mapping/runtime reason.
+
+## Ledger D — backend/profile execution and export
+
+This is the profile-level summary after the node and family sheets are populated.
+
+| Profile | Catalog/mapping | Builder creation | Static validation | Source exactness | Functional worker | Export capability/artifact | Profile switching | Summary |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| K/TensorFlow | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING |  |
+| K/PyTorch | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING |  |
+| K/JAX | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING |  |
+| N/TensorFlow | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING |  |
+| N/PyTorch | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING |  |
+| N/JAX | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING |  |
+
+The profile summary may be PASS only when every supported L1/L3/L4 row in that profile is closed and all unavailable rows have explicit expected/blocker evidence. A small representative graph cannot close full-catalog profile coverage.
+
+## Evidence contract
+
+For every PASS or EXPECTED_UNSUPPORTED row, retain:
+
+- run ID, repository revision, profile, catalog fingerprint, environment fingerprint, and graph revision;
+- the test/browser command or manual workflow used;
+- Builder screenshot or browser trace for user-facing interactions;
+- validation response and diagnostic payload;
+- generated source or source hash where source is in scope;
+- functional job ID, final state, selected worker/API/backend, input/output metadata, and untrained boundary;
+- export capability response and artifact verification where export is in scope;
+- browser pageerror/console.error result and backend log correlation;
+- cleanup result, including stopped task-owned processes and test data.
+
+Store new reports, screenshots, traces, logs, and matrices under assets/QA. Link them from this ledger and from the project status ledger when a component status changes.
+
+## Future session run template
+
+Copy this block for each validation session. Do not overwrite prior run blocks.
+
+### Run ID: YYYY-MM-DD-short-name
+
+| Field | Value |
+| --- | --- |
+| Date/time |  |
+| Branch/commit |  |
+| Working tree |  |
+| Launcher and ports |  |
+| Catalog count/fingerprint |  |
+| Runtime/package versions |  |
+| Device/compiler state |  |
+| Database/test isolation |  |
+| Profiles executed |  |
+| QA artifact directory |  |
+
+#### Run result
+
+| Area | Result | Evidence |
+| --- | --- | --- |
+| L0 catalog inventory | PENDING |  |
+| L1 every node | PENDING |  |
+| L2 parameters | PENDING |  |
+| L3 port/edge combinations | PENDING |  |
+| L4 graph families | PENDING |  |
+| L5 six profiles | PENDING |  |
+| L6 persistence/recovery | PENDING |  |
+| Open failures/blockers |  |  |
+
+#### Closure note
+
+State exactly which rows are PASS, EXPECTED_UNSUPPORTED, BLOCKED, FAIL, STALE, or still PENDING. If a run is partial, say so explicitly and carry unresolved rows forward.
+
+## Future session checklist
+
+- Inspect project_status_ledger.md and this ledger before starting.
+- Freeze the live catalog and profile capability snapshot.
+- Generate/update the per-node and per-edge sheets from that snapshot.
+- Run static contract checks before browser work.
+- Use the official launcher and the real Builder workflow for catalog, connections, save, validation, and profile switching.
+- Run each supported profile through source and Functional Validation; keep compiler/export availability separate.
+- Record expected unsupported and blocked paths instead of treating them as failures or successes.
+- Save all evidence under assets/QA and update the canonical project status only after reviewing the complete run.
+- Stop task-owned services and helpers, then record cleanup.
