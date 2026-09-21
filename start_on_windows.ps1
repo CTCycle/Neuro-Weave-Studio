@@ -338,6 +338,14 @@ function Ensure-PortableRuntimes {
 }
 
 function Ensure-EnvironmentFile {
+    if (Test-Path -LiteralPath $script:EnvironmentFile) {
+        $environmentItem = Get-Item -LiteralPath $script:EnvironmentFile
+        if ($environmentItem.PSIsContainer) {
+            throw "The environment path is a directory, not a file: $($script:EnvironmentFile)"
+        }
+        return
+    }
+
     $python = Get-PortablePython
     if (-not (Test-Path -LiteralPath $script:EnvironmentBootstrap)) {
         throw "Missing environment bootstrap script: $($script:EnvironmentBootstrap)"
@@ -716,6 +724,204 @@ function Write-BackendCapabilitySummary {
 # ===============================================================================
 # Dependency and frontend lifecycle
 # ===============================================================================
+function Get-FrontendBuildInputFiles {
+    $sourceDirectory = Join-Path $script:ClientDir 'src'
+    if (-not (Test-Path -LiteralPath $sourceDirectory -PathType Container)) {
+        throw "Missing frontend production source directory: $sourceDirectory"
+    }
+
+    $paths = [System.Collections.Generic.List[string]]::new()
+    foreach ($file in @(Get-ChildItem -LiteralPath $sourceDirectory -Recurse -File -Force)) {
+        if ($file.Name -like '*.test.*' -or $file.Name -like '*.spec.*') { continue }
+        $paths.Add($file.FullName)
+    }
+
+    foreach ($relativePath in @('angular.json', 'tsconfig.json', 'tsconfig.app.json', 'package.json', 'package-lock.json')) {
+        $path = Join-Path $script:ClientDir $relativePath
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Missing frontend build input: $path"
+        }
+        $paths.Add((Get-Item -LiteralPath $path).FullName)
+    }
+
+    return @($paths | Sort-Object {
+            [System.IO.Path]::GetRelativePath($script:RepoRoot, [string]$_).Replace('\', '/')
+        })
+}
+
+function Get-Sha256Text {
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+        return ([System.BitConverter]::ToString($sha256.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+    }
+}
+
+function Get-FrontendFingerprintForFiles {
+    param([Parameter(Mandatory = $true)][string[]]$Paths)
+
+    $manifest = [System.Text.StringBuilder]::new()
+    foreach ($path in @($Paths | Sort-Object {
+                [System.IO.Path]::GetRelativePath($script:RepoRoot, [string]$_).Replace('\', '/')
+            })) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Missing frontend fingerprint input: $path"
+        }
+        $relativePath = [System.IO.Path]::GetRelativePath($script:RepoRoot, $path).Replace('\', '/')
+        $fileHash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+        [void]$manifest.Append("path=$relativePath`n")
+        [void]$manifest.Append("sha256=$fileHash`n")
+    }
+    [void]$manifest.Append("node_version=$($script:NodeVersion)`n")
+    return Get-Sha256Text -Text $manifest.ToString()
+}
+
+function Get-FrontendBuildFingerprint {
+    return Get-FrontendFingerprintForFiles -Paths @(Get-FrontendBuildInputFiles)
+}
+
+function Get-FrontendDependencyFingerprint {
+    $packagePath = Join-Path $script:ClientDir 'package.json'
+    $lockPath = Join-Path $script:ClientDir 'package-lock.json'
+    return Get-FrontendFingerprintForFiles -Paths @($packagePath, $lockPath)
+}
+
+function Write-JsonFileAtomically {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][object]$Value
+    )
+
+    $directory = Split-Path -Parent $Path
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $temporaryPath = Join-Path $directory ('.{0}.{1}.tmp' -f [System.IO.Path]::GetFileName($Path), [guid]::NewGuid().ToString('N'))
+    $backupPath = Join-Path $directory ('.{0}.{1}.bak' -f [System.IO.Path]::GetFileName($Path), [guid]::NewGuid().ToString('N'))
+    try {
+        $json = $Value | ConvertTo-Json -Depth 8
+        [System.IO.File]::WriteAllText($temporaryPath, $json, [System.Text.UTF8Encoding]::new($false))
+        if (Test-Path -LiteralPath $Path -PathType Leaf) {
+            [System.IO.File]::Replace($temporaryPath, $Path, $backupPath, $true)
+        } else {
+            [System.IO.File]::Move($temporaryPath, $Path)
+        }
+    } finally {
+        if (Test-Path -LiteralPath $temporaryPath) {
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path -LiteralPath $backupPath) {
+            Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Read-FrontendBuildState {
+    $statePath = Join-Path $script:CacheDir 'frontend-build-state.json'
+    if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { return $null }
+    try {
+        return Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+    } catch {
+        Write-Warn 'The frontend build state is unreadable; the frontend will be rebuilt.'
+        return $null
+    }
+}
+
+function Write-FrontendBuildState {
+    param([Parameter(Mandatory = $true)][string]$Fingerprint)
+
+    $statePath = Join-Path $script:CacheDir 'frontend-build-state.json'
+    Write-JsonFileAtomically -Path $statePath -Value ([ordered]@{
+            schema_version = 1
+            input_sha256 = $Fingerprint
+            node_version = $script:NodeVersion
+            built_at = [DateTime]::UtcNow.ToString('O')
+        })
+}
+
+function Read-FrontendDependencyState {
+    $statePath = Join-Path $script:CacheDir 'frontend-dependency-state.json'
+    if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { return $null }
+    try {
+        return Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+    } catch {
+        Write-Warn 'The frontend dependency state is unreadable; frontend dependencies will be repaired.'
+        return $null
+    }
+}
+
+function Write-FrontendDependencyState {
+    param([Parameter(Mandatory = $true)][string]$Fingerprint)
+
+    $statePath = Join-Path $script:CacheDir 'frontend-dependency-state.json'
+    Write-JsonFileAtomically -Path $statePath -Value ([ordered]@{
+            schema_version = 1
+            input_sha256 = $Fingerprint
+            node_version = $script:NodeVersion
+            synced_at = [DateTime]::UtcNow.ToString('O')
+        })
+}
+
+function Test-FrontendDependencyCurrent {
+    $state = Read-FrontendDependencyState
+    if ($null -eq $state) { return $false }
+    $properties = @($state.PSObject.Properties.Name)
+    if ($properties -notcontains 'schema_version' -or
+        $properties -notcontains 'input_sha256' -or
+        $properties -notcontains 'node_version') {
+        return $false
+    }
+    $schemaVersion = 0
+    if (-not [int]::TryParse([string]$state.schema_version, [ref]$schemaVersion) -or
+        $schemaVersion -ne 1 -or
+        [string]$state.node_version -ne $script:NodeVersion) {
+        return $false
+    }
+    try {
+        return [string]$state.input_sha256 -eq (Get-FrontendDependencyFingerprint)
+    } catch {
+        return $false
+    }
+}
+
+function Test-FrontendBuildCurrent {
+    if (-not (Test-Path -LiteralPath $script:FrontendDistIndex -PathType Leaf)) { return $false }
+    $state = Read-FrontendBuildState
+    if ($null -eq $state) { return $false }
+    $properties = @($state.PSObject.Properties.Name)
+    if ($properties -notcontains 'schema_version' -or
+        $properties -notcontains 'input_sha256' -or
+        $properties -notcontains 'node_version') {
+        return $false
+    }
+    $schemaVersion = 0
+    if (-not [int]::TryParse([string]$state.schema_version, [ref]$schemaVersion) -or
+        $schemaVersion -ne 1 -or
+        [string]$state.node_version -ne $script:NodeVersion) {
+        return $false
+    }
+    try {
+        return [string]$state.input_sha256 -eq (Get-FrontendBuildFingerprint)
+    } catch {
+        return $false
+    }
+}
+
+function Ensure-FrontendBuildCurrent {
+    if (Test-FrontendBuildCurrent) {
+        Write-Ok 'Frontend build output is current; reused the existing build.'
+        return
+    }
+
+    Write-Info 'Frontend build output is missing or stale; rebuilding from current production inputs.'
+    Invoke-FrontendBuild
+    if (-not (Test-FrontendBuildCurrent)) {
+        throw 'Frontend build completed without producing a trusted current build state.'
+    }
+}
+
 function Sync-Dependencies {
     param(
         [switch]$IncludeTests,
@@ -758,6 +964,7 @@ function Sync-Dependencies {
             & $npm ci
             if ($LASTEXITCODE -ne 0) { throw "Frontend dependency installation failed with exit code $LASTEXITCODE." }
         } finally { Pop-Location }
+        Write-FrontendDependencyState -Fingerprint (Get-FrontendDependencyFingerprint)
     }
     Write-Ok 'Dependencies are ready.'
 }
@@ -771,6 +978,10 @@ function Invoke-FrontendBuild {
         & $npm run build
         if ($LASTEXITCODE -ne 0) { throw "Frontend build failed with exit code $LASTEXITCODE." }
     } finally { Pop-Location }
+    if (-not (Test-Path -LiteralPath $script:FrontendDistIndex -PathType Leaf)) {
+        throw "Frontend build completed without creating $($script:FrontendDistIndex)."
+    }
+    Write-FrontendBuildState -Fingerprint (Get-FrontendBuildFingerprint)
 }
 
 function Invoke-FrontendRebuild {
@@ -799,11 +1010,11 @@ function Assert-ApplicationStopped {
         (Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'),
         (Get-ConfiguredInt -Name 'UI_PORT' -Default '5173')
     ) | Select-Object -Unique
-    foreach ($port in $ports) {
-        $pids = @(Get-ListenerPids -Port $port)
-        if ($pids.Count -gt 0) {
-            throw "Cannot change the database or dependency environment while port $port is in use by PID(s) $($pids -join ', '). Close NeuroWeave and retry."
-        }
+    $records = @(Get-PortListenerRecords -Ports $ports)
+    if ($records.Count -gt 0) {
+        $details = @(Get-ListenerProcessDetails -ListenerRecords $records)
+        $description = @($details | ForEach-Object { "port $($_.Port) -> PID $($_.ProcessId) ($($_.ProcessName))" }) -join '; '
+        throw "Cannot change the database or dependency environment while $description. Close NeuroWeave and retry."
     }
 }
 
@@ -956,16 +1167,25 @@ function Test-DependenciesReady {
         -not (Test-Path -LiteralPath $angularCli)) {
         return $false
     }
-    & $python --version *> $null
-    if ($LASTEXITCODE -ne 0) { return $false }
-    try { Assert-PythonRuntimeVersion -PythonPath $python } catch { return $false }
-    & $uv --version *> $null
-    if ($LASTEXITCODE -ne 0) { return $false }
-    & $node --version *> $null
-    if ($LASTEXITCODE -ne 0) { return $false }
-    $imports = "import fastapi, uvicorn, sqlalchemy, alembic, filelock; import importlib.metadata; importlib.metadata.version('keras')"
-    if ($IncludeTests) { $imports += "; importlib.metadata.version('pytest'); importlib.metadata.version('ruff'); importlib.metadata.version('pyright')" }
-    & $venvPython -c $imports *> $null
+    if (-not (Test-FrontendDependencyCurrent)) { return $false }
+
+    $requiredPackages = @('fastapi', 'uvicorn', 'sqlalchemy', 'alembic', 'filelock', 'keras')
+    if ($IncludeTests) { $requiredPackages += @('pytest', 'ruff', 'pyright') }
+    $requiredPackagesJson = $requiredPackages | ConvertTo-Json -Compress
+    $metadataProbe = @"
+import importlib.metadata as metadata
+required = $requiredPackagesJson
+missing = []
+for name in required:
+    try:
+        metadata.version(name)
+    except metadata.PackageNotFoundError:
+        missing.append(name)
+if missing:
+    print('Missing packages: ' + ', '.join(missing))
+    raise SystemExit(1)
+"@
+    & $venvPython -c $metadataProbe *> $null
     return $LASTEXITCODE -eq 0
 }
 
@@ -1005,23 +1225,136 @@ function Get-ConfiguredInt {
     return $value
 }
 
+function Get-PortListenerRecords {
+    param([Parameter(Mandatory = $true)][int[]]$Ports)
+
+    $requestedPorts = @($Ports | ForEach-Object { [int]$_ } | Sort-Object -Unique)
+    if ($requestedPorts.Count -eq 0) { return @() }
+
+    try {
+        $connections = @(Get-NetTCPConnection -State Listen -ErrorAction Stop)
+        $records = @(
+            foreach ($connection in $connections) {
+                $port = [int]$connection.LocalPort
+                if ($requestedPorts -notcontains $port) { continue }
+                [pscustomobject]@{
+                    Port = $port
+                    ProcessId = [int]$connection.OwningProcess
+                }
+            }
+        )
+        return @($records | Sort-Object -Property Port, ProcessId -Unique)
+    } catch {
+        $records = [System.Collections.Generic.List[object]]::new()
+        foreach ($line in @(netstat -ano 2>$null)) {
+            $lineText = [string]$line
+            if ($lineText -notmatch '^\s*TCP\s+(?<localEndpoint>\S+)\s+\S+\s+LISTENING\s+(?<processId>\d+)\s*$') {
+                continue
+            }
+            $localEndpoint = $Matches['localEndpoint']
+            $processIdText = $Matches['processId']
+            if ($localEndpoint -notmatch ':(?<port>\d+)$') { continue }
+            $port = [int]$Matches['port']
+            if ($requestedPorts -notcontains $port) { continue }
+            $records.Add([pscustomobject]@{
+                    Port = $port
+                    ProcessId = [int]$processIdText
+                })
+        }
+        return @($records | Sort-Object -Property Port, ProcessId -Unique)
+    }
+}
+
+function Get-ListenerProcessDetails {
+    param([Parameter(Mandatory = $true)][object[]]$ListenerRecords)
+
+    $details = foreach ($record in @($ListenerRecords)) {
+        $processName = '<unavailable>'
+        try {
+            $processName = (Get-Process -Id ([int]$record.ProcessId) -ErrorAction Stop).ProcessName
+        } catch { }
+        [pscustomobject]@{
+            Port = [int]$record.Port
+            ProcessId = [int]$record.ProcessId
+            ProcessName = if ([string]::IsNullOrWhiteSpace([string]$processName)) { '<unavailable>' } else { [string]$processName }
+        }
+    }
+    return @($details | Sort-Object -Property Port, ProcessId -Unique)
+}
+
 function Get-ListenerPids {
     param([Parameter(Mandatory = $true)][int]$Port)
-    try {
-        $connections = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction Stop)
-        return @($connections | Select-Object -ExpandProperty OwningProcess -Unique)
-    } catch {
-        $matches = netstat -ano | Select-String -Pattern "^\s*TCP\s+\S+:$Port\s+\S+\s+LISTENING\s+(\d+)\s*$"
-        return @($matches | ForEach-Object { [int]$_.Matches[0].Groups[1].Value } | Sort-Object -Unique)
-    }
+    $records = @(Get-PortListenerRecords -Ports @($Port))
+    return @($records | Select-Object -ExpandProperty ProcessId -Unique)
 }
 
 function Assert-PortAvailable {
     param([Parameter(Mandatory = $true)][int]$Port)
-    $pids = @(Get-ListenerPids -Port $Port)
-    if ($pids.Count -gt 0) {
-        throw "Port $Port is already in use by PID(s) $($pids -join ', '). Stop that service before launching NeuroWeave."
+    $records = @(Get-PortListenerRecords -Ports @($Port))
+    if ($records.Count -gt 0) {
+        $details = @(Get-ListenerProcessDetails -ListenerRecords $records)
+        $description = @($details | ForEach-Object { "PID $($_.ProcessId) ($($_.ProcessName))" }) -join ', '
+        throw "Port $Port is already in use by $description. Stop that service before launching NeuroWeave."
     }
+}
+
+function Invoke-LaunchPortGuardrail {
+    param(
+        [Parameter(Mandatory = $true)][int]$BackendPort,
+        [Parameter(Mandatory = $true)][int]$UiPort
+    )
+
+    $ports = @($BackendPort, $UiPort) | Sort-Object -Unique
+    $records = @(Get-PortListenerRecords -Ports $ports)
+    if ($records.Count -eq 0) { return }
+
+    $details = @(Get-ListenerProcessDetails -ListenerRecords $records)
+    $description = @($details | ForEach-Object { "port $($_.Port) -> PID $($_.ProcessId) ($($_.ProcessName))" }) -join '; '
+    Write-Warn "Required application port(s) are occupied: $description"
+
+    $records = @(Get-PortListenerRecords -Ports $ports)
+    if ($records.Count -eq 0) { return }
+    $details = @(Get-ListenerProcessDetails -ListenerRecords $records)
+    $description = @($details | ForEach-Object { "port $($_.Port) -> PID $($_.ProcessId) ($($_.ProcessName))" }) -join '; '
+    if (@($details | Where-Object { $_.ProcessId -eq [int]$PID }).Count -gt 0) {
+        throw "Launcher invariant violation: launcher PID $PID appears to own a required application port. No process was terminated."
+    }
+    if ([Console]::IsInputRedirected -or [Console]::IsOutputRedirected) {
+        throw "Required application port(s) are occupied: $description. Non-interactive launch will not terminate processes."
+    }
+    try {
+        $approved = Confirm-LauncherAction -Prompt "Terminate the listed listener process(es) and continue launching NeuroWeave?"
+    } catch {
+        throw "Required application port(s) are occupied: $description. $($_.Exception.Message)"
+    }
+    if (-not $approved) {
+        throw "Launch cancelled; required application port(s) remain occupied: $description"
+    }
+
+    $processIds = @($records | Select-Object -ExpandProperty ProcessId -Unique)
+    foreach ($processId in $processIds) {
+        $processDetail = @($details | Where-Object { $_.ProcessId -eq $processId } | Select-Object -First 1)
+        $processLabel = if ($processDetail.Count -gt 0) { "$($processDetail[0].ProcessName)" } else { '<unavailable>' }
+        try {
+            Stop-Process -Id $processId -Force -ErrorAction Stop
+            Write-Info "Termination requested for PID $processId ($processLabel)."
+        } catch {
+            Write-Warn "Could not terminate PID $processId ($processLabel): $($_.Exception.Message)"
+        }
+    }
+
+    $deadline = [DateTime]::UtcNow.AddSeconds(2)
+    $remainingRecords = @()
+    do {
+        $remainingRecords = @(Get-PortListenerRecords -Ports $ports)
+        if ($remainingRecords.Count -eq 0) { return }
+        if ([DateTime]::UtcNow -ge $deadline) { break }
+        Start-Sleep -Milliseconds 100
+    } while ($true)
+
+    $remainingDetails = @(Get-ListenerProcessDetails -ListenerRecords $remainingRecords)
+    $remainingDescription = @($remainingDetails | ForEach-Object { "port $($_.Port) -> PID $($_.ProcessId) ($($_.ProcessName))" }) -join '; '
+    throw "Required application port(s) remain occupied after approved termination: $remainingDescription"
 }
 
 function Invoke-HealthCheck {
@@ -1199,6 +1532,15 @@ function Invoke-Launch {
     $launchStarted = [System.Diagnostics.Stopwatch]::StartNew()
     Invoke-TimedStartupStage -Name 'launcher.runtimes' -Action { Ensure-PortableRuntimes }
     Invoke-TimedStartupStage -Name 'launcher.environment' -Action { Import-DotEnv; Set-LauncherEnvironment }
+    $backendHost = [Environment]::GetEnvironmentVariable('FASTAPI_HOST', 'Process')
+    $backendPort = Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'
+    $uiHost = [Environment]::GetEnvironmentVariable('UI_HOST', 'Process')
+    $uiPort = Get-ConfiguredInt -Name 'UI_PORT' -Default '5173'
+    $browserBackendHost = Get-BrowserHost -HostName $backendHost
+    $browserUiHost = Get-BrowserHost -HostName $uiHost
+    Invoke-TimedStartupStage -Name 'launcher.port_checks' -Action {
+        Invoke-LaunchPortGuardrail -BackendPort $backendPort -UiPort $uiPort
+    }
     Invoke-TimedStartupStage -Name 'launcher.dependencies' -Action {
         if (-not (Test-DependenciesReady)) {
             $state = Get-BackendInstallationState
@@ -1214,21 +1556,7 @@ function Invoke-Launch {
     Invoke-TimedStartupStage -Name 'launcher.backend_setup' -Action { Invoke-OptionalBackendSetup }
     $backendLogsVisible = Get-BooleanEnvironmentValue -Name 'BACKEND_LOGS_VISIBLE' -Default $true
     Invoke-TimedStartupStage -Name 'launcher.frontend_artifact' -Action {
-        if (-not (Test-Path -LiteralPath $script:FrontendDistIndex)) {
-            throw "Frontend build output is missing. Run '.\start_on_windows.ps1 -Action RebuildFrontend' before launching the application."
-        }
-        Write-Ok 'Frontend build output is ready; reused the existing build.'
-    }
-
-    $backendHost = [Environment]::GetEnvironmentVariable('FASTAPI_HOST', 'Process')
-    $backendPort = Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'
-    $uiHost = [Environment]::GetEnvironmentVariable('UI_HOST', 'Process')
-    $uiPort = Get-ConfiguredInt -Name 'UI_PORT' -Default '5173'
-    $browserBackendHost = Get-BrowserHost -HostName $backendHost
-    $browserUiHost = Get-BrowserHost -HostName $uiHost
-    Invoke-TimedStartupStage -Name 'launcher.port_checks' -Action {
-        Assert-PortAvailable -Port $backendPort
-        Assert-PortAvailable -Port $uiPort
+        Ensure-FrontendBuildCurrent
     }
 
     $venvPython = Get-VenvPython

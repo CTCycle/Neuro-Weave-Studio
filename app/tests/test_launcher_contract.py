@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+
 ###############################################################################
 def launcher_source() -> str:
     repository_root = Path(__file__).resolve().parents[2]
@@ -68,6 +69,83 @@ def test_launcher_rejects_invalid_ports_and_optional_backend_setup_can_reuse_sta
     assert "valid TCP port between 1 and 65535" in port
     assert "Test-Path -LiteralPath $venvPython" in launcher
     assert "Backend setup is already complete; reused the recorded environment" in optional_setup
+
+###############################################################################
+def test_launch_checks_ports_before_dependency_and_frontend_work() -> None:
+    launcher = launcher_source()
+    launch_start = launcher.index("function Invoke-Launch {")
+    launch_end = launcher.index("# Installation, database, and validation actions", launch_start)
+    launch = launcher[launch_start:launch_end]
+
+    assert launch.index("Invoke-LaunchPortGuardrail") < launch.index("Test-DependenciesReady")
+    assert launch.index("Test-DependenciesReady") < launch.index("Ensure-FrontendBuildCurrent")
+
+###############################################################################
+def test_batched_port_guardrail_deduplicates_pids_and_rechecks_after_termination() -> None:
+    launcher = launcher_source()
+    snapshot = function_body(launcher, "Get-PortListenerRecords", "Get-ListenerProcessDetails")
+    guardrail = function_body(launcher, "Invoke-LaunchPortGuardrail", "Invoke-HealthCheck")
+
+    assert snapshot.count("Get-NetTCPConnection -State Listen") == 1
+    assert "-LocalPort" not in snapshot
+    assert "netstat -ano" in snapshot
+    assert "Select-Object -ExpandProperty ProcessId -Unique" in guardrail
+    assert guardrail.index("Confirm-LauncherAction") < guardrail.index("Stop-Process")
+    assert guardrail.index("Stop-Process") < guardrail.rindex("Get-PortListenerRecords -Ports $ports")
+    assert "remain occupied after approved termination" in guardrail
+    assert "IsInputRedirected" in guardrail
+    assert "No process was terminated" in guardrail
+
+###############################################################################
+def test_environment_fast_path_and_lightweight_dependency_probe() -> None:
+    launcher = launcher_source()
+    environment = function_body(launcher, "Ensure-EnvironmentFile", "Import-DotEnv")
+    dependencies = function_body(launcher, "Test-DependenciesReady", "Get-ConfiguredEnvironmentValue")
+
+    assert environment.index("PSIsContainer") < environment.index("& $python $script:EnvironmentBootstrap")
+    assert "import importlib.metadata as metadata" in dependencies
+    assert "import fastapi" not in dependencies
+    assert "import uvicorn" not in dependencies
+    assert "import sqlalchemy" not in dependencies
+    assert "import alembic" not in dependencies
+    assert "import keras" not in dependencies
+    assert "metadata.version(name)" in dependencies
+    assert "Test-FrontendDependencyCurrent" in dependencies
+
+###############################################################################
+def test_frontend_dependency_and_build_state_contracts_are_deterministic() -> None:
+    launcher = launcher_source()
+    inputs = function_body(launcher, "Get-FrontendBuildInputFiles", "Get-Sha256Text")
+    sync = function_body(launcher, "Sync-Dependencies", "Invoke-FrontendBuild")
+    build = function_body(launcher, "Invoke-FrontendBuild", "Invoke-FrontendRebuild")
+    ensure = function_body(launcher, "Ensure-FrontendBuildCurrent", "Sync-Dependencies")
+    atomic_writer = function_body(launcher, "Write-JsonFileAtomically", "Read-FrontendBuildState")
+    build_state_check = function_body(launcher, "Test-FrontendBuildCurrent", "Ensure-FrontendBuildCurrent")
+
+    for required_input in ("angular.json", "tsconfig.json", "tsconfig.app.json", "package.json", "package-lock.json"):
+        assert required_input in inputs
+    assert "Join-Path $script:ClientDir 'src'" in inputs
+    assert "*.test.*" in inputs and "*.spec.*" in inputs
+    assert "e2e" not in inputs
+    assert "playwright.config.ts" not in inputs
+    assert "configurations" not in inputs
+    assert "Get-FrontendDependencyFingerprint" in sync
+    assert sync.index("& $npm ci") < sync.index("Write-FrontendDependencyState")
+    assert build.index("FrontendDistIndex") < build.index("Write-FrontendBuildState")
+    assert ensure.index("Test-FrontendBuildCurrent") < ensure.index("Invoke-FrontendBuild")
+    assert "missing or stale" in ensure
+    assert "::Replace" in atomic_writer and ".bak" in atomic_writer
+    assert "TryParse" in build_state_check
+
+###############################################################################
+def test_launcher_keeps_explicit_build_ownership_and_never_reintroduces_always_rebuild() -> None:
+    launcher = launcher_source()
+    install = function_body(launcher, "Invoke-Install", "Invoke-DatabaseInitialization")
+    rebuild = function_body(launcher, "Invoke-FrontendRebuild", "Ensure-PlaywrightBrowser")
+
+    assert "Invoke-FrontendBuild" in install
+    assert "Invoke-FrontendBuild" in rebuild
+    assert "ALWAYS_REBUILD" not in launcher
 
 ###############################################################################
 def test_launcher_routes_generated_data_to_the_canonical_cache_root() -> None:
