@@ -1,0 +1,24 @@
+
+ProcessId       : 17564
+ParentProcessId : 18460
+Name            : python.exe
+CommandLine     : "G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Scripts\python.exe"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9849
+ExecutablePath  : G:\Projects\Repositories\Active projects\Neuro Weave Studio\runtimes\python\cpython-3.13.14-windows-x86_64-none\python.exe
+
+ProcessId       : 18460
+ParentProcessId : 24844
+Name            : python.exe
+CommandLine     : "G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Scripts\python.exe"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9849
+ExecutablePath  : G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Scripts\python.exe
+
+ProcessId       : 24844
+ParentProcessId : 42600
+Name            : cmd.exe
+CommandLine     : "C:\Windows\system32\cmd.exe" /d /c ""G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Scripts\python.exe" -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9849"
+ExecutablePath  : C:\Windows\system32\cmd.exe
+
+ProcessId       : 33924
+ParentProcessId : 24844
+Name            : conhost.exe
+CommandLine     : \??\C:\WINDOWS\system32\conhost.exe 0x4
+ExecutablePath  : C:\WINDOWS\system32\conhost.exe

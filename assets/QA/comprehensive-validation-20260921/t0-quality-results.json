@@ -1,0 +1,56 @@
+[
+  {
+    "name": "uv-sync-locked",
+    "exit_code": 0,
+    "duration_seconds": 31.5,
+    "log": "logs/t0-03-uv-sync.log"
+  },
+  {
+    "name": "backend-compileall",
+    "exit_code": 0,
+    "duration_seconds": 68.5,
+    "log": "logs/t0-03-compileall.log"
+  },
+  {
+    "name": "ruff",
+    "exit_code": 1,
+    "duration_seconds": 0.3,
+    "log": "logs/t0-03-ruff.log"
+  },
+  {
+    "name": "pyright",
+    "exit_code": 1,
+    "duration_seconds": 34.4,
+    "log": "logs/t0-03-pyright.log"
+  },
+  {
+    "name": "backend-pytest",
+    "exit_code": 1,
+    "duration_seconds": 474.5,
+    "log": "logs/t0-03-backend-pytest.log"
+  },
+  {
+    "name": "npm-ci",
+    "exit_code": 0,
+    "duration_seconds": 36.5,
+    "log": "logs/t0-03-npm-ci.log"
+  },
+  {
+    "name": "frontend-lint",
+    "exit_code": 0,
+    "duration_seconds": 17.9,
+    "log": "logs/t0-03-frontend-lint.log"
+  },
+  {
+    "name": "frontend-vitest",
+    "exit_code": 0,
+    "duration_seconds": 45.3,
+    "log": "logs/t0-03-frontend-test.log"
+  },
+  {
+    "name": "frontend-build",
+    "exit_code": 0,
+    "duration_seconds": 44.0,
+    "log": "logs/t0-03-frontend-build.log"
+  }
+]

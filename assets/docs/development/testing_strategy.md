@@ -4,6 +4,8 @@ Last updated: 2026-09-21
 
 NeuroWeave's automated suite is intentionally risk-oriented. Tests exist for behavior whose failure can corrupt saved models, produce invalid generated models, violate execution safety, or break an important user workflow. Tooling layout, source-tree shape, presentation details, and framework behavior are not unit-tested merely to increase coverage.
 
+The durable campaign order and evidence rules are maintained in the [comprehensive validation strategy](validation_strategy.md). The current revision-specific Tier 0 run is recorded in [assets/QA/comprehensive-validation-20260921](../../QA/comprehensive-validation-20260921/validation-ledger.md); it keeps repository quality gates, browser routes, launcher lifecycle, and later product workflows as separate claims.
+
 ## Backend
 
 Retained regression coverage focuses on:

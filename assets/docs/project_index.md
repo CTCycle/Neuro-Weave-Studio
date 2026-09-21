@@ -60,6 +60,7 @@ This is the root navigation document for the repository. Read it first, then ope
 - `development/coding_standards_python.md`
 - `development/coding_standards_typescript.md`
 - `development/testing_strategy.md`
+- `development/validation_strategy.md`: durable tiered campaign order, evidence boundaries, and closure rules.
 - `development/contribution_guide.md`
 - `development/adding_a_builtin_node.md`
 
