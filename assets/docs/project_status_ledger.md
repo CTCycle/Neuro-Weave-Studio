@@ -4,7 +4,7 @@ Last updated: 2026-09-21
 
 This document is the canonical high-level catalog of NeuroWeave Studio's current operational state. It is a status index, not a development diary or a replacement for detailed architecture, implementation, validation, or roadmap documents.
 
-Bootstrap snapshot: `develop` at source revision `dc7d9c3` before this documentation-only change. The latest current-checkout evidence is the [representative Model Builder investigation](../QA/model-builder-validation-20260908/representative-slice-20260920.md). Historical evidence is retained only where its scope and date are stated explicitly.
+Documentation baseline: `develop` at source revision `752ab151978b56dd2c20568f63434e346dcf6ea8` before the 2026-09-21 comprehensive validation campaign documentation. The latest current-checkout evidence includes the [representative Model Builder investigation](../QA/model-builder-validation-20260908/representative-slice-20260920.md) and the [Tier 0 campaign ledger](../QA/comprehensive-validation-20260921/validation-ledger.md). Historical evidence is retained only where its scope and date are stated explicitly.
 
 ## Maintenance rules
 
@@ -41,6 +41,17 @@ Use only these component statuses:
 `VALIDATED` is evidence-scoped. Unit tests or source inspection alone do not establish a browser or runtime workflow as validated. Severity in the issue catalog is independent of functional status: a `PARTIAL` component may have a `LOW` issue, and a `VALIDATED` component may still have validation debt outside its stated scope.
 
 No component is classified `BROKEN` in this bootstrap snapshot. Known unavailable paths are recorded as `PARTIAL` or `BLOCKED` with their boundary and blocker; they must not be mistaken for successful functionality.
+
+## Current comprehensive campaign
+
+The [2026-09-21 campaign ledger](../QA/comprehensive-validation-20260921/validation-ledger.md)
+is the revision-specific execution record for the long-term validation strategy.
+Tier 0 is `PARTIAL` overall: baseline capture, official launcher readiness and
+owned-process shutdown, and repeated deep-link refresh passed; the repository
+quality baseline remains partial because Ruff and Pyright are nonzero and the
+full backend suite recorded one non-reproducible discovery polling timeout.
+The exact failing test passed in an isolated rerun. Tiers 1 through 5 remain
+`UNTESTED` in that campaign and must not be inferred from historical evidence.
 
 ## Current component ledger
 

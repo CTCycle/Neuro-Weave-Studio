@@ -1,0 +1,48 @@
+{
+  "captured_at": "2026-09-21T14:17:50.4308878Z",
+  "branch": "develop",
+  "commit": "752ab151978b56dd2c20568f63434e346dcf6ea8",
+  "working_tree_tracked_changes": [],
+  "staged_changes": [],
+  "expected_campaign_untracked_path": "assets/QA/comprehensive-validation-20260921/",
+  "node_count": 149,
+  "category_counts": {
+    "convolutional": 18,
+    "core": 14,
+    "inputs": 8,
+    "mathematical": 73,
+    "merge": 14,
+    "outputs": 7,
+    "recurrent": 5,
+    "transformer": 10
+  },
+  "catalog_fingerprint": "b92166f9e933c1db7bc95e7d48b0d083b570e2f551e573d668cb5d368fd6f7dd",
+  "endpoints": {
+    "health": "http://127.0.0.1:9849/health",
+    "metadata": "http://127.0.0.1:9849/api/metadata",
+    "catalog": "http://127.0.0.1:9849/api/nodes/catalog"
+  },
+  "isolated_database": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\assets\\QA\\comprehensive-validation-20260921\\artifacts\\tier0-neuroweave.db",
+  "ports": {
+    "backend": 9849,
+    "frontend": 6426
+  },
+  "versions": {
+    "python": "Python 3.13.14",
+    "uv": "uv 0.12.0 (b88d7c5c4 2026-07-28 x86_64-pc-windows-msvc)",
+    "node": "v22.23.1",
+    "npm": "10.9.8",
+    "sqlite": "3.53.1",
+    "packages": {
+      "SQLAlchemy": "2.0.52",
+      "alembic": "1.19.1",
+      "fastapi": "0.141.1",
+      "keras": "3.15.1",
+      "pydantic": "2.13.4",
+      "pyright": "1.1.411",
+      "pytest": "8.4.2",
+      "ruff": "0.16.3",
+      "uvicorn": "0.52.3"
+    }
+  }
+}

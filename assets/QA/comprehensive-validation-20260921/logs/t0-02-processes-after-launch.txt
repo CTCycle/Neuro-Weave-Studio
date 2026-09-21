@@ -1,0 +1,54 @@
+
+ProcessId       : 6784
+ParentProcessId : 42600
+Name            : cmd.exe
+CommandLine     : "C:\Windows\system32\cmd.exe" /d /c ""G:\Projects\Repositories\Active projects\Neuro Weave Studio\runtimes\node\npm.cmd" run preview -- --host 127.0.0.1 --port 6426 --strictPort"
+ExecutablePath  : C:\Windows\system32\cmd.exe
+
+ProcessId       : 17564
+ParentProcessId : 18460
+Name            : python.exe
+CommandLine     : "G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Scripts\python.exe"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9849
+ExecutablePath  : G:\Projects\Repositories\Active projects\Neuro Weave Studio\runtimes\python\cpython-3.13.14-windows-x86_64-none\python.exe
+
+ProcessId       : 18460
+ParentProcessId : 24844
+Name            : python.exe
+CommandLine     : "G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Scripts\python.exe"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9849
+ExecutablePath  : G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Scripts\python.exe
+
+ProcessId       : 19940
+ParentProcessId : 6784
+Name            : node.exe
+CommandLine     : "G:\Projects\Repositories\Active projects\Neuro Weave Studio\runtimes\node\\node.exe"  "G:\Projects\Repositories\Active projects\Neuro Weave Studio\runtimes\node\node_modules\npm\bin\npm-cli.js" run preview -- --host 127.0.0.1 --port 6426 --strictPort
+ExecutablePath  : G:\Projects\Repositories\Active projects\Neuro Weave Studio\runtimes\node\node.exe
+
+ProcessId       : 24844
+ParentProcessId : 42600
+Name            : cmd.exe
+CommandLine     : "C:\Windows\system32\cmd.exe" /d /c ""G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Scripts\python.exe" -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9849"
+ExecutablePath  : C:\Windows\system32\cmd.exe
+
+ProcessId       : 33924
+ParentProcessId : 24844
+Name            : conhost.exe
+CommandLine     : \??\C:\WINDOWS\system32\conhost.exe 0x4
+ExecutablePath  : C:\WINDOWS\system32\conhost.exe
+
+ProcessId       : 34204
+ParentProcessId : 41232
+Name            : node.exe
+CommandLine     : node  tools/preview-server.mjs --host 127.0.0.1 --port 6426 --strictPort
+ExecutablePath  : G:\Projects\Repositories\Active projects\Neuro Weave Studio\runtimes\node\node.exe
+
+ProcessId       : 40844
+ParentProcessId : 6784
+Name            : conhost.exe
+CommandLine     : \??\C:\WINDOWS\system32\conhost.exe 0x4
+ExecutablePath  : C:\WINDOWS\system32\conhost.exe
+
+ProcessId       : 41232
+ParentProcessId : 19940
+Name            : cmd.exe
+CommandLine     : C:\WINDOWS\system32\cmd.exe /d /s /c node tools/preview-server.mjs --host 127.0.0.1 --port 6426 --strictPort
+ExecutablePath  : C:\WINDOWS\system32\cmd.exe

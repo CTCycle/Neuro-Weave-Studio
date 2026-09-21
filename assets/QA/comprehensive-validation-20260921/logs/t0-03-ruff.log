@@ -1,0 +1,3238 @@
+I001 [*] Import block is un-sorted or un-formatted
+  --> api\dependencies.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from typing import cast
+ 4 | |
+ 5 | | from fastapi import Depends, Request
+ 6 | |
+ 7 | | from common.catalogs.loader import NodeCatalog
+ 8 | | from configurations.settings import Settings
+ 9 | | from domain.compilation_catalog import (
+10 | |     CompilationCatalogProvider,
+11 | |     PersistentCompilationCatalogProvider,
+12 | | )
+13 | | from repositories.contracts import UnitOfWorkFactory
+14 | | from repositories.session import RepositoryContext
+15 | | from services.catalog_service import CatalogService
+16 | | from services.compilation_service import CompilationService
+17 | | from services.connection_validation_service import ConnectionValidationService
+18 | | from services.custom_node_service import CustomNodeService
+19 | | from services.dataset_service import DatasetService
+20 | | from services.export_service import ExportService
+21 | | from services.filesystem_service import FilesystemService
+22 | | from services.job_service import JobService
+23 | | from services.keras_import_service import KerasImportService
+24 | | from services.metric_service import MetricService
+25 | | from services.project_service import ProjectService
+26 | | from services.runtime_controller import RuntimeController
+27 | | from services.runtime_service import RuntimeService
+28 | | from services.tensor_inspection_service import TensorInspectionService
+29 | | from services.validation_service import ValidationService
+   | |_________________________________________________________^
+30 |
+31 |   ###############################################################################
+   |
+help: Organize imports
+   |
+30 |
+31 +
+32 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> common\catalogs\operation_emitter.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import ast
+ 4 | | from collections.abc import Callable, Mapping, Sequence
+ 5 | | from typing import Any, cast
+ 6 | |
+ 7 | | from domain.manifests import ImplementationMapping, NodeManifest
+ 8 | | from validation.safe_expression import normalize_index_expression, validate_safe_expression
+   | |___________________________________________________________________________________________^
+ 9 |
+10 |   ###############################################################################
+   |
+help: Organize imports
+   |
+7  | from domain.manifests import ImplementationMapping, NodeManifest
+   - from validation.safe_expression import normalize_index_expression, validate_safe_expression
+8  + from validation.safe_expression import normalize_index_expression, validate_safe_expression
+9  +
+10 |
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> common\logging_config.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | import logging
+4 | | from pathlib import Path
+  | |________________________^
+5 |
+6 |   ###############################################################################
+  |
+help: Organize imports
+  |
+5 |
+6 +
+7 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> common\process_control.py:2:1
+   |
+ 1 |   # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportAttributeAccessIssue=false
+ 2 | / from __future__ import annotations
+ 3 | |
+ 4 | | import ctypes
+ 5 | | import os
+ 6 | | import signal
+ 7 | | import subprocess
+ 8 | | import time
+ 9 | | from pathlib import Path
+10 | | from typing import Any
+   | |______________________^
+11 |
+12 |   ###############################################################################
+   |
+help: Organize imports
+   |
+11 |
+12 +
+13 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> common\timestamps.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from datetime import UTC, datetime
+  | |__________________________________^
+4 |
+5 |   ###############################################################################
+  |
+help: Organize imports
+  |
+4 |
+5 +
+6 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> compilation\compiler.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import keyword
+ 4 | | import re
+ 5 | |
+ 6 | | from common.catalogs.loader import NodeCatalog
+ 7 | | from domain.compilation import CanonicalModelIR, CompiledNode, InputBinding
+ 8 | | from domain.enums import ExecutionBackend
+ 9 | | from domain.graph import ModelGraph, ShapeSummary
+10 | | from validation.graph_utils import ordered_incoming_edges, topological_order
+11 | | from validation.output_resolution import input_nodes, output_bindings
+12 | | from validation.shape_inference import infer_shapes
+   | |___________________________________________________^
+13 |
+14 |   ###############################################################################
+   |
+help: Organize imports
+   |
+13 |
+14 +
+15 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> configurations\environment.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | import shutil
+4 | | from pathlib import Path
+5 | |
+6 | | from common.path import ENV_EXAMPLE_FILE, ENV_FILE
+  | |__________________________________________________^
+7 |
+8 |   ###############################################################################
+  |
+help: Organize imports
+  |
+7 |
+8 +
+9 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> configurations\settings.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from pathlib import Path
+ 4 | |
+ 5 | | from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+ 6 | | from pydantic_settings import BaseSettings, SettingsConfigDict
+ 7 | |
+ 8 | | from common.path import (
+ 9 | |     CACHE_ROOT,
+10 | |     DATABASE_PATH,
+11 | |     ENV_FILE,
+12 | |     REPOSITORY_ROOT,
+13 | |     RUNTIME_DISCOVERY_CACHE_PATH,
+14 | |     RUNTIME_EXPORT_ROOT,
+15 | |     RUNTIME_LOG_ROOT,
+16 | |     RUNTIME_ROOT,
+17 | | )
+18 | | from configurations.environment import ensure_environment_file
+   | |______________________________________________________________^
+19 |
+20 |   ###############################################################################
+   |
+help: Organize imports
+   |
+7  |
+   - from common.path import (
+   -     CACHE_ROOT,
+   -     DATABASE_PATH,
+   -     ENV_FILE,
+   -     REPOSITORY_ROOT,
+   -     RUNTIME_DISCOVERY_CACHE_PATH,
+   -     RUNTIME_EXPORT_ROOT,
+   -     RUNTIME_LOG_ROOT,
+   -     RUNTIME_ROOT,
+   - )
+8  + from common.path import (
+9  +     CACHE_ROOT,
+10 +     DATABASE_PATH,
+11 +     ENV_FILE,
+12 +     REPOSITORY_ROOT,
+13 +     RUNTIME_DISCOVERY_CACHE_PATH,
+14 +     RUNTIME_EXPORT_ROOT,
+15 +     RUNTIME_LOG_ROOT,
+16 +     RUNTIME_ROOT,
+17 + )
+18 | from configurations.environment import ensure_environment_file
+19 |
+20 +
+21 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> domain\compilation.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from typing import Any
+ 4 | |
+ 5 | | from pydantic import BaseModel, Field
+ 6 | |
+ 7 | | from domain.diagnostics import ValidationDiagnostic
+ 8 | | from domain.enums import ExecutionBackend
+ 9 | | from domain.graph import ModelGraph, OutputBinding, ShapeSummary
+10 | | from domain.compilation_plan import (
+11 | |     CompilationObject,
+12 | |     CompilationPlan,
+13 | |     CompilerObject,
+14 | |     normalize_compilation_object,
+15 | |     normalize_compilation_plan,
+16 | | )
+   | |_^
+17 |
+18 |   ###############################################################################
+   |
+help: Organize imports
+   |
+2  |
+   - from typing import Any
+   -
+   - from pydantic import BaseModel, Field
+3  + from typing import Any
+4  |
+5  + from pydantic import BaseModel, Field
+6  +
+7  + from domain.compilation_plan import (
+8  +     CompilationObject,
+9  +     CompilationPlan,
+10 +     CompilerObject,
+11 +     normalize_compilation_object,
+12 +     normalize_compilation_plan,
+13 + )
+14 | from domain.diagnostics import ValidationDiagnostic
+   - from domain.enums import ExecutionBackend
+   - from domain.graph import ModelGraph, OutputBinding, ShapeSummary
+   - from domain.compilation_plan import (
+   -     CompilationObject,
+   -     CompilationPlan,
+   -     CompilerObject,
+   -     normalize_compilation_object,
+   -     normalize_compilation_plan,
+   - )
+15 + from domain.enums import ExecutionBackend
+16 + from domain.graph import ModelGraph, OutputBinding, ShapeSummary
+17 +
+18 |
+   |
+
+F401 [*] `typing.Any` imported but unused
+ --> domain\compilation.py:3:20
+  |
+1 | from __future__ import annotations
+2 |
+3 | from typing import Any
+  |                    ^^^
+4 |
+5 | from pydantic import BaseModel, Field
+  |
+help: Remove unused import: `typing.Any`
+  |
+2 |
+  - from typing import Any
+3 |
+  |
+
+F401 [*] `domain.compilation_plan.CompilationObject` imported but unused
+  --> domain\compilation.py:11:5
+   |
+ 9 | from domain.graph import ModelGraph, OutputBinding, ShapeSummary
+10 | from domain.compilation_plan import (
+11 |     CompilationObject,
+   |     ^^^^^^^^^^^^^^^^^
+12 |     CompilationPlan,
+13 |     CompilerObject,
+   |
+help: Remove unused import
+   |
+9  | from domain.graph import ModelGraph, OutputBinding, ShapeSummary
+   - from domain.compilation_plan import (
+   -     CompilationObject,
+   -     CompilationPlan,
+   -     CompilerObject,
+   -     normalize_compilation_object,
+   -     normalize_compilation_plan,
+   - )
+10 |
+   |
+
+F401 [*] `domain.compilation_plan.CompilationPlan` imported but unused
+  --> domain\compilation.py:12:5
+   |
+10 | from domain.compilation_plan import (
+11 |     CompilationObject,
+12 |     CompilationPlan,
+   |     ^^^^^^^^^^^^^^^
+13 |     CompilerObject,
+14 |     normalize_compilation_object,
+   |
+help: Remove unused import
+   |
+9  | from domain.graph import ModelGraph, OutputBinding, ShapeSummary
+   - from domain.compilation_plan import (
+   -     CompilationObject,
+   -     CompilationPlan,
+   -     CompilerObject,
+   -     normalize_compilation_object,
+   -     normalize_compilation_plan,
+   - )
+10 |
+   |
+
+F401 [*] `domain.compilation_plan.CompilerObject` imported but unused
+  --> domain\compilation.py:13:5
+   |
+11 |     CompilationObject,
+12 |     CompilationPlan,
+13 |     CompilerObject,
+   |     ^^^^^^^^^^^^^^
+14 |     normalize_compilation_object,
+15 |     normalize_compilation_plan,
+   |
+help: Remove unused import
+   |
+9  | from domain.graph import ModelGraph, OutputBinding, ShapeSummary
+   - from domain.compilation_plan import (
+   -     CompilationObject,
+   -     CompilationPlan,
+   -     CompilerObject,
+   -     normalize_compilation_object,
+   -     normalize_compilation_plan,
+   - )
+10 |
+   |
+
+F401 [*] `domain.compilation_plan.normalize_compilation_object` imported but unused
+  --> domain\compilation.py:14:5
+   |
+12 |     CompilationPlan,
+13 |     CompilerObject,
+14 |     normalize_compilation_object,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+15 |     normalize_compilation_plan,
+16 | )
+   |
+help: Remove unused import
+   |
+9  | from domain.graph import ModelGraph, OutputBinding, ShapeSummary
+   - from domain.compilation_plan import (
+   -     CompilationObject,
+   -     CompilationPlan,
+   -     CompilerObject,
+   -     normalize_compilation_object,
+   -     normalize_compilation_plan,
+   - )
+10 |
+   |
+
+F401 [*] `domain.compilation_plan.normalize_compilation_plan` imported but unused
+  --> domain\compilation.py:15:5
+   |
+13 |     CompilerObject,
+14 |     normalize_compilation_object,
+15 |     normalize_compilation_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+16 | )
+   |
+help: Remove unused import
+   |
+9  | from domain.graph import ModelGraph, OutputBinding, ShapeSummary
+   - from domain.compilation_plan import (
+   -     CompilationObject,
+   -     CompilationPlan,
+   -     CompilerObject,
+   -     normalize_compilation_object,
+   -     normalize_compilation_plan,
+   - )
+10 |
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> domain\compilation_capabilities.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from collections.abc import Mapping
+ 4 | |
+ 5 | | from pydantic import BaseModel, Field
+ 6 | |
+ 7 | | from domain.compilation_catalog import (
+ 8 | |     CompilationCatalog,
+ 9 | |     get_compilation_catalog,
+10 | |     get_compilation_catalog_for_implementation,
+11 | | )
+12 | | from domain.enums import ExecutionBackend
+13 | | from domain.manifests import ParameterDefinition
+   | |________________________________________________^
+14 |
+15 |   ###############################################################################
+   |
+help: Organize imports
+   |
+6  |
+   - from domain.compilation_catalog import (
+   -     CompilationCatalog,
+   -     get_compilation_catalog,
+   -     get_compilation_catalog_for_implementation,
+   - )
+   - from domain.enums import ExecutionBackend
+   - from domain.manifests import ParameterDefinition
+7  + from domain.compilation_catalog import (
+8  +     CompilationCatalog,
+9  +     get_compilation_catalog,
+10 +     get_compilation_catalog_for_implementation,
+11 + )
+12 + from domain.enums import ExecutionBackend
+13 + from domain.manifests import ParameterDefinition
+14 +
+15 |
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> domain\custom_math.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | import re
+4 | |
+5 | | from validation.safe_expression import SafeExpressionError, validate_safe_expression
+  | |____________________________________________________________________________________^
+6 |
+7 |   ###############################################################################
+  |
+help: Organize imports
+  |
+6 |
+7 +
+8 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> domain\datasets.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from datetime import datetime
+ 4 | | from enum import StrEnum
+ 5 | | from typing import Annotated, Any, Literal
+ 6 | | from uuid import UUID
+ 7 | |
+ 8 | | from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+   | |___________________________________________________________________________________^
+ 9 |
+10 |   ###############################################################################
+   |
+help: Organize imports
+   |
+9  |
+10 +
+11 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> domain\enums.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from enum import StrEnum
+  | |________________________^
+4 |
+5 |   ###############################################################################
+  |
+help: Organize imports
+  |
+4 |
+5 +
+6 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> domain\execution.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from pydantic import BaseModel
+4 | |
+5 | | from domain.enums import ExecutionBackend
+  | |_________________________________________^
+6 |
+7 |   ###############################################################################
+  |
+help: Organize imports
+  |
+6 |
+7 +
+8 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> domain\exports.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from enum import StrEnum
+ 4 | | from typing import Any, Literal
+ 5 | | from uuid import UUID
+ 6 | |
+ 7 | | from pydantic import BaseModel, ConfigDict, Field
+ 8 | |
+ 9 | | from domain.enums import ExecutionBackend
+10 | | from domain.runtime import RuntimeApi
+   | |_____________________________________^
+11 |
+12 |   ###############################################################################
+   |
+help: Organize imports
+   |
+11 |
+12 +
+13 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> domain\filesystem.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from pydantic import BaseModel, Field
+  | |_____________________________________^
+4 |
+5 |   ###############################################################################
+  |
+help: Organize imports
+  |
+4 |
+5 +
+6 | ###############################################################################
+  |
+
+F401 [*] `domain.compilation_plan.CompilationObject` imported but unused
+  --> domain\graph.py:11:5
+   |
+ 9 | from common.timestamps import utc_now
+10 | from domain.compilation_plan import (
+11 |     CompilationObject,
+   |     ^^^^^^^^^^^^^^^^^
+12 |     CompilationPlan,
+13 |     CompilerObject,
+   |
+help: Remove unused import: `domain.compilation_plan.CompilationObject`
+   |
+9  | from common.timestamps import utc_now
+   - from domain.compilation_plan import (
+   -     CompilationObject,
+   -     CompilationPlan,
+   -     CompilerObject,
+   -     normalize_compilation_plan,
+10 + from domain.compilation_plan import (
+11 +     CompilationPlan,
+12 +     CompilerObject,
+13 +     normalize_compilation_plan,
+14 | )
+   |
+
+F821 Undefined name `cast`
+   --> domain\graph.py:422:15
+    |
+420 |     if not value:
+421 |         return True
+422 |     mapping = cast(dict[str, Any], value)
+    |               ^^^^
+423 |     class_name = mapping.get("class_name")
+424 |     config = mapping.get("config")
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> domain\imports.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from pydantic import BaseModel, RootModel
+4 | |
+5 | | from domain.graph import ProjectDocument
+  | |________________________________________^
+6 |
+7 |   ###############################################################################
+  |
+help: Organize imports
+  |
+6 |
+7 +
+8 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> domain\jobs.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from datetime import datetime
+ 4 | | from enum import StrEnum
+ 5 | | from typing import Annotated, Any, Literal
+ 6 | | from uuid import UUID
+ 7 | |
+ 8 | | from pydantic import BaseModel, ConfigDict, Field
+ 9 | |
+10 | | from domain.exports import ExportArtifactManifest, ExportFormat, ExportOptions
+11 | | from domain.graph import ModelGraph
+12 | | from domain.runtime import DeviceLeaseStatus, WorkerConfiguration
+   | |_________________________________________________________________^
+13 |
+14 |   ###############################################################################
+   |
+help: Organize imports
+   |
+13 |
+14 +
+15 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> domain\metadata.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from datetime import datetime
+ 4 | | from typing import Literal
+ 5 | |
+ 6 | | from pydantic import BaseModel, Field
+ 7 | |
+ 8 | | from domain.compilation_capabilities import CompilationCapabilities
+ 9 | | from domain.enums import ExecutionBackend
+10 | | from domain.runtime import RuntimeApiStatus, RuntimeDevice, RuntimeDiscoveryState
+   | |_________________________________________________________________________________^
+11 |
+12 |   ###############################################################################
+   |
+help: Organize imports
+   |
+11 |
+12 +
+13 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> domain\metric_formula.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | import ast
+4 | | import re
+5 | | from dataclasses import dataclass
+6 | | from typing import Any, cast
+  | |____________________________^
+7 |
+8 |   ###############################################################################
+  |
+help: Organize imports
+  |
+7 |
+8 +
+9 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> domain\ports.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from collections.abc import Iterable
+4 | | from typing import Any
+5 | |
+6 | | from domain.manifests import NodeManifest, PortDefinition
+  | |_________________________________________________________^
+7 |
+8 |   ###############################################################################
+  |
+help: Organize imports
+  |
+7 |
+8 +
+9 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> domain\runtime.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from datetime import datetime
+ 4 | | from enum import StrEnum
+ 5 | | from typing import Literal
+ 6 | |
+ 7 | | from pydantic import BaseModel, ConfigDict, Field, model_validator
+ 8 | |
+ 9 | | from domain.enums import ExecutionBackend
+   | |_________________________________________^
+10 |
+11 |   ###############################################################################
+   |
+help: Organize imports
+   |
+10 |
+11 +
+12 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> domain\serialization.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from typing import Any
+4 | |
+5 | | from domain.compilation_plan import normalize_compilation_plan
+  | |______________________________________________________________^
+6 |
+7 |   ###############################################################################
+  |
+help: Organize imports
+  |
+6 |
+7 +
+8 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> domain\tensor.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from pydantic import BaseModel, Field, model_validator
+4 | |
+5 | | from domain.enums import DataType
+  | |_________________________________^
+6 |
+7 |   ###############################################################################
+  |
+help: Organize imports
+  |
+6 |
+7 +
+8 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> exporters\base.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from abc import ABC, abstractmethod
+ 4 | |
+ 5 | | from common.catalogs.loader import NodeCatalog
+ 6 | | from domain.compilation import CanonicalModelIR
+ 7 | | from domain.compilation_catalog import CompilationCatalog
+ 8 | | from domain.graph import ModelGraph
+   | |___________________________________^
+ 9 |
+10 |   ###############################################################################
+   |
+help: Organize imports
+   |
+9  |
+10 +
+11 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> models\export_artifacts.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import hashlib
+ 4 | | import json
+ 5 | | import shutil
+ 6 | | import zipfile
+ 7 | | from collections.abc import Iterable
+ 8 | | from pathlib import Path
+ 9 | | from typing import Any
+   | |______________________^
+10 |
+11 |   ###############################################################################
+   |
+help: Organize imports
+   |
+10 |
+11 +
+12 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> models\export_runtime.py:2:1
+   |
+ 1 |   # pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false,…
+ 2 | / from __future__ import annotations
+ 3 | |
+ 4 | | import contextlib
+ 5 | | import importlib.metadata
+ 6 | | import shutil
+ 7 | | import tempfile
+ 8 | | import time
+ 9 | | from collections.abc import Callable, Iterable
+10 | | from pathlib import Path
+11 | | from typing import Any, cast
+12 | | from uuid import UUID
+13 | |
+14 | | from common.catalogs.loader import get_node_catalog
+15 | | from domain.compilation_catalog import CompilationCatalog
+16 | | from domain.enums import ExecutionBackend
+17 | | from domain.exports import (
+18 | |     ExportArtifactFile,
+19 | |     ExportArtifactManifest,
+20 | |     ExportConversion,
+21 | |     ExportFormat,
+22 | |     ExportLayout,
+23 | |     ExportOptions,
+24 | |     ExportPayload,
+25 | |     ExportVerification,
+26 | | )
+27 | | from domain.graph import ModelGraph
+28 | | from domain.runtime import RuntimeApi
+29 | | from models.export_artifacts import (
+30 | |     artifact_file_metadata,
+31 | |     graph_sha256,
+32 | |     package_directory,
+33 | |     package_files,
+34 | |     write_json,
+35 | | )
+36 | | from validation.output_resolution import input_nodes, resolved_outputs
+   | |______________________________________________________________________^
+37 |
+38 |   ###############################################################################
+   |
+help: Organize imports
+   |
+37 |
+38 +
+39 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> models\jax_worker.py:3:1
+   |
+ 1 |   # pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false,…
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import contextlib
+ 6 | | import gc
+ 7 | | from collections.abc import Callable
+ 8 | | from pathlib import Path
+ 9 | | from typing import Any, cast
+10 | |
+11 | | import jax
+12 | |
+13 | | from domain.compilation_catalog import CompilationCatalog
+14 | | from domain.enums import ExecutionBackend
+15 | | from domain.exports import ExportFormat, ExportOptions
+16 | | from domain.graph import ModelGraph
+17 | | from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
+18 | | from models.worker_backend import (
+19 | |     BackendWorker,
+20 | |     empty_memory_metrics,
+21 | |     run_keras_inspection,
+22 | |     run_keras_smoke,
+23 | |     run_model_export,
+24 | |     run_native_inspection,
+25 | |     run_native_smoke,
+26 | | )
+   | |_^
+27 |
+28 |   ###############################################################################
+   |
+help: Organize imports
+   |
+19 |     BackendWorker,
+   -     empty_memory_metrics,
+   -     run_keras_inspection,
+   -     run_keras_smoke,
+   -     run_model_export,
+   -     run_native_inspection,
+   -     run_native_smoke,
+20 +     empty_memory_metrics,
+21 +     run_keras_inspection,
+22 +     run_keras_smoke,
+23 +     run_model_export,
+24 +     run_native_inspection,
+25 +     run_native_smoke,
+26 | )
+27 |
+28 +
+29 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> models\keras_runtime.py:2:1
+   |
+ 1 |   # pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false,…
+ 2 | / from __future__ import annotations
+ 3 | |
+ 4 | | from typing import Any
+ 5 | |
+ 6 | | import keras
+ 7 | |
+ 8 | | from common.catalogs.loader import get_node_catalog
+ 9 | | from domain.compilation_catalog import (
+10 | |     CompilationCatalog,
+11 | |     CompilationOption,
+12 | |     get_compilation_catalog,
+13 | | )
+14 | | from domain.compilation_plan import CompilationObject
+15 | | from domain.graph import ModelGraph
+16 | | from domain.metric_formula import MetricFormulaError, evaluate_metric_formula, parse_metric_formula
+17 | | from validation.output_resolution import output_selectors, resolved_outputs
+   | |___________________________________________________________________________^
+18 |
+19 |   ###############################################################################
+   |
+help: Organize imports
+   |
+7  |
+   - from common.catalogs.loader import get_node_catalog
+   - from domain.compilation_catalog import (
+8  + from common.catalogs.loader import get_node_catalog
+9  + from domain.compilation_catalog import (
+10 |     CompilationCatalog,
+11 |     CompilationOption,
+   -     get_compilation_catalog,
+   - )
+   - from domain.compilation_plan import CompilationObject
+12 +     get_compilation_catalog,
+13 + )
+14 + from domain.compilation_plan import CompilationObject
+15 | from domain.graph import ModelGraph
+16 | from domain.metric_formula import MetricFormulaError, evaluate_metric_formula, parse_metric_formula
+17 | from validation.output_resolution import output_selectors, resolved_outputs
+18 |
+19 +
+20 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> models\ml_worker.py:5:1
+   |
+ 3 |   """Fresh-interpreter dispatcher for one isolated execution backend."""
+ 4 |
+ 5 | / from __future__ import annotations
+ 6 | |
+ 7 | | import argparse
+ 8 | | import json
+ 9 | | import traceback
+10 | | from pathlib import Path
+11 | |
+12 | | from domain.enums import ExecutionBackend
+13 | | from domain.runtime import RuntimeApi, WorkerConfiguration
+14 | | from models.worker_backend import (
+15 | |     BackendWorker,
+16 | |     configure_startup_environment,
+17 | |     load_backend_worker,
+18 | | )
+19 | | from models.worker_core import WorkerCancelled, WorkerContext, read_request, run_job
+   | |____________________________________________________________________________________^
+20 |
+21 |   ###############################################################################
+   |
+help: Organize imports
+   |
+20 |
+21 +
+22 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> models\native_runtime.py:2:1
+   |
+ 1 |   # pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false,…
+ 2 | / from __future__ import annotations
+ 3 | |
+ 4 | | import types
+ 5 | | from collections.abc import Callable
+ 6 | | from dataclasses import dataclass
+ 7 | | from typing import Any, cast
+ 8 | |
+ 9 | | from common.catalogs.loader import get_node_catalog
+10 | | from compilation.compiler import compile_to_ir
+11 | | from domain.compilation import CanonicalModelIR
+12 | | from domain.compilation_catalog import CompilationCatalog
+13 | | from domain.enums import ExecutionBackend
+14 | | from domain.graph import ModelGraph
+15 | | from exporters.native_jax_exporter import NativeJaxSourceExporter
+16 | | from exporters.native_tensorflow_exporter import NativeTensorFlowSourceExporter
+17 | | from exporters.pytorch_exporter import PyTorchSourceExporter
+18 | | from validation.output_resolution import input_nodes
+   | |____________________________________________________^
+19 |
+20 |   ###############################################################################
+   |
+help: Organize imports
+   |
+19 |
+20 +
+21 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> models\pytorch_worker.py:3:1
+   |
+ 1 |   # pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false,…
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import contextlib
+ 6 | | import gc
+ 7 | | import shutil
+ 8 | | import sys
+ 9 | | from collections.abc import Callable
+10 | | from pathlib import Path
+11 | | from typing import Any
+12 | |
+13 | | import torch
+14 | |
+15 | | from domain.compilation_catalog import CompilationCatalog
+16 | | from domain.enums import ExecutionBackend
+17 | | from domain.exports import ExportFormat, ExportOptions
+18 | | from domain.graph import ModelGraph
+19 | | from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
+20 | | from models.worker_backend import (
+21 | |     BackendWorker,
+22 | |     empty_memory_metrics,
+23 | |     run_keras_inspection,
+24 | |     run_keras_smoke,
+25 | |     run_model_export,
+26 | |     run_native_inspection,
+27 | |     run_native_smoke,
+28 | | )
+   | |_^
+29 |
+30 |   ###############################################################################
+   |
+help: Organize imports
+   |
+29 |
+30 +
+31 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> models\tensorflow_worker.py:3:1
+   |
+ 1 |   # pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false,…
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import contextlib
+ 6 | | import gc
+ 7 | | from collections.abc import Callable
+ 8 | | from pathlib import Path
+ 9 | | from typing import Any
+10 | |
+11 | | import tensorflow
+12 | |
+13 | | from domain.compilation_catalog import CompilationCatalog
+14 | | from domain.enums import ExecutionBackend
+15 | | from domain.exports import ExportFormat, ExportOptions
+16 | | from domain.graph import ModelGraph
+17 | | from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
+18 | | from models.worker_backend import (
+19 | |     BackendWorker,
+20 | |     empty_memory_metrics,
+21 | |     run_keras_inspection,
+22 | |     run_keras_smoke,
+23 | |     run_model_export,
+24 | |     run_native_inspection,
+25 | |     run_native_smoke,
+26 | | )
+   | |_^
+27 |
+28 |   ###############################################################################
+   |
+help: Organize imports
+   |
+19 |     BackendWorker,
+   -     empty_memory_metrics,
+   -     run_keras_inspection,
+   -     run_keras_smoke,
+   -     run_model_export,
+   -     run_native_inspection,
+   -     run_native_smoke,
+20 +     empty_memory_metrics,
+21 +     run_keras_inspection,
+22 +     run_keras_smoke,
+23 +     run_model_export,
+24 +     run_native_inspection,
+25 +     run_native_smoke,
+26 | )
+27 |
+28 +
+29 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> models\worker_backend.py:3:1
+   |
+ 1 |   # pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=f…
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import importlib
+ 6 | | import os
+ 7 | | import time
+ 8 | | from collections.abc import Callable
+ 9 | | from contextlib import AbstractContextManager, suppress
+10 | | from pathlib import Path
+11 | | from typing import Any, Protocol, cast
+12 | |
+13 | | import numpy as np
+14 | |
+15 | | from common.catalogs.loader import get_node_catalog
+16 | | from domain.compilation_catalog import CompilationCatalog
+17 | | from domain.enums import ExecutionBackend, keras_backend_value
+18 | | from domain.exports import ExportFormat, ExportOptions
+19 | | from domain.graph import ModelGraph
+20 | | from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
+21 | | from models.tensor_inspection_runtime import persist_inspection
+22 | | from validation.output_resolution import input_nodes, output_selectors, resolved_outputs
+   | |________________________________________________________________________________________^
+23 |
+24 |   ###############################################################################
+   |
+help: Organize imports
+   |
+4  |
+   - import importlib
+   - import os
+   - import time
+   - from collections.abc import Callable
+   - from contextlib import AbstractContextManager, suppress
+5  + import importlib
+6  + import os
+7  + import time
+8  + from collections.abc import Callable
+9  + from contextlib import AbstractContextManager, suppress
+10 | from pathlib import Path
+   - from typing import Any, Protocol, cast
+   -
+   - import numpy as np
+11 + from typing import Any, Protocol, cast
+12 +
+13 + import numpy as np
+14 |
+--------------------------------------------------------------------------------
+19 | from domain.graph import ModelGraph
+   - from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
+   - from models.tensor_inspection_runtime import persist_inspection
+20 + from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
+21 + from models.tensor_inspection_runtime import persist_inspection
+22 | from validation.output_resolution import input_nodes, output_selectors, resolved_outputs
+23 |
+24 +
+25 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> models\worker_core.py:3:1
+   |
+ 1 |   # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterTy…
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import json
+ 6 | | import os
+ 7 | | import time
+ 8 | | from contextlib import suppress
+ 9 | | from functools import partial
+10 | | from pathlib import Path
+11 | | from typing import Any, cast
+12 | |
+13 | | from common.process_control import process_rss_bytes
+14 | | from domain.compilation_catalog import CompilationCatalog, get_compilation_catalog
+15 | | from domain.exports import ExportFormat, ExportOptions, export_suffix
+16 | | from domain.graph import ModelGraph
+17 | | from domain.runtime import WorkerConfiguration
+18 | | from models.worker_backend import BackendWorker
+   | |_______________________________________________^
+19 |
+20 |   ###############################################################################
+   |
+help: Organize imports
+   |
+19 |
+20 +
+21 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\backend.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from pathlib import Path
+ 4 | | from typing import Any
+ 5 | |
+ 6 | | from sqlalchemy import create_engine, event
+ 7 | | from sqlalchemy.engine import Engine
+ 8 | | from sqlalchemy.orm import Session, sessionmaker
+ 9 | |
+10 | | from configurations.settings import DatabaseSettings
+   | |____________________________________________________^
+11 |
+12 |   ###############################################################################
+   |
+help: Organize imports
+   |
+11 |
+12 +
+13 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> repositories\base.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from sqlalchemy.orm import DeclarativeBase
+  | |__________________________________________^
+4 |
+5 |   ###############################################################################
+  |
+help: Organize imports
+  |
+4 |
+5 +
+6 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\code_snapshots.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from collections.abc import Mapping, Sequence
+ 4 | | from datetime import datetime
+ 5 | | from typing import Any, cast
+ 6 | | from uuid import UUID
+ 7 | |
+ 8 | | from sqlalchemy import and_, delete, or_, select
+ 9 | | from sqlalchemy.engine import CursorResult
+10 | | from sqlalchemy.orm import Session
+11 | |
+12 | | from domain.enums import ExecutionBackend
+13 | | from repositories.models import GeneratedCodeSnapshotRecord
+   | |___________________________________________________________^
+14 |
+15 |   ###############################################################################
+   |
+help: Organize imports
+   |
+14 |
+15 +
+16 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\contracts.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from collections.abc import Mapping, Sequence
+ 4 | | from dataclasses import dataclass
+ 5 | | from datetime import datetime
+ 6 | | from typing import Any, Protocol
+ 7 | | from uuid import UUID
+ 8 | |
+ 9 | | from domain.enums import ExecutionBackend, ValidationStatus
+10 | | from domain.graph import ModelGraph
+   | |___________________________________^
+11 |
+12 |   ###############################################################################
+   |
+help: Organize imports
+   |
+11 |
+12 +
+13 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\custom_nodes.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from datetime import datetime
+ 4 | |
+ 5 | | from sqlalchemy import JSON, CheckConstraint, Index, Integer, String, Text, UniqueConstraint, select
+ 6 | | from sqlalchemy.orm import Mapped, Session, mapped_column
+ 7 | |
+ 8 | | from common.timestamps import utc_now
+ 9 | | from repositories.base import Base
+10 | | from repositories.types import UTCDateTime
+   | |__________________________________________^
+11 |
+12 |   ###############################################################################
+   |
+help: Organize imports
+   |
+11 |
+12 +
+13 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\datasets.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from datetime import datetime
+ 4 | | from uuid import UUID
+ 5 | |
+ 6 | | from sqlalchemy import JSON, CheckConstraint, Index, Integer, String, select
+ 7 | | from sqlalchemy.orm import Mapped, Session, mapped_column
+ 8 | |
+ 9 | | from common.timestamps import utc_now
+10 | | from repositories.base import Base
+11 | | from repositories.types import UTCDateTime
+   | |__________________________________________^
+12 |
+13 |   ###############################################################################
+   |
+help: Organize imports
+   |
+12 |
+13 +
+14 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\graphs.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from collections.abc import Sequence
+ 4 | | from uuid import UUID
+ 5 | |
+ 6 | | from sqlalchemy import delete, func, select
+ 7 | | from sqlalchemy.orm import Session
+ 8 | |
+ 9 | | from domain.graph import (
+10 | |     GRAPH_SCHEMA_VERSION,
+11 | |     EdgeInstance,
+12 | |     ExportSettings,
+13 | |     ModelConfiguration,
+14 | |     ModelGraph,
+15 | |     NodeInstance,
+16 | |     OutputBinding,
+17 | |     Position,
+18 | | )
+19 | | from repositories.contracts import GraphSummary
+20 | | from repositories.models import (
+21 | |     ProjectEdgeRecord,
+22 | |     ProjectGraphSettingsRecord,
+23 | |     ProjectNodeRecord,
+24 | | )
+   | |_^
+25 |
+26 |   ###############################################################################
+   |
+help: Organize imports
+   |
+25 |
+26 +
+27 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\metrics.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from typing import Any, cast
+ 4 | | from uuid import UUID
+ 5 | |
+ 6 | | from sqlalchemy import select
+ 7 | | from sqlalchemy.orm import Session
+ 8 | |
+ 9 | | from repositories.contracts import MetricUsage
+10 | | from repositories.models import (
+11 | |     CustomMetricDefinitionRecord,
+12 | |     ProjectGraphSettingsRecord,
+13 | |     ProjectRecord,
+14 | | )
+   | |_^
+15 |
+16 |   ###############################################################################
+   |
+help: Organize imports
+   |
+15 |
+16 +
+17 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\projects.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from datetime import datetime
+ 4 | | from uuid import UUID
+ 5 | |
+ 6 | | from sqlalchemy import select, update
+ 7 | | from sqlalchemy.orm import Session
+ 8 | |
+ 9 | | from domain.enums import ExecutionBackend, ValidationStatus
+10 | | from repositories.contracts import ProjectMetadata, RepositoryRevisionConflictError
+11 | | from repositories.models import ProjectRecord
+   | |_____________________________________________^
+12 |
+13 |   ###############################################################################
+   |
+help: Organize imports
+   |
+12 |
+13 +
+14 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\revisions.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from datetime import datetime
+ 4 | | from uuid import UUID
+ 5 | |
+ 6 | | from sqlalchemy import select
+ 7 | | from sqlalchemy.orm import Session
+ 8 | |
+ 9 | | from domain.enums import ExecutionBackend
+10 | | from domain.graph import ModelGraph
+11 | | from repositories.models import ProjectRevisionRecord
+   | |_____________________________________________________^
+12 |
+13 |   ###############################################################################
+   |
+help: Organize imports
+   |
+12 |
+13 +
+14 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\session.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from dataclasses import dataclass
+ 4 | |
+ 5 | | from sqlalchemy.engine import Engine
+ 6 | | from sqlalchemy.orm import Session, sessionmaker
+ 7 | |
+ 8 | | from configurations.settings import DatabaseSettings
+ 9 | | from repositories.backend import SQLiteBackend, build_session_factory
+10 | | from repositories.initializer import initialize_database
+11 | | from repositories.unit_of_work import UnitOfWork
+   | |________________________________________________^
+12 |
+13 |   ###############################################################################
+   |
+help: Organize imports
+   |
+12 |
+13 +
+14 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> repositories\types.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from datetime import UTC, datetime
+4 | |
+5 | | from sqlalchemy import DateTime
+6 | | from sqlalchemy.engine import Dialect
+7 | | from sqlalchemy.types import TypeDecorator
+  | |__________________________________________^
+8 |
+9 |   ###############################################################################
+  |
+help: Organize imports
+   |
+8  |
+9  +
+10 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> repositories\unit_of_work.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from types import TracebackType
+ 4 | | from typing import Self
+ 5 | |
+ 6 | | from sqlalchemy.exc import IntegrityError
+ 7 | | from sqlalchemy.orm import Session, sessionmaker
+ 8 | |
+ 9 | | from repositories.code_snapshots import CodeSnapshotRepository
+10 | | from repositories.contracts import RepositoryIntegrityError
+11 | | from repositories.custom_nodes import CustomNodeRepository
+12 | | from repositories.datasets import DatasetRepository
+13 | | from repositories.graphs import GraphRepository
+14 | | from repositories.metrics import MetricRepository
+15 | | from repositories.projects import ProjectRepository
+16 | | from repositories.revisions import RevisionRepository
+   | |_____________________________________________________^
+17 |
+18 |   ###############################################################################
+   |
+help: Organize imports
+   |
+17 |
+18 +
+19 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> services\catalog_service.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from common.catalogs.loader import NodeCatalog
+4 | | from domain.manifests import NodeCatalogResponse
+  | |________________________________________________^
+5 |
+6 |   ###############################################################################
+  |
+help: Organize imports
+  |
+5 |
+6 +
+7 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\compilation_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from common.catalogs.loader import NodeCatalog
+ 4 | | from compilation.compiler import compile_to_ir
+ 5 | | from domain.compilation import CompilationResult
+ 6 | | from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
+ 7 | | from domain.enums import ExecutionBackend
+ 8 | | from domain.graph import ModelGraph
+ 9 | | from exporters.keras_exporter import KerasSourceExporter
+10 | | from exporters.native_jax_exporter import NativeJaxSourceExporter
+11 | | from exporters.native_tensorflow_exporter import NativeTensorFlowSourceExporter
+12 | | from exporters.pytorch_exporter import PyTorchSourceExporter
+13 | | from services.validation_service import ValidationService
+   | |_________________________________________________________^
+14 |
+15 |   ###############################################################################
+   |
+help: Organize imports
+   |
+14 |
+15 +
+16 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\connection_validation_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from common.catalogs.loader import NodeCatalog
+ 4 | | from domain.diagnostics import (
+ 5 | |     ConnectionCandidatesValidationResult,
+ 6 | |     ConnectionValidationResult,
+ 7 | |     ValidationDiagnostic,
+ 8 | | )
+ 9 | | from domain.enums import DiagnosticSeverity, ExecutionBackend
+10 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance
+11 | | from domain.manifests import NodeManifest
+12 | | from services.validation_service import ValidationService
+13 | | from validation.profile_compatibility import resolve_implementation_compatibility
+   | |_________________________________________________________________________________^
+14 |
+15 |   ###############################################################################
+   |
+help: Organize imports
+   |
+14 |
+15 +
+16 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\custom_node_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from typing import cast
+ 4 | | from uuid import uuid4
+ 5 | |
+ 6 | | from common.catalogs.loader import NodeCatalog
+ 7 | | from common.timestamps import utc_now
+ 8 | | from domain.custom_math import CustomMathFormulaError, parse_custom_math_formula
+ 9 | | from domain.custom_nodes import (
+10 | |     CustomNodeCatalogResponse,
+11 | |     CustomNodeDefinitionCreate,
+12 | |     CustomNodeDefinitionResponse,
+13 | |     CustomNodeDefinitionUpdate,
+14 | |     CustomNodeSpec,
+15 | |     GraphTemplateNodeSpec,
+16 | |     MathematicalNodeSpec,
+17 | |     RepositoryNodeSpec,
+18 | | )
+19 | | from domain.manifests import NodeManifest
+20 | | from domain.ports import materialized_inputs, materialized_outputs
+21 | | from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
+22 | | from repositories.custom_nodes import CustomNodeDefinitionRecord
+23 | | from services.huggingface_repository_service import HuggingFaceRepositoryService
+24 | | from validation.parameter_values import (
+25 | |     ParameterValueError,
+26 | |     condition_matches,
+27 | |     normalize_manifest_parameters,
+28 | | )
+   | |_^
+29 |
+30 |   ###############################################################################
+   |
+help: Organize imports
+   |
+7  | from common.timestamps import utc_now
+   - from domain.custom_math import CustomMathFormulaError, parse_custom_math_formula
+   - from domain.custom_nodes import (
+   -     CustomNodeCatalogResponse,
+   -     CustomNodeDefinitionCreate,
+   -     CustomNodeDefinitionResponse,
+   -     CustomNodeDefinitionUpdate,
+   -     CustomNodeSpec,
+   -     GraphTemplateNodeSpec,
+   -     MathematicalNodeSpec,
+   -     RepositoryNodeSpec,
+   - )
+   - from domain.manifests import NodeManifest
+   - from domain.ports import materialized_inputs, materialized_outputs
+8  + from domain.custom_math import CustomMathFormulaError, parse_custom_math_formula
+9  + from domain.custom_nodes import (
+10 +     CustomNodeCatalogResponse,
+11 +     CustomNodeDefinitionCreate,
+12 +     CustomNodeDefinitionResponse,
+13 +     CustomNodeDefinitionUpdate,
+14 +     CustomNodeSpec,
+15 +     GraphTemplateNodeSpec,
+16 +     MathematicalNodeSpec,
+17 +     RepositoryNodeSpec,
+18 + )
+19 + from domain.manifests import NodeManifest
+20 + from domain.ports import materialized_inputs, materialized_outputs
+21 | from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
+--------------------------------------------------------------------------------
+29 |
+30 +
+31 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\dataset_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import math
+ 4 | | import os
+ 5 | | from datetime import datetime
+ 6 | | from pathlib import Path
+ 7 | | from uuid import UUID, uuid4
+ 8 | |
+ 9 | | from common.timestamps import utc_now
+10 | | from domain.datasets import (
+11 | |     AllSamplesSubset,
+12 | |     ArrayBinding,
+13 | |     ArrayInspection,
+14 | |     ArraySource,
+15 | |     ColumnBinding,
+16 | |     DatasetAvailability,
+17 | |     DatasetAvailabilityState,
+18 | |     DatasetBinding,
+19 | |     DatasetDefinitionMutation,
+20 | |     DatasetDocument,
+21 | |     DatasetInspection,
+22 | |     DatasetInspectionRequest,
+23 | |     DatasetListResponse,
+24 | |     DatasetRoleDefinition,
+25 | |     DatasetSplitDefinition,
+26 | |     DatasetSummary,
+27 | |     DatasetType,
+28 | |     DatasetValidationFinding,
+29 | |     DatasetValidationMetadata,
+30 | |     DatasetValidationResult,
+31 | |     DatasetValidationStatus,
+32 | |     FirstNSamplesSubset,
+33 | |     FolderLabelBinding,
+34 | |     ImageBinding,
+35 | |     ImageFolderInspection,
+36 | |     ImageFolderSource,
+37 | |     TableInspection,
+38 | |     TableSource,
+39 | |     TextBinding,
+40 | |     TextInspection,
+41 | |     TextSource,
+42 | | )
+43 | | from repositories.contracts import UnitOfWorkFactory
+44 | | from repositories.datasets import DatasetRecord
+45 | | from services.dataset_inspection_service import DatasetInspectionError, DatasetInspectionService
+   | |________________________________________________________________________________________________^
+46 |
+47 |   ###############################################################################
+   |
+help: Organize imports
+   |
+2  |
+   - import math
+   - import os
+   - from datetime import datetime
+3  + import math
+4  + import os
+5  + from datetime import datetime
+6  | from pathlib import Path
+--------------------------------------------------------------------------------
+23 |     DatasetListResponse,
+   -     DatasetRoleDefinition,
+   -     DatasetSplitDefinition,
+24 +     DatasetRoleDefinition,
+25 +     DatasetSplitDefinition,
+26 |     DatasetSummary,
+--------------------------------------------------------------------------------
+46 |
+47 +
+48 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> services\errors.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from domain.diagnostics import ValidationDiagnostic
+  | |___________________________________________________^
+4 |
+5 |   ###############################################################################
+  |
+help: Organize imports
+  |
+4 |
+5 +
+6 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\export_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import importlib.util
+ 4 | | from uuid import UUID
+ 5 | |
+ 6 | | from common.timestamps import utc_now
+ 7 | | from domain.compilation import CompilationResult
+ 8 | | from domain.enums import ExecutionBackend
+ 9 | | from domain.exports import (
+10 | |     SUPPORTED_ONNX_OPSETS,
+11 | |     ExportCapabilitiesResponse,
+12 | |     ExportCapability,
+13 | |     ExportCategory,
+14 | |     ExportConversion,
+15 | |     ExportFormat,
+16 | |     ExportLayout,
+17 | |     ExportOptionDefinition,
+18 | |     ExportOptions,
+19 | |     ExportPayload,
+20 | |     SourceExportResponse,
+21 | |     export_suffix,
+22 | | )
+23 | | from domain.graph import ProjectDocument
+24 | | from domain.runtime import RuntimeApi
+25 | | from repositories.contracts import UnitOfWorkFactory
+26 | | from services.compilation_service import CompilationService
+27 | | from services.errors import (
+28 | |     CompilationRejectedError,
+29 | |     ProjectNotFoundError,
+30 | |     RevisionConflictError,
+31 | | )
+32 | | from services.project_service import ProjectService
+33 | | from services.runtime_controller import RuntimeController
+34 | | from services.validation_service import ValidationService
+   | |_________________________________________________________^
+35 |
+36 |   ###############################################################################
+   |
+help: Organize imports
+   |
+35 |
+36 +
+37 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\huggingface_repository_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import json
+ 4 | | import re
+ 5 | | from dataclasses import dataclass
+ 6 | | from typing import cast
+ 7 | | from urllib.error import HTTPError, URLError
+ 8 | | from urllib.parse import quote
+ 9 | | from urllib.request import Request, urlopen
+   | |___________________________________________^
+10 |
+11 |   ###############################################################################
+   |
+help: Organize imports
+   |
+10 |
+11 +
+12 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\job_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import re
+ 4 | | from typing import cast
+ 5 | | from uuid import UUID
+ 6 | |
+ 7 | | from common.catalogs.loader import get_node_catalog
+ 8 | | from configurations.settings import Settings
+ 9 | | from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
+10 | | from domain.diagnostics import ValidationDiagnostic
+11 | | from domain.enums import DiagnosticSeverity
+12 | | from domain.exports import SUPPORTED_ONNX_OPSETS, ExportFormat, ExportOptions, export_suffix
+13 | | from domain.graph import ProjectDocument
+14 | | from domain.jobs import (
+15 | |     JobResponse,
+16 | |     JobSubmitRequest,
+17 | |     ModelExportOperation,
+18 | |     SmokeInferenceOperation,
+19 | |     TensorInspectionOperation,
+20 | | )
+21 | | from domain.runtime import RuntimeApi, WorkerConfiguration
+22 | | from services.errors import CompilationRejectedError, ProjectNotFoundError
+23 | | from services.export_service import ExportService
+24 | | from services.project_service import ProjectService
+25 | | from services.runtime_controller import RuntimeController
+26 | | from services.validation_service import ValidationService
+27 | | from validation.output_resolution import input_nodes
+   | |____________________________________________________^
+28 |
+29 |   ###############################################################################
+   |
+help: Organize imports
+   |
+2  |
+   - import re
+   - from typing import cast
+   - from uuid import UUID
+   -
+   - from common.catalogs.loader import get_node_catalog
+3  + import re
+4  + from typing import cast
+5  + from uuid import UUID
+6  +
+7  + from common.catalogs.loader import get_node_catalog
+8  | from configurations.settings import Settings
+--------------------------------------------------------------------------------
+25 | from services.runtime_controller import RuntimeController
+   - from services.validation_service import ValidationService
+   - from validation.output_resolution import input_nodes
+26 + from services.validation_service import ValidationService
+27 + from validation.output_resolution import input_nodes
+28 +
+29 |
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\metric_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from typing import cast
+ 4 | | from uuid import uuid4
+ 5 | |
+ 6 | | from common.timestamps import utc_now
+ 7 | | from domain.compilation_catalog import CompilationCatalogProvider, CompilationOption
+ 8 | | from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
+ 9 | | from domain.metrics import (
+10 | |     MetricCatalogResponse,
+11 | |     MetricDefinitionCreate,
+12 | |     MetricDefinitionResponse,
+13 | |     MetricDefinitionUpdate,
+14 | |     MetricKind,
+15 | |     MetricUsageResponse,
+16 | | )
+17 | | from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
+18 | | from repositories.models import CustomMetricDefinitionRecord
+   | |____________________________________________________________^
+19 |
+20 |   ###############################################################################
+   |
+help: Organize imports
+   |
+7  | from domain.compilation_catalog import CompilationCatalogProvider, CompilationOption
+   - from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
+8  + from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
+9  | from domain.metrics import (
+--------------------------------------------------------------------------------
+19 |
+20 +
+21 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\project_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from uuid import UUID
+ 4 | |
+ 5 | | from common.catalogs.loader import get_node_catalog
+ 6 | | from common.timestamps import utc_now
+ 7 | | from domain.enums import ValidationStatus
+ 8 | | from domain.graph import (
+ 9 | |     ProjectCreate,
+10 | |     ProjectDocument,
+11 | |     ProjectDuplicateRequest,
+12 | |     ProjectExportBundle,
+13 | |     ProjectListResponse,
+14 | |     ProjectSummary,
+15 | |     ProjectUpdate,
+16 | | )
+17 | | from repositories.contracts import (
+18 | |     ProjectMetadata,
+19 | |     RepositoryIntegrityError,
+20 | |     RepositoryRevisionConflictError,
+21 | |     UnitOfWorkFactory,
+22 | |     UnitOfWorkProtocol,
+23 | | )
+24 | | from services.errors import (
+25 | |     GraphPersistenceError,
+26 | |     RevisionConflictError,
+27 | | )
+28 | | from services.validation_service import ValidationService
+29 | | from validation.output_resolution import input_nodes, is_effective_output, resolved_outputs
+   | |___________________________________________________________________________________________^
+30 |
+31 |   ###############################################################################
+   |
+help: Organize imports
+   |
+30 |
+31 +
+32 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\runtime_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from configurations.settings import Settings
+ 4 | | from domain.compilation_capabilities import get_compilation_capabilities
+ 5 | | from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
+ 6 | | from domain.enums import ExecutionBackend
+ 7 | | from domain.graph import GRAPH_SCHEMA_VERSION
+ 8 | | from domain.metadata import (
+ 9 | |     ExecutionBackendStatus,
+10 | |     HealthResponse,
+11 | |     MetadataConfiguration,
+12 | |     MetadataResponse,
+13 | | )
+14 | | from domain.runtime import RuntimeApi, RuntimeApiStatus, RuntimeDiscoveryState
+   | |______________________________________________________________________________^
+15 |
+16 |   ###############################################################################
+   |
+help: Organize imports
+   |
+15 |
+16 +
+17 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services\validation_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import re
+ 4 | | from collections import Counter
+ 5 | | from contextlib import suppress
+ 6 | | from typing import Any, cast
+ 7 | |
+ 8 | | from common.catalogs.loader import NodeCatalog
+ 9 | | from domain.compilation_catalog import CompilationCatalogProvider, get_compilation_catalog_provider
+10 | | from domain.diagnostics import (
+11 | |     ConnectionValidationResult,
+12 | |     InferenceConfidence,
+13 | |     ModelTypeInference,
+14 | |     ModelTypeKind,
+15 | |     OutputReference,
+16 | |     ValidationDiagnostic,
+17 | |     ValidationResult,
+18 | | )
+19 | | from domain.enums import DiagnosticSeverity, ExecutionBackend
+20 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, ShapeSummary
+21 | | from domain.manifests import (
+22 | |     NodeManifest,
+23 | |     ParameterCapability,
+24 | |     ParameterDefinition,
+25 | |     ParameterValueSchema,
+26 | | )
+27 | | from domain.ports import materialized_inputs, materialized_outputs
+28 | | from domain.tensor import TensorSpec
+29 | | from validation.compile_configuration import validate_model_configuration
+30 | | from validation.graph_utils import (
+31 | |     nodes_reaching,
+32 | |     reachable_nodes,
+33 | |     topological_order,
+34 | |     would_create_cycle,
+35 | | )
+36 | | from validation.output_resolution import (
+37 | |     infer_model_type,
+38 | |     is_effective_output,
+39 | |     resolved_outputs,
+40 | | )
+41 | | from validation.output_resolution import input_nodes as catalog_input_nodes
+42 | | from validation.output_resolution import source_nodes as catalog_source_nodes
+43 | | from validation.profile_compatibility import resolve_implementation_compatibility
+44 | | from validation.safe_expression import SafeExpressionError, validate_safe_expression
+45 | | from validation.shape_inference import ShapeInferenceError, infer_shapes
+   | |________________________________________________________________________^
+46 |
+47 |   ###############################################################################
+   |
+help: Organize imports
+   |
+20 | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, ShapeSummary
+   - from domain.manifests import (
+21 + from domain.manifests import (
+22 |     NodeManifest,
+23 |     ParameterCapability,
+24 |     ParameterDefinition,
+   -     ParameterValueSchema,
+   - )
+   - from domain.ports import materialized_inputs, materialized_outputs
+25 +     ParameterValueSchema,
+26 + )
+27 + from domain.ports import materialized_inputs, materialized_outputs
+28 | from domain.tensor import TensorSpec
+--------------------------------------------------------------------------------
+40 | )
+   - from validation.output_resolution import input_nodes as catalog_input_nodes
+   - from validation.output_resolution import source_nodes as catalog_source_nodes
+41 + from validation.output_resolution import input_nodes as catalog_input_nodes
+42 + from validation.output_resolution import source_nodes as catalog_source_nodes
+43 | from validation.profile_compatibility import resolve_implementation_compatibility
+44 | from validation.safe_expression import SafeExpressionError, validate_safe_expression
+45 | from validation.shape_inference import ShapeInferenceError, infer_shapes
+46 |
+47 +
+48 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> validation\compile_configuration.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import math
+ 4 | | from collections.abc import Sequence
+ 5 | | from typing import Any, cast
+ 6 | |
+ 7 | | from common.catalogs.loader import get_node_catalog
+ 8 | | from domain.compilation_catalog import (
+ 9 | |     CompilationCatalog,
+10 | |     get_compilation_catalog,
+11 | |     get_compilation_catalog_for_implementation,
+12 | | )
+13 | | from domain.compilation_plan import CompilationObject
+14 | | from domain.diagnostics import ValidationDiagnostic
+15 | | from domain.enums import DiagnosticSeverity, ExecutionBackend
+16 | | from domain.graph import ModelGraph
+17 | | from validation.output_resolution import ResolvedOutput, output_selectors, resolved_outputs
+   | |___________________________________________________________________________________________^
+18 |
+19 |   ###############################################################################
+   |
+help: Organize imports
+   |
+7  | from common.catalogs.loader import get_node_catalog
+   - from domain.compilation_catalog import (
+8  + from domain.compilation_catalog import (
+9  |     CompilationCatalog,
+10 |     get_compilation_catalog,
+   -     get_compilation_catalog_for_implementation,
+   - )
+   - from domain.compilation_plan import CompilationObject
+11 +     get_compilation_catalog_for_implementation,
+12 + )
+13 + from domain.compilation_plan import CompilationObject
+14 | from domain.diagnostics import ValidationDiagnostic
+--------------------------------------------------------------------------------
+18 |
+19 +
+20 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> validation\graph_utils.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from collections import defaultdict, deque
+4 | |
+5 | | from domain.graph import EdgeInstance, ModelGraph
+6 | | from domain.manifests import NodeManifest
+7 | | from domain.ports import materialized_inputs
+  | |____________________________________________^
+8 |
+9 |   ###############################################################################
+  |
+help: Organize imports
+  |
+4 |
+  - from domain.graph import EdgeInstance, ModelGraph
+  - from domain.manifests import NodeManifest
+  - from domain.ports import materialized_inputs
+5 + from domain.graph import EdgeInstance, ModelGraph
+6 + from domain.manifests import NodeManifest
+7 + from domain.ports import materialized_inputs
+8 +
+9 |
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> validation\parameter_values.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from typing import Any, cast
+4 | |
+5 | | from domain.manifests import NodeManifest, ParameterDefinition, ParameterValueSchema
+6 | | from validation.safe_expression import SafeExpressionError, validate_safe_expression
+  | |____________________________________________________________________________________^
+7 |
+8 |   ###############################################################################
+  |
+help: Organize imports
+  |
+7 |
+8 +
+9 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> validation\shape_inference.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import ast
+ 4 | | from math import ceil, floor, isfinite, prod
+ 5 | | from typing import Any, cast
+ 6 | |
+ 7 | | from common.catalogs.loader import NodeCatalog
+ 8 | | from domain.enums import DataType
+ 9 | | from domain.graph import ModelGraph, ShapeSummary
+10 | | from domain.ports import materialized_outputs
+11 | | from domain.tensor import Dimension, TensorSpec
+12 | | from validation.graph_utils import ordered_incoming_edges, topological_order
+13 | | from validation.safe_expression import (
+14 | |     SafeExpressionError,
+15 | |     normalize_index_expression,
+16 | |     validate_safe_expression,
+17 | | )
+   | |_^
+18 |
+19 |   ###############################################################################
+   |
+help: Organize imports
+   |
+3  | import ast
+   - from math import ceil, floor, isfinite, prod
+4  + from math import ceil, floor, isfinite, prod
+5  | from typing import Any, cast
+6  |
+7  | from common.catalogs.loader import NodeCatalog
+8  | from domain.enums import DataType
+   - from domain.graph import ModelGraph, ShapeSummary
+   - from domain.ports import materialized_outputs
+9  + from domain.graph import ModelGraph, ShapeSummary
+10 + from domain.ports import materialized_outputs
+11 | from domain.tensor import Dimension, TensorSpec
+12 | from validation.graph_utils import ordered_incoming_edges, topological_order
+   - from validation.safe_expression import (
+   -     SafeExpressionError,
+   -     normalize_index_expression,
+   -     validate_safe_expression,
+   - )
+13 + from validation.safe_expression import (
+14 +     SafeExpressionError,
+15 +     normalize_index_expression,
+16 +     validate_safe_expression,
+17 + )
+18 +
+19 |
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\conftest.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from collections.abc import Iterator
+ 4 | | from pathlib import Path
+ 5 | |
+ 6 | | import pytest
+ 7 | | from fastapi.testclient import TestClient
+ 8 | |
+ 9 | | from app import create_app
+10 | | from common.path import CACHE_ROOT, PYTEST_BASETEMP_ROOT
+   | |________________________________________________________^
+11 |
+12 |   ###############################################################################
+   |
+help: Organize imports
+   |
+6  | import pytest
+   - from fastapi.testclient import TestClient
+   -
+   - from app import create_app
+   - from common.path import CACHE_ROOT, PYTEST_BASETEMP_ROOT
+7  + from fastapi.testclient import TestClient
+8  +
+9  + from app import create_app
+10 + from common.path import CACHE_ROOT, PYTEST_BASETEMP_ROOT
+11 +
+12 |
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_api_projects.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import time
+ 4 | | from pathlib import Path
+ 5 | | from typing import Any, cast
+ 6 | |
+ 7 | | import httpx
+ 8 | | import pytest
+ 9 | |
+10 | | from repositories.graphs import GraphRepository
+   | |_______________________________________________^
+11 |
+12 |   ###############################################################################
+   |
+help: Organize imports
+   |
+11 |
+12 +
+13 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_cache_contract.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import sys
+ 4 | | from pathlib import Path
+ 5 | |
+ 6 | | import pytest
+ 7 | | from pydantic import ValidationError
+ 8 | |
+ 9 | | from common.path import (
+10 | |     CACHE_ROOT,
+11 | |     FRONTEND_DIST_ROOT,
+12 | |     PYTHON_BYTECODE_CACHE_ROOT,
+13 | |     REPOSITORY_ROOT,
+14 | |     RUNTIME_DISCOVERY_CACHE_PATH,
+15 | | )
+16 | | from configurations.settings import Settings
+   | |____________________________________________^
+17 |
+18 |   ###############################################################################
+   |
+help: Organize imports
+   |
+17 |
+18 +
+19 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_compilation_capabilities.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import pytest
+ 4 | |
+ 5 | | from common.catalogs.loader import get_node_catalog
+ 6 | | from domain.compilation_capabilities import get_compilation_capabilities
+ 7 | | from domain.compilation_catalog import get_compilation_catalog
+ 8 | | from domain.enums import ExecutionBackend
+ 9 | | from domain.graph import (
+10 | |     EdgeInstance,
+11 | |     JaxNativeConfiguration,
+12 | |     ModelConfiguration,
+13 | |     ModelGraph,
+14 | |     NativeCompilationConfiguration,
+15 | |     NodeInstance,
+16 | |     Position,
+17 | |     PyTorchNativeConfiguration,
+18 | |     TensorFlowNativeConfiguration,
+19 | | )
+20 | | from domain.metadata import ExecutionBackendStatus
+21 | | from services.compilation_service import CompilationService
+22 | | from services.validation_service import ValidationService
+23 | | from validation.compile_configuration import validate_model_configuration
+24 | | from models.native_runtime import build_native_model
+25 | | from models.worker_backend import _verify_native_compilation
+   | |____________________________________________________________^
+26 |
+27 |   ###############################################################################
+   |
+help: Organize imports
+   |
+4  |
+   - from common.catalogs.loader import get_node_catalog
+   - from domain.compilation_capabilities import get_compilation_capabilities
+   - from domain.compilation_catalog import get_compilation_catalog
+   - from domain.enums import ExecutionBackend
+   - from domain.graph import (
+   -     EdgeInstance,
+   -     JaxNativeConfiguration,
+   -     ModelConfiguration,
+   -     ModelGraph,
+   -     NativeCompilationConfiguration,
+   -     NodeInstance,
+   -     Position,
+   -     PyTorchNativeConfiguration,
+   -     TensorFlowNativeConfiguration,
+   - )
+   - from domain.metadata import ExecutionBackendStatus
+   - from services.compilation_service import CompilationService
+   - from services.validation_service import ValidationService
+   - from validation.compile_configuration import validate_model_configuration
+5  + from common.catalogs.loader import get_node_catalog
+6  + from domain.compilation_capabilities import get_compilation_capabilities
+7  + from domain.compilation_catalog import get_compilation_catalog
+8  + from domain.enums import ExecutionBackend
+9  + from domain.graph import (
+10 +     EdgeInstance,
+11 +     JaxNativeConfiguration,
+12 +     ModelConfiguration,
+13 +     ModelGraph,
+14 +     NativeCompilationConfiguration,
+15 +     NodeInstance,
+16 +     Position,
+17 +     PyTorchNativeConfiguration,
+18 +     TensorFlowNativeConfiguration,
+19 + )
+20 + from domain.metadata import ExecutionBackendStatus
+21 | from models.native_runtime import build_native_model
+22 | from models.worker_backend import _verify_native_compilation
+   -
+23 + from services.compilation_service import CompilationService
+24 + from services.validation_service import ValidationService
+25 + from validation.compile_configuration import validate_model_configuration
+26 +
+27 +
+28 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_compiler.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from common.catalogs.loader import get_node_catalog
+4 | | from compilation.compiler import compile_to_ir
+5 | | from domain.enums import ExecutionBackend
+6 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+  | |_________________________________________________________________________^
+7 |
+8 |   ###############################################################################
+  |
+help: Organize imports
+  |
+7 |
+8 +
+9 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_connection_profile_validation.py:1:1
+  |
+1 | / from common.catalogs.loader import get_node_catalog
+2 | | from domain.enums import ExecutionBackend
+3 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+4 | | from services.connection_validation_service import ConnectionValidationService
+5 | | from services.validation_service import ValidationService
+  | |_________________________________________________________^
+6 |
+7 |   ###############################################################################
+  |
+help: Organize imports
+  |
+6 |
+7 +
+8 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_connection_validation.py:1:1
+  |
+1 | / from common.catalogs.loader import get_node_catalog
+2 | | from domain.diagnostics import ConnectionValidationResult
+3 | | from domain.enums import DiagnosticSeverity, ExecutionBackend
+4 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+5 | | from services.validation_service import ValidationService
+  | |_________________________________________________________^
+6 |
+7 |   ###############################################################################
+  |
+help: Organize imports
+  |
+6 |
+7 +
+8 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_conv1d_and_operations.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import ast
+ 4 | | from typing import Any, cast
+ 5 | |
+ 6 | | import numpy as np
+ 7 | | import pytest
+ 8 | |
+ 9 | | from common.catalogs.loader import get_node_catalog
+10 | | from common.catalogs.operation_emitter import emit_operation_source
+11 | | from compilation.compiler import compile_to_ir
+12 | | from domain.compilation_catalog import (
+13 | |     get_compilation_catalog,
+14 | |     get_compilation_catalog_provider,
+15 | | )
+16 | | from domain.enums import ExecutionBackend
+17 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+18 | | from domain.manifests import (
+19 | |     ImplementationMapping,
+20 | |     NodeManifest,
+21 | |     OperationMetadata,
+22 | |     ParameterDefinition,
+23 | |     PortDefinition,
+24 | |     ShapeRule,
+25 | | )
+26 | | from exporters.keras_exporter import KerasSourceExporter
+27 | | from models.native_runtime import build_native_model, forward_native
+28 | | from services.validation_service import ValidationService
+29 | | from validation.safe_expression import SafeExpressionError, validate_safe_expression
+30 | | from validation.shape_inference import infer_shapes
+   | |___________________________________________________^
+31 |
+32 |   ###############################################################################
+   |
+help: Organize imports
+   |
+31 |
+32 +
+33 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_core_ml_audit.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import os
+ 4 | | import subprocess
+ 5 | | import sys
+ 6 | | import time
+ 7 | | from pathlib import Path
+ 8 | | from typing import Any, Literal
+ 9 | | from uuid import uuid4
+10 | |
+11 | | import pytest
+12 | |
+13 | | from common.catalogs.loader import get_node_catalog
+14 | | from compilation.compiler import compile_to_ir
+15 | | from configurations.settings import get_settings
+16 | | from domain.enums import ExecutionBackend, keras_backend_value
+17 | | from domain.exports import ExportFormat
+18 | | from domain.graph import (
+19 | |     EdgeInstance,
+20 | |     KerasCompilationConfiguration,
+21 | |     ModelConfiguration,
+22 | |     ModelGraph,
+23 | |     NodeInstance,
+24 | |     Position,
+25 | | )
+26 | | from domain.jobs import (
+27 | |     JobResponse,
+28 | |     JobSubmitRequest,
+29 | |     ModelExportOperation,
+30 | |     SmokeInferenceOperation,
+31 | | )
+32 | | from domain.runtime import WorkerConfiguration
+33 | | from exporters.keras_exporter import KerasSourceExporter
+34 | | from services.runtime_controller import RuntimeController
+35 | | from services.validation_service import ValidationService
+   | |_________________________________________________________^
+36 |
+37 |   ###############################################################################
+   |
+help: Organize imports
+   |
+36 |
+37 +
+38 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_custom_nodes.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import json
+ 4 | | import os
+ 5 | | from typing import Self
+ 6 | | from urllib.error import URLError
+ 7 | |
+ 8 | | import httpx
+ 9 | | import pytest
+   | |_____________^
+10 |
+11 |   ###############################################################################
+   |
+help: Organize imports
+   |
+10 |
+11 +
+12 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_database_contract.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from datetime import UTC, datetime
+ 4 | | from pathlib import Path
+ 5 | | from uuid import UUID
+ 6 | |
+ 7 | | import pytest
+ 8 | | from sqlalchemy import create_engine, inspect, select, text
+ 9 | | from sqlalchemy.exc import IntegrityError
+10 | | from sqlalchemy.orm import Session
+11 | |
+12 | | from configurations.settings import DatabaseSettings
+13 | | from domain.enums import ExecutionBackend, ValidationStatus
+14 | | from domain.graph import ModelGraph, NodeInstance, Position
+15 | | from repositories.backend import build_session_factory
+16 | | from repositories.initializer import HEAD_REVISION, initialize_database
+17 | | from repositories.models import (
+18 | |     GeneratedCodeSnapshotRecord,
+19 | |     ProjectEdgeRecord,
+20 | |     ProjectGraphSettingsRecord,
+21 | |     ProjectRecord,
+22 | |     ProjectRevisionRecord,
+23 | | )
+24 | | from repositories.session import RepositoryContext
+   | |__________________________________________________^
+25 |
+26 |   ###############################################################################
+   |
+help: Organize imports
+   |
+25 |
+26 +
+27 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_environment_contract.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from concurrent.futures import ThreadPoolExecutor
+4 | | from pathlib import Path
+5 | |
+6 | | from configurations.environment import ensure_environment_file
+  | |______________________________________________________________^
+7 |
+8 |   ###############################################################################
+  |
+help: Organize imports
+  |
+7 |
+8 +
+9 | ###############################################################################
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_execution.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | import time
+4 | | from typing import Any, cast
+5 | |
+6 | | import httpx
+7 | | import pytest
+  | |_____________^
+8 |
+9 |   ###############################################################################
+  |
+help: Organize imports
+   |
+8  |
+9  +
+10 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_export_artifacts.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import json
+ 4 | | import time
+ 5 | | import zipfile
+ 6 | | from collections.abc import Iterator
+ 7 | | from pathlib import Path
+ 8 | | from uuid import uuid4
+ 9 | |
+10 | | import pytest
+11 | | from configurations.settings import Settings
+12 | | from domain.enums import ExecutionBackend
+13 | | from domain.exports import ExportFormat
+14 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+15 | | from domain.jobs import JobResponse, JobSubmitRequest, ModelExportOperation
+16 | | from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
+17 | | from services.runtime_controller import RuntimeController
+   | |_________________________________________________________^
+18 |
+19 |   ###############################################################################
+   |
+help: Organize imports
+   |
+9  |
+   - import pytest
+   - from configurations.settings import Settings
+10 + import pytest
+11 +
+12 + from configurations.settings import Settings
+13 | from domain.enums import ExecutionBackend
+--------------------------------------------------------------------------------
+19 |
+20 +
+21 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_filesystem_browser.py:2:1
+   |
+ 1 |   # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+ 2 | / from __future__ import annotations
+ 3 | |
+ 4 | | from pathlib import Path
+ 5 | |
+ 6 | | import pytest
+ 7 | | from fastapi.testclient import TestClient
+ 8 | |
+ 9 | | from services.filesystem_service import MAX_DIRECTORY_ENTRIES, FilesystemService
+   | |________________________________________________________________________________^
+10 |
+11 |   ###############################################################################
+   |
+help: Organize imports
+   |
+10 |
+11 +
+12 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_keras_import_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import io
+ 4 | | import json
+ 5 | | from zipfile import ZIP_DEFLATED, ZipFile
+ 6 | |
+ 7 | | import pytest
+ 8 | |
+ 9 | | from domain.enums import ExecutionBackend
+10 | | from services.keras_import_service import (
+11 | |     KerasArchitectureImportError,
+12 | |     parse_keras_architecture,
+13 | | )
+   | |_^
+14 |
+15 |   ###############################################################################
+   |
+help: Organize imports
+   |
+14 |
+15 +
+16 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_launcher_contract.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | from pathlib import Path
+  | |________________________^
+4 |
+5 |   ###############################################################################
+  |
+help: Organize imports
+  |
+2 |
+  - from pathlib import Path
+3 + from pathlib import Path
+4 +
+5 |
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_metrics.py:1:1
+  |
+1 | / from __future__ import annotations
+2 | |
+3 | | import httpx
+4 | | import pytest
+5 | |
+6 | | from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
+  | |_______________________________________________________________________________________________^
+7 |
+8 |   ###############################################################################
+  |
+help: Organize imports
+  |
+5 |
+  - from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
+6 + from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
+7 +
+8 |
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_migrations.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import json
+ 4 | | from concurrent.futures import ThreadPoolExecutor
+ 5 | | from importlib import import_module
+ 6 | | from pathlib import Path
+ 7 | | from threading import Barrier
+ 8 | | from typing import Any, cast
+ 9 | |
+10 | | import pytest
+11 | | from alembic import command
+12 | | from alembic.config import Config
+13 | | from configurations.settings import DatabaseSettings
+14 | | from repositories import initializer
+15 | | from repositories.initializer import HEAD_REVISION, initialize_database
+16 | | from sqlalchemy import create_engine, inspect, text
+17 | | from sqlalchemy.engine import Connection
+   | |________________________________________^
+18 |
+19 |   ###############################################################################
+   |
+help: Organize imports
+   |
+9  |
+   - import pytest
+   - from alembic import command
+   - from alembic.config import Config
+   - from configurations.settings import DatabaseSettings
+   - from repositories import initializer
+   - from repositories.initializer import HEAD_REVISION, initialize_database
+   - from sqlalchemy import create_engine, inspect, text
+   - from sqlalchemy.engine import Connection
+10 + import pytest
+11 + from alembic import command
+12 + from alembic.config import Config
+13 + from sqlalchemy import create_engine, inspect, text
+14 + from sqlalchemy.engine import Connection
+15 +
+16 + from configurations.settings import DatabaseSettings
+17 + from repositories import initializer
+18 + from repositories.initializer import HEAD_REVISION, initialize_database
+19 +
+20 |
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_model_builder_export_regressions.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import time
+ 4 | | from pathlib import Path
+ 5 | | from uuid import uuid4
+ 6 | |
+ 7 | | import pytest
+ 8 | |
+ 9 | | from configurations.settings import Settings
+10 | | from domain.enums import ExecutionBackend
+11 | | from domain.exports import ExportConversion, ExportFormat, ExportOptions
+12 | | from domain.graph import (
+13 | |     EdgeInstance,
+14 | |     JaxNativeConfiguration,
+15 | |     ModelConfiguration,
+16 | |     ModelGraph,
+17 | |     NativeCompilationConfiguration,
+18 | |     NodeInstance,
+19 | |     Position,
+20 | |     TensorFlowNativeConfiguration,
+21 | | )
+22 | | from domain.jobs import (
+23 | |     JobResponse,
+24 | |     JobSubmitRequest,
+25 | |     ModelExportOperation,
+26 | |     SmokeInferenceOperation,
+27 | | )
+28 | | from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
+29 | | from services.runtime_controller import RuntimeController
+   | |_________________________________________________________^
+30 |
+31 |   ###############################################################################
+   |
+help: Organize imports
+   |
+30 |
+31 +
+32 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_native_parity.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import importlib
+ 4 | | import os
+ 5 | | from collections.abc import Callable
+ 6 | | from typing import Any
+ 7 | |
+ 8 | | import numpy as np
+ 9 | | import pytest
+10 | | from common.catalogs.loader import get_node_catalog
+11 | | from domain.enums import ExecutionBackend
+12 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+13 | | from models.native_runtime import build_native_model, forward_native
+   | |____________________________________________________________________^
+14 |
+15 |   REQUIRED_NATIVE_BACKEND_ENV = "NEURO_WEAVE_REQUIRED_NATIVE_BACKEND"
+   |
+help: Organize imports
+   |
+2  |
+   - import importlib
+   - import os
+   - from collections.abc import Callable
+   - from typing import Any
+3  + import importlib
+4  + import os
+5  + from collections.abc import Callable
+6  + from typing import Any
+7  +
+8  + import numpy as np
+9  + import pytest
+10 +
+11 + from common.catalogs.loader import get_node_catalog
+12 + from domain.enums import ExecutionBackend
+13 + from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+14 + from models.native_runtime import build_native_model, forward_native
+15 |
+   - import numpy as np
+   - import pytest
+   - from common.catalogs.loader import get_node_catalog
+   - from domain.enums import ExecutionBackend
+   - from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+   - from models.native_runtime import build_native_model, forward_native
+   -
+16 | REQUIRED_NATIVE_BACKEND_ENV = "NEURO_WEAVE_REQUIRED_NATIVE_BACKEND"
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_node_catalog_audit.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import pytest
+ 4 | | from common.catalogs import loader
+ 5 | | from common.catalogs.loader import get_node_catalog
+ 6 | | from compilation.compiler import compile_to_ir
+ 7 | | from domain.enums import ExecutionBackend
+ 8 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+ 9 | | from exporters.keras_exporter import KerasSourceExporter
+10 | | from exporters.node_emitters import registry_for_backend
+   | |________________________________________________________^
+11 |
+12 |   ###############################################################################
+   |
+help: Organize imports
+   |
+3  | import pytest
+4  +
+5  | from common.catalogs import loader
+--------------------------------------------------------------------------------
+11 | from exporters.node_emitters import registry_for_backend
+   -
+12 +
+13 +
+14 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_node_execution_matrix.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from collections.abc import Callable
+ 4 | | from pathlib import Path
+ 5 | | from typing import Any
+ 6 | |
+ 7 | | import numpy as np
+ 8 | | import pytest
+ 9 | | from common.catalogs.loader import get_node_catalog
+10 | | from domain.enums import ExecutionBackend
+11 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+12 | | from models.native_runtime import build_native_model, forward_native
+13 | | from services.validation_service import ValidationService
+   | |_________________________________________________________^
+help: Organize imports
+   |
+8  | import pytest
+9  +
+10 | from common.catalogs.loader import get_node_catalog
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_parameter_surface_parity.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import json
+ 4 | | from pathlib import Path
+ 5 | |
+ 6 | | import pytest
+ 7 | | from common.catalogs import loader
+ 8 | | from common.catalogs.loader import (
+ 9 | |     RESOURCE_ROOT,
+10 | |     _catalog_extensions,
+11 | |     _expand_parameter_groups,
+12 | |     _parameter_group_catalog,
+13 | |     _parameter_surface_catalog,
+14 | |     get_node_catalog,
+15 | | )
+   | |_^
+help: Organize imports
+  |
+6 | import pytest
+7 +
+8 | from common.catalogs import loader
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_project_catalog_performance.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from typing import cast
+ 4 | |
+ 5 | | from fastapi import FastAPI
+ 6 | | from fastapi.testclient import TestClient
+ 7 | | from sqlalchemy import event
+ 8 | |
+ 9 | | from repositories.session import RepositoryContext
+   | |__________________________________________________^
+10 |
+11 |   ###############################################################################
+   |
+help: Organize imports
+   |
+10 |
+11 +
+12 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_project_route_errors.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from typing import NoReturn
+ 4 | | from uuid import uuid4
+ 5 | |
+ 6 | | import pytest
+ 7 | | from fastapi.testclient import TestClient
+ 8 | |
+ 9 | | from domain.graph import ProjectExportBundle
+10 | | from services.errors import GraphPersistenceError
+11 | | from services.keras_import_service import KerasImportService
+12 | | from services.project_service import ProjectService
+   | |___________________________________________________^
+13 |
+14 |   ###############################################################################
+   |
+help: Organize imports
+   |
+13 |
+14 +
+15 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_pytorch_compilation_helpers.py:13:1
+   |
+11 |   pytest.importorskip("torch", reason="PyTorch backend is not installed")
+12 |
+13 | / from common.catalogs.loader import get_node_catalog
+14 | | from domain.compilation_catalog import get_compilation_catalog
+15 | | from domain.enums import ExecutionBackend
+16 | | from domain.graph import (
+17 | |     EdgeInstance,
+18 | |     KerasCompilationConfiguration,
+19 | |     ModelConfiguration,
+20 | |     ModelGraph,
+21 | |     NativeCompilationConfiguration,
+22 | |     NodeInstance,
+23 | |     Position,
+24 | |     PyTorchNativeConfiguration,
+25 | | )
+26 | | from models.worker_backend import run_keras_smoke, run_native_smoke
+27 | | from services.validation_service import ValidationService
+28 | | from validation.compile_configuration import validate_model_configuration
+   | |_________________________________________________________________________^
+29 |
+30 |   ###############################################################################
+   |
+help: Organize imports
+   |
+29 |
+30 +
+31 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_pytorch_exporter.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | from typing import Any
+ 4 | |
+ 5 | | import pytest
+ 6 | |
+ 7 | | from common.catalogs.loader import get_node_catalog
+ 8 | | from compilation.compiler import compile_to_ir
+ 9 | | from domain.enums import ExecutionBackend
+10 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
+11 | | from exporters.pytorch_exporter import PyTorchSourceExporter
+12 | | from services.validation_service import ValidationService
+   | |_________________________________________________________^
+13 |
+14 |   ###############################################################################
+   |
+help: Organize imports
+   |
+13 |
+14 +
+15 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_runtime_controller.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import json
+ 4 | | import subprocess
+ 5 | | import sys
+ 6 | | import time
+ 7 | | from functools import partial
+ 8 | | from pathlib import Path
+ 9 | | from typing import cast
+10 | | from uuid import uuid4
+11 | |
+12 | | import pytest
+13 | |
+14 | | from common.process_control import process_start_options
+15 | | from configurations.settings import Settings
+16 | | from domain.enums import ExecutionBackend, keras_backend_value
+17 | | from domain.graph import ModelGraph
+18 | | from domain.jobs import JobResponse, JobSubmitRequest, SmokeInferenceOperation
+19 | | from domain.metadata import ExecutionBackendStatus
+20 | | from domain.runtime import (
+21 | |     MemoryPolicyKind,
+22 | |     RuntimeApi,
+23 | |     RuntimeApiStatus,
+24 | |     RuntimeDevice,
+25 | |     WorkerConfiguration,
+26 | | )
+27 | | from services.runtime_controller import RuntimeController, RuntimeControllerError
+   | |_________________________________________________________________________________^
+28 |
+29 |   ###############################################################################
+   |
+help: Organize imports
+   |
+28 |
+29 +
+30 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_startup_regressions.py:2:1
+   |
+ 1 |   # pyright: reportUnknownLambdaType=false, reportUnknownArgumentType=false
+ 2 | / from __future__ import annotations
+ 3 | |
+ 4 | | import socket
+ 5 | | import subprocess
+ 6 | | import time
+ 7 | | from pathlib import Path
+ 8 | | from uuid import uuid4
+ 9 | |
+10 | | import pytest
+11 | | from fastapi.testclient import TestClient
+12 | |
+13 | | from app import create_app
+14 | | from configurations.settings import Settings
+15 | | from domain.enums import ExecutionBackend, keras_backend_value
+16 | | from domain.graph import ModelGraph
+17 | | from domain.jobs import JobSubmitRequest, SmokeInferenceOperation
+18 | | from domain.metadata import ExecutionBackendStatus
+19 | | from domain.runtime import (
+20 | |     MemoryPolicyKind,
+21 | |     RuntimeApi,
+22 | |     RuntimeApiStatus,
+23 | |     RuntimeDevice,
+24 | |     RuntimeDiscoveryState,
+25 | |     WorkerConfiguration,
+26 | | )
+27 | | from services.runtime_controller import RuntimeController, RuntimeControllerError
+   | |_________________________________________________________________________________^
+28 |
+29 |   ###############################################################################
+   |
+help: Organize imports
+   |
+28 |
+29 +
+30 | ###############################################################################
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\test_validation.py:1:1
+  |
+1 | / from common.catalogs.loader import get_node_catalog
+2 | | from domain.enums import DiagnosticSeverity, ExecutionBackend
+3 | | from domain.graph import EdgeInstance, ModelGraph, NodeInstance, OutputBinding, Position
+4 | | from services.validation_service import ValidationService
+5 | | from validation.shape_inference import infer_shapes
+  | |___________________________________________________^
+6 |
+7 |   ###############################################################################
+  |
+help: Organize imports
+  |
+6 |
+7 +
+8 | ###############################################################################
+  |
+
+Found 104 errors.
+[*] 103 fixable with the `--fix` option.
