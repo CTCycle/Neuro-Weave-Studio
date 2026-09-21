@@ -229,7 +229,7 @@ jobs:
             kill -KILL "$pid" 2>/dev/null || true
           fi
       - name: Upload frontend diagnostics
-        if: ${{ failure() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: neuro-frontend-diagnostics-${{ github.run_id }}
