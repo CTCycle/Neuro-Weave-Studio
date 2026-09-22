@@ -4,7 +4,7 @@ Last updated: 2026-09-22
 
 This document is the canonical high-level catalog of NeuroWeave Studio's current operational state. It is a status index, not a development diary or a replacement for detailed architecture, implementation, validation, or roadmap documents.
 
-Documentation baseline: `develop` at source revision `752ab151978b56dd2c20568f63434e346dcf6ea8` before the 2026-09-21 comprehensive validation campaign documentation. The latest current-checkout evidence includes the [representative Model Builder investigation](../QA/model-builder-validation-20260908/representative-slice-20260920.md), the [Tier 0 campaign ledger](../QA/comprehensive-validation-20260921/validation-ledger.md), and the [NW-T1-01 route ledger](../QA/comprehensive-validation-20260922/validation-ledger.md). Historical evidence is retained only where its scope and date are stated explicitly.
+Documentation baseline: `develop` at source revision `752ab151978b56dd2c20568f63434e346dcf6ea8` before the 2026-09-21 comprehensive validation campaign documentation. The latest current-checkout evidence includes the [representative Model Builder investigation](../QA/model-builder-validation-20260908/representative-slice-20260920.md), the [Tier 0 campaign ledger](../QA/comprehensive-validation-20260921/validation-ledger.md), and the [NW-T1-01 and NW-T1-02 campaign evidence](../QA/comprehensive-validation-20260922/validation-ledger.md). Historical evidence is retained only where its scope and date are stated explicitly.
 
 ## Maintenance rules
 
@@ -50,9 +50,12 @@ per slice. The [2026-09-21 Tier 0 evidence](../QA/comprehensive-validation-20260
 remains at revision `752ab151978b56dd2c20568f63434e346dcf6ea8` and remains
 `PARTIAL`: repository Ruff and Pyright are nonzero, and the full backend suite
 recorded one discovery polling timeout whose exact test passed in isolation.
-`NW-T1-01` passed on revision `50d54116c4a007d1342ff99dc7e11e9e6e2f41d8`;
-`NW-T1-02` through Tier 5 remain `UNTESTED`. The aggregate campaign is still
-`PARTIAL` at 4 PASS, 1 PARTIAL, and 41 UNTESTED slices.
+`NW-T1-01` passed on revision `50d54116c4a007d1342ff99dc7e11e9e6e2f41d8`,
+and [NW-T1-02](../QA/comprehensive-validation-20260922/NW-T1-02.md) passed on
+revision `a30eefc93658138400e4061f4af07eed4c021985` with 10 focused migration
+and persistence tests. `NW-T1-03` through Tier 5 remain `UNTESTED`. The
+aggregate campaign is still `PARTIAL` at 5 PASS, 1 PARTIAL, and 40 UNTESTED
+slices.
 
 ## Current component ledger
 
@@ -106,7 +109,6 @@ Validation debt is insufficient or stale evidence, not proof of a defect. It is 
 | `validation.e2e.parallel-fixtures` | Low | A clean default-worker run without shared-SQLite locking or connector-readiness timing failures. | Medium |
 | `ui.accessibility.assistive-tech` | Low | Manual screen-reader and supported browser/OS matrix validation; current checks cover semantics, focus, labels, and containment only. | Medium |
 | `export.project-bundle.browser-download` | Medium | Independent in-app browser download-event confirmation; backend `200` is not equivalent evidence. | Low |
-| `persistence.sqlite.migration-chain` | Medium | Fresh migration/upgrade evidence on the current checkout in addition to revision and persistence flows. | Medium |
 
 ## Resolved / historical findings
 
