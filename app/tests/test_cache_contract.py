@@ -15,6 +15,7 @@ from common.path import (
 )
 from configurations.settings import Settings
 
+
 ###############################################################################
 def test_repository_cache_paths_share_one_canonical_root() -> None:
     assert CACHE_ROOT == REPOSITORY_ROOT / "runtimes" / "cache"

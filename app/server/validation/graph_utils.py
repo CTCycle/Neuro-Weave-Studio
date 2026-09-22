@@ -6,6 +6,7 @@ from domain.graph import EdgeInstance, ModelGraph
 from domain.manifests import NodeManifest
 from domain.ports import materialized_inputs
 
+
 ###############################################################################
 def adjacency(graph: ModelGraph) -> dict[str, list[str]]:
     result: dict[str, list[str]] = defaultdict(list)

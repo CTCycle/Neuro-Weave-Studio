@@ -89,9 +89,9 @@ class GraphTemplateBinding(BaseModel):
 class GraphTemplateNodeSpec(BaseModel):
     type: Literal["graph_template"] = "graph_template"
     components: list[GraphTemplateComponent] = Field(min_length=1, max_length=64)
-    edges: list[GraphTemplateEdge] = Field(default_factory=list, max_length=256)
-    input_bindings: list[GraphTemplateBinding] = Field(default_factory=list, max_length=64)
-    output_bindings: list[GraphTemplateBinding] = Field(default_factory=list, max_length=64)
+    edges: list[GraphTemplateEdge] = Field(default_factory=list, max_length=256)  # pyright: ignore[reportUnknownVariableType]
+    input_bindings: list[GraphTemplateBinding] = Field(default_factory=list, max_length=64)  # pyright: ignore[reportUnknownVariableType]
+    output_bindings: list[GraphTemplateBinding] = Field(default_factory=list, max_length=64)  # pyright: ignore[reportUnknownVariableType]
 
     # -------------------------------------------------------------------------
     @model_validator(mode="after")
@@ -101,9 +101,12 @@ class GraphTemplateNodeSpec(BaseModel):
         if len(component_ids) != len(known_ids):
             raise ValueError("Graph template component ids must be unique")
 
+        edges = self.edges
+        input_bindings = self.input_bindings
+        output_bindings = self.output_bindings
         adjacency = {component_id: set[str]() for component_id in component_ids}
         indegree = {component_id: 0 for component_id in component_ids}
-        for edge in self.edges:
+        for edge in edges:
             if edge.source_component_id not in known_ids or edge.target_component_id not in known_ids:
                 raise ValueError("Graph template edges must reference known components")
             if edge.source_component_id == edge.target_component_id:
@@ -124,8 +127,8 @@ class GraphTemplateNodeSpec(BaseModel):
         if visited != len(component_ids):
             raise ValueError("Graph template edges must form an acyclic graph")
 
-        self._validate_bindings(self.input_bindings, known_ids, "input")
-        self._validate_bindings(self.output_bindings, known_ids, "output")
+        self._validate_bindings(input_bindings, known_ids, "input")
+        self._validate_bindings(output_bindings, known_ids, "output")
         return self
 
     # -------------------------------------------------------------------------

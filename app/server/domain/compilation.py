@@ -1,19 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph, OutputBinding, ShapeSummary
-from domain.compilation_plan import (
-    CompilationObject,
-    CompilationPlan,
-    CompilerObject,
-    normalize_compilation_object,
-    normalize_compilation_plan,
-)
+
 
 ###############################################################################
 class InputBinding(BaseModel):

@@ -21,6 +21,7 @@ from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 from models.tensor_inspection_runtime import persist_inspection
 from validation.output_resolution import input_nodes, output_selectors, resolved_outputs
 
+
 ###############################################################################
 class BackendWorker(Protocol):
     """Common contract implemented by one isolated execution-backend worker."""
@@ -363,7 +364,7 @@ def run_native_inspection(
 
         inputs = [torch.as_tensor(value) for value in raw_arrays]
     elif backend is ExecutionBackend.TENSORFLOW:
-        import tensorflow as tf
+        tf = cast(Any, importlib.import_module("tensorflow"))
 
         inputs = [tf.convert_to_tensor(value) for value in raw_arrays]
     else:
@@ -618,7 +619,7 @@ def _verify_tensorflow_compilation(
     handle: Any,
     checkpoint: Callable[[], None],
 ) -> dict[str, object]:
-    import tensorflow as tf
+    tf = cast(Any, importlib.import_module("tensorflow"))
 
     compilation = handle.compilation
     output_bindings = resolved_outputs(graph, get_node_catalog())

@@ -13,6 +13,15 @@ from domain.manifests import ImplementationMapping, NodeManifest, PortDefinition
 
 
 ###############################################################################
+def _empty_any_mapping() -> dict[str, Any]:
+    return {}
+
+
+def _empty_string_mapping() -> dict[str, str]:
+    return {}
+
+
+###############################################################################
 @dataclass(frozen=True)
 class NodeEmitterContext:
     """The complete normalized contract available to one backend emitter."""
@@ -35,14 +44,14 @@ class NodeRuntimeContext:
     inputs: tuple[Any, ...]
     source: Any | None
     normalized_parameters: Mapping[str, Any]
-    runtime_services: Mapping[str, Any] = field(default_factory=dict)
+    runtime_services: Mapping[str, Any] = field(default_factory=_empty_any_mapping)
 
 
 ###############################################################################
 @dataclass(frozen=True)
 class EmissionResult:
     setup_statements: tuple[str, ...] = ()
-    output_expressions: Mapping[str, str] = field(default_factory=dict)
+    output_expressions: Mapping[str, str] = field(default_factory=_empty_string_mapping)
 
 
 Emitter = Callable[[NodeEmitterContext], EmissionResult]

@@ -34,6 +34,12 @@ from exporters.keras_exporter import KerasSourceExporter
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 
+
+###############################################################################
+def _keras_configuration(**payload: object) -> KerasCompilationConfiguration:
+    return KerasCompilationConfiguration.model_validate(payload)
+
+
 ###############################################################################
 def node(
     node_id: str,
@@ -258,7 +264,7 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
             edge("e2", "dense", "output"),
         ],
         model_configuration=ModelConfiguration(
-            keras=KerasCompilationConfiguration(
+            keras=_keras_configuration(
                 losses={"__default__": "categorical_crossentropy"},
                 metrics={"__default__": ["categorical_accuracy"]},
             ),
@@ -394,7 +400,7 @@ def test_multi_output_compile_selectors_generate_executable_transformer_source(
             edge("e3", "encoder", "output_b"),
         ],
         model_configuration=ModelConfiguration(
-            keras=KerasCompilationConfiguration(
+            keras=_keras_configuration(
                 optimizer="adamw",
                 losses={
                     "tokens": "mean_squared_error",
@@ -466,7 +472,7 @@ def test_keras_export_reloads_custom_layer_in_clean_process(
             edge("e2", "position", "output"),
         ],
         model_configuration=ModelConfiguration(
-            keras=KerasCompilationConfiguration(
+            keras=_keras_configuration(
                 optimizer="adamw",
                 losses={"__default__": "mean_squared_error"},
                 metrics={"__default__": ["mean_squared_error"]},

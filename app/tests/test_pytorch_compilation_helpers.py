@@ -27,6 +27,16 @@ from models.worker_backend import run_keras_smoke, run_native_smoke
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
 
+
+###############################################################################
+def _keras_configuration(**payload: object) -> KerasCompilationConfiguration:
+    return KerasCompilationConfiguration.model_validate(payload)
+
+
+def _pytorch_native(**payload: object) -> PyTorchNativeConfiguration:
+    return PyTorchNativeConfiguration.model_validate(payload)
+
+
 ###############################################################################
 def _node(
     node_id: str, definition_id: str, parameters: dict[str, Any] | None = None
@@ -170,7 +180,7 @@ def _configured_graph(graph: ModelGraph, api: str, task: str) -> ModelGraph:
     if api == "native":
         configuration = ModelConfiguration(
             native=NativeCompilationConfiguration(
-                pytorch=PyTorchNativeConfiguration(
+                pytorch=_pytorch_native(
                     optimizer="adamw",
                     optimizer_parameters={"learning_rate": 0.001, "weight_decay": 0.01},
                     losses={"__default__": loss},
@@ -180,7 +190,7 @@ def _configured_graph(graph: ModelGraph, api: str, task: str) -> ModelGraph:
         )
     else:
         configuration = ModelConfiguration(
-            keras=KerasCompilationConfiguration(
+            keras=_keras_configuration(
                 losses={"__default__": loss},
                 metrics={"__default__": metrics},
             )
@@ -276,7 +286,7 @@ def test_native_configuration_rejects_incompatible_loss_metric_and_activation() 
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    pytorch=PyTorchNativeConfiguration(
+                pytorch=_pytorch_native(
                         losses={"__default__": "categorical_crossentropy"},
                         metrics={"__default__": ["mean_squared_error"]},
                     )
@@ -311,7 +321,7 @@ def test_multi_output_configuration_resolves_all_selector_forms() -> None:
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    pytorch=PyTorchNativeConfiguration(
+                pytorch=_pytorch_native(
                         losses={"left_head:output": "binary_crossentropy"},
                         metrics={"prediction": ["binary_accuracy"]},
                     )
@@ -331,7 +341,7 @@ def test_unknown_output_selector_reports_available_output_specific_selectors() -
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    pytorch=PyTorchNativeConfiguration(
+                pytorch=_pytorch_native(
                         losses={"missing-output": "binary_crossentropy"},
                     )
                 )
@@ -375,7 +385,7 @@ def test_native_non_pytorch_validation_ignores_pytorch_loss_and_metric_settings(
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
                     tensorflow={"jit_compile": False},
-                    pytorch=PyTorchNativeConfiguration(
+                pytorch=_pytorch_native(
                         optimizer="not-an-optimizer",
                         losses={"missing-output": "not-a-loss"},
                         metrics={"missing-output": ["not-a-metric"]},
@@ -446,7 +456,7 @@ def test_native_optimizer_helpers_cover_catalog_variants(
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    pytorch=PyTorchNativeConfiguration(
+                pytorch=_pytorch_native(
                         optimizer=optimizer,
                         optimizer_parameters=parameters,
                         losses={"__default__": "mean_squared_error"},
@@ -511,7 +521,7 @@ def test_native_loss_helpers_cover_remaining_catalog_variants(
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    pytorch=PyTorchNativeConfiguration(
+                pytorch=_pytorch_native(
                         losses={"__default__": {"id": loss_id, "parameters": parameters}}
                     )
                 )
@@ -578,7 +588,7 @@ def test_native_metric_helpers_cover_remaining_catalog_variants(
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    pytorch=PyTorchNativeConfiguration(
+                pytorch=_pytorch_native(
                         metrics={
                             "__default__": [
                                 {"id": metric_id, "parameters": parameters}

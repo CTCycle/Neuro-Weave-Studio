@@ -198,6 +198,12 @@ class StaticGraphModel(keras.Model):
 
     # -------------------------------------------------------------------------
     @classmethod
-    def from_config(cls, config: dict[str, Any]) -> StaticGraphModel:
-        inner_model = keras.saving.deserialize_keras_object(config.pop("inner_model"))
+    def from_config(
+        cls,
+        config: dict[str, Any],
+        custom_objects: dict[str, Any] | None = None,
+    ) -> StaticGraphModel:
+        inner_model = keras.saving.deserialize_keras_object(
+            config.pop("inner_model"), custom_objects=custom_objects
+        )
         return cls(inner_model=inner_model, **config)

@@ -17,6 +17,7 @@ from domain.metrics import (
 from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
 from repositories.models import CustomMetricDefinitionRecord
 
+
 ###############################################################################
 class MetricDefinitionConflictError(ValueError):
 
@@ -139,7 +140,7 @@ class MetricService:
             can_edit=True,
             can_delete=True,
             supported_tasks=["regression", "binary_classification", "multiclass_classification"],
-            capabilities=dict(record.capabilities_json),
+            capabilities=cast(dict[str, bool], dict(record.capabilities_json)),
             created_at=record.created_at,
             updated_at=record.updated_at,
         )

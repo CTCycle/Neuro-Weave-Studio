@@ -5,6 +5,7 @@ from typing import Any, cast
 from domain.manifests import NodeManifest, ParameterDefinition, ParameterValueSchema
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 
+
 ###############################################################################
 class ParameterValueError(ValueError):
     pass
@@ -34,7 +35,8 @@ def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
     if value is None:
         return schema.nullable
     if schema.recursive and isinstance(value, list):
-        return all(_value_matches_schema(schema, item) for item in value)
+        items = cast(list[object], value)
+        return all(_value_matches_schema(schema, item) for item in items)
     if schema.type == "object":
         if not isinstance(value, dict):
             return False

@@ -16,6 +16,7 @@ from validation.safe_expression import (
     validate_safe_expression,
 )
 
+
 ###############################################################################
 class ShapeInferenceError(ValueError):
     pass
@@ -70,10 +71,11 @@ def _constant_value_shape(value: object) -> list[int]:
         return []
     if not isinstance(value, list) or not value:
         raise ShapeInferenceError("Constant value must be a scalar or a non-empty nested list")
-    nested = [_constant_value_shape(item) for item in value]
+    items = cast(list[object], value)
+    nested = [_constant_value_shape(item) for item in items]
     if any(shape != nested[0] for shape in nested[1:]):
         raise ShapeInferenceError("Constant value must have a rectangular nested shape")
-    return [len(value), *nested[0]]
+    return [len(items), *nested[0]]
 
 ###############################################################################
 def _constant_value_is_broadcastable(value: object, target_shape: list[int]) -> bool:
@@ -651,7 +653,7 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                     prod(source_shape) if bool(parameters.get("trainable", True)) else 0
                 )
             output = TensorSpec(
-                shape=source_shape,
+                shape=cast(list[Dimension], source_shape),
                 dtype=parameters.get("dtype", DataType.FLOAT32),
             )
         elif rule == "identity":
@@ -683,9 +685,12 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                                 "shared_axes must contain non-batch axes"
                             )
                         alpha_shape[shared_axis - 1] = 1
+                integer_alpha_shape = [
+                    dimension for dimension in alpha_shape if isinstance(dimension, int)
+                ]
                 parameter_count = (
-                    prod(alpha_shape)
-                    if all(isinstance(dimension, int) for dimension in alpha_shape)
+                    prod(integer_alpha_shape)
+                    if len(integer_alpha_shape) == len(alpha_shape)
                     else None
                 )
         elif rule == "normalization":
@@ -858,20 +863,19 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 raw_output_padding = parameters.get("output_padding", output_padding)
                 if raw_output_padding is None:
                     raw_output_padding = output_padding
-                if (
-                    not isinstance(raw_output_padding, list)
-                    or len(raw_output_padding) != dimensions
-                    or any(
-                        not isinstance(item, int)
-                        or isinstance(item, bool)
-                        or item < 0
-                        for item in raw_output_padding
+                if not isinstance(raw_output_padding, list):
+                    raise ShapeInferenceError(
+                        f"Parameter 'output_padding' must contain {dimensions} non-negative integers"
                     )
+                padding_items = cast(list[object], raw_output_padding)
+                if len(padding_items) != dimensions or any(
+                    not isinstance(item, int) or isinstance(item, bool) or item < 0
+                    for item in padding_items
                 ):
                     raise ShapeInferenceError(
                         f"Parameter 'output_padding' must contain {dimensions} non-negative integers"
                     )
-                output_padding = [int(item) for item in raw_output_padding]
+                output_padding = list(cast(list[int], padding_items))
                 if any(item >= stride for item, stride in zip(output_padding, strides, strict=True)):
                     raise ShapeInferenceError("output_padding must be smaller than the corresponding stride")
             shape = list(source.shape)

@@ -12,7 +12,7 @@ from domain.custom_nodes import (
     CustomNodeDefinitionResponse,
     CustomNodeDefinitionUpdate,
     CustomNodeSpec,
-    GraphTemplateNodeSpec,
+    GraphTemplateComponent,
     MathematicalNodeSpec,
     RepositoryNodeSpec,
 )
@@ -26,6 +26,7 @@ from validation.parameter_values import (
     condition_matches,
     normalize_manifest_parameters,
 )
+
 
 ###############################################################################
 class CustomNodeDefinitionConflictError(ValueError):
@@ -130,10 +131,7 @@ class CustomNodeService:
                     "pipeline_tag": metadata.pipeline_tag,
                 }
             )
-        if not isinstance(spec, GraphTemplateNodeSpec):
-            raise TypeError(f"Unsupported custom node specification: {spec.type}")
-
-        normalized_components = []
+        normalized_components: list[GraphTemplateComponent] = []
         manifests: dict[str, NodeManifest] = {}
         parameters_by_id: dict[str, dict[str, object]] = {}
         for component in spec.components:

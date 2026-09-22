@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, cast
 
+
 ###############################################################################
 class MetricFormulaError(ValueError):
     """Raised when a user formula is outside the supported safe subset."""

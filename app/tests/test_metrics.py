@@ -5,6 +5,7 @@ import pytest
 
 from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
 
+
 ###############################################################################
 def test_metric_formula_uses_only_the_bounded_expression_subset() -> None:
     formula = r"\frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2"

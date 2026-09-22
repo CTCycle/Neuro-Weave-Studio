@@ -4,6 +4,7 @@ from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from services.validation_service import ValidationService
 
+
 ###############################################################################
 def make_node(
     node_id: str,

@@ -26,6 +26,7 @@ from domain.runtime import (
 )
 from services.runtime_controller import RuntimeController, RuntimeControllerError
 
+
 ###############################################################################
 def test_controller_startup_does_not_probe_optional_frameworks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def fail_probe(*_args: object, **_kwargs: object) -> None:

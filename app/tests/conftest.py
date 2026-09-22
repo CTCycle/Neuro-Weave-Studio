@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app import create_app
 from common.path import CACHE_ROOT, PYTEST_BASETEMP_ROOT
 
+
 ###############################################################################
 def pytest_configure(config: pytest.Config) -> None:
     cache_root = CACHE_ROOT.resolve()

@@ -11,6 +11,7 @@ from domain.exports import ExportArtifactManifest, ExportFormat, ExportOptions
 from domain.graph import ModelGraph
 from domain.runtime import DeviceLeaseStatus, WorkerConfiguration
 
+
 ###############################################################################
 class JobOperation(StrEnum):
     SMOKE_INFERENCE = "smoke_inference"

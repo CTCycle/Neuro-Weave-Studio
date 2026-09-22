@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import cast
+
 import pytest
 
 from common.catalogs.loader import get_node_catalog
@@ -18,11 +21,30 @@ from domain.graph import (
     TensorFlowNativeConfiguration,
 )
 from domain.metadata import ExecutionBackendStatus
+from models.native_runtime import build_native_model
+from models.worker_backend import _verify_native_compilation  # pyright: ignore[reportPrivateUsage]
 from services.compilation_service import CompilationService
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
-from models.native_runtime import build_native_model
-from models.worker_backend import _verify_native_compilation
+
+
+###############################################################################
+def _tensorflow_native(**payload: object) -> TensorFlowNativeConfiguration:
+    return TensorFlowNativeConfiguration.model_validate(payload)
+
+
+def _pytorch_native(**payload: object) -> PyTorchNativeConfiguration:
+    return PyTorchNativeConfiguration.model_validate(payload)
+
+
+def _jax_native(**payload: object) -> JaxNativeConfiguration:
+    return JaxNativeConfiguration.model_validate(payload)
+
+
+def _approx(expected: object) -> object:
+    approx = cast(Callable[..., object], getattr(pytest, "approx"))
+    return approx(expected)
+
 
 ###############################################################################
 def _native_graph() -> ModelGraph:
@@ -64,14 +86,14 @@ def _native_graph() -> ModelGraph:
         ],
         model_configuration=ModelConfiguration(
             native=NativeCompilationConfiguration(
-                tensorflow=TensorFlowNativeConfiguration(jit_compile=True),
-                pytorch=PyTorchNativeConfiguration(
+                tensorflow=_tensorflow_native(jit_compile=True),
+                pytorch=_pytorch_native(
                     compile_enabled=True,
                     mode="max-autotune",
                     fullgraph=True,
                     dynamic=True,
                 ),
-                jax=JaxNativeConfiguration(jit_enabled=True),
+                jax=_jax_native(jit_enabled=True),
             )
         ),
     )
@@ -122,7 +144,7 @@ def test_native_configuration_round_trips_and_invalid_options_are_diagnostic() -
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    pytorch=PyTorchNativeConfiguration(mode="not-a-torch-mode")
+                    pytorch=_pytorch_native(mode="not-a-torch-mode")
                 )
             )
         }
@@ -166,7 +188,7 @@ def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    tensorflow=TensorFlowNativeConfiguration(
+                tensorflow=_tensorflow_native(
                         compilation={
                             "optimizer": {
                                 "id": "adamw",
@@ -195,17 +217,17 @@ def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
     optimizer = handle.compilation["optimizer_runtime"]
     configuration = optimizer.get_config()
     assert optimizer.__class__.__name__ == "AdamW"
-    assert configuration["learning_rate"] == pytest.approx(0.007)
-    assert configuration["weight_decay"] == pytest.approx(0.021)
-    assert configuration["beta_1"] == pytest.approx(0.81)
-    assert configuration["beta_2"] == pytest.approx(0.97)
-    assert configuration["epsilon"] == pytest.approx(1e-6)
+    assert configuration["learning_rate"] == _approx(0.007)
+    assert configuration["weight_decay"] == _approx(0.021)
+    assert configuration["beta_1"] == _approx(0.81)
+    assert configuration["beta_2"] == _approx(0.97)
+    assert configuration["epsilon"] == _approx(1e-6)
     parameter = tensorflow.Variable(1.0)
     with tensorflow.GradientTape() as tape:
         loss = parameter * parameter
     gradient = tape.gradient(loss, parameter)
     optimizer.apply_gradients([(gradient, parameter)])
-    assert float(parameter.numpy()) != pytest.approx(1.0)
+    assert float(parameter.numpy()) != _approx(1.0)
     assert bool(tensorflow.math.is_finite(parameter))
 
 
@@ -302,7 +324,7 @@ def test_native_tensorflow_optimizer_catalog_variants_update(
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    tensorflow=TensorFlowNativeConfiguration(
+                tensorflow=_tensorflow_native(
                         compilation={
                             "optimizer": {
                                 "id": optimizer_id,
@@ -325,10 +347,10 @@ def test_native_tensorflow_optimizer_catalog_variants_update(
     optimizer = handle.compilation["optimizer_runtime"]
     configuration = optimizer.get_config()
     assert optimizer.__class__.__name__.lower() == optimizer_id.replace("_", "")
-    assert configuration["learning_rate"] == pytest.approx(0.007)
+    assert configuration["learning_rate"] == _approx(0.007)
     for parameter_id in ("weight_decay", "beta_1", "beta_2", "epsilon", "rho", "momentum"):
         if parameter_id in parameters:
-            assert configuration[parameter_id] == pytest.approx(parameters[parameter_id])
+            assert configuration[parameter_id] == _approx(parameters[parameter_id])
     for parameter_id in ("nesterov", "centered"):
         if parameter_id in parameters:
             assert configuration[parameter_id] is parameters[parameter_id]
@@ -337,7 +359,7 @@ def test_native_tensorflow_optimizer_catalog_variants_update(
         loss = parameter * parameter
     gradient = tape.gradient(loss, parameter)
     optimizer.apply_gradients([(gradient, parameter)])
-    assert float(parameter.numpy()) != pytest.approx(1.0)
+    assert float(parameter.numpy()) != _approx(1.0)
     assert bool(tensorflow.math.is_finite(parameter))
 
 ###############################################################################
@@ -347,7 +369,7 @@ def test_native_tensorflow_compilation_builds_raw_loss_and_metric_functions() ->
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    tensorflow=TensorFlowNativeConfiguration(
+                    tensorflow=_tensorflow_native(
                         compilation={
                             "optimizer": {"id": "adam", "parameters": {"learning_rate": 0.002}},
                             "losses": {
@@ -395,7 +417,7 @@ def test_native_tensorflow_compilation_builds_raw_loss_and_metric_functions() ->
     }
     assert float(loss_value.numpy()) >= 0.0
     assert all(bool(tensorflow.math.is_finite(value)) for value in metric_values.values())
-    assert handle.compilation["losses"]["output"]["parameters"]["delta"] == pytest.approx(0.7)
+    assert handle.compilation["losses"]["output"]["parameters"]["delta"] == _approx(0.7)
     assert handle.compilation["metrics"]["output"][0]["id"] == "precision"
 
 ###############################################################################
@@ -406,7 +428,7 @@ def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    jax=JaxNativeConfiguration(
+                jax=_jax_native(
                         compilation={
                             "optimizer": {
                                 "id": "adamw",
@@ -431,12 +453,12 @@ def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
     assert handle.compilation is not None
     optimizer = handle.compilation["optimizer_runtime"]
     assert handle.compilation["optimizer"]["id"] == "adamw"
-    assert handle.compilation["optimizer"]["parameters"]["learning_rate"] == pytest.approx(0.007)
+    assert handle.compilation["optimizer"]["parameters"]["learning_rate"] == _approx(0.007)
     parameter = jax.numpy.asarray(1.0)
     state = optimizer.init(parameter)
     updates, _ = optimizer.update(jax.numpy.asarray(2.0), state, parameter)
     updated = optax.apply_updates(parameter, updates)
-    assert float(updated) != pytest.approx(1.0)
+    assert float(updated) != _approx(1.0)
     assert bool(jax.numpy.isfinite(updated))
 
 
@@ -514,7 +536,7 @@ def test_native_jax_optimizer_catalog_variants_update(
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    jax=JaxNativeConfiguration(
+                jax=_jax_native(
                         compilation={
                             "optimizer": {
                                 "id": optimizer_id,
@@ -537,7 +559,7 @@ def test_native_jax_optimizer_catalog_variants_update(
     state = optimizer.init(parameter)
     updates, _ = optimizer.update(jax.numpy.asarray(2.0), state, parameter)
     updated = optax.apply_updates(parameter, updates)
-    assert float(updated) != pytest.approx(1.0)
+    assert float(updated) != _approx(1.0)
     assert bool(jax.numpy.isfinite(updated))
 
 ###############################################################################
@@ -547,7 +569,7 @@ def test_native_jax_compilation_builds_raw_loss_and_metric_functions() -> None:
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    jax=JaxNativeConfiguration(
+                jax=_jax_native(
                         compilation={
                             "optimizer": {"id": "adam", "parameters": {"learning_rate": 0.002}},
                             "losses": {
@@ -589,7 +611,7 @@ def test_native_jax_compilation_builds_raw_loss_and_metric_functions() -> None:
     }
     assert float(loss_value) >= 0.0
     assert all(bool(jax.numpy.isfinite(value)) for value in metric_values.values())
-    assert handle.compilation["losses"]["output"]["parameters"]["delta"] == pytest.approx(0.7)
+    assert handle.compilation["losses"]["output"]["parameters"]["delta"] == _approx(0.7)
     assert handle.compilation["metrics"]["output"][0]["id"] == "precision"
 
 ###############################################################################
@@ -602,13 +624,13 @@ def test_native_compilation_verifier_runs_raw_optimizer_update(
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    tensorflow=TensorFlowNativeConfiguration(
+                tensorflow=_tensorflow_native(
                         compiler={
                             "id": "tensorflow_function",
                             "parameters": {"jit_compile": False},
                         }
                     ),
-                    jax=JaxNativeConfiguration(
+                jax=_jax_native(
                         compiler={"id": "jax_jit", "parameters": {"enabled": False}}
                     ),
                 )
@@ -619,9 +641,11 @@ def test_native_compilation_verifier_runs_raw_optimizer_update(
 
     result = _verify_native_compilation(graph, handle, lambda: None)
 
-    assert result["verified"] is True
-    assert result["optimizer"]["instantiated"] is True
-    assert result["optimizer"]["updated"] is True
+    assert result is not None and result["verified"] is True
+    optimizer = result.get("optimizer")
+    assert isinstance(optimizer, dict)
+    assert optimizer.get("instantiated") is True
+    assert optimizer.get("updated") is True
 
 ###############################################################################
 @pytest.mark.parametrize("backend", [ExecutionBackend.TENSORFLOW, ExecutionBackend.JAX])
@@ -631,7 +655,7 @@ def test_native_crossentropy_parameters_execute_without_keras_fallback(
     framework = pytest.importorskip(
         "tensorflow" if backend is ExecutionBackend.TENSORFLOW else "jax"
     )
-    compilation = {
+    compilation: dict[str, object] = {
         "optimizer": {"id": "adam", "parameters": {"learning_rate": 0.002}},
         "losses": {
             "__default__": {
@@ -648,14 +672,14 @@ def test_native_crossentropy_parameters_execute_without_keras_fallback(
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    tensorflow=TensorFlowNativeConfiguration(
+                tensorflow=_tensorflow_native(
                         compilation=compilation,
                         compiler={
                             "id": "tensorflow_function",
                             "parameters": {"jit_compile": False},
                         },
                     ),
-                    jax=JaxNativeConfiguration(
+                jax=_jax_native(
                         compilation=compilation,
                         compiler={"id": "jax_jit", "parameters": {"enabled": False}},
                     ),
@@ -664,6 +688,8 @@ def test_native_crossentropy_parameters_execute_without_keras_fallback(
         }
     )
     handle = build_native_model(graph, backend, zero_parameters=True)
+    assert handle.compilation is not None
+    compilation_result = cast(dict[str, object], handle.compilation)
     prediction = handle.outputs[0]
     target = (
         framework.one_hot([0], depth=2)
@@ -671,7 +697,8 @@ def test_native_crossentropy_parameters_execute_without_keras_fallback(
         else framework.nn.one_hot(framework.numpy.asarray([0]), 2)
     )
 
-    value = handle.compilation["loss_functions"]["output"](prediction, target)
+    loss_functions = cast(dict[str, Callable[..., object]], compilation_result["loss_functions"])
+    value = loss_functions["output"](prediction, target)
 
     finite = (
         bool(framework.math.is_finite(value))
@@ -679,8 +706,10 @@ def test_native_crossentropy_parameters_execute_without_keras_fallback(
         else bool(framework.numpy.isfinite(value))
     )
     assert finite
-    assert handle.compilation["losses"]["output"]["parameters"]["from_logits"] is True
-    assert handle.compilation["losses"]["output"]["parameters"]["label_smoothing"] == pytest.approx(0.1)
+    losses = cast(dict[str, dict[str, object]], compilation_result["losses"])
+    parameters = losses["output"]["parameters"]
+    assert parameters["from_logits"] is True
+    assert parameters["label_smoothing"] == _approx(0.1)
 
 ###############################################################################
 def test_compilation_rejects_a_native_parameter_without_falling_back_to_keras() -> None:

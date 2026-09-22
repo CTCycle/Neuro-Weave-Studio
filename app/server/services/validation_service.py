@@ -44,6 +44,7 @@ from validation.profile_compatibility import resolve_implementation_compatibilit
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
 
+
 ###############################################################################
 def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     if parameter.value_schema is not None:
@@ -84,7 +85,8 @@ def _value_matches_schema(schema: ParameterValueSchema, value: Any) -> bool:
     if value is None:
         return schema.nullable
     if schema.recursive and isinstance(value, list):
-        return all(_value_matches_schema(schema, item) for item in value)
+        items = cast(list[object], value)
+        return all(_value_matches_schema(schema, item) for item in items)
     if schema.type == "object":
         if not isinstance(value, dict):
             return False
