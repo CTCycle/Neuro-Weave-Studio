@@ -10,11 +10,13 @@ from typing import Any, cast
 import pytest
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import Connection
+
 from configurations.settings import DatabaseSettings
 from repositories import initializer
 from repositories.initializer import HEAD_REVISION, initialize_database
-from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.engine import Connection
+
 
 ###############################################################################
 def _settings(path: Path) -> DatabaseSettings:

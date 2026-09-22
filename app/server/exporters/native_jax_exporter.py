@@ -571,13 +571,14 @@ class NativeJaxSourceExporter(SourceExporter):
                     )
                 )
                 lines.extend(f"        {statement}" for statement in emission.setup_statements)
-                expressions = [
-                    emission.output_expressions.get(port.id) for port in output_ports
-                ]
-                if any(expression is None for expression in expressions):
-                    raise ValueError(
-                        f"JAX adapter {mapping.adapter} emitted an incomplete output set"
-                    )
+                expressions: list[str] = []
+                for port in output_ports:
+                    expression = emission.output_expressions.get(port.id)
+                    if expression is None:
+                        raise ValueError(
+                            f"JAX adapter {mapping.adapter} emitted an incomplete output set"
+                        )
+                    expressions.append(expression)
                 if len(expressions) == 1:
                     lines.append(f"        {name} = {expressions[0]}")
                 else:

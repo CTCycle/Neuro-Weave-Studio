@@ -17,6 +17,7 @@ from common.path import (
 )
 from configurations.environment import ensure_environment_file
 
+
 ###############################################################################
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

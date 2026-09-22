@@ -9,7 +9,7 @@ without guessing their meaning.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 import sqlalchemy as sa
 from alembic import op
@@ -25,50 +25,64 @@ _ADAM_DEFAULTS = {
     "beta_2": 0.999,
     "epsilon": 1e-7,
 }
+JsonObject = dict[str, object]
 
 ###############################################################################
-def _object(value: Any, default_id: str | None = None) -> dict[str, Any] | None:
+def _object_mapping(value: object) -> JsonObject:
+    return cast(JsonObject, value) if isinstance(value, dict) else {}
+
+
+###############################################################################
+def _object_items(value: object) -> list[object]:
+    return cast(list[object], value) if isinstance(value, list) else []
+
+###############################################################################
+def _object(value: object, default_id: str | None = None) -> JsonObject | None:
     if value is None:
         return {"id": default_id, "parameters": {}} if default_id else None
     if isinstance(value, str):
         return {"id": value, "parameters": {}}
     if isinstance(value, dict):
-        identifier = value.get("id", default_id)
+        mapping = cast(JsonObject, value)
+        identifier = mapping.get("id", default_id)
         if not isinstance(identifier, str) or not identifier:
             return {"id": default_id or "adam", "parameters": {}}
-        parameters = value.get("parameters", {})
+        parameters = mapping.get("parameters", {})
         return {
             "id": identifier,
-            "parameters": dict(parameters) if isinstance(parameters, dict) else {},
+            "parameters": _object_mapping(parameters),
         }
     return {"id": default_id or "adam", "parameters": {}}
 
 
 ###############################################################################
-def _plan(value: Any, *, native_backend: str | None = None) -> dict[str, Any]:
-    raw = dict(value) if isinstance(value, dict) else {}
+def _plan(value: object, *, native_backend: str | None = None) -> JsonObject:
+    raw = dict(_object_mapping(value))
     source = raw.get("compilation")
     if isinstance(source, dict):
-        raw = {**raw, **source}
+        raw = {**raw, **cast(JsonObject, source)}
     if native_backend in {"tensorflow", "jax"}:
         optimizer = {"id": "adam", "parameters": dict(_ADAM_DEFAULTS)}
-        losses: dict[str, Any] = {}
-        metrics: dict[str, list[Any]] = {}
+        losses: dict[str, JsonObject] = {}
+        metrics: dict[str, list[JsonObject]] = {}
     else:
         optimizer = _object(raw.get("optimizer", raw.get("optimizer_id")), "adam")
         optimizer_parameters = raw.get("optimizer_parameters")
         if optimizer is not None and not optimizer["parameters"] and isinstance(optimizer_parameters, dict):
-            optimizer["parameters"] = dict(optimizer_parameters)
+            optimizer["parameters"] = cast(JsonObject, optimizer_parameters)
         losses = {
             str(selector): _object(choice) or {"id": "mean_squared_error", "parameters": {}}
-            for selector, choice in dict(raw.get("losses", raw.get("loss_ids", {}))).items()
-        } if isinstance(raw.get("losses", raw.get("loss_ids", {})), dict) else {}
+            for selector, choice in cast(dict[str, object], raw_losses).items()
+        } if isinstance(raw_losses := raw.get("losses", raw.get("loss_ids", {})), dict) else {}
         metrics_raw = raw.get("metrics", raw.get("metric_ids", {}))
         metrics = {}
         if isinstance(metrics_raw, dict):
-            for selector, choices in metrics_raw.items():
+            for selector, choices in cast(dict[str, object], metrics_raw).items():
                 if isinstance(choices, list):
-                    metrics[str(selector)] = [_object(choice) or {"id": str(choice), "parameters": {}} for choice in choices]
+                    metrics[str(selector)] = [
+                        _object(choice) or {"id": str(choice), "parameters": {}}
+                        for choice in cast(list[object], choices)
+                    ]
                 elif choices is not None:
                     metrics[str(selector)] = [_object(choices) or {"id": str(choices), "parameters": {}}]
     return {
@@ -86,13 +100,14 @@ def _plan(value: Any, *, native_backend: str | None = None) -> dict[str, Any]:
 
 
 ###############################################################################
-def _compiler(value: Any, backend: str) -> dict[str, Any]:
-    raw = dict(value) if isinstance(value, dict) else {}
+def _compiler(value: object, backend: str) -> JsonObject:
+    raw = dict(_object_mapping(value))
     existing = raw.get("compiler")
     if isinstance(existing, dict):
-        parameters = existing.get("parameters", {})
+        existing_mapping = cast(JsonObject, existing)
+        parameters = existing_mapping.get("parameters", {})
         return {
-            "id": existing.get(
+            "id": existing_mapping.get(
                 "id",
                 {
                     "tensorflow": "tensorflow_function",
@@ -100,7 +115,7 @@ def _compiler(value: Any, backend: str) -> dict[str, Any]:
                     "jax": "jax_jit",
                 }[backend],
             ),
-            "parameters": dict(parameters) if isinstance(parameters, dict) else {},
+            "parameters": _object_mapping(parameters),
         }
     if backend == "tensorflow":
         parameters = {"jit_compile": bool(raw.get("jit_compile", False))}
@@ -120,63 +135,75 @@ def _compiler(value: Any, backend: str) -> dict[str, Any]:
 
 
 ###############################################################################
-def _configuration(value: Any) -> dict[str, Any]:
-    raw = dict(_json(value, {}))
+def _native_configuration(native_raw: JsonObject, backend: str) -> JsonObject:
+    branch = _object_mapping(native_raw.get(backend, {}))
+    return {
+        "compilation": _plan(branch, native_backend=backend),
+        "compiler": _compiler(branch, backend),
+        "random_seed": branch.get("random_seed", 42),
+    }
+
+
+###############################################################################
+def _configuration(value: object) -> JsonObject:
+    raw = _object_mapping(_json(value, {}))
     keras_raw = raw.get("keras", raw)
-    native_raw = raw.get("native", {})
-    native_raw = native_raw if isinstance(native_raw, dict) else {}
+    native_raw = _object_mapping(raw.get("native", {}))
+    keras_branch = _object_mapping(keras_raw)
     return {
         "keras": {
-            "compilation": _plan(keras_raw),
-            "mixed_precision": bool(keras_raw.get("mixed_precision", False)) if isinstance(keras_raw, dict) else False,
-            "random_seed": keras_raw.get("random_seed", 42) if isinstance(keras_raw, dict) else 42,
+            "compilation": _plan(keras_branch),
+            "mixed_precision": bool(keras_branch.get("mixed_precision", False)),
+            "random_seed": keras_branch.get("random_seed", 42),
         },
         "native": {
-            backend: {
-                "compilation": _plan(native_raw.get(backend, {}), native_backend=backend),
-                "compiler": _compiler(native_raw.get(backend, {}), backend),
-                "random_seed": (
-                    native_raw.get(backend, {}).get("random_seed", 42)
-                    if isinstance(native_raw.get(backend, {}), dict)
-                    else 42
-                ),
-            }
+            backend: _native_configuration(native_raw, backend)
             for backend in ("tensorflow", "pytorch", "jax")
         },
     }
 
 
 ###############################################################################
-def _json(value: Any, default: Any) -> Any:
+def _json(value: object, default: object) -> object:
     if isinstance(value, str):
         try:
-            return json.loads(value)
+            return cast(object, json.loads(value))
         except json.JSONDecodeError:
             return default
     return value if value is not None else default
 
 
 ###############################################################################
-def _without_placeholder(value: Any) -> dict[str, Any]:
-    raw = dict(_json(value, {}))
+def _without_placeholder(value: object) -> JsonObject:
+    raw = dict(_object_mapping(_json(value, {})))
+    nodes = _object_items(raw.get("nodes", []))
     removed = {
-        str(node.get("id"))
-        for node in raw.get("nodes", [])
-        if isinstance(node, dict) and node.get("definition_id") == "output.detection_placeholder"
+        str(cast(JsonObject, node).get("id"))
+        for node in nodes
+        if isinstance(node, dict)
+        and cast(JsonObject, node).get("definition_id") == "output.detection_placeholder"
     }
     if removed:
         raw["nodes"] = [
-            node for node in raw.get("nodes", [])
-            if not isinstance(node, dict) or node.get("id") not in removed
+            node
+            for node in nodes
+            if not isinstance(node, dict) or cast(JsonObject, node).get("id") not in removed
         ]
+        edges = _object_items(raw.get("edges", []))
         raw["edges"] = [
-            edge for edge in raw.get("edges", [])
+            edge for edge in edges
             if not isinstance(edge, dict)
-            or (edge.get("source_node_id") not in removed and edge.get("target_node_id") not in removed)
+            or (
+                cast(JsonObject, edge).get("source_node_id") not in removed
+                and cast(JsonObject, edge).get("target_node_id") not in removed
+            )
         ]
+        output_bindings = _object_items(raw.get("output_bindings", []))
         raw["output_bindings"] = [
-            binding for binding in raw.get("output_bindings", [])
-            if not isinstance(binding, dict) or binding.get("node_id") not in removed
+            binding
+            for binding in output_bindings
+            if not isinstance(binding, dict)
+            or cast(JsonObject, binding).get("node_id") not in removed
         ]
     raw["schema_version"] = 6
     raw["model_configuration"] = _configuration(raw.get("model_configuration", {}))
@@ -203,23 +230,23 @@ def _formula_capabilities(expression: Any) -> dict[str, bool]:
 
 
 ###############################################################################
-def _graph_template(spec: Any) -> Any:
-    raw = dict(spec) if isinstance(spec, dict) else {}
+def _graph_template(spec: object) -> JsonObject:
+    raw = dict(_object_mapping(spec))
     if raw.get("type") != "composite":
         return raw
     components = raw.get("components", [])
     if not isinstance(components, list) or not components:
         return raw
-    normalized = []
-    for index, component in enumerate(components):
-        item = dict(component) if isinstance(component, dict) else {}
+    normalized: list[JsonObject] = []
+    for index, component in enumerate(cast(list[object], components)):
+        item = _object_mapping(component)
         normalized.append(
             {
                 "id": f"component_{index}",
                 "definition_id": item.get("definition_id", ""),
                 "definition_version": item.get("definition_version", 1),
                 "label": item.get("label"),
-                "parameters": dict(item.get("parameters", {})) if isinstance(item.get("parameters", {}), dict) else {},
+                "parameters": _object_mapping(item.get("parameters", {})),
             }
         )
     edges = [
@@ -275,10 +302,10 @@ def upgrade() -> None:
     ).mappings().all()
     for row in settings:
         removed = placeholder_ids.get(str(row["project_id"]), set())
-        bindings = [
-            binding for binding in _json(row["output_bindings_json"], [])
-            if not isinstance(binding, dict) or binding.get("node_id") not in removed
-        ]
+        bindings: list[object] = []
+        for binding in _object_items(_json(row["output_bindings_json"], [])):
+            if not isinstance(binding, dict) or cast(JsonObject, binding).get("node_id") not in removed:
+                bindings.append(cast(object, binding))
         connection.execute(
             sa.text(
                 "UPDATE project_graph_settings SET model_configuration_json = :configuration, output_bindings_json = :bindings WHERE project_id = :project_id"

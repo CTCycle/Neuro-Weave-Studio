@@ -26,6 +26,7 @@ from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 from validation.output_resolution import input_nodes
 
+
 ###############################################################################
 class JobService:
     """Validates graph/project inputs before handing immutable work to the controller."""

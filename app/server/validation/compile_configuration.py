@@ -16,6 +16,7 @@ from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
 from validation.output_resolution import ResolvedOutput, output_selectors, resolved_outputs
 
+
 ###############################################################################
 def _error(
     code: str,

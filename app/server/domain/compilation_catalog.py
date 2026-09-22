@@ -245,7 +245,7 @@ def _mapped_option(
     label: str,
     description: str,
     *,
-    keras_symbol: str,
+    keras_symbol: str | None,
     pytorch_adapter: str,
     supported_tasks: list[CompilationTask],
     target_contract: TargetContract,

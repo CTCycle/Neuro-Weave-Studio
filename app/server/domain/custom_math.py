@@ -4,6 +4,7 @@ import re
 
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 
+
 ###############################################################################
 class CustomMathFormulaError(ValueError):
     pass

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -44,12 +44,14 @@ def normalize_compilation_object(
     if isinstance(value, str):
         return CompilationObject(id=value)
     if isinstance(value, dict):
-        identifier = value.get("id", default_id)
+        mapping = cast(dict[str, object], value)
+        identifier = mapping.get("id", default_id)
         if not isinstance(identifier, str) or not identifier:
             raise ValueError("Compilation objects require a non-empty id")
-        parameters = value.get("parameters", {})
-        if not isinstance(parameters, dict):
+        raw_parameters = mapping.get("parameters", {})
+        if not isinstance(raw_parameters, dict):
             raise ValueError("Compilation object parameters must be an object")
+        parameters = cast(dict[str, Any], raw_parameters)
         return CompilationObject(id=identifier, parameters=parameters)
     if default_id is not None:
         return CompilationObject(id=default_id)
@@ -61,7 +63,7 @@ def normalize_compilation_plan(value: Any) -> CompilationPlan:
 
     if isinstance(value, CompilationPlan):
         return value
-    raw = dict(value) if isinstance(value, dict) else {}
+    raw = dict(cast(dict[str, object], value)) if isinstance(value, dict) else {}
     optimizer_value = raw.get("optimizer")
     if optimizer_value is None:
         optimizer_value = raw.get("optimizer_id", "adam")
@@ -120,19 +122,22 @@ def normalize_compilation_plan(value: Any) -> CompilationPlan:
     def normalize_losses(values: Any) -> dict[str, CompilationObject]:
         if not isinstance(values, dict):
             return {}
+        typed_values = cast(dict[object, object], values)
         return {
             str(selector): normalize_compilation_object(choice)
-            for selector, choice in values.items()
+            for selector, choice in typed_values.items()
         }
 
     def normalize_metrics(values: Any) -> dict[str, list[CompilationObject]]:
         if not isinstance(values, dict):
             return {}
         result: dict[str, list[CompilationObject]] = {}
-        for selector, choices in values.items():
+        typed_values = cast(dict[object, Any], values)
+        for selector, choices in typed_values.items():
             if isinstance(choices, list):
+                typed_choices = cast(list[object], choices)
                 result[str(selector)] = [
-                    normalize_compilation_object(choice) for choice in choices
+                    normalize_compilation_object(choice) for choice in typed_choices
                 ]
             elif choices is not None:
                 result[str(selector)] = [normalize_compilation_object(choices)]
@@ -149,8 +154,11 @@ def normalize_compilation_plan(value: Any) -> CompilationPlan:
         optimizer=optimizer,
         losses=normalize_losses(raw.get("losses", raw.get("loss_ids", {}))),
         metrics=normalize_metrics(raw.get("metrics", raw.get("metric_ids", {}))),
-        default_initializer=normalize_default(
-            raw.get("default_initializer", "glorot_uniform"), "glorot_uniform", False
+        default_initializer=cast(
+            CompilationObject,
+            normalize_default(
+                raw.get("default_initializer", "glorot_uniform"), "glorot_uniform", False
+            ),
         ),
         default_regularizer=normalize_default(
             raw.get("default_regularizer", "none"), "none", True

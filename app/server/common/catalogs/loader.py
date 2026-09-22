@@ -18,13 +18,15 @@ def _expand_parameter_groups(
     """Expand resource-declared parameter groups before normalization."""
 
     item = dict(raw)
-    references = item.get("parameter_groups", [])
-    if references is None:
-        references = []
-    if not isinstance(references, list) or any(
-        not isinstance(reference, str) for reference in references
+    raw_references = item.get("parameter_groups", [])
+    if raw_references is None:
+        references: list[str] = []
+    elif not isinstance(raw_references, list) or any(
+        not isinstance(reference, str) for reference in cast(list[object], raw_references)
     ):
         raise RuntimeError(f"Parameter groups for {item.get('id', '<unknown>')} must be a list")
+    else:
+        references = cast(list[str], raw_references)
     expanded: list[dict[str, Any]] = []
     seen_parameters: set[str] = set()
     seen_aliases: set[str] = set()
@@ -49,11 +51,14 @@ def _expand_parameter_groups(
                 raise RuntimeError(
                     f"Parameter group collision for {item.get('id', '<unknown>')}: {identifier}"
                 )
-            aliases = parameter.get("aliases", [])
-            if not isinstance(aliases, list) or any(not isinstance(alias, str) for alias in aliases):
+            raw_aliases = parameter.get("aliases", [])
+            if not isinstance(raw_aliases, list) or any(
+                not isinstance(alias, str) for alias in cast(list[object], raw_aliases)
+            ):
                 raise RuntimeError(
                     f"Aliases for {item.get('id', '<unknown>')}:{identifier} must be a list"
                 )
+            aliases = cast(list[str], raw_aliases)
             if seen_parameters.intersection(aliases):
                 raise RuntimeError(
                     f"Parameter alias collision for {item.get('id', '<unknown>')}: {identifier}"
@@ -67,15 +72,19 @@ def _expand_parameter_groups(
         explicit = []
     if not isinstance(explicit, list):
         raise RuntimeError(f"Parameters for {item.get('id', '<unknown>')} must be a list")
-    for parameter in cast(list[dict[str, Any]], explicit):
+    explicit_parameters = cast(list[dict[str, Any]], explicit)
+    for parameter in explicit_parameters:
         identifier = str(parameter.get("id", ""))
         if not identifier:
             raise RuntimeError(f"Parameter for {item.get('id', '<unknown>')} must have an id")
-        aliases = parameter.get("aliases", [])
-        if not isinstance(aliases, list) or any(not isinstance(alias, str) for alias in aliases):
+        raw_aliases = parameter.get("aliases", [])
+        if not isinstance(raw_aliases, list) or any(
+            not isinstance(alias, str) for alias in cast(list[object], raw_aliases)
+        ):
             raise RuntimeError(
                 f"Aliases for {item.get('id', '<unknown>')}:{identifier} must be a list"
             )
+        aliases = cast(list[str], raw_aliases)
         if seen_aliases.intersection({identifier, *aliases}):
             raise RuntimeError(
                 f"Parameter alias collision for {item.get('id', '<unknown>')}: {identifier}"
@@ -86,7 +95,7 @@ def _expand_parameter_groups(
             )
         seen_parameters.add(identifier)
         seen_parameters.update(aliases)
-    item["parameters"] = [*expanded, *cast(list[dict[str, Any]], explicit)]
+    item["parameters"] = [*expanded, *explicit_parameters]
     return item
 
 ###############################################################################
@@ -271,15 +280,22 @@ def _parameter_surface_catalog() -> dict[str, list[dict[str, Any]]]:
     if not PARAMETER_SURFACE_PATH.exists():
         return {}
     raw = json.loads(PARAMETER_SURFACE_PATH.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict) or not isinstance(raw.get("nodes"), dict):
+    if not isinstance(raw, dict):
+        raise RuntimeError("parameter_surfaces.json must contain a nodes object")
+    raw_mapping = cast(dict[str, object], raw)
+    if not isinstance(raw_mapping.get("nodes"), dict):
         raise RuntimeError("parameter_surfaces.json must contain a nodes object")
     surfaces: dict[str, list[dict[str, Any]]] = {}
-    for node_id, parameters in raw["nodes"].items():
-        if not isinstance(node_id, str) or not isinstance(parameters, list):
+    nodes = cast(dict[str, object], raw_mapping["nodes"])
+    for node_id, parameters in nodes.items():
+        if not isinstance(parameters, list):
             raise RuntimeError("Each declarative parameter surface must be a list")
-        if any(not isinstance(parameter, dict) for parameter in parameters):
+        typed_parameters = cast(list[object], parameters)
+        if any(not isinstance(parameter, dict) for parameter in typed_parameters):
             raise RuntimeError(f"Parameter surface for {node_id} contains a non-object")
-        surfaces[node_id] = [dict(parameter) for parameter in parameters]
+        surfaces[node_id] = [
+            dict(cast(dict[str, Any], parameter)) for parameter in typed_parameters
+        ]
     return surfaces
 
 ###############################################################################
@@ -290,20 +306,25 @@ def _parameter_group_catalog(
     if not isinstance(raw_groups, dict):
         raise RuntimeError("parameter_groups must be an object")
     groups: dict[str, list[dict[str, Any]]] = {}
-    for group_id, values in raw_groups.items():
-        if not isinstance(group_id, str) or not isinstance(values, list):
+    typed_groups = cast(dict[str, object], raw_groups)
+    for group_id, values in typed_groups.items():
+        if not isinstance(values, list):
             raise RuntimeError("Each parameter group must be a list of definitions")
-        if any(not isinstance(value, dict) for value in values):
+        typed_values = cast(list[object], values)
+        if any(not isinstance(value, dict) for value in typed_values):
             raise RuntimeError(f"Parameter group '{group_id}' contains a non-object definition")
-        groups[group_id] = [dict(value) for value in values]
+        groups[group_id] = [
+            dict(cast(dict[str, Any], value)) for value in typed_values
+        ]
     raw_assignments = extensions.get("parameter_group_assignments", {})
     if not isinstance(raw_assignments, dict):
         raise RuntimeError("parameter_group_assignments must be an object")
     assignments: dict[str, list[str]] = {}
-    for node_id, references in raw_assignments.items():
-        if not isinstance(node_id, str) or not isinstance(references, list):
+    typed_assignments = cast(dict[str, object], raw_assignments)
+    for node_id, references in typed_assignments.items():
+        if not isinstance(references, list):
             raise RuntimeError("Each parameter group assignment must be a list")
-        assignments[node_id] = [str(reference) for reference in references]
+        assignments[node_id] = [str(reference) for reference in cast(list[object], references)]
     return groups, assignments
 
 ###############################################################################

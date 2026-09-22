@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+
 from common.catalogs import loader
 from common.catalogs.loader import get_node_catalog
 from compilation.compiler import compile_to_ir
@@ -8,6 +9,7 @@ from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.keras_exporter import KerasSourceExporter
 from exporters.node_emitters import registry_for_backend
+
 
 ###############################################################################
 def test_catalog_contract_is_unique_and_round_trips() -> None:

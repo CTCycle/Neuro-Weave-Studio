@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
 from domain.exports import ExportFormat
@@ -15,6 +16,7 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from domain.jobs import JobResponse, JobSubmitRequest, ModelExportOperation
 from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
 from services.runtime_controller import RuntimeController
+
 
 ###############################################################################
 @pytest.fixture(scope="module")

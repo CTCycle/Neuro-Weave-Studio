@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from common.catalogs import loader
 from common.catalogs.loader import (
     RESOURCE_ROOT,

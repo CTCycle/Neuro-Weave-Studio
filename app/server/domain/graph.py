@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from common.timestamps import utc_now
 from domain.compilation_plan import (
-    CompilationObject,
     CompilationPlan,
     CompilerObject,
     normalize_compilation_plan,
@@ -22,9 +21,13 @@ PROJECT_BUNDLE_FORMAT_VERSION = 7
 ###############################################################################
 def _mapping_value(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
-        return dict(value)
+        return dict(cast(dict[str, Any], value))
     keyword_values = getattr(value, "kwargs", None)
-    return dict(keyword_values) if isinstance(keyword_values, dict) else {}
+    return (
+        dict(cast(dict[str, Any], keyword_values))
+        if isinstance(keyword_values, dict)
+        else {}
+    )
 
 ###############################################################################
 class Position(BaseModel):

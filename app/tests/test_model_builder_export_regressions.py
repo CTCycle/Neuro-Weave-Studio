@@ -28,6 +28,16 @@ from domain.jobs import (
 from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
 from services.runtime_controller import RuntimeController
 
+
+###############################################################################
+def _tensorflow_native(**payload: object) -> TensorFlowNativeConfiguration:
+    return TensorFlowNativeConfiguration.model_validate(payload)
+
+
+def _jax_native(**payload: object) -> JaxNativeConfiguration:
+    return JaxNativeConfiguration.model_validate(payload)
+
+
 ###############################################################################
 def _node(node_id: str, definition_id: str, parameters: dict[str, object]) -> NodeInstance:
     return NodeInstance(
@@ -58,7 +68,7 @@ def _dense_graph(*, jit_compile: bool = False) -> ModelGraph:
         edges=[_edge("input-dense", "input", "dense"), _edge("dense-output", "dense", "output")],
         model_configuration=ModelConfiguration(
             native=NativeCompilationConfiguration(
-                tensorflow=TensorFlowNativeConfiguration(jit_compile=jit_compile),
+                tensorflow=_tensorflow_native(jit_compile=jit_compile),
             ),
         ),
     )
@@ -129,7 +139,7 @@ def _native_jax_multi_input_graph() -> ModelGraph:
         ],
         model_configuration=ModelConfiguration(
             native=NativeCompilationConfiguration(
-                jax=JaxNativeConfiguration(jit_enabled=True),
+                jax=_jax_native(jit_enabled=True),
             ),
         ),
     )
