@@ -1,0 +1,54 @@
+{
+  "run_id": "NW-CV-20260922-T1-02",
+  "date": "2026-09-22",
+  "repository": "CTCycle/Neuro-Weave-Studio",
+  "branch": "develop",
+  "validated_revision": "a30eefc93658138400e4061f4af07eed4c021985",
+  "historical_tier0_revision": "752ab151978b56dd2c20568f63434e346dcf6ea8",
+  "campaign_status": "PARTIAL",
+  "slice": "NW-T1-02",
+  "slice_status": "PASS",
+  "working_tree_before_validation": "clean",
+  "environment": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.13.14",
+    "pytest": "8.4.2",
+    "alembic": "1.19.1",
+    "sqlalchemy": "2.0.52",
+    "sqlite": "3.53.1",
+    "backend_lock_sha256": "28319C30ACBEC73296AB10CF660A33FA8006C36F78DD20C9B5EBFBA13A6A3A9B"
+  },
+  "database": {
+    "pytest_basetemp": "runtimes/cache/comprehensive-validation-20260922-t1-02/pytest-rerun",
+    "pytest_temp_cleanup": "Removed after evidence capture",
+    "isolation": "Disposable pytest tmp_path SQLite databases",
+    "alembic_head": "20260919_graph_template_custom_nodes",
+    "configured_user_database_touched": false
+  },
+  "commands": [
+    {
+      "command": "python -m pytest ../tests/test_migrations.py ../tests/test_database_contract.py ../tests/test_datasets.py::test_dataset_registration_survives_application_restart -q --basetemp <repo>/runtimes/cache/comprehensive-validation-20260922-t1-02/pytest-rerun (from app/server)",
+      "result": "10 passed; exit code 0"
+    }
+  ],
+  "diagnostics": {
+    "tests_selected": 10,
+    "passed": 10,
+    "failed": 0,
+    "fresh_and_idempotent_initialization": "PASS",
+    "older_schema_upgrade_and_downgrade": "PASS",
+    "concurrent_initialization": "PASS",
+    "migration_rollback_and_retry": "PASS",
+    "unsupported_schema_rejection_without_mutation": "PASS",
+    "foreign_key_and_unit_of_work_integrity": "PASS",
+    "application_restart_persistence": "PASS",
+    "port_6426_after_run": "free",
+    "port_9849_after_run": "free",
+    "pytest_process_after_run": "exited"
+  },
+  "evidence": {
+    "report": "assets/QA/comprehensive-validation-20260922/NW-T1-02.md",
+    "pytest_log": "assets/QA/comprehensive-validation-20260922/logs/nw-t1-02-focused-pytest.log",
+    "campaign_ledger": "assets/QA/comprehensive-validation-20260922/validation-ledger.md"
+  }
+}
