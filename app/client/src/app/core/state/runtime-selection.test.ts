@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { ExecutionBackendStatus } from '../../domain/types'
+import type { ExecutionBackendStatus, WorkerConfiguration } from '../../domain/types'
 import {
   backendSupportsApi,
   defaultMemoryPolicy,
   defaultRuntimePreference,
   isMemoryPolicyValid,
+  isRuntimePreferenceValid,
   preferredBackend,
   preferredBackendForApi,
   preferredRuntimeApi,
@@ -78,5 +79,29 @@ describe('runtime selection', () => {
     expect(isMemoryPolicyValid(defaultMemoryPolicy('pytorch_fraction'))).toBe(true)
     expect(isMemoryPolicyValid({ kind: 'pytorch_fraction', fraction: 1.1 })).toBe(false)
     expect(isMemoryPolicyValid({ kind: 'default', fraction: 0.5 })).toBe(false)
+  })
+
+  it('rejects malformed or unsupported stored preferences without throwing', () => {
+    const pytorch = status('pytorch', true, [
+      { id: 'keras', available: true, state: 'verified' },
+      { id: 'native', available: false, state: 'unavailable' },
+    ])
+    const malformed = {
+      api: 'keras',
+      backend: 'pytorch',
+      device_id: 'cpu',
+      memory_policy: null,
+      precision: 'float32',
+    } as unknown as WorkerConfiguration
+    const unsupportedApi = {
+      api: 'native',
+      backend: 'pytorch',
+      device_id: 'cpu',
+      memory_policy: { kind: 'default' },
+      precision: 'float32',
+    } as WorkerConfiguration
+
+    expect(isRuntimePreferenceValid(pytorch, malformed)).toBe(false)
+    expect(isRuntimePreferenceValid(pytorch, unsupportedApi)).toBe(false)
   })
 })
