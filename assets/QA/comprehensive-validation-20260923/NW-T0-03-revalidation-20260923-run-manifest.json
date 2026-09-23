@@ -1,0 +1,88 @@
+{
+  "run_id": "NW-CV-20260923-T0-03-RECHECK",
+  "date": "2026-09-23",
+  "repository": "CTCycle/Neuro-Weave-Studio",
+  "branch": "develop",
+  "base_revision": "155f845e7bbf085ea1ce865f52fd062dd950db33",
+  "validated_source_revision": "912181fa92b8a616fd1cc12665f2567c817c88dc",
+  "status": "PARTIAL",
+  "scope": "Revalidate the Tier 0 repository quality baseline, discovery timeout, Ruff, Pyright, and frontend gates after current source changes",
+  "environment": {
+    "platform": "Windows 11 build 26200",
+    "python": "3.13.14",
+    "node": "22.23.1",
+    "npm": "10.9.8",
+    "pyright": "1.1.411"
+  },
+  "checks": [
+    {
+      "name": "full backend pytest suite",
+      "result": "PASS",
+      "passed": 531,
+      "skipped": 131,
+      "failed": 0,
+      "exit_code": 0,
+      "log": "logs/nw-t0-03-backend-pytest-20260923.log"
+    },
+    {
+      "name": "project discovery/export polling regression",
+      "result": "PASS",
+      "test": "test_model_export_publishes_only_verified_artifact",
+      "poll_deadline_seconds": 30,
+      "log": "logs/nw-t0-03-discovery-rerun-20260923.log"
+    },
+    {
+      "name": "full Ruff check",
+      "result": "PASS",
+      "findings": 0,
+      "scope": ["app/server", "app/scripts", "app/tests"],
+      "log": "logs/nw-t0-03-ruff-final-20260923.log"
+    },
+    {
+      "name": "full strict Pyright check",
+      "result": "PARTIAL",
+      "errors": 52,
+      "warnings": 0,
+      "modules": {
+        "app/tests/test_node_execution_matrix.py": 21,
+        "app/tests/test_metrics.py": 12,
+        "app/tests/test_parameter_surface_parity.py": 9,
+        "app/tests/test_compilation_capabilities.py": 6,
+        "app/tests/test_native_parity.py": 4
+      },
+      "log": "logs/nw-t0-03-pyright-final-20260923.log"
+    },
+    {
+      "name": "full frontend Vitest suite",
+      "result": "PASS",
+      "passed": 104,
+      "files": 20,
+      "log": "logs/nw-t0-03-frontend-vitest-final-20260923.log"
+    },
+    {
+      "name": "frontend lint",
+      "result": "PASS",
+      "log": "logs/nw-t2-01-frontend-lint.log"
+    },
+    {
+      "name": "frontend production build",
+      "result": "PASS",
+      "log": "logs/nw-t2-01-frontend-build.log"
+    }
+  ],
+  "evidence": [
+    "NW-T0-03-revalidation-20260923.md",
+    "NW-T0-03-revalidation-20260923-run-manifest.json",
+    "logs/nw-t0-03-backend-pytest-20260923.log",
+    "logs/nw-t0-03-discovery-rerun-20260923.log",
+    "logs/nw-t0-03-ruff-final-20260923.log",
+    "logs/nw-t0-03-pyright-final-20260923.log",
+    "logs/nw-t0-03-frontend-vitest-final-20260923.log",
+    "logs/nw-t2-01-frontend-lint.log",
+    "logs/nw-t2-01-frontend-build.log"
+  ],
+  "remaining": [
+    "Strict Pyright still reports 52 errors across five test modules.",
+    "The aggregate quality-gate component also retains separate parallel-fixture and Windows E2E server-lifecycle debt."
+  ]
+}

@@ -2,13 +2,13 @@
 
 Last updated: 2026-09-23
 
-Run ID: `NW-CV-20260923-T1-05`
+Run ID: `NW-CV-20260923-T2-01`
 
-Repository: `develop` at base revision `cc0f937b1f52d06fa36328e083be163021a3829b`; NW-T1-05 application source validated at that revision. The focused spec is recorded by SHA-256 in the [run manifest](NW-T1-05-run-manifest.json).
+Repository: `develop` at base revision `155f845e7bbf085ea1ce865f52fd062dd950db33`; NW-T2-01 source validated at `912181fa92b8a616fd1cc12665f2567c817c88dc`. The focused spec is recorded by SHA-256 in the [run manifest](NW-T2-01-run-manifest.json).
 
-Historical Tier 0 evidence remains at `752ab151978b56dd2c20568f63434e346dcf6ea8`.
+Historical Tier 0 evidence remains at `752ab151978b56dd2c20568f63434e346dcf6ea8`; the current NW-T0-03 revalidation is linked below.
 
-Campaign status: **PARTIAL**. NW-T1-05 adds one PASS slice to the existing Tier 0 and NW-T1-01 through NW-T1-04 results. This is not a full application certification.
+Campaign status: **PARTIAL**. NW-T2-01 adds one PASS slice after the existing Tier 0 and NW-T1-01 through NW-T1-05 results. This is not a full application certification.
 
 ## Aggregate status
 
@@ -16,11 +16,11 @@ Campaign status: **PARTIAL**. NW-T1-05 adds one PASS slice to the existing Tier 
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | Tier 0 | Environment and startup | 3 | 1 | 0 | 0 | 0 |
 | Tier 1 | Application foundations | 5 | 0 | 0 | 0 | 0 |
-| Tier 2 | Core workflows | 0 | 0 | 0 | 0 | 9 |
+| Tier 2 | Core workflows | 1 | 0 | 0 | 0 | 8 |
 | Tier 3 | Model Builder catalog | 0 | 0 | 0 | 0 | 19 |
 | Tier 4 | Runtime and integrations | 0 | 0 | 0 | 0 | 4 |
 | Tier 5 | Resilience, usability, closure | 0 | 0 | 0 | 0 | 5 |
-| Total | 46 slices | 8 | 1 | 0 | 0 | 37 |
+| Total | 46 slices | 9 | 1 | 0 | 0 | 36 |
 
 UNTESTED means that the slice remains in campaign scope but was not run in
 this revision-specific pass. It does not mean the feature is absent or broken.
@@ -31,17 +31,17 @@ this revision-specific pass. It does not mean the feature is absent or broken.
 | --- | --- | --- | --- | --- | --- |
 | NW-T0-01 | Freeze validation baseline and live catalog | PASS | `752ab151978b56dd2c20568f63434e346dcf6ea8` | 2026-09-21 ledger | Repeat when branch, dependencies, catalog, or runtime identity changes. |
 | NW-T0-02 | Official launcher startup and owned-process shutdown | PASS | `752ab151978b56dd2c20568f63434e346dcf6ea8` | 2026-09-21 ledger | Repeat after launcher, port, dependency, runtime, or startup-log changes. |
-| NW-T0-03 | Repository quality-gate baseline | PARTIAL | `752ab151978b56dd2c20568f63434e346dcf6ea8` | 2026-09-21 ledger | Ruff, Pyright, and the full-suite discovery timeout remain tracked debt. |
+| NW-T0-03 | Repository quality-gate baseline | PARTIAL | `912181fa92b8a616fd1cc12665f2567c817c88dc` | [2026-09-23 revalidation](NW-T0-03-revalidation-20260923.md), [backend suite](logs/nw-t0-03-backend-pytest-20260923.log), [Ruff](logs/nw-t0-03-ruff-final-20260923.log), [Pyright](logs/nw-t0-03-pyright-final-20260923.log) | Full backend suite and Ruff pass; the prior discovery timeout is resolved. Strict Pyright still reports 52 errors across five test modules. |
 | NW-T0-04 | Direct deep links and refresh | PASS | `752ab151978b56dd2c20568f63434e346dcf6ea8` | 2026-09-21 ledger | Preserve route coverage when the shell contract changes. |
 | NW-T1-01 | Shell navigation and route boundaries | PASS | `50d54116c4a007d1342ff99dc7e11e9e6e2f41d8` | [NW-T1-01 report](../comprehensive-validation-20260922/NW-T1-01.md), browser diagnostics | Preserve route coverage when shell or route contracts change. |
 | NW-T1-02 | Database migrations and persistence | PASS | `a30eefc93658138400e4061f4af07eed4c021985` | [NW-T1-02 report](../comprehensive-validation-20260922/NW-T1-02.md), 10 focused tests | Repeat migration and persistence checks after schema or repository changes. |
 | NW-T1-03 | Project lifecycle, revisions, JSON bundles, stale writes, restart, and Keras import | PASS | `d42bda2330581461fff2e52663780d0ea3fa5e53` | [NW-T1-03 report](NW-T1-03.md), [run manifest](NW-T1-03-run-manifest.json), [backend log](logs/nw-t1-03-backend-pytest.log), [serial browser log](logs/nw-t1-03-playwright-cold.log), [Builder screenshot](evidence/nw-t1-03-project-bundle-builder.png) | Repeat after project-schema, bundle, runtime-discovery, or import changes. |
 | NW-T1-04 | Runtime API/backend/device/memory preference persistence, stale and malformed storage, reload, unavailable storage | PASS | `02b9d24edb5fcfe536ab5a74f8fde0b94c03bd13` | [NW-T1-04 report](NW-T1-04.md), [run manifest](NW-T1-04-run-manifest.json), [10 focused tests](logs/nw-t1-04-focused-vitest.log), [6 serial browser workflows](logs/nw-t1-04-playwright.log), [post-reload screenshot](evidence/nw-t1-04-active-preference-reload.png) | Repeat after preference storage/schema or runtime metadata contract changes; this slice does not claim runtime execution. |
 | NW-T1-05 | Settings informational boundary and Training prerequisites, session-only draft, disabled start, SPA retention, reload loss | PASS | `cc0f937b1f52d06fa36328e083be163021a3829b` | [NW-T1-05 report](NW-T1-05.md), [run manifest](NW-T1-05-run-manifest.json), [serial browser log](logs/nw-t1-05-playwright.log), [in-app Browser observation](evidence/nw-t1-05-inapp-browser-observation.md), [diagnostics](evidence/nw-t1-05-browser-diagnostics.json), [screenshots](evidence/nw-t1-05-training-session-draft.png) | Repeat after Settings routes, training prerequisites, or draft lifecycle change; training execution remains unimplemented. |
+| NW-T2-01 | Builder selection, Inspector editing/reset, undo/redo, dirty state, save/reopen, invalid-draft repair | PASS | `912181fa92b8a616fd1cc12665f2567c817c88dc` | [NW-T2-01 report](NW-T2-01.md), [run manifest](NW-T2-01-run-manifest.json), [serial Playwright](logs/nw-t2-01-playwright.log), [valid/negative neighbors](logs/nw-t2-01-valid-negative-neighbors.log), [focused unit tests](logs/nw-t2-01-vitest.log), [Browser diagnostics](evidence/nw-t2-01-browser-diagnostics.json), [rendered evidence](evidence/nw-t2-01-reset-and-history.png) | Repeat after Builder history, Inspector, parameter, or project persistence changes; remaining Tier 2 workflows are untested. |
 
-All Tier 2, Tier 3, Tier 4, and Tier 5 slices remain UNTESTED. The next action
-is NW-T2-01, Builder editing, undo/redo, selection, inspector reset, dirty
-state, save/reopen, and invalid-draft recovery.
+Eight other Tier 2 slices and all Tier 3, Tier 4, and Tier 5 slices remain
+UNTESTED. The next action is NW-T2-02.
 
 ## Evidence
 
@@ -55,6 +55,11 @@ state, save/reopen, and invalid-draft recovery.
 - NW-T1-05 run manifest: [NW-T1-05-run-manifest.json](NW-T1-05-run-manifest.json)
 - NW-T1-05 launcher, Playwright, fixture-cleanup, and process-cleanup logs: `logs/`
 - NW-T1-05 Browser diagnostics, in-app observation, and screenshots: `evidence/`
+- Detailed NW-T2-01 report: [NW-T2-01.md](NW-T2-01.md)
+- NW-T2-01 run manifest: [NW-T2-01-run-manifest.json](NW-T2-01-run-manifest.json)
+- NW-T2-01 launcher, Playwright, neighbor, focused unit, build, fixture-cleanup, and process-cleanup logs: `logs/`
+- NW-T2-01 Browser diagnostics, in-app observation, and screenshots: `evidence/`
+- NW-T0-03 revalidation report and manifest: [NW-T0-03-revalidation-20260923.md](NW-T0-03-revalidation-20260923.md), [run manifest](NW-T0-03-revalidation-20260923-run-manifest.json)
 - Backend and launcher logs: `logs/`
 - Browser diagnostics and screenshots: `evidence/`
 - Separate full Model Builder catalog/profile work remains pending in the [Model Builder validation ledger](../model-builder-validation-ledger.md).
@@ -84,5 +89,4 @@ both completed. The final run-owned cleanup verified ports 6425, 6426, and
 
 ## Next action
 
-Continue with NW-T2-01: Builder editing, undo/redo, selection, inspector reset,
-dirty state, save/reopen, and invalid-draft recovery.
+Continue with NW-T2-02, the next untested Tier 2 workflow.

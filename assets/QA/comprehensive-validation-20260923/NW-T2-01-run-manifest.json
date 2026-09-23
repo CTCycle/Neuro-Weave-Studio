@@ -1,0 +1,131 @@
+{
+  "run_id": "NW-CV-20260923-T2-01",
+  "date": "2026-09-23",
+  "repository": "CTCycle/Neuro-Weave-Studio",
+  "branch": "develop",
+  "base_revision": "155f845e7bbf085ea1ce865f52fd062dd950db33",
+  "validated_source_revision": "912181fa92b8a616fd1cc12665f2567c817c88dc",
+  "test_spec": "app/client/e2e/workflows.spec.ts",
+  "test_spec_sha256": "440ACE6C5BACA12D2BCF2E500AA2E9353B3CF1CE9464C63AAC6CD5845946BF26",
+  "status": "PASS",
+  "scope": "Builder selection, Inspector editing and reset, undo/redo, dirty-to-saved transition, save/reopen, and invalid-draft recovery",
+  "environment": {
+    "platform": "Windows 11 build 26200",
+    "python": "3.13.14",
+    "node": "22.23.1",
+    "npm": "10.9.8",
+    "browser": "Chromium 151.0.7922.34",
+    "backend_url": "http://127.0.0.1:9849",
+    "official_preview_url": "http://127.0.0.1:6425",
+    "playwright_base_url": "http://127.0.0.1:6425",
+    "playwright_dev_server_started": false,
+    "database": "runtimes/cache/comprehensive-validation-20260923-t2-01/neuroweave.db",
+    "runtime_discovery_file": "runtimes/cache/comprehensive-validation-20260923-t2-01/environment-discovery.json"
+  },
+  "checks": [
+    {
+      "name": "NW-T2-01 serial Builder workflow against the official launcher",
+      "result": "PASS",
+      "passed": 1,
+      "workers": 1,
+      "duration_seconds": 5.1,
+      "exit_code": 0,
+      "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:6425 npm run e2e -- e2e/workflows.spec.ts --grep NW-T2-01 --workers=1",
+      "log": "logs/nw-t2-01-playwright.log",
+      "assertions": [
+        "Node selection remains in Inspector after undo and redo",
+        "Inspector parameter reset participates in undo and redo",
+        "Dirty and saved states track edits and history",
+        "Project revision and graph survive save and reload",
+        "Invalid parameter draft remains editable while save and validation are disabled",
+        "Repair saves a new revision and survives reload",
+        "Fixture is deleted and verified absent"
+      ]
+    },
+    {
+      "name": "persisted-project valid and negative Builder neighbor workflows",
+      "result": "PASS",
+      "passed": 2,
+      "workers": 1,
+      "duration_seconds": 7.0,
+      "exit_code": 0,
+      "log": "logs/nw-t2-01-valid-negative-neighbors.log"
+    },
+    {
+      "name": "focused graph-store and parameter-editor unit tests",
+      "result": "PASS",
+      "passed": 20,
+      "files": 2,
+      "exit_code": 0,
+      "log": "logs/nw-t2-01-vitest.log"
+    },
+    {
+      "name": "full frontend unit suite",
+      "result": "PASS",
+      "passed": 104,
+      "files": 20,
+      "exit_code": 0,
+      "log": "logs/nw-t0-03-frontend-vitest-final-20260923.log"
+    },
+    {
+      "name": "frontend lint",
+      "result": "PASS",
+      "exit_code": 0,
+      "log": "logs/nw-t2-01-frontend-lint.log"
+    },
+    {
+      "name": "frontend production build",
+      "result": "PASS",
+      "exit_code": 0,
+      "log": "logs/nw-t2-01-frontend-build.log"
+    },
+    {
+      "name": "browser diagnostics",
+      "result": "PASS",
+      "page_errors": 0,
+      "console_errors": 0,
+      "failed_requests": 0,
+      "http_errors": 0,
+      "project_writes": 2,
+      "evidence": "evidence/nw-t2-01-browser-diagnostics.json"
+    },
+    {
+      "name": "Codex in-app Browser rendered workflow inspection",
+      "result": "PASS",
+      "evidence": "evidence/nw-t2-01-inapp-browser-observation.md"
+    },
+    {
+      "name": "run-owned fixture and process cleanup",
+      "result": "PASS",
+      "fixture_absent": true,
+      "isolated_database_removed": true,
+      "ports_verified_free": [6425, 6426, 9849],
+      "logs": [
+        "logs/nw-t2-01-fixture-cleanup.txt",
+        "logs/nw-t2-01-process-cleanup.txt"
+      ]
+    }
+  ],
+  "evidence": [
+    "NW-T2-01.md",
+    "NW-T2-01-run-manifest.json",
+    "logs/launcher-t2-01.log",
+    "logs/nw-t2-01-playwright.log",
+    "logs/nw-t2-01-valid-negative-neighbors.log",
+    "logs/nw-t2-01-vitest.log",
+    "logs/nw-t2-01-frontend-lint.log",
+    "logs/nw-t2-01-frontend-build.log",
+    "logs/nw-t2-01-fixture-cleanup.txt",
+    "logs/nw-t2-01-process-cleanup.txt",
+    "evidence/nw-t2-01-browser-diagnostics.json",
+    "evidence/nw-t2-01-inapp-browser-observation.md",
+    "evidence/nw-t2-01-reset-and-history.png",
+    "evidence/nw-t2-01-invalid-draft-repairable.png",
+    "evidence/nw-t2-01-repaired-saved.png"
+  ],
+  "remaining": [
+    "Eight other Tier 2 slices remain untested; Tier 3 through Tier 5 also remain untested.",
+    "NW-T0-03 remains partial because strict Pyright reports 52 errors across five test modules.",
+    "ISSUE-006 remains open; this run used the official preview and did not exercise Playwright's default dev-server lifecycle."
+  ]
+}
