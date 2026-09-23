@@ -1,0 +1,59 @@
+
+> neuro-weave-frontend@1.0.0 e2e
+> playwright test workflows.spec.ts --grep NW-T1-03|imports a Keras architecture through the browser file input|deletes a model from its catalog card without navigating|keeps saved builder profile, validation, and API payload synchronized|covers responsive drawers and saved-model workflow routes --workers=1 --reporter=line
+
+
+[WebServer] (node:26792) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:26792) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 5 tests using 1 worker
+
+
+(node:35992) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/5] e2e\workflows.spec.ts:189:1 › imports a Keras architecture through the browser file input
+  1) e2e\workflows.spec.ts:189:1 › imports a Keras architecture through the browser file input ─────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: page.waitForResponse: Test timeout of 30000ms exceeded.
+
+      191 |   try {
+      192 |     await page.goto('/models')
+    > 193 |     const importResponse = page.waitForResponse((response) => response.url().includes('/api/imports/keras-architecture') && response.request().method() === 'POST')
+          |                                 ^
+      194 |     await page.locator('input[type="file"][accept*=".keras"]').setInputFiles({
+      195 |       name: 'browser-import.keras',
+      196 |       mimeType: 'application/vnd.keras.zip',
+        at G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\client\e2e\workflows.spec.ts:193:33
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\runtimes\cache\playwright\test-results\workflows-imports-a-Keras--89f42-ough-the-browser-file-input\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\runtimes\cache\playwright\test-results\workflows-imports-a-Keras--89f42-ough-the-browser-file-input\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\runtimes\cache\playwright\test-results\workflows-imports-a-Keras--89f42-ough-the-browser-file-input\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\runtimes\cache\playwright\test-results\workflows-imports-a-Keras--89f42-ough-the-browser-file-input\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:16948) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[2/5] e2e\workflows.spec.ts:215:1 › NW-T1-03 exports and reimports a project bundle through the browser
+[3/5] e2e\workflows.spec.ts:314:1 › deletes a model from its catalog card without navigating
+[4/5] e2e\workflows.spec.ts:370:1 › keeps saved builder profile, validation, and API payload synchronized
+[5/5] e2e\workflows.spec.ts:699:1 › covers responsive drawers and saved-model workflow routes
+  1 failed
+    e2e\workflows.spec.ts:189:1 › imports a Keras architecture through the browser file input ──────
+  4 passed (1.5m)

@@ -1,0 +1,23 @@
+
+> neuro-weave-frontend@1.0.0 e2e
+> playwright test workflows.spec.ts --grep NW-T1-03|imports a Keras architecture through the browser file input|deletes a model from its catalog card without navigating|keeps saved builder profile, validation, and API payload synchronized|covers responsive drawers and saved-model workflow routes --workers=1 --reporter=line
+
+
+[WebServer] (node:9676) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:9676) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 5 tests using 1 worker
+
+(node:4356) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/5] e2e\workflows.spec.ts:189:1 › imports a Keras architecture through the browser file input
+[2/5] e2e\workflows.spec.ts:237:1 › NW-T1-03 exports and reimports a project bundle through the browser
+[3/5] e2e\workflows.spec.ts:336:1 › deletes a model from its catalog card without navigating
+[4/5] e2e\workflows.spec.ts:392:1 › keeps saved builder profile, validation, and API payload synchronized
+[5/5] e2e\workflows.spec.ts:721:1 › covers responsive drawers and saved-model workflow routes
+  5 passed (54.8s)
