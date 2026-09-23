@@ -10,6 +10,7 @@ const workers = configuredWorkers
   ? Number.parseInt(configuredWorkers, 10)
   : 1
 const isCi = Boolean(process.env['CI'])
+const baseURL = process.env['PLAYWRIGHT_BASE_URL'] ?? 'http://127.0.0.1:6426'
 
 export default defineConfig({
   testDir: './e2e',
@@ -22,15 +23,17 @@ export default defineConfig({
   reporter: 'line',
   outputDir: join(playwrightCacheRoot, 'test-results'),
   use: {
-    baseURL: 'http://127.0.0.1:6426',
+    baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     ...devices['Desktop Chrome'],
   },
-  webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 6426',
-    url: 'http://127.0.0.1:6426/models',
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  ...(process.env['PLAYWRIGHT_BASE_URL'] ? {} : {
+    webServer: {
+      command: 'npm run dev -- --host 127.0.0.1 --port 6426',
+      url: 'http://127.0.0.1:6426/models',
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+  }),
 })

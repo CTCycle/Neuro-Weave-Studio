@@ -23,7 +23,8 @@ def ensure_discovery(client: httpx.Client, backend: str, api: str) -> dict[str, 
         json={"backend": backend, "api": api},
     )
     assert response.status_code == 202, response.text
-    for _ in range(200):
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
         current = client.get(
             "/api/execution/discovery",
             params={"backend": backend, "api": api},

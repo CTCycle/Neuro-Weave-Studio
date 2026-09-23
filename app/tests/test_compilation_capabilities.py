@@ -42,7 +42,7 @@ def _jax_native(**payload: object) -> JaxNativeConfiguration:
 
 
 def _approx(expected: object) -> object:
-    approx = cast(Callable[..., object], getattr(pytest, "approx"))
+    approx = cast(Callable[..., object], pytest.approx)  # pyright: ignore[reportUnknownMemberType]
     return approx(expected)
 
 
