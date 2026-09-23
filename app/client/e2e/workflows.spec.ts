@@ -1,8 +1,9 @@
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test, type APIRequestContext } from '@playwright/test'
 
 const visualEvidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'model-builder-evaluation-20260902', 'screenshots')
+const campaignEvidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'comprehensive-validation-20260923', 'evidence')
 const kerasImportFixture = Buffer.from('UEsDBBQAAAAIALVcKl3fELsi1QAAAL8BAAALAAAAY29uZmlnLmpzb26dj8FqwzAMhl/F+JxLu512K/RSGIOxYylBjZVUzLFTS14pIe9eqxAoaU+7iV+f9EmjbTww1wF6tB/G/uA5YxACbytjmxha6ko+2hn43phdP8Qk6MwXyiWmXyU9XDFxAfbjYuMuDFk+tb3YeARpTjWfYFBuH7L3lXk/FMjJ9Z7Z1keQt7UO8gCJNWzBM5YgQdehewhm4RlqUqedpsosr9liKFtev1YG3dzOgUTfWZcaGqE/EIpBqYQ+3wnG+kigkKSM/5DFLHrmg231ZGPq+kjupfAwTTdQSwMEFAAAAAgAtVwqXafnk7AYAAAAFgAAAA0AAABtZXRhZGF0YS5qc29uq1bKTi1KLI4vSy0qzszPU7JSUDJWqgUAUEsBAhQAFAAAAAgAtVwqXd8QuyLVAAAAvwEAAAsAAAAAAAAAAAAAAIABAAAAAGNvbmZpZy5qc29uUEsBAhQAFAAAAAgAtVwqXafnk7AYAAAAFgAAAA0AAAAAAAAAAAAAAIAB/gAAAG1ldGFkYXRhLmpzb25QSwUGAAAAAAIAAgB0AAAAQQEAAAAA', 'base64')
 
 type CreatedProject = { id: string; current_revision: number; name: string }
@@ -186,8 +187,30 @@ async function waitForCanvasFit(page: import('@playwright/test').Page): Promise<
 }
 
 test('imports a Keras architecture through the browser file input', async ({ page, request }) => {
+  test.setTimeout(90_000)
   let projectId: string | undefined
   try {
+    await page.goto('/environment')
+    const pytorchCard = page.locator('.backend-status-card-container').filter({ hasText: 'PyTorch' })
+    const kerasRuntimeReady = async () => {
+      const metadataResponse = await request.get('/api/metadata')
+      const metadata = await metadataResponse.json() as {
+        execution_backends: Array<{
+          id: string
+          runtime_apis?: Array<{ id: string; available: boolean; state?: string }>
+        }>
+      }
+      const keras = metadata.execution_backends.find((backend) => backend.id === 'pytorch')?.runtime_apis?.find((api) => api.id === 'keras')
+      return Boolean(keras?.available && keras.state === 'verified')
+    }
+    if (!(await kerasRuntimeReady())) {
+      const kerasCheck = pytorchCard.getByRole('button', { name: 'Check Keras', exact: true })
+      await expect(kerasCheck).toBeVisible({ timeout: 15_000 })
+      await kerasCheck.click()
+    }
+    await expect.poll(kerasRuntimeReady, { timeout: 90_000 }).toBeTruthy()
+    await expect(pytorchCard).toContainText('Usable')
+
     await page.goto('/models')
     const importResponse = page.waitForResponse((response) => response.url().includes('/api/imports/keras-architecture') && response.request().method() === 'POST')
     await page.locator('input[type="file"][accept*=".keras"]').setInputFiles({
@@ -208,6 +231,105 @@ test('imports a Keras architecture through the browser file input', async ({ pag
     expect(persisted.graph.nodes).toHaveLength(4)
   } finally {
     if (projectId) await deleteProject(request, projectId)
+  }
+})
+
+test('NW-T1-03 exports and reimports a project bundle through the browser', async ({ page, request }) => {
+  const source = await createProject(request, `NW-T1-03 bundle ${Date.now()}`)
+  let importedId: string | undefined
+  try {
+    const sourceResponse = await request.get(`/api/projects/${source.id}`)
+    expect(sourceResponse.ok()).toBeTruthy()
+    const original = await sourceResponse.json() as {
+      name: string
+      execution_backend: string
+      keras_enabled: boolean
+      graph: unknown
+    }
+
+    await page.goto(`/models/${source.id}/export`)
+    await expect(page.getByRole('heading', { name: `Export ${source.name}` })).toBeVisible()
+    const bundleOption = page.getByRole('button', { name: /Project bundle/ })
+    await expect(bundleOption).toBeEnabled()
+    await bundleOption.click()
+
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Export artifact', exact: true }).click()
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toMatch(/\.json$/i)
+    const downloadPath = await download.path()
+    expect(downloadPath).not.toBeNull()
+    const bundleBytes = await readFile(downloadPath!)
+    const bundle = JSON.parse(bundleBytes.toString('utf8')) as {
+      format: string
+      format_version: number
+      project: {
+        name: string
+        execution_backend: string
+        keras_enabled: boolean
+        graph: unknown
+      }
+    }
+    expect(bundle.format).toBe('neuro-weave-project')
+    expect(bundle.format_version).toBe(7)
+    expect(bundle.project).toMatchObject({
+      name: original.name,
+      execution_backend: original.execution_backend,
+      keras_enabled: original.keras_enabled,
+      graph: original.graph,
+    })
+
+    await page.goto('/models')
+    const importResponsePromise = page.waitForResponse((response) =>
+      response.url().includes('/api/projects/import') && response.request().method() === 'POST',
+    )
+    await page.locator('input[type="file"][accept*="application/json"]').setInputFiles({
+      name: download.suggestedFilename(),
+      mimeType: 'application/json',
+      buffer: bundleBytes,
+    })
+    const importResponse = await importResponsePromise
+    expect(importResponse.status()).toBe(201)
+    const imported = await importResponse.json() as {
+      id: string
+      current_revision: number
+      name: string
+      execution_backend: string
+      keras_enabled: boolean
+      graph: unknown
+    }
+    importedId = imported.id
+
+    expect(imported.id).not.toBe(source.id)
+    expect(imported.current_revision).toBe(1)
+    expect(imported).toMatchObject({
+      name: original.name,
+      execution_backend: original.execution_backend,
+      keras_enabled: original.keras_enabled,
+      graph: original.graph,
+    })
+    await expect(page).toHaveURL(new RegExp(`/models/${imported.id}$`))
+    await expect(page.getByRole('heading', { name: original.name })).toBeVisible()
+
+    const persistedResponse = await request.get(`/api/projects/${imported.id}`)
+    expect(persistedResponse.ok()).toBeTruthy()
+    expect(await persistedResponse.json()).toMatchObject({
+      id: imported.id,
+      current_revision: 1,
+      name: original.name,
+      execution_backend: original.execution_backend,
+      keras_enabled: original.keras_enabled,
+      graph: original.graph,
+    })
+
+    await page.goto(`/builder/${imported.id}`)
+    await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+    await expect(page.locator('.nw-flow-node')).toHaveCount(4)
+    await mkdir(campaignEvidenceDir, { recursive: true })
+    await page.screenshot({ path: path.join(campaignEvidenceDir, 'nw-t1-03-project-bundle-builder.png'), fullPage: true })
+  } finally {
+    if (importedId) await deleteProject(request, importedId)
+    await deleteProject(request, source.id)
   }
 })
 
