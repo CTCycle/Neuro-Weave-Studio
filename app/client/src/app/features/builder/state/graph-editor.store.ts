@@ -456,8 +456,7 @@ export class GraphEditorStore {
     this.future.set([this.snapshot(), ...this.future()].slice(0, 50))
     this.past.set(this.past().slice(0, -1))
     this.restoreSnapshot(previous)
-    this.selectedNodeId.set(null)
-    this.selectedEdgeId.set(null)
+    this.reconcileSelection()
     this.invalidateDerivedState()
   }
 
@@ -467,8 +466,7 @@ export class GraphEditorStore {
     this.past.set([...this.past(), this.snapshot()].slice(-50))
     this.future.set(this.future().slice(1))
     this.restoreSnapshot(next)
-    this.selectedNodeId.set(null)
-    this.selectedEdgeId.set(null)
+    this.reconcileSelection()
     this.invalidateDerivedState()
   }
 
@@ -605,6 +603,11 @@ export class GraphEditorStore {
     this.modelConfiguration.set(structuredClone(snapshot.modelConfiguration))
     this.exportSettings.set(structuredClone(snapshot.exportSettings))
     this.futureTrainingConfiguration.set(structuredClone(snapshot.futureTrainingConfiguration))
+  }
+
+  private reconcileSelection(): void {
+    if (!this.nodes().some((node) => node.id === this.selectedNodeId())) this.selectedNodeId.set(null)
+    if (!this.edges().some((edge) => edge.id === this.selectedEdgeId())) this.selectedEdgeId.set(null)
   }
 
   private copyNode(node: EditorNode, parameters: Record<string, unknown>, label: string): EditorNode {

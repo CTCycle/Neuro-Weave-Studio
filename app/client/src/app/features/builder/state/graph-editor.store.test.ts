@@ -47,6 +47,37 @@ describe('neutral graph editor store', () => {
     expect(store.toGraph().model_configuration.keras.compilation.optimizer.id).toBe('sgd')
   })
 
+  it('keeps a valid node selection while undoing and redoing its edits', () => {
+    store = new GraphEditorStore()
+    const hiddenLayer = node('hidden-layer')
+    hiddenLayer.data.parameters = { units: 16 }
+    store.restoreEditorSession({
+      nodes: [hiddenLayer],
+      edges: [],
+      outputBindings: [],
+      modelConfiguration: emptyModelConfiguration(),
+      exportSettings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
+      futureTrainingConfiguration: {},
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      copiedNodeIds: [],
+      past: [],
+      future: [],
+    })
+
+    store.selectNode('hidden-layer')
+    store.updateNode('hidden-layer', { parameters: { units: 32 } })
+    store.undo()
+
+    expect(store.selectedNodeId()).toBe('hidden-layer')
+    expect(store.nodes()[0].data.parameters).toEqual({ units: 16 })
+
+    store.redo()
+
+    expect(store.selectedNodeId()).toBe('hidden-layer')
+    expect(store.nodes()[0].data.parameters).toEqual({ units: 32 })
+  })
+
   it('captures and restores a detached session with selection and history', () => {
     store = new GraphEditorStore()
     store.setManifests([manifest])

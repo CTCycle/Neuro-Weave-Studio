@@ -1,4 +1,4 @@
-import { mkdir, readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test, type APIRequestContext } from '@playwright/test'
 
@@ -715,6 +715,155 @@ test('covers builder editing, history, focus mode, and dirty navigation', async 
     await expect(page.getByRole('heading', { name: 'Saved models' })).toBeVisible()
   } finally {
     await deleteProject(request, fixture.id)
+  }
+})
+
+test('NW-T2-01 verifies Builder selection, editing, history, save/reopen, and invalid-draft recovery', async ({ page, request }) => {
+  test.setTimeout(120_000)
+  const diagnostics = {
+    pageErrors: [] as string[],
+    consoleErrors: [] as string[],
+    failedRequests: [] as string[],
+    httpErrors: [] as Array<{ method: string; path: string; status: number }>,
+  }
+  const projectWrites: string[] = []
+  page.on('pageerror', (error) => diagnostics.pageErrors.push(error.message))
+  page.on('console', (message) => {
+    if (message.type() === 'error') diagnostics.consoleErrors.push(message.text())
+  })
+  page.on('requestfailed', (request) => {
+    diagnostics.failedRequests.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText ?? 'failed'}`)
+  })
+  page.on('request', (request) => {
+    const pathname = new URL(request.url()).pathname
+    if (request.method() === 'PUT' && pathname.startsWith('/api/projects/')) projectWrites.push(pathname)
+  })
+  page.on('response', (response) => {
+    if (response.status() >= 400) {
+      diagnostics.httpErrors.push({
+        method: response.request().method(),
+        path: new URL(response.url()).pathname,
+        status: response.status(),
+      })
+    }
+  })
+
+  await mkdir(campaignEvidenceDir, { recursive: true })
+  const fixture = await createProject(request, `NW T2-01 Builder ${Date.now()}`)
+  const projectUrl = `/api/projects/${fixture.id}`
+  const hiddenLayer = page.locator('.nw-flow-node').filter({ hasText: 'Hidden layer' })
+  const inspector = page.getByRole('complementary', { name: 'Properties inspector' })
+
+  try {
+    await page.goto(`/builder/${fixture.id}`)
+    await expect(page.locator('.nw-flow-node')).toHaveCount(4)
+    await expect(page.locator('.builder-badge')).toContainText('Saved')
+
+    await hiddenLayer.click()
+    await expect(inspector.getByRole('heading', { name: 'Hidden layer', exact: true })).toBeVisible()
+    const units = page.getByLabel('Units')
+    await expect(units).toHaveValue('16')
+
+    await page.locator('.nw-flow-node').filter({ hasText: 'Classifier' }).click()
+    await expect(inspector.getByRole('heading', { name: 'Classifier', exact: true })).toBeVisible()
+    await hiddenLayer.click()
+    await page.getByLabel('Units').fill('32')
+    await expect(page.getByLabel('Units')).toHaveValue('32')
+    await expect(page.locator('.builder-badge')).toContainText('Drafting')
+
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect(page.getByLabel('Units')).toHaveValue('16')
+    await expect(page.locator('.builder-badge')).toContainText('Saved')
+    await page.getByRole('button', { name: 'Redo', exact: true }).click()
+    await expect(page.getByLabel('Units')).toHaveValue('32')
+    await expect(page.locator('.builder-badge')).toContainText('Drafting')
+
+    await page.getByLabel('Units').fill('24')
+    await expect(page.locator('.builder-badge')).toContainText('Drafting')
+    await hiddenLayer.click({ button: 'right' })
+    const resetAction = page.getByRole('menuitem', { name: 'Reset parameters', exact: true })
+    await expect(resetAction).toBeEnabled()
+    await resetAction.click()
+    await expect(page.getByLabel('Units')).toHaveValue('32')
+    await expect(page.locator('.builder-badge')).toContainText('Drafting')
+
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect(page.getByLabel('Units')).toHaveValue('24')
+    await page.getByRole('button', { name: 'Redo', exact: true }).click()
+    await expect(page.getByLabel('Units')).toHaveValue('32')
+    await page.screenshot({ path: path.join(campaignEvidenceDir, 'nw-t2-01-reset-and-history.png'), fullPage: true })
+
+    const firstSave = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === projectUrl && response.request().method() === 'PUT'
+    })
+    await page.getByRole('button', { name: 'Save model', exact: true }).click()
+    expect((await firstSave).ok()).toBeTruthy()
+    await expect(page.locator('.builder-badge')).toContainText('Saved')
+
+    const saved = await (await request.get(projectUrl)).json() as {
+      current_revision: number
+      graph: { nodes: Array<{ id: string; parameters: Record<string, unknown> }> }
+    }
+    expect(saved.current_revision).toBe(fixture.current_revision + 1)
+    expect(saved.graph.nodes.find((node) => node.id === 'layer-dense-e2e-1')?.parameters['units']).toBe(32)
+
+    await page.reload()
+    await hiddenLayer.click()
+    await expect(page.getByLabel('Units')).toHaveValue('32')
+    await expect(page.locator('.builder-badge')).toContainText('Saved')
+
+    await page.getByLabel('Units').fill('1.5')
+    await expect(page.getByLabel('Units')).toHaveAttribute('aria-invalid', 'true')
+    await expect(page.getByText('Enter a valid units.', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Units')).toBeEnabled()
+    await expect(page.getByLabel('Units')).toHaveValue('1.5')
+    await expect(page.getByRole('button', { name: 'Save model', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Validate', exact: true })).toBeDisabled()
+    const writesBeforeRepair = projectWrites.length
+    const invalidDraftSnapshot = await (await request.get(projectUrl)).json() as {
+      current_revision: number
+      graph: { nodes: Array<{ id: string; parameters: Record<string, unknown> }> }
+    }
+    expect(invalidDraftSnapshot.current_revision).toBe(saved.current_revision)
+    expect(invalidDraftSnapshot.graph.nodes.find((node) => node.id === 'layer-dense-e2e-1')?.parameters['units']).toBe(32)
+    expect(projectWrites).toHaveLength(writesBeforeRepair)
+    await page.screenshot({ path: path.join(campaignEvidenceDir, 'nw-t2-01-invalid-draft-repairable.png'), fullPage: true })
+
+    await page.getByLabel('Units').fill('24')
+    await expect(page.getByLabel('Units')).not.toHaveAttribute('aria-invalid', 'true')
+    await expect(page.locator('.builder-badge')).toContainText('Drafting')
+    const repairSave = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === projectUrl && response.request().method() === 'PUT'
+    })
+    await page.getByRole('button', { name: 'Save model', exact: true }).click()
+    expect((await repairSave).ok()).toBeTruthy()
+    await expect(page.locator('.builder-badge')).toContainText('Saved')
+
+    const repaired = await (await request.get(projectUrl)).json() as {
+      current_revision: number
+      graph: { nodes: Array<{ id: string; parameters: Record<string, unknown> }> }
+    }
+    expect(repaired.current_revision).toBe(saved.current_revision + 1)
+    expect(repaired.graph.nodes.find((node) => node.id === 'layer-dense-e2e-1')?.parameters['units']).toBe(24)
+    await page.screenshot({ path: path.join(campaignEvidenceDir, 'nw-t2-01-repaired-saved.png'), fullPage: true })
+
+    await page.reload()
+    await hiddenLayer.click()
+    await expect(page.getByLabel('Units')).toHaveValue('24')
+    await expect(page.locator('.builder-badge')).toContainText('Saved')
+    expect(diagnostics).toEqual({ pageErrors: [], consoleErrors: [], failedRequests: [], httpErrors: [] })
+    await writeFile(path.join(campaignEvidenceDir, 'nw-t2-01-browser-diagnostics.json'), `${JSON.stringify({
+      recorded_at: new Date().toISOString(),
+      page_url: page.url(),
+      browser_version: page.context().browser()?.version() ?? 'unknown',
+      project_write_count: projectWrites.length,
+      ...diagnostics,
+    }, null, 2)}\n`)
+  } finally {
+    await deleteProject(request, fixture.id)
+    expect((await request.get(projectUrl)).status()).toBe(404)
   }
 })
 
