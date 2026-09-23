@@ -1,0 +1,12 @@
+NW-T2-01 run-owned process cleanup
+
+Verified launcher-owned backend tree before stop:
+- 17412 cmd.exe, 33748 python.exe, 24440 python.exe; Uvicorn on 127.0.0.1:9849.
+
+Verified launcher-owned frontend tree before stop:
+- 27072 cmd.exe, 18364 node.exe, 16556 cmd.exe, 34200 node.exe; preview on 127.0.0.1:6425.
+
+Stopped only the listed process ids after the fixture checks. A process-table
+check found none of those ids still running. Final listener checks found no
+listeners on ports 6425, 6426, or 9849. The isolated database and runtime
+discovery directory were then removed from the run-specific cache path.
