@@ -6,7 +6,9 @@ from typing import Any, cast
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 
+from app import create_app
 from repositories.graphs import GraphRepository
 
 
@@ -235,6 +237,44 @@ def test_project_revision_workflow_invalidates_generated_source_and_rejects_stal
 
     missing_revision = project_payload()
     assert client.put(f"/api/projects/{project['id']}", json=missing_revision).status_code == 422
+
+###############################################################################
+def test_project_revision_survives_application_restart(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = tmp_path / "project-restart.db"
+    monkeypatch.setenv("DATABASE_SQLITE_PATH", str(database))
+    monkeypatch.setenv("NEURO_WEAVE_EXPORT_ROOT", str(tmp_path / "exports"))
+    monkeypatch.setenv("NEURO_WEAVE_ML_JOB_ROOT", str(tmp_path / "jobs"))
+    monkeypatch.setenv("NEURO_WEAVE_RUNTIME_DISCOVERY_PATH", str(tmp_path / "environment.json"))
+
+    with TestClient(create_app()) as first:
+        created_response = first.post("/api/projects", json=project_payload())
+        assert created_response.status_code == 201, created_response.text
+        created = created_response.json()
+
+        update_payload = project_payload()
+        update_payload["name"] = "API MLP persisted"
+        update_payload["expected_revision"] = created["current_revision"]
+        updated_response = first.put(f"/api/projects/{created['id']}", json=update_payload)
+        assert updated_response.status_code == 200, updated_response.text
+        saved = updated_response.json()
+        assert saved["current_revision"] == 2
+
+    with TestClient(create_app()) as second:
+        reopened_response = second.get(f"/api/projects/{created['id']}")
+        assert reopened_response.status_code == 200
+        reopened = reopened_response.json()
+        assert reopened["name"] == "API MLP persisted"
+        assert reopened["current_revision"] == 2
+        assert reopened["execution_backend"] == saved["execution_backend"]
+        assert reopened["keras_enabled"] == saved["keras_enabled"]
+        assert reopened["graph"] == saved["graph"]
+
+        listed = second.get("/api/projects")
+        assert listed.status_code == 200
+        assert any(item["id"] == created["id"] for item in listed.json()["projects"])
 
 ###############################################################################
 def test_model_export_publishes_only_verified_artifact(client: httpx.Client) -> None:
