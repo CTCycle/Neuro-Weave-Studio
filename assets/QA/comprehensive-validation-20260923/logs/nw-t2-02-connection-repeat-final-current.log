@@ -1,0 +1,14 @@
+
+Running 3 tests using 1 worker
+
+(node:3628) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 e2e\workflows.spec.ts:469:1 › NW-T2-02: validates connection previews, cardinality, inferred shapes, and rejected graph edits (4.2s)
+(node:39684) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 2 e2e\workflows.spec.ts:469:1 › NW-T2-02: validates connection previews, cardinality, inferred shapes, and rejected graph edits (4.1s)
+(node:23608) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 3 e2e\workflows.spec.ts:469:1 › NW-T2-02: validates connection previews, cardinality, inferred shapes, and rejected graph edits (4.9s)
+
+  3 passed (18.6s)

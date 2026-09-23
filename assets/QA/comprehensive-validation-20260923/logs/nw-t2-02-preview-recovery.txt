@@ -1,0 +1,13 @@
+NW-T2-02 preview service recovery — 2026-09-23
+
+An interim validation attempt found the detached official-launcher instance
+stopped while evidence was being prepared. Ports 6425 and 9750 had no listener,
+and `GET http://127.0.0.1:9750/health` returned connection refused. This was an
+unavailable test service, so that attempt is not counted as a workflow result.
+
+The official launcher was run again with the isolated SQLite path and current
+production build. It reported frontend readiness on port 6425 and backend
+health on port 9750. The immediate launcher output was not retained as a
+separate raw log; the serial browser run and subsequent repeated/two-worker
+runs passed against the healthy services and are recorded in their workflow
+logs and run manifest.

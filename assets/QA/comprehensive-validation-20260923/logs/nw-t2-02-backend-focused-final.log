@@ -1,0 +1,8 @@
+.............                                                            [100%]
+============================== warnings summary ===============================
+..\server\.venv\Lib\site-packages\_pytest\cacheprovider.py:475
+  G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Lib\site-packages\_pytest\cacheprovider.py:475: PytestCacheWarning: cache could not write path G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\tests\..\..\runtimes\cache\comprehensive-validation-20260923-t2-02\pytest-cache\v\cache\nodeids: [Errno 13] Permission denied: 'G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\tests\\..\\..\\runtimes\\cache\\comprehensive-validation-20260923-t2-02\\pytest-cache\\v\\cache\\nodeids'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+13 passed, 11 deselected, 1 warning in 0.48s

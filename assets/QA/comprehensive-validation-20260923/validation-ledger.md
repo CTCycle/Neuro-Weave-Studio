@@ -2,13 +2,13 @@
 
 Last updated: 2026-09-23
 
-Run ID: `NW-CV-20260923-T2-01`
+Run ID: `NW-CV-20260923-T2-02`
 
-Repository: `develop` at base revision `155f845e7bbf085ea1ce865f52fd062dd950db33`; NW-T2-01 source validated at `912181fa92b8a616fd1cc12665f2567c817c88dc`. The focused spec is recorded by SHA-256 in the [run manifest](NW-T2-01-run-manifest.json).
+Repository: `develop` at base revision `bf96542310669b5d25084d00ca29e3677500e80c`; NW-T2-02 source validated at `66d04b3c788baf8ba2921a7f3c1cd4c8541e1e44`. The focused spec is recorded by SHA-256 in the [run manifest](NW-T2-02-run-manifest.json).
 
 Historical Tier 0 evidence remains at `752ab151978b56dd2c20568f63434e346dcf6ea8`; the current NW-T0-03 revalidation is linked below.
 
-Campaign status: **PARTIAL**. NW-T2-01 adds one PASS slice after the existing Tier 0 and NW-T1-01 through NW-T1-05 results. This is not a full application certification.
+Campaign status: **PARTIAL**. NW-T2-02 adds a second PASS slice in Tier 2 after the existing Tier 0 and NW-T1-01 through NW-T1-05 results. This is not a full application certification.
 
 ## Aggregate status
 
@@ -16,11 +16,11 @@ Campaign status: **PARTIAL**. NW-T2-01 adds one PASS slice after the existing Ti
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | Tier 0 | Environment and startup | 3 | 1 | 0 | 0 | 0 |
 | Tier 1 | Application foundations | 5 | 0 | 0 | 0 | 0 |
-| Tier 2 | Core workflows | 1 | 0 | 0 | 0 | 8 |
+| Tier 2 | Core workflows | 2 | 0 | 0 | 0 | 7 |
 | Tier 3 | Model Builder catalog | 0 | 0 | 0 | 0 | 19 |
 | Tier 4 | Runtime and integrations | 0 | 0 | 0 | 0 | 4 |
 | Tier 5 | Resilience, usability, closure | 0 | 0 | 0 | 0 | 5 |
-| Total | 46 slices | 9 | 1 | 0 | 0 | 36 |
+| Total | 46 slices | 10 | 1 | 0 | 0 | 35 |
 
 UNTESTED means that the slice remains in campaign scope but was not run in
 this revision-specific pass. It does not mean the feature is absent or broken.
@@ -38,10 +38,11 @@ this revision-specific pass. It does not mean the feature is absent or broken.
 | NW-T1-03 | Project lifecycle, revisions, JSON bundles, stale writes, restart, and Keras import | PASS | `d42bda2330581461fff2e52663780d0ea3fa5e53` | [NW-T1-03 report](NW-T1-03.md), [run manifest](NW-T1-03-run-manifest.json), [backend log](logs/nw-t1-03-backend-pytest.log), [serial browser log](logs/nw-t1-03-playwright-cold.log), [Builder screenshot](evidence/nw-t1-03-project-bundle-builder.png) | Repeat after project-schema, bundle, runtime-discovery, or import changes. |
 | NW-T1-04 | Runtime API/backend/device/memory preference persistence, stale and malformed storage, reload, unavailable storage | PASS | `02b9d24edb5fcfe536ab5a74f8fde0b94c03bd13` | [NW-T1-04 report](NW-T1-04.md), [run manifest](NW-T1-04-run-manifest.json), [10 focused tests](logs/nw-t1-04-focused-vitest.log), [6 serial browser workflows](logs/nw-t1-04-playwright.log), [post-reload screenshot](evidence/nw-t1-04-active-preference-reload.png) | Repeat after preference storage/schema or runtime metadata contract changes; this slice does not claim runtime execution. |
 | NW-T1-05 | Settings informational boundary and Training prerequisites, session-only draft, disabled start, SPA retention, reload loss | PASS | `cc0f937b1f52d06fa36328e083be163021a3829b` | [NW-T1-05 report](NW-T1-05.md), [run manifest](NW-T1-05-run-manifest.json), [serial browser log](logs/nw-t1-05-playwright.log), [in-app Browser observation](evidence/nw-t1-05-inapp-browser-observation.md), [diagnostics](evidence/nw-t1-05-browser-diagnostics.json), [screenshots](evidence/nw-t1-05-training-session-draft.png) | Repeat after Settings routes, training prerequisites, or draft lifecycle change; training execution remains unimplemented. |
-| NW-T2-01 | Builder selection, Inspector editing/reset, undo/redo, dirty state, save/reopen, invalid-draft repair | PASS | `912181fa92b8a616fd1cc12665f2567c817c88dc` | [NW-T2-01 report](NW-T2-01.md), [run manifest](NW-T2-01-run-manifest.json), [serial Playwright](logs/nw-t2-01-playwright.log), [valid/negative neighbors](logs/nw-t2-01-valid-negative-neighbors.log), [focused unit tests](logs/nw-t2-01-vitest.log), [Browser diagnostics](evidence/nw-t2-01-browser-diagnostics.json), [rendered evidence](evidence/nw-t2-01-reset-and-history.png) | Repeat after Builder history, Inspector, parameter, or project persistence changes; remaining Tier 2 workflows are untested. |
+| NW-T2-01 | Builder selection, Inspector editing/reset, undo/redo, dirty state, save/reopen, invalid-draft repair | PASS | `912181fa92b8a616fd1cc12665f2567c817c88dc` | [NW-T2-01 report](NW-T2-01.md), [run manifest](NW-T2-01-run-manifest.json), [serial Playwright](logs/nw-t2-01-playwright.log), [valid/negative neighbors](logs/nw-t2-01-valid-negative-neighbors.log), [focused unit tests](logs/nw-t2-01-vitest.log), [Browser diagnostics](evidence/nw-t2-01-browser-diagnostics.json), [rendered evidence](evidence/nw-t2-01-reset-and-history.png) | Repeat after Builder history, Inspector, parameter, or project persistence changes. |
+| NW-T2-02 | Builder connection candidates, port/cardinality behavior, shape inference, cycles, incompatible edges, repair | PASS | `66d04b3c788baf8ba2921a7f3c1cd4c8541e1e44` | [NW-T2-02 report](NW-T2-02.md), [run manifest](NW-T2-02-run-manifest.json), [13 backend tests](logs/nw-t2-02-backend-focused-final.log), [39 frontend tests](logs/nw-t2-02-frontend-final.log), [16 serial browser workflows](logs/nw-t2-02-workflows-final-current.log), [3 serial repeats](logs/nw-t2-02-connection-repeat-final-current.log), [2-worker run](logs/nw-t2-02-two-workers-final-current.log), [in-app Browser observation](evidence/nw-t2-02-inapp-browser-observation.md), [cycle rejection](evidence/nw-t2-02-final-browser-run/nw-t2-02-cycle-rejection.png), [inferred merge shape](evidence/nw-t2-02-final-browser-run/nw-t2-02-valid-merge-shape.png) | The focused 2-worker recheck did not reproduce a lock; `NW-T5-02` remains open for the full 1/2/4-worker SQLite matrix. |
 
-Eight other Tier 2 slices and all Tier 3, Tier 4, and Tier 5 slices remain
-UNTESTED. The next action is NW-T2-02.
+Seven other Tier 2 slices and all Tier 3, Tier 4, and Tier 5 slices remain
+UNTESTED. The next ordered action is NW-T2-03.
 
 ## Evidence
 
@@ -55,6 +56,10 @@ UNTESTED. The next action is NW-T2-02.
 - NW-T1-05 run manifest: [NW-T1-05-run-manifest.json](NW-T1-05-run-manifest.json)
 - NW-T1-05 launcher, Playwright, fixture-cleanup, and process-cleanup logs: `logs/`
 - NW-T1-05 Browser diagnostics, in-app observation, and screenshots: `evidence/`
+- Detailed NW-T2-02 report: [NW-T2-02.md](NW-T2-02.md)
+- NW-T2-02 run manifest: [NW-T2-02-run-manifest.json](NW-T2-02-run-manifest.json)
+- NW-T2-02 launcher, backend/frontend tests, serial/two-worker browser runs, shell lifecycle, and cleanup logs: `logs/`
+- NW-T2-02 in-app Browser observation, catalog snapshot, and rendered screenshots: `evidence/`
 - Detailed NW-T2-01 report: [NW-T2-01.md](NW-T2-01.md)
 - NW-T2-01 run manifest: [NW-T2-01-run-manifest.json](NW-T2-01-run-manifest.json)
 - NW-T2-01 launcher, Playwright, neighbor, focused unit, build, fixture-cleanup, and process-cleanup logs: `logs/`
@@ -75,18 +80,15 @@ now checks Keras on the Environment page before importing. A clean-cache rerun
 passed, including an available live PyTorch/Keras probe and import response
 201. This was a harness precondition, not a reproduced product failure.
 
-`ISSUE-006` remains a separate historical Playwright process-cleanup issue; the
-focused run returned with port 6426 free. It does not classify route or import
-behavior as a product failure.
-
-The NW-T1-04 six-test serial browser run also exited successfully and released
-port 6426. `ISSUE-006` remains open because its broader Windows shell-gate
-reproductions are still unresolved.
-
-The NW-T1-05 serial browser run and the separate in-app Browser inspection
-both completed. The final run-owned cleanup verified ports 6425, 6426, and
-9849 free. This focused result does not close `ISSUE-006`.
+Earlier focused NW-T1 runs used the official preview and therefore did not
+exercise Playwright's configured `webServer` lifecycle. NW-T2-02 ran the
+default serial shell suite without a base URL override; all ten tests passed,
+the Playwright command exited naturally, and port 6426 had no listener. This
+closes `ISSUE-006` for the current Windows workflow. The full worker-count
+matrix for shared SQLite remains open as `NW-T5-02`/`ISSUE-001`; its focused
+two-worker recheck passed without reproducing a lock. Strict Pyright remains
+at 52 errors (`ISSUE-003`).
 
 ## Next action
 
-Continue with NW-T2-02, the next untested Tier 2 workflow.
+Continue with NW-T2-03, the next untested Tier 2 workflow.

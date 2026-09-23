@@ -1,0 +1,44 @@
+
+> neuro-weave-frontend@1.0.0 e2e
+> playwright test e2e/workflows.spec.ts --grep NW-T2-02 --workers=1 --reporter=list
+
+
+Running 1 test using 1 worker
+
+(node:5752) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x  1 e2e\workflows.spec.ts:467:1 › NW-T2-02: validates connection previews, cardinality, inferred shapes, and rejected graph edits (37.7s)
+
+
+  1) e2e\workflows.spec.ts:467:1 › NW-T2-02: validates connection previews, cardinality, inferred shapes, and rejected graph edits
+
+    Test timeout of 30000ms exceeded.
+
+    Error: apiRequestContext.delete: Target page, context or browser has been closed
+
+      148 |
+      149 | async function deleteProject(request: APIRequestContext, id: string): Promise<void> {
+    > 150 |   const response = await request.delete(`/api/projects/${id}`)
+          |                                        ^
+      151 |   expect([204, 404]).toContain(response.status())
+      152 | }
+      153 |
+        at deleteProject (G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\client\e2e\workflows.spec.ts:150:40)
+        at G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\client\e2e\workflows.spec.ts:549:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\runtimes\cache\playwright\test-results\workflows-NW-T2-02-validat-1941e-es-and-rejected-graph-edits\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\runtimes\cache\playwright\test-results\workflows-NW-T2-02-validat-1941e-es-and-rejected-graph-edits\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\runtimes\cache\playwright\test-results\workflows-NW-T2-02-validat-1941e-es-and-rejected-graph-edits\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\runtimes\cache\playwright\test-results\workflows-NW-T2-02-validat-1941e-es-and-rejected-graph-edits\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e\workflows.spec.ts:467:1 › NW-T2-02: validates connection previews, cardinality, inferred shapes, and rejected graph edits

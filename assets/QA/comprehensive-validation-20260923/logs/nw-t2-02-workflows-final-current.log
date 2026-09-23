@@ -1,0 +1,23 @@
+
+Running 16 tests using 1 worker
+
+(node:4344) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 e2e\workflows.spec.ts:191:1 › imports a Keras architecture through the browser file input (1.5s)
+  ok  2 e2e\workflows.spec.ts:239:1 › NW-T1-03 exports and reimports a project bundle through the browser (2.5s)
+  ok  3 e2e\workflows.spec.ts:338:1 › deletes a model from its catalog card without navigating (1.0s)
+  ok  4 e2e\workflows.spec.ts:364:1 › keeps catalog deletion cancellable and reports deletion errors (980ms)
+  ok  5 e2e\workflows.spec.ts:394:1 › keeps saved builder profile, validation, and API payload synchronized (1.8s)
+  ok  6 e2e\workflows.spec.ts:436:1 › keeps Inspector controls contract-driven and Backend picker dark and keyboard accessible (1.2s)
+  ok  7 e2e\workflows.spec.ts:469:1 › NW-T2-02: validates connection previews, cardinality, inferred shapes, and rejected graph edits (3.4s)
+  ok  8 e2e\workflows.spec.ts:555:1 › retains parameter-incompatible drafts while disabling compilation and export actions (3.9s)
+  ok  9 e2e\workflows.spec.ts:619:1 › polls a compatible functional-validation job to a verified result (10.2s)
+  ok 10 e2e\workflows.spec.ts:646:1 › exposes keyboard-traversable graph nodes and ports (852ms)
+  ok 11 e2e\workflows.spec.ts:675:1 › keeps edge selection, inspector details, deletion, and undo synchronized (1.1s)
+  ok 12 e2e\workflows.spec.ts:701:1 › isolates builder tabs and exposes canvas and validation controls (2.0s)
+  ok 13 e2e\workflows.spec.ts:735:1 › covers builder editing, history, focus mode, and dirty navigation (1.9s)
+  ok 14 e2e\workflows.spec.ts:776:1 › NW-T2-01 verifies Builder selection, editing, history, save/reopen, and invalid-draft recovery (3.4s)
+  ok 15 e2e\workflows.spec.ts:925:1 › covers responsive drawers and saved-model workflow routes (3.6s)
+  ok 16 e2e\workflows.spec.ts:1000:1 › keeps read-only previews, compact Builder controls, and modal bounds usable (3.1s)
+
+  16 passed (44.9s)
