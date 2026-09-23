@@ -1,6 +1,6 @@
 # Project Status Ledger
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 
 This document is the canonical high-level catalog of NeuroWeave Studio's current operational state. It is a status index, not a development diary or a replacement for detailed architecture, implementation, validation, or roadmap documents.
 
@@ -54,9 +54,13 @@ recorded one discovery polling timeout whose exact test passed in isolation.
 `NW-T1-02` passed on revision `a30eefc93658138400e4061f4af07eed4c021985`,
 and [NW-T1-03](../QA/comprehensive-validation-20260923/NW-T1-03.md) passed on
 revision `d42bda2330581461fff2e52663780d0ea3fa5e53` with 14 focused backend
-tests and five serial browser workflows. `NW-T1-04`, `NW-T1-05`, and all
-Tier 2 through Tier 5 slices remain `UNTESTED`. The aggregate campaign is
-still `PARTIAL` at 6 PASS, 1 PARTIAL, and 39 UNTESTED slices. The separate
+tests and five serial browser workflows. [NW-T1-04](../QA/comprehensive-validation-20260923/NW-T1-04.md)
+passed on revision `02b9d24edb5fcfe536ab5a74f8fde0b94c03bd13` with 10 focused
+frontend tests, a production build, and six serial browser workflows. This
+slice covers preference persistence and reconciliation, not runtime execution.
+`NW-T1-05` and all Tier 2 through Tier 5 slices remain `UNTESTED`. The
+aggregate campaign is still `PARTIAL` at 7 PASS, 1 PARTIAL, and 38 UNTESTED
+slices. The separate
 [Model Builder validation ledger](../QA/model-builder-validation-ledger.md)
 remains prepared but unrun.
 
@@ -83,7 +87,7 @@ remains prepared but unrun.
 | `custom_nodes.trusted-plugin-model` | `NOT_IMPLEMENTED` | Signed executable plugin packages, dependency isolation, permissions, compatibility rules, and migrations for artifacts not representable by built-in manifests. | The [roadmap](product/roadmap.md) identifies this as remaining Phase 3 work; current templates materialize into built-ins instead. | No arbitrary Python/JavaScript or executable repository code may bypass canonical graph validation. | — | — | None | [Plugin and custom-node model](ontology/plugin_and_custom_node_model.md); [Roadmap](product/roadmap.md) | Define and implement the trusted package boundary when this capability enters scope. |
 | `dataset.split-materialization` | `NOT_IMPLEMENTED` | Preprocessing, materialized partitions, training data loading, and checkpoint-backed dataset execution. | The [dataset architecture](architecture/dataset_management.md), [roadmap](product/roadmap.md), and [README boundary](../../README.md) state that split configuration is declarative and does not materialize partitions. | Registration and metadata validation are present; execution of the data pipeline is absent. | — | — | None | [Dataset management](architecture/dataset_management.md); [Roadmap](product/roadmap.md) | Treat as Phase 2 work; do not describe declarative split configuration as a materialized dataset. |
 | `training.execution` | `NOT_IMPLEMENTED` | Worker-backed training, optimizer steps, weight updates, checkpoints, evaluation, and persistent training jobs. | The [2026-09-11 E2E report](../QA/e2e-system-validation-20260911/END_TO_END_UI_SYSTEM_VALIDATION.md) observed the explicit disabled Start training boundary; the [README](../../README.md) states training is not provided. | The Training page is a session-only configuration draft and does not start workers or update weights. | — | 2026-09-11 | Manual E2E, explicit limitation | [Product scope](product/vision_and_scope.md); [Roadmap](product/roadmap.md) | Keep the capability visibly disabled until the Phase 2 training contract is implemented and validated. |
-| `ui.settings.runtime-preferences` | `PARTIAL` | Device and memory-policy preference storage, validation, and reconciliation with live metadata. | Storage round-trip and malformed-record tests passed in the [2026-09-10 remediation report](../QA/e2e-system-validation-20260910/REMEDIATION-EVIDENCE.md). | Exact reload persistence after a CUA-driven native-select change was not authoritative because the driver did not consistently dispatch the Angular input event. | Browser automation could not complete the native-select event path reliably. | 2026-09-10 | Unit + manual, partial browser evidence | [2026-09-10 E2E report](../QA/e2e-system-validation-20260910/E2E_SYSTEM_VALIDATION_REPORT.md); [Configuration](runtime/configuration.md) | Repeat with a reliable native-select interaction and either close the gap or record a reproducible defect. |
+| `ui.settings.runtime-preferences` | `VALIDATED` | Last active backend/API, device, and memory policy persist across reload; stale or malformed preferences reconcile to available defaults; controls remain usable in memory when storage is inaccessible. | The [NW-T1-04 report](../QA/comprehensive-validation-20260923/NW-T1-04.md) records 10 focused tests, a production build, six serial browser workflows, and the [post-reload Environment screenshot](../QA/comprehensive-validation-20260923/evidence/nw-t1-04-active-preference-reload.png). | Cross-reload persistence is unavailable when browser storage rejects reads or writes; the UI keeps the selection for the current session without claiming persistence. Runtime execution is outside this component scope. | — | 2026-09-23 | Unit + E2E + manual browser | [Configuration](runtime/configuration.md); [NW-T1-04 report](../QA/comprehensive-validation-20260923/NW-T1-04.md) | Revalidate when preference storage/schema or runtime metadata contracts change. |
 | `validation.quality-gates` | `PARTIAL` | Repository-wide automated quality and browser-test reliability gates. | The 2026-09-20 investigation records frontend tests/build/lint passing, 28 E2E tests plus 1 skip, 654 backend tests with 1 environment-gated failure, 104 existing Ruff findings, and 370 existing Pyright errors. On 2026-09-22 the frontend lint, 100 unit tests, build, 15 focused route checks across three repetitions, and 10-test shell suite passed; see the [current campaign report](../QA/comprehensive-validation-20260922/NW-T1-01.md). | Shared SQLite/connector timing under parallel fixtures, a Playwright web-server process that requires manual cleanup on this Windows run, and repository-wide static-analysis debt. See `ISSUE-001` through `ISSUE-003` and `ISSUE-006`. | Test-harness reliability and existing repository-wide quality debt. | 2026-09-22 | Unit + focused E2E | [Testing strategy](development/testing_strategy.md); [CI workflow](../../.github/workflows/ci.yml); [Live compatibility report](../QA/live-backend-compatibility-e2e-20260913.md); [Current campaign ledger](../QA/comprehensive-validation-20260922/validation-ledger.md) | Resolve parallel fixture and Windows web-server cleanup behavior, triage static-analysis debt, then rerun the full gates. |
 
 ## Open issues
@@ -107,7 +111,6 @@ Validation debt is insufficient or stale evidence, not proof of a defect. It is 
 | --- | --- | --- | --- |
 | `ui.builder.catalog-coverage` | Low | Browser and runtime matrix for the remaining built-in catalog, especially uncommon ranks, merge/sequence behavior, and profile-specific parameters. | High |
 | `runtime.live-profile-matrix` | Medium | Fresh current-checkout live evidence for all six Keras/native profiles, with TensorFlow/JAX execution/export separated from unavailable compiler states. | High |
-| `ui.settings.runtime-preferences` | Medium | Authoritative browser reload persistence after changing native select controls. | Medium |
 | `custom_nodes.semantic-save` | Low | Browser save, reload, and validation of a semantic mathematical template; the wizard-open path is not enough. | Medium |
 | `validation.e2e.parallel-fixtures` | Low | A clean default-worker run without shared-SQLite locking or connector-readiness timing failures. | Medium |
 | `ui.accessibility.assistive-tech` | Low | Manual screen-reader and supported browser/OS matrix validation; current checks cover semantics, focus, labels, and containment only. | Medium |
@@ -120,7 +123,7 @@ The entries below are retained for provenance only. They are not active issues; 
 | Finding group | Resolution and evidence | Current treatment |
 | --- | --- | --- |
 | Model Builder D1-D8 | Null capability defaults, undefined parameter capabilities, enum display, nullable values, generated Keras loss, stale tabs, semantic dirty comparison, and invalid-parameter repair were fixed and retested in the [2026-09-20 representative investigation](../QA/model-builder-validation-20260908/representative-slice-20260920.md). | Resolved; representative Builder status is `VALIDATED`. |
-| E2E findings 1-6 and 8-10 | Runtime discovery actions, inference/export polling, ONNX opset choices, invalid-parameter gating, nested diagnostics, dataset First N hydration, unknown API fallback, and request logging were remediated and retested in the [2026-09-10 report](../QA/e2e-system-validation-20260910/E2E_SYSTEM_VALIDATION_REPORT.md). | Resolved; runtime preference persistence is intentionally excluded because its browser path remains validation debt. |
+| E2E findings 1-6 and 8-10 | Runtime discovery actions, inference/export polling, ONNX opset choices, invalid-parameter gating, nested diagnostics, dataset First N hydration, unknown API fallback, and request logging were remediated and retested in the [2026-09-10 report](../QA/e2e-system-validation-20260910/E2E_SYSTEM_VALIDATION_REPORT.md). | Those findings remain resolved; runtime preference persistence was validated separately in NW-T1-04 on 2026-09-23. |
 | Compilation F-01 | Persisted loss selection was corrected at the option level and rechecked in desktop/mobile browser evidence in the [2026-09-11 report](../QA/e2e-system-validation-20260911/END_TO_END_UI_SYSTEM_VALIDATION.md). | Resolved; keep the regression assertion. |
 | E2E harness F-02 | Canvas-fit and connector-readiness waits were added so geometry-sensitive tests observe settled state. | Resolved for the covered workflow; parallel reliability remains `ISSUE-001`/`ISSUE-002`. |
 
