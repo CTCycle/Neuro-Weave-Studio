@@ -2,8 +2,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test, type APIRequestContext } from '@playwright/test'
 
-const visualEvidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'model-builder-evaluation-20260902', 'screenshots')
-const campaignEvidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'comprehensive-validation-20260923', 'evidence')
+const defaultCampaignEvidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'comprehensive-validation-20260923', 'evidence')
+const defaultVisualEvidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'model-builder-evaluation-20260902', 'screenshots')
+const campaignEvidenceDir = path.resolve(process.env.NW_VALIDATION_EVIDENCE_DIR ?? defaultCampaignEvidenceDir)
+const visualEvidenceDir = process.env.NW_VALIDATION_EVIDENCE_DIR ? campaignEvidenceDir : defaultVisualEvidenceDir
 const kerasImportFixture = Buffer.from('UEsDBBQAAAAIALVcKl3fELsi1QAAAL8BAAALAAAAY29uZmlnLmpzb26dj8FqwzAMhl/F+JxLu512K/RSGIOxYylBjZVUzLFTS14pIe9eqxAoaU+7iV+f9EmjbTww1wF6tB/G/uA5YxACbytjmxha6ko+2hn43phdP8Qk6MwXyiWmXyU9XDFxAfbjYuMuDFk+tb3YeARpTjWfYFBuH7L3lXk/FMjJ9Z7Z1keQt7UO8gCJNWzBM5YgQdehewhm4RlqUqedpsosr9liKFtev1YG3dzOgUTfWZcaGqE/EIpBqYQ+3wnG+kigkKSM/5DFLHrmg231ZGPq+kjupfAwTTdQSwMEFAAAAAgAtVwqXafnk7AYAAAAFgAAAA0AAABtZXRhZGF0YS5qc29uq1bKTi1KLI4vSy0qzszPU7JSUDJWqgUAUEsBAhQAFAAAAAgAtVwqXd8QuyLVAAAAvwEAAAsAAAAAAAAAAAAAAIABAAAAAGNvbmZpZy5qc29uUEsBAhQAFAAAAAgAtVwqXafnk7AYAAAAFgAAAA0AAAAAAAAAAAAAAIAB/gAAAG1ldGFkYXRhLmpzb25QSwUGAAAAAAIAAgB0AAAAQQEAAAAA', 'base64')
 
 type CreatedProject = { id: string; current_revision: number; name: string }
@@ -124,7 +126,7 @@ function fanOutGraph() {
       { ...base.nodes[0], id: 'input-branch-e2e', label: 'Branch source', position: { x: 48, y: 160 } },
       { ...base.nodes[1], id: 'dense-primary-e2e', label: 'Primary branch', position: { x: 352, y: 80 }, parameters: denseParameters(16, 'relu') },
       { ...base.nodes[2], id: 'merge-add-e2e', definition_id: 'merge.add', label: 'Merge', position: { x: 656, y: 160 }, parameters: {} },
-      { ...base.nodes[1], id: 'dense-downstream-e2e', label: 'Downstream', position: { x: 960, y: 80 }, parameters: denseParameters(16, 'relu') },
+      { ...base.nodes[1], id: 'dense-downstream-e2e', label: 'Downstream', position: { x: 960, y: 80 }, parameters: denseParameters(1, 'sigmoid') },
       { ...base.nodes[3], id: 'output-branch-e2e', label: 'Prediction', position: { x: 1264, y: 80 } },
       { ...base.nodes[1], id: 'dense-fanout-e2e', label: 'Fan-out target', position: { x: 352, y: 360 }, parameters: denseParameters(8, 'tanh') },
       { ...base.nodes[2], id: 'mask-target-e2e', definition_id: 'transformer.attention_mask', label: 'Mask target', position: { x: 656, y: 440 }, parameters: {} },
@@ -464,7 +466,7 @@ test('keeps Inspector controls contract-driven and Backend picker dark and keybo
   }
 })
 
-test('renders stable connection previews, fan-out connections, and cycle rejection feedback', async ({ page, request }) => {
+test('NW-T2-02: validates connection previews, cardinality, inferred shapes, and rejected graph edits', async ({ page, request }) => {
   const branchGraph = fanOutGraph()
   const fixture = await createProject(request, `Angular graph UX ${Date.now()}`, branchGraph)
   try {
@@ -481,22 +483,70 @@ test('renders stable connection previews, fan-out connections, and cycle rejecti
     await page.mouse.up()
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
 
+    const rejectedShapeResponse = page.waitForResponse((response) => {
+      if (!response.url().endsWith('/api/validation/connection') || response.request().method() !== 'POST') return false
+      const body = response.request().postDataJSON() as { connection?: { target_node_id?: string } }
+      return body.connection?.target_node_id === 'merge-add-e2e'
+    })
+    await dragConnection(page, 'dense-fanout-e2e|output|output', 'merge-add-e2e|input|inputs')
+    await expect(page.locator('[data-f-connector-id="merge-add-e2e|input|inputs"]')).toHaveClass(/f-connector-connectable/)
+    await expect(page.locator('[data-f-connector-id="dense-primary-e2e|input|input"]')).not.toHaveClass(/f-connector-connectable/)
+    await page.mouse.up()
+    const rejectedShape = await (await rejectedShapeResponse).json() as { valid: boolean; diagnostics: Array<{ code: string }> }
+    expect(rejectedShape.valid).toBe(false)
+    expect(rejectedShape.diagnostics.some((diagnostic) => diagnostic.code === 'incompatible_connection_shape')).toBe(true)
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
+
+    await page.locator('[data-node-id="dense-fanout-e2e"] .nw-flow-node').click()
+    await page.getByLabel('Units').fill('16')
+    await expect(page.getByLabel('Units')).toHaveValue('16')
+    const acceptedShapeResponse = page.waitForResponse((response) => {
+      if (!response.url().endsWith('/api/validation/connection') || response.request().method() !== 'POST') return false
+      const body = response.request().postDataJSON() as { connection?: { target_node_id?: string } }
+      return body.connection?.target_node_id === 'merge-add-e2e'
+    })
+    await dragConnection(page, 'dense-fanout-e2e|output|output', 'merge-add-e2e|input|inputs')
+    await expect(page.locator('[data-f-connector-id="merge-add-e2e|input|inputs"]')).toHaveClass(/f-connector-connectable/)
+    await page.mouse.up()
+    const acceptedShape = await (await acceptedShapeResponse).json() as { valid: boolean }
+    expect(acceptedShape.valid).toBe(true)
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(6)
+
     const saveResponse = page.waitForResponse((response) => response.url().includes(`/api/projects/${fixture.id}`) && response.request().method() === 'PUT')
     await page.getByRole('button', { name: 'Save model', exact: true }).click()
     const saved = await (await saveResponse).json() as { graph: { edges: unknown[] } }
-    expect(saved.graph.edges).toHaveLength(5)
+    expect(saved.graph.edges).toHaveLength(6)
 
     await dragConnection(page, 'dense-downstream-e2e|output|output', 'merge-add-e2e|input|inputs')
     await expect(page.locator('[data-f-connector-id="merge-add-e2e|input|inputs"]')).toHaveClass(/f-connector-connectable/)
     await page.mouse.up()
     await expect(page.getByRole('status')).toContainText('cycle')
-    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
-    await page.screenshot({ path: path.join(visualEvidenceDir, 'final-builder-validation.png'), fullPage: true })
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(6)
+    await page.screenshot({ path: path.join(visualEvidenceDir, 'nw-t2-02-cycle-rejection.png'), fullPage: true })
 
     await dragConnection(page, 'input-branch-e2e|output|output', 'mask-target-e2e|input|input')
     await expect(page.locator('[data-f-connector-id="mask-target-e2e|input|input"]')).not.toHaveClass(/f-connector-connectable/)
     await page.mouse.up()
-    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(5)
+    await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(6)
+
+    await page.locator('[data-node-id="mask-target-e2e"] .nw-flow-node').click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Delete node', exact: true }).click()
+    await expect(page.locator('.nw-flow-node')).toHaveCount(6)
+
+    const validationResponse = page.waitForResponse((response) => {
+      if (!response.url().endsWith('/api/validation') || response.request().method() !== 'POST') return false
+      const body = response.request().postDataJSON() as { graph?: { nodes?: unknown[]; edges?: unknown[] } }
+      return body.graph?.nodes?.length === 6 && body.graph.edges?.length === 6
+    })
+    await page.getByRole('button', { name: 'Validate', exact: true }).click()
+    const validation = await (await validationResponse).json() as {
+      valid: boolean
+      shape_summaries: Array<{ node_id: string; outputs: Record<string, { shape: Array<number | null> }> }>
+    }
+    expect(validation.valid).toBe(true)
+    const mergeShape = validation.shape_summaries.find((summary) => summary.node_id === 'merge-add-e2e')
+    expect(mergeShape?.outputs.output.shape).toEqual([null, 16])
+    await page.screenshot({ path: path.join(visualEvidenceDir, 'nw-t2-02-valid-merge-shape.png'), fullPage: true })
   } finally {
     await deleteProject(request, fixture.id)
   }
@@ -505,7 +555,9 @@ test('renders stable connection previews, fan-out connections, and cycle rejecti
 test('retains parameter-incompatible drafts while disabling compilation and export actions', async ({ page, request }) => {
   test.setTimeout(90_000)
   const fixture = await createProject(request, `Angular compatibility ${Date.now()}`, backendCompatibilityGraph())
-  const evidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'backend-compatibility-consolidation')
+  const evidenceDir = process.env.NW_VALIDATION_EVIDENCE_DIR
+    ? campaignEvidenceDir
+    : path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'backend-compatibility-consolidation')
   await mkdir(evidenceDir, { recursive: true })
   try {
     await page.goto(`/builder/${fixture.id}`)
@@ -567,7 +619,9 @@ test('retains parameter-incompatible drafts while disabling compilation and expo
 test('polls a compatible functional-validation job to a verified result', async ({ page, request }) => {
   test.setTimeout(120_000)
   const fixture = await createProject(request, `Angular compatibility smoke ${Date.now()}`)
-  const evidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'backend-compatibility-consolidation')
+  const evidenceDir = process.env.NW_VALIDATION_EVIDENCE_DIR
+    ? campaignEvidenceDir
+    : path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'backend-compatibility-consolidation')
   await mkdir(evidenceDir, { recursive: true })
   try {
     await page.goto(`/models/${fixture.id}/validation`)
@@ -623,6 +677,7 @@ test('keeps edge selection, inspector details, deletion, and undo synchronized',
   try {
     await page.goto(`/builder/${fixture.id}`)
     await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(3)
+    await waitForCanvasFit(page)
     await page.locator('f-connection path.f-connection-selection').first().click({ force: true })
     await expect(page.locator('f-connection.is-selected')).toHaveCount(1)
     await expect(page.getByRole('heading', { name: 'Connection' })).toBeVisible()
