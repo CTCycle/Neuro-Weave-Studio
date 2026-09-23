@@ -1,0 +1,47 @@
+
+ RUN  v4.1.11 G:/Projects/Repositories/Active projects/Neuro Weave Studio/app/client
+
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > adds a verified common node for the tensorflow true profile 10ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > adds a verified common node for the pytorch true profile 2ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > adds a verified common node for the jax true profile 1ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > adds a verified common node for the tensorflow false profile 2ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > adds a verified common node for the pytorch false profile 2ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > adds a verified common node for the jax false profile 1ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > rejects a missing, unsupported, or unverified selected node mapping before mutation 3ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > commits a compatible connection under the tensorflow true profile 3ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > commits a compatible connection under the pytorch true profile 2ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > commits a compatible connection under the jax true profile 1ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > commits a compatible connection under the tensorflow false profile 1ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > commits a compatible connection under the pytorch false profile 1ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > commits a compatible connection under the jax false profile 1ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > rejects direct connection commits for an unavailable endpoint without partial history 1ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > retains invalid values for repair while guarding update, duplicate, and paste paths 3ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > rejects malformed parameter mutations without changing the stored graph 1ms
+ ✓ src/app/features/builder/state/graph-editor.compatibility.test.ts > GraphEditorStore backend compatibility guards > retains parameter values and re-resolves their diagnostics after profile changes 1ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > rejects an edge that closes a cycle 5ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > preserves export and future-training metadata across undo and redo 7ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > keeps a valid node selection while undoing and redoing its edits 4ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > captures and restores a detached session with selection and history 5ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > deletes a selected edge without deleting its endpoint nodes 2ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > duplicates exact configuration and creates a detached default copy 3ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > uses framework defaults for reset and default duplication 2ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > falls back to the declared default when API metadata leaves editor defaults null 1ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > uses the selected implementation capability default when one is declared 2ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > rejects invalid and duplicate port connections before they reach the graph 2ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > matches backend tensor-list connection semantics for candidate filtering 2ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > accepts materialized split ports and prunes removed connections and bindings 1ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > allows output fan-out and supported multi-input connections 1ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > returns typed cycle feedback without adding history or an edge 2ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > does not mark input nodes as explicit outputs 1ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > guards inferred terminal outputs and updates availability across explicit transitions 2ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > deduplicates restored bindings and preserves independent multi-output bindings 1ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > locks a node against movement while preserving configuration and output state 3ms
+ ✓ src/app/features/builder/state/graph-editor.store.test.ts > neutral graph editor store > does not dirty the draft for editor-only state and batches drag revisions 2ms
+ ✓ src/app/core/api/api.service.test.ts > ApiService dataset request timeouts > keeps the 10 second default and opts dataset operations into the longer timeout 15ms
+ ✓ src/app/core/api/api.service.test.ts > ApiService dataset request timeouts > gives whole-graph validation time to infer shapes and keeps connector checks responsive 2ms
+ ✓ src/app/core/api/api.service.test.ts > ApiService dataset request timeouts > extends timeouts for architecture imports and artifact downloads 4ms
+
+ Test Files  3 passed (3)
+      Tests  39 passed (39)
+   Start at  19:59:45
+   Duration  3.00s (transform 615ms, setup 0ms, import 2.76s, tests 117ms, environment 5.02s)

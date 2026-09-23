@@ -1,0 +1,184 @@
+{
+  "run_id": "NW-CV-20260923-T2-02",
+  "date": "2026-09-23",
+  "last_updated": "2026-09-23",
+  "repository": "CTCycle/Neuro-Weave-Studio",
+  "branch": "develop",
+  "base_revision": "bf96542310669b5d25084d00ca29e3677500e80c",
+  "validated_source_revision": "66d04b3c788baf8ba2921a7f3c1cd4c8541e1e44",
+  "test_spec": "app/client/e2e/workflows.spec.ts",
+  "test_spec_sha256": "BBE0C773FAF784F019F08003DD19E3016A75AD2C54C7AEFB30A97E5BD9F31A19",
+  "status": "PASS",
+  "scope": "Builder connection candidates, connector readiness, input cardinality, fan-out, inferred shapes, cycle and incompatible-edge rejection, repair, and directly related Playwright reliability rechecks",
+  "environment_interruptions": [
+    {
+      "event": "An interim browser rerun found that the earlier detached official-launcher instance had stopped; ports 6425/9750 were not listening and the backend health request was refused.",
+      "recovery": "Restarted the isolated instance with the official launcher, confirmed UI/backend readiness, and completed the full suite plus repeat and two-worker runs successfully.",
+      "final_status_impact": "No change; only complete runs against the healthy current instance are counted in PASS results."
+    }
+  ],
+  "preliminary_failures": [
+    {
+      "event": "An initial NW-T2-02 Playwright attempt exceeded the 30-second test deadline while its finally block deleted the fixture project.",
+      "evidence": "logs/nw-t2-02-final.log",
+      "follow_up": "The later full serial suite, three serial connection repeats, and focused two-worker run all passed; this cleanup timeout did not recur.",
+      "final_status_impact": "The initial failed attempt is retained and disclosed; the PASS is based on the complete successful current-source runs."
+    }
+  ],
+  "environment": {
+    "platform": "Windows 11 build 26200",
+    "python": "3.13.14",
+    "node": "22.23.1",
+    "npm": "10.9.8",
+    "browser": "Chromium 151.0.7922.34; Codex in-app Browser",
+    "backend_url": "http://127.0.0.1:9750",
+    "official_preview_url": "http://127.0.0.1:6425",
+    "playwright_base_url": "http://127.0.0.1:6425",
+    "playwright_dev_server_started_for_workflows": false,
+    "playwright_dev_server_started_for_shell_lifecycle": true,
+    "database": "runtimes/cache/comprehensive-validation-20260923-t2-02/neuroweave.db",
+    "live_node_catalog_count": 149,
+    "live_node_catalog_sha256": "8E14514CF7E3EB154B13CB1F5ABD24B6461CB7B0671A13B6476EA29BF6A7A5EA"
+  },
+  "checks": [
+    {
+      "name": "focused backend connection, profile, shape, and cycle tests",
+      "result": "PASS",
+      "passed": 13,
+      "deselected": 11,
+      "exit_code": 0,
+      "command": "python -m pytest -o cache_dir=../../runtimes/cache/comprehensive-validation-20260923-t2-02/pytest-cache -o basetemp=../../runtimes/cache/comprehensive-validation-20260923-t2-02/pytest-temp test_connection_validation.py test_connection_profile_validation.py test_validation.py -k 'connection or shape or cycle'",
+      "log": "logs/nw-t2-02-backend-focused-final.log",
+      "limitations": ["Pytest reported that its optional node-id cache could not be written in the managed cache directory; tests passed and pytest exited 0."]
+    },
+    {
+      "name": "focused frontend graph-store, API service, and compatibility tests",
+      "result": "PASS",
+      "passed": 39,
+      "files": 3,
+      "exit_code": 0,
+      "log": "logs/nw-t2-02-frontend-final.log"
+    },
+    {
+      "name": "official launcher production rebuild and service readiness",
+      "result": "PASS",
+      "exit_code": 0,
+      "backend_port": 9750,
+      "frontend_port": 6425,
+      "frontend_build_seconds": 17.4,
+      "log": "logs/launcher-nw-t2-02-final.log"
+    },
+    {
+      "name": "official launcher recovery readiness using the current production build",
+      "result": "PASS",
+      "exit_code": 0,
+      "backend_port": 9750,
+      "frontend_port": 6425,
+      "log": "logs/nw-t2-02-preview-recovery.txt",
+      "raw_launcher_output_retained": false,
+      "limitations": ["Restart readiness is recorded in the contemporaneous recovery note; the raw launcher output was not retained separately. The complete browser workflows then passed against the healthy services."]
+    },
+    {
+      "name": "full serial Builder and adjacent workflow suite against official preview",
+      "result": "PASS",
+      "passed": 16,
+      "workers": 1,
+      "duration_seconds": 44.9,
+      "exit_code": 0,
+      "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:6425 PLAYWRIGHT_WORKERS=1 npm run e2e -- e2e/workflows.spec.ts --reporter=list",
+      "log": "logs/nw-t2-02-workflows-final-current.log",
+      "assertions": [
+        "Valid input-to-branch and branch-to-merge connections",
+        "Output fan-out and supported merge fan-in",
+        "Server rejection of an incompatible connection shape without adding an edge",
+        "Repair of the mismatched width and acceptance of the repaired candidate",
+        "Cycle rejection without adding an edge",
+        "Inferred merge shape [null, 16] and valid whole-graph response",
+        "Connector readiness observed from computed connectable state without fixed delays"
+      ]
+    },
+    {
+      "name": "NW-T2-02 serial repeat",
+      "result": "PASS",
+      "passed": 3,
+      "workers": 1,
+      "duration_seconds": 18.6,
+      "exit_code": 0,
+      "log": "logs/nw-t2-02-connection-repeat-final-current.log"
+    },
+    {
+      "name": "NW-T2-02 and edge-edit neighbor under two workers",
+      "result": "PASS",
+      "passed": 4,
+      "workers": 2,
+      "duration_seconds": 12.1,
+      "exit_code": 0,
+      "sqlite_lock_reproduced": false,
+      "log": "logs/nw-t2-02-two-workers-final-current.log",
+      "limitations": ["This focused two-worker check does not complete the planned 1/2/4-worker NW-T5-02 matrix."]
+    },
+    {
+      "name": "default Playwright shell suite and configured webServer lifecycle",
+      "result": "PASS",
+      "passed": 10,
+      "workers": 1,
+      "duration_minutes": 2.2,
+      "exit_code": 0,
+      "playwright_base_url_override": false,
+      "port_6426_listener_after_exit": false,
+      "log": "logs/nw-t2-02-shell-lifecycle-final.log"
+    },
+    {
+      "name": "Codex in-app Browser render inspection",
+      "result": "PASS",
+      "node_count": 6,
+      "edge_count": 5,
+      "graph_health": "No findings; Ready",
+      "merge_output_shape": [null, 16],
+      "evidence": "evidence/nw-t2-02-inapp-browser-observation.md"
+    },
+    {
+      "name": "fixture and process cleanup",
+      "result": "PASS",
+      "fixture_absent": true,
+      "fixture_cleanup_log": "logs/nw-t2-02-fixture-cleanup.txt",
+      "launcher_process_trees_stopped": true,
+      "ports_verified_free": [6425, 6426, 9750],
+      "isolated_database_removed": true,
+      "cache_directory_removed": false,
+      "remaining_cache_path": "runtimes/cache/comprehensive-validation-20260923-t2-02/pytest-cache",
+      "process_cleanup_log": "logs/nw-t2-02-process-cleanup.txt",
+      "limitations": ["The pytest cache directory remained inaccessible with Windows Access Denied; the isolated database and sidecars were removed, and no validation processes or listeners remain."]
+    }
+  ],
+  "evidence": [
+    "NW-T2-02.md",
+    "NW-T2-02-run-manifest.json",
+    "logs/launcher-nw-t2-02-final.log",
+    "logs/nw-t2-02-backend-focused-final.log",
+    "logs/nw-t2-02-frontend-final.log",
+    "logs/nw-t2-02-workflows-final-current.log",
+    "logs/nw-t2-02-connection-repeat-final-current.log",
+    "logs/nw-t2-02-two-workers-final-current.log",
+    "logs/nw-t2-02-shell-lifecycle-final.log",
+    "logs/nw-t2-02-preview-recovery.txt",
+    "logs/nw-t2-02-final.log",
+    "logs/nw-t2-02-fixture-cleanup.txt",
+    "logs/nw-t2-02-process-cleanup.txt",
+    "evidence/nw-t2-02-inapp-browser-observation.md",
+    "evidence/nw-t2-02-final-browser-run/nw-t2-02-cycle-rejection.png",
+    "evidence/nw-t2-02-final-browser-run/nw-t2-02-valid-merge-shape.png",
+    "evidence/nw-t2-02-live-catalog.json"
+  ],
+  "resolved_issues": {
+    "ISSUE-002": "Candidate readiness is exposed synchronously and observed through connectable state; the connection flow passed three serial repeats and the focused two-worker run.",
+    "ISSUE-006": "The default shell suite passed 10/10, exited naturally, and released port 6426."
+  },
+  "remaining": [
+    "ISSUE-001 remains open pending the complete 1/2/4-worker SQLite matrix; no lock reproduced in the focused two-worker run.",
+    "Seven other Tier 2 slices, all 19 catalog slices, four runtime/integration slices, and five Tier 5 slices remain untested.",
+    "NW-T0-03 remains partial because strict Pyright reports 52 errors across five test modules.",
+    "Native TensorFlow XLA is blocked by this environment; native PyTorch torch.compile still requires the documented developer toolchain.",
+    "Full Builder catalog coverage, a fresh six-profile live runtime matrix, startup timing/conflict matrix, assistive-technology testing, and independent browser-download evidence remain outstanding."
+  ]
+}
