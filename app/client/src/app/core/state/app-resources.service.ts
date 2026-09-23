@@ -20,7 +20,13 @@ import {
   preferredBackend,
   preferredBackendForApi as selectPreferredBackendForApi,
 } from './runtime-selection'
-import { readRuntimePreferences, storedPreferenceBackend, writeRuntimePreferences } from './runtime-preference-storage'
+import {
+  readRuntimePreferenceBackend,
+  readRuntimePreferences,
+  storedPreferenceBackend,
+  writeRuntimePreferenceBackend,
+  writeRuntimePreferences,
+} from './runtime-preference-storage'
 
 @Injectable({ providedIn: 'root' })
 export class AppResourcesService {
@@ -35,7 +41,9 @@ export class AppResourcesService {
   readonly compilationCapabilities = signal<CompilationCapabilities | null>(null)
   readonly metricDefinitions = signal<MetricDefinition[]>([])
   readonly runtimePreferences = signal<Partial<Record<ExecutionBackend, WorkerConfiguration>>>(this.storedPreferences)
-  readonly runtimePreferenceBackend = signal<ExecutionBackend | null>(storedPreferenceBackend(this.storedPreferences))
+  readonly runtimePreferenceBackend = signal<ExecutionBackend | null>(
+    readRuntimePreferenceBackend() ?? storedPreferenceBackend(this.storedPreferences),
+  )
   readonly catalogReady = signal(false)
   readonly projectsReady = signal(false)
   readonly datasetsReady = signal(false)
@@ -125,11 +133,15 @@ export class AppResourcesService {
       this.runtimePreferences.set(next)
       writeRuntimePreferences(next)
       const selected = this.runtimePreferenceBackend()
-      this.runtimePreferenceBackend.set(
-        selected && next[selected] && statuses.some((item) => item.id === selected && item.available)
-          ? selected
-          : preferredBackend(statuses),
-      )
+      const preferred = preferredBackend(statuses)
+      const fallback = preferred && next[preferred]
+        ? preferred
+        : statuses.find((item) => next[item.id])?.id ?? null
+      const activeBackend = selected && next[selected] && statuses.some((item) => item.id === selected && item.available)
+        ? selected
+        : fallback
+      this.runtimePreferenceBackend.set(activeBackend)
+      writeRuntimePreferenceBackend(activeBackend)
       for (const status of statuses) {
         for (const api of status.runtime_apis ?? []) {
           if (api.state === 'unchecked' || api.state === undefined) this.validatedDiscoveries.delete(discoveryKey(status.id, api.id))
@@ -262,6 +274,7 @@ export class AppResourcesService {
 
   selectRuntimePreferenceBackend(backend: ExecutionBackend | null): void {
     this.runtimePreferenceBackend.set(backend)
+    writeRuntimePreferenceBackend(backend)
     if (!backend) return
     const status = this.backendStatuses().find((item) => item.id === backend)
     if (!status) return
@@ -281,6 +294,7 @@ export class AppResourcesService {
     this.runtimePreferences.set(next)
     writeRuntimePreferences(next)
     this.runtimePreferenceBackend.set(selection.backend)
+    writeRuntimePreferenceBackend(selection.backend)
   }
 
   clearError(): void {
