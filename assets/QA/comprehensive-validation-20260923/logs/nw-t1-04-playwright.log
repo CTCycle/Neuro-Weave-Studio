@@ -1,0 +1,24 @@
+
+> neuro-weave-frontend@1.0.0 e2e
+> playwright test e2e/runtime.spec.ts --workers=1
+
+
+[WebServer] (node:8212) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:8212) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker
+
+(node:32648) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/6] e2e\runtime.spec.ts:89:1 › persists the exact runtime device and memory policy after reload
+[2/6] e2e\runtime.spec.ts:119:1 › restores the last active backend and API with its device and memory policy
+[3/6] e2e\runtime.spec.ts:160:1 › reconciles a stored device that is no longer available
+[4/6] e2e\runtime.spec.ts:191:1 › falls back to the preferred available backend when the active backend disappears
+[5/6] e2e\runtime.spec.ts:229:1 › reconciles malformed nested preferences to a valid runtime default
+[6/6] e2e\runtime.spec.ts:263:1 › keeps runtime controls usable when browser storage reads and writes fail
+  6 passed (36.3s)

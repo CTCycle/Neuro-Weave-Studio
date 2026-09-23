@@ -1,0 +1,82 @@
+{
+  "run_id": "NW-CV-20260923-T1-04",
+  "date": "2026-09-23",
+  "repository": "CTCycle/Neuro-Weave-Studio",
+  "branch": "develop",
+  "base_revision": "db3351ed62f3e397c5dd09210181a9ab921492e0",
+  "validated_source_revision": "02b9d24edb5fcfe536ab5a74f8fde0b94c03bd13",
+  "status": "PASS",
+  "scope": "Runtime API/backend/device/memory preference persistence, malformed and stale storage, reload, and unavailable browser storage",
+  "environment": {
+    "platform": "Windows 11 10.0.26200.9457",
+    "python": "3.13.14",
+    "node": "22.23.1",
+    "npm": "10.9.8",
+    "angular": "22.1.4",
+    "vitest": "4.1.11",
+    "backend_url": "http://127.0.0.1:9849",
+    "official_preview_url": "http://127.0.0.1:6425",
+    "playwright_url": "http://127.0.0.1:6426",
+    "database": "runtimes/cache/comprehensive-validation-20260923-t1-04/neuroweave.db",
+    "runtime_discovery_file": "runtimes/cache/comprehensive-validation-20260923-t1-04/environment-discovery.json"
+  },
+  "checks": [
+    {
+      "name": "focused runtime storage and selection tests",
+      "result": "PASS",
+      "passed": 10,
+      "test_files": 2,
+      "exit_code": 0,
+      "command": "npm --prefix app/client run test -- src/app/core/state/runtime-preference-storage.test.ts src/app/core/state/runtime-selection.test.ts",
+      "log": "logs/nw-t1-04-focused-vitest.log"
+    },
+    {
+      "name": "Angular production build",
+      "result": "PASS",
+      "exit_code": 0,
+      "command": "npm --prefix app/client run build",
+      "log": "logs/nw-t1-04-angular-build.log"
+    },
+    {
+      "name": "serial runtime preference browser workflow",
+      "result": "PASS",
+      "passed": 6,
+      "workers": 1,
+      "duration_seconds": 36.3,
+      "exit_code": 0,
+      "command": "npm --prefix app/client run e2e -- e2e/runtime.spec.ts --workers=1",
+      "log": "logs/nw-t1-04-playwright.log"
+    },
+    {
+      "name": "official launcher and in-app Browser inspection",
+      "result": "PASS",
+      "preview_url": "http://127.0.0.1:6425/environment",
+      "launcher_log": "logs/launcher-t1-04.log",
+      "browser_diagnostics": "evidence/nw-t1-04-browser-diagnostics.md"
+    },
+    {
+      "name": "run-owned process cleanup",
+      "result": "PASS",
+      "ports_verified_free": [6425, 6426, 9849],
+      "log": "logs/nw-t1-04-process-cleanup.txt"
+    }
+  ],
+  "evidence": [
+    "NW-T1-04.md",
+    "NW-T1-04-run-manifest.json",
+    "logs/launcher-t1-04.log",
+    "logs/nw-t1-04-focused-vitest.log",
+    "logs/nw-t1-04-angular-build.log",
+    "logs/nw-t1-04-playwright.log",
+    "logs/nw-t1-04-process-cleanup.txt",
+    "evidence/nw-t1-04-browser-diagnostics.md",
+    "evidence/nw-t1-04-active-preference-reload.png"
+  ],
+  "remaining": [
+    "NW-T1-05 Settings and session-only Training boundary remains untested.",
+    "Tier 2 through Tier 5 remain untested.",
+    "NW-T0-03 repository-wide Ruff/Pyright and full-suite debt remains partial.",
+    "ISSUE-006 remains open pending the broader Windows shell gate.",
+    "No live runtime execution or export is claimed by this preference-persistence slice."
+  ]
+}
