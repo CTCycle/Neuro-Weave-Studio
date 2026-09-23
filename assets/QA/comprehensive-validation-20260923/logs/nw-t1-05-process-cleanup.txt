@@ -1,0 +1,19 @@
+NW-T1-05 owned-process cleanup — 2026-09-23
+
+The first official launcher run recorded backend/frontend process roots 10328
+and 14504 in `launcher-t1-05.log`. Their run-owned process trees were stopped
+with `taskkill.exe /PID <root> /T /F`; the commands succeeded and ports 6425,
+6426, and 9849 were verified free.
+
+The Codex in-app Browser inspection relaunched the official app. Its launcher
+recorded roots 22396 (backend) and 8288 (frontend), both `cmd.exe` processes
+started at 14:25:44. `Get-Process` confirmed those root identities. `netstat`
+showed listeners on port 9849 owned by PID 31080, a Python executable under
+this repository's portable runtime, and on port 6425 owned by PID 38992, the
+repository's portable Node executable. Both listener processes started with
+the launcher run. A normal `taskkill` attempt returned Access Denied; the
+reviewed `taskkill.exe /PID <root> /T /F` calls then stopped both recorded
+launcher trees successfully.
+
+Final `netstat.exe -ano` verification showed no listening sockets on ports
+6425, 6426, or 9849. No other process was stopped.

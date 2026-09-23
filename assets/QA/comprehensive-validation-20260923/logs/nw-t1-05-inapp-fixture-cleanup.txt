@@ -1,0 +1,8 @@
+NW-T1-05 in-app Browser fixture cleanup — 2026-09-23
+
+Deleted only the temporary dataset 520e4b71-7f4b-4d3b-90da-6d9afc656a9b and project a02affc5-b9a2-4659-9219-c16411672fc7 created for the manual Browser inspection. DELETE responses: dataset 204, project 204.
+Follow-up GET /api/projects and GET /api/datasets confirmed neither ID nor its run-specific name remains.
+Removed only G:\Projects\Repositories\Active projects\Neuro Weave Studio\assets\QA\comprehensive-validation-20260923\fixtures\inapp-training-boundary.csv under G:\Projects\Repositories\Active projects\Neuro Weave Studio\assets\QA\comprehensive-validation-20260923\fixtures.
+The Training draft was already absent after the Browser reload; it is session-only.
+
+After the Browser inspection and app shutdown, removed only the run-specific database directory. Files present were: neuroweave.db. No fixture records remained in its database.
