@@ -317,6 +317,20 @@ describe('neutral graph editor store', () => {
     expect(validateGraphConnection([source, sourceTwo, firstTarget], [
       { id: 'merge-one', ...mergeOne },
     ], mergeTwo).valid).toBe(true)
+
+    const singleTarget = {
+      ...firstTarget,
+      data: {
+        ...firstTarget.data,
+        manifest: {
+          ...targetManifest,
+          inputs: [{ ...targetManifest.inputs[0], accepts_multiple: false }],
+        },
+      },
+    }
+    expect(validateGraphConnection([source, sourceTwo, singleTarget], [
+      { id: 'single-input', ...mergeOne },
+    ], { ...mergeTwo, target: 'target-one' })).toMatchObject({ valid: false, reason: 'input_at_capacity' })
   })
 
   it('returns typed cycle feedback without adding history or an edge', () => {

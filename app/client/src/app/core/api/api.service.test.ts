@@ -26,6 +26,20 @@ describe('ApiService dataset request timeouts', () => {
     }
   })
 
+  it('gives whole-graph validation time to infer shapes and keeps connector checks responsive', async () => {
+    const request = vi.fn(() => of({}))
+    const injector = Injector.create({
+      providers: [{ provide: HttpClient, useValue: { request } }],
+    })
+    const service = runInInjectionContext(injector, () => new ApiService())
+
+    await service.validate({} as never, 'pytorch', true)
+    await service.validateConnection({} as never, {} as never, 'pytorch', true)
+
+    expect(request.mock.calls[0][2]).toEqual(expect.objectContaining({ timeout: 60_000 }))
+    expect(request.mock.calls[1][2]).toEqual(expect.objectContaining({ timeout: 10_000 }))
+  })
+
   it('extends timeouts for architecture imports and artifact downloads', async () => {
     const post = vi.fn(() => of({}))
     const get = vi.fn(() => of(new Blob()))

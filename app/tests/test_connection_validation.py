@@ -81,6 +81,7 @@ def test_connection_validation_rejects_duplicate_and_cycle_edges() -> None:
     graph = ModelGraph(
         nodes=[
             make_node("input", "input.tabular", {"shape": [8]}),
+            make_node("other-input", "input.tabular", {"shape": [8]}),
             make_node("dense", "layer.dense", {"units": 4}),
             make_node("output", "output.regression"),
         ],
@@ -103,10 +104,13 @@ def test_connection_validation_rejects_duplicate_and_cycle_edges() -> None:
     )
 
     duplicate = validate_connection(graph, proposed_edge("input", "dense"))
+    capacity = validate_connection(graph, proposed_edge("other-input", "dense"))
     cycle = validate_connection(graph, proposed_edge("output", "dense"))
 
     assert not duplicate.valid
     assert any(item.code == "duplicate_connection" for item in duplicate.diagnostics)
+    assert not capacity.valid
+    assert any(item.code == "multiple_connections_not_allowed" for item in capacity.diagnostics)
     assert not cycle.valid
     assert any(item.code == "cycle_detected" for item in cycle.diagnostics)
 

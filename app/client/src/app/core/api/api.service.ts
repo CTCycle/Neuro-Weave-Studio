@@ -40,6 +40,7 @@ import type {
 const API_BASE = '/api'
 const CONNECTION_CANDIDATE_BATCH_SIZE = 256
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000
+const GRAPH_VALIDATION_TIMEOUT_MS = 60_000
 const DATASET_OPERATION_TIMEOUT_MS = 60_000
 const ARCHITECTURE_IMPORT_TIMEOUT_MS = 60_000
 const ARTIFACT_DOWNLOAD_TIMEOUT_MS = 60_000
@@ -190,7 +191,7 @@ export class ApiService {
   }
 
   validate(graph: ModelGraph, execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ValidationResult> {
-    return this.request('/validation', 'POST', { graph, execution_backend, keras_enabled })
+    return this.request('/validation', 'POST', { graph, execution_backend, keras_enabled }, { timeoutMs: GRAPH_VALIDATION_TIMEOUT_MS })
   }
 
   validateConnection(graph: ModelGraph, connection: ModelGraph['edges'][number], execution_backend: ExecutionBackend, keras_enabled: boolean): Promise<ConnectionValidationResult> {
