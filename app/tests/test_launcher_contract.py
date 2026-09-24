@@ -113,6 +113,28 @@ def test_environment_fast_path_and_lightweight_dependency_probe() -> None:
     assert "Test-FrontendDependencyCurrent" in dependencies
 
 ###############################################################################
+def test_backend_probes_are_safe_for_windows_powershell_native_arguments() -> None:
+    launcher = launcher_source()
+    backend_probe = function_body(
+        launcher,
+        "Get-InstalledExecutionBackendDetails",
+        "Get-InstalledExecutionBackends",
+    )
+    capability_probe = function_body(
+        launcher,
+        "Get-BackendCapabilityReport",
+        "Get-BackendStatusSnapshot",
+    )
+    management = function_body(launcher, "Invoke-BackendManagement", "Invoke-OptionalBackendSetup")
+
+    assert "[Text.Encoding]::UTF8.GetBytes($probe)" in backend_probe
+    assert "exec(base64.b64decode('$encodedProbe'))" in backend_probe
+    assert "foreach ($item in $parsed) { Write-Output $item }" in backend_probe
+    assert "$ErrorActionPreference = 'Continue'" in capability_probe
+    assert "$ErrorActionPreference = $previousErrorActionPreference" in capability_probe
+    assert "-IncludeExportTools:$includeExportTools -SkipFrontend" in management
+
+###############################################################################
 def test_frontend_dependency_and_build_state_contracts_are_deterministic() -> None:
     launcher = launcher_source()
     inputs = function_body(launcher, "Get-FrontendBuildInputFiles", "Get-Sha256Text")
@@ -121,6 +143,7 @@ def test_frontend_dependency_and_build_state_contracts_are_deterministic() -> No
     ensure = function_body(launcher, "Ensure-FrontendBuildCurrent", "Sync-Dependencies")
     atomic_writer = function_body(launcher, "Write-JsonFileAtomically", "Read-FrontendBuildState")
     build_state_check = function_body(launcher, "Test-FrontendBuildCurrent", "Ensure-FrontendBuildCurrent")
+    relative_path = function_body(launcher, "Get-RepositoryRelativePath", "Get-Sha256Text")
 
     for required_input in ("angular.json", "tsconfig.json", "tsconfig.app.json", "package.json", "package-lock.json"):
         assert required_input in inputs
@@ -136,6 +159,8 @@ def test_frontend_dependency_and_build_state_contracts_are_deterministic() -> No
     assert "missing or stale" in ensure
     assert "::Replace" in atomic_writer and ".bak" in atomic_writer
     assert "TryParse" in build_state_check
+    assert "MakeRelativeUri" in relative_path
+    assert "[System.IO.Path]::GetRelativePath" not in launcher
 
 ###############################################################################
 def test_launcher_keeps_explicit_build_ownership_and_never_reintroduces_always_rebuild() -> None:

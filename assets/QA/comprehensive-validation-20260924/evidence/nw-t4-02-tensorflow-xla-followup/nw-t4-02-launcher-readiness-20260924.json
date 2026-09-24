@@ -1,0 +1,35 @@
+{
+  "captured_at_utc": "2026-09-24T18:43:46.1669327Z",
+  "launcher": "start_on_windows.ps1 -Action Launch -NoBrowser",
+  "health": {
+    "status": "ok"
+  },
+  "ports": [
+    {
+      "port": 6425,
+      "state": "listening",
+      "pid": 28752,
+      "process": "node.exe",
+      "executable": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\node.exe",
+      "command_line": "node  tools/preview-server.mjs --host 127.0.0.1 --port 6425 --strictPort",
+      "parent_pid": 19040,
+      "parent_process": "cmd.exe"
+    },
+    {
+      "port": 9750,
+      "state": "listening",
+      "pid": 24504,
+      "process": "python.exe",
+      "executable": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\python\\cpython-3.13.14-windows-x86_64-none\\python.exe",
+      "command_line": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750",
+      "parent_pid": 15092,
+      "parent_process": "python.exe"
+    }
+  ],
+  "torch_inductor_toolchain": {
+    "cl_exe": null,
+    "visual_studio_tools_dir": null,
+    "windows_sdk_dir": null,
+    "result": "cl.exe and Visual Studio/Windows SDK environment variables are absent"
+  }
+}
