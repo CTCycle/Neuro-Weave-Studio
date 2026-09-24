@@ -10,11 +10,10 @@ from typing import cast
 from uuid import uuid4
 
 import pytest
-
 from common.process_control import process_start_options
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend, keras_backend_value
-from domain.graph import ModelGraph
+from domain.graph import ModelConfiguration, ModelGraph, NativeCompilationConfiguration
 from domain.jobs import JobResponse, JobSubmitRequest, SmokeInferenceOperation
 from domain.metadata import ExecutionBackendStatus
 from domain.runtime import (
@@ -270,3 +269,72 @@ def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapsh
         assert len(probes) == 4
     finally:
         second.shutdown()
+
+###############################################################################
+@pytest.mark.parametrize(
+    ("backend", "compiler_id", "compiler_configuration"),
+    [
+        (
+            ExecutionBackend.TENSORFLOW,
+            "tensorflow_function",
+            {"tensorflow": {"compiler": {"id": "tensorflow_function", "parameters": {"jit_compile": True}}}},
+        ),
+        (
+            ExecutionBackend.PYTORCH,
+            "pytorch_compile",
+            {"pytorch": {"compiler": {"id": "pytorch_compile", "parameters": {"enabled": True}}}},
+        ),
+    ],
+)
+def test_unavailable_native_compilers_are_rejected_before_worker_start(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    backend: ExecutionBackend,
+    compiler_id: str,
+    compiler_configuration: dict[str, object],
+) -> None:
+    runtime = controller(tmp_path, monkeypatch)
+    cpu = RuntimeDevice(
+        device_id="cpu",
+        lease_key="cpu",
+        kind="cpu",
+        name="CPU",
+        accelerator="cpu",
+        supported_memory_policies=[MemoryPolicyKind.DEFAULT],
+    )
+    runtime._backend_statuses[backend] = ExecutionBackendStatus(
+        id=backend,
+        installed=True,
+        version="test",
+        available=True,
+        accelerator="cpu",
+        devices=[cpu],
+        native_compilers={compiler_id: False},
+    )
+    runtime._api_statuses[(backend, RuntimeApi.NATIVE)] = RuntimeApiStatus(
+        id=RuntimeApi.NATIVE,
+        available=True,
+    )
+    graph = ModelGraph(
+        model_configuration=ModelConfiguration(
+            native=NativeCompilationConfiguration.model_validate(compiler_configuration)
+        )
+    )
+    submission = JobSubmitRequest(
+        operation=SmokeInferenceOperation(project_id=uuid4(), graph=graph),
+        worker=WorkerConfiguration(api=RuntimeApi.NATIVE, backend=backend, device_id="cpu"),
+    )
+
+    try:
+        with pytest.raises(RuntimeControllerError) as raised:
+            runtime.submit(submission, graph=graph)
+
+        assert raised.value.code == "native_compiler_unavailable"
+        assert raised.value.details == {
+            "backend": backend.value,
+            "compiler": compiler_id,
+            "reason_code": "compiler_unavailable",
+        }
+        assert list((tmp_path / "jobs").iterdir()) == []
+    finally:
+        runtime.shutdown()
