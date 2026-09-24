@@ -1,0 +1,19 @@
+
+> neuro-weave-frontend@1.0.0 e2e
+> playwright test --grep=NW-T2-03:
+
+
+[WebServer] (node:6960) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:6960) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+
+(node:13128) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/1] e2e\workflows.spec.ts:1065:1 › NW-T2-03: rechecks compiler capability and invalidates source when the saved profile changes
+  1 passed (29.3s)
