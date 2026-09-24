@@ -106,6 +106,22 @@ function graph() {
   }
 }
 
+function sequenceInspectionGraph() {
+  const base = graph()
+  return {
+    ...base,
+    nodes: [
+      { ...base.nodes[0], id: 'inspection-sequence-input', definition_id: 'input.sequence', label: 'Sequence input', position: { x: 48, y: 144 }, parameters: { shape: [3, 4], dtype: 'float32' } },
+      { ...base.nodes[1], id: 'inspection-rnn', definition_id: 'recurrent.simple_rnn', label: 'Sequence encoder', position: { x: 400, y: 144 }, parameters: { units: 4, return_sequences: true, return_state: true } },
+      { ...base.nodes[3], id: 'inspection-sequence-output', definition_id: 'output.sequence', label: 'Sequence output', position: { x: 752, y: 144 }, parameters: {} },
+    ],
+    edges: [
+      { id: 'inspection-sequence-edge-1', source_node_id: 'inspection-sequence-input', source_port_id: 'output', target_node_id: 'inspection-rnn', target_port_id: 'input' },
+      { id: 'inspection-sequence-edge-2', source_node_id: 'inspection-rnn', source_port_id: 'output', target_node_id: 'inspection-sequence-output', target_port_id: 'input' },
+    ],
+  }
+}
+
 function fanOutGraph() {
   const base = graph()
   const denseParameters = (units: number, activation: string) => ({
@@ -1167,6 +1183,176 @@ test('NW-T4-02: keeps native compiler controls aligned with live capability gate
     expect((await saveTensorFlowProfile).ok()).toBeTruthy()
     await verifyCompilerControl('tensorflow', 'XLA JIT compilation', 'nw-t4-02-tensorflow-xla-gate.png')
   } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
+test('NW-T2-05: inspects sequence tensors from Builder and overview, then deletes each session', async ({ page, request }) => {
+  test.setTimeout(180_000)
+  const fixture = await createProject(request, `Tensor inspection ${Date.now()}`, sequenceInspectionGraph())
+  const initialProject = await (await request.get(`/api/projects/${fixture.id}`)).json() as { current_revision: number; graph: unknown }
+  const evidenceDir = campaignEvidenceDir
+  const sessionIds: string[] = []
+  await mkdir(evidenceDir, { recursive: true })
+
+  const prepareRoute = async (route: string): Promise<void> => {
+    await page.goto(route)
+    if (!route.startsWith('/builder/')) return
+    const validationResponse = page.waitForResponse((response) => response.url().endsWith('/api/validation') && response.request().method() === 'POST')
+    await page.getByRole('button', { name: 'Validate', exact: true }).click()
+    expect((await validationResponse).ok()).toBeTruthy()
+    await expect(page.locator('.validation-panel')).toHaveAttribute('data-validation-state', 'ready')
+    await expect(page.locator('.validation-panel .status-indicator.valid')).toBeVisible()
+  }
+
+  const inspectFrom = async (route: string, saveScreenshot: boolean): Promise<unknown> => {
+    await prepareRoute(route)
+    const node = page.locator('.nw-flow-node').filter({ hasText: 'Sequence encoder' })
+    await expect(node).toBeVisible()
+    await node.click({ button: 'right' })
+    const inspectAction = page.getByRole('menuitem', { name: 'Inspect tensor', exact: true })
+    await expect(inspectAction).toBeEnabled()
+
+    const jobRequestPromise = page.waitForRequest((candidate) => candidate.url().includes('/api/execution/jobs') && candidate.method() === 'POST')
+    const sessionResponsePromise = page.waitForResponse((response) => {
+      const pathname = new URL(response.url()).pathname
+      return /^\/api\/tensor-inspections\/[a-f0-9]{32}$/.test(pathname) && response.request().method() === 'GET'
+    })
+    await inspectAction.click()
+    const jobRequest = await jobRequestPromise
+    const jobPayload = jobRequest.postDataJSON() as { operation: { type: string; project_revision: number; seed: number }; worker: { api: string; backend: string } }
+    expect(jobPayload.operation).toMatchObject({ type: 'tensor_inspection', project_revision: fixture.current_revision, seed: 42 })
+    expect(jobPayload.worker).toMatchObject({ api: 'keras', backend: 'pytorch' })
+    const staleRevisionResponse = await request.post('/api/execution/jobs', {
+      data: { ...jobPayload, operation: { ...jobPayload.operation, project_revision: fixture.current_revision + 1 } },
+    })
+    expect(staleRevisionResponse.status()).toBe(422)
+    expect(await staleRevisionResponse.json()).toMatchObject({ detail: { code: 'revision_conflict' } })
+
+    const sessionResponse = await sessionResponsePromise
+    expect(sessionResponse.ok()).toBeTruthy()
+    const session = await sessionResponse.json() as {
+      id: string
+      project_revision: number
+      runtime_api: string
+      execution_backend: string
+      seed: number
+      weight_source: string
+      compiler_mode: string
+      nodes: Array<{ node_id: string; inspectable: boolean; predecessors: string[]; successors: string[]; outputs: Array<{ id: string; port_id: string; shape: number[] }> }>
+    }
+    sessionIds.push(session.id)
+    expect(session).toMatchObject({
+      project_revision: fixture.current_revision,
+      runtime_api: 'keras',
+      execution_backend: 'pytorch',
+      seed: 42,
+      weight_source: 'initialized_untrained',
+      compiler_mode: 'normal',
+    })
+
+    const modal = page.getByRole('dialog')
+    await expect(modal).toBeVisible()
+    await expect(modal.locator('.tensor-inspector-toolbar select')).toHaveValue('inspection-rnn')
+    await expect(modal.getByRole('heading', { name: 'Sequence encoder', exact: true })).toBeVisible()
+    await expect(modal.getByRole('note')).toContainText('Synthetic input · untrained initialized weights · not trained activations')
+    const recurrent = session.nodes.find((item) => item.node_id === 'inspection-rnn')
+    expect(recurrent).toBeDefined()
+    expect(recurrent).toMatchObject({ inspectable: true, predecessors: ['inspection-sequence-input'], successors: ['inspection-sequence-output'] })
+    expect(recurrent!.outputs.map((tensor) => tensor.port_id).sort()).toEqual(['hidden_state', 'output'])
+
+    const sequenceOutput = recurrent!.outputs.find((tensor) => tensor.port_id === 'output')!
+    expect(sequenceOutput.shape).toEqual([1, 3, 4])
+    const tensorSelect = modal.locator('.tensor-inspection-ports select')
+    await tensorSelect.selectOption(sequenceOutput.id)
+    await expect(modal.locator('.tensor-detail-list')).toContainText('[1, 3, 4]')
+    const displayAxes = modal.locator('.tensor-axis-controls label select')
+    await expect(displayAxes.nth(0)).toHaveValue('1')
+    await expect(displayAxes.nth(1)).toHaveValue('2')
+    const viewResponsePromise = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === `/api/tensor-inspections/${session.id}/view` && response.request().method() === 'POST',
+      { timeout: 15_000 },
+    )
+    await modal.getByRole('button', { name: 'Heatmap', exact: true }).click()
+    const viewResponse = await viewResponsePromise
+    expect(viewResponse.ok()).toBeTruthy()
+    const viewRequest = viewResponse.request().postDataJSON() as { tensor_id: string; display_axes: number[]; fixed_indices: Record<string, number>; limit: number }
+    expect(viewRequest).toMatchObject({ tensor_id: sequenceOutput.id, display_axes: [1, 2], fixed_indices: {}, limit: 4096 })
+    const sequenceView = await viewResponse.json() as { shape: number[]; display_axes: number[]; fixed_indices: Record<string, number>; view_shape: number[]; mode: string; values: unknown }
+    expect(sequenceView).toMatchObject({ shape: [1, 3, 4], display_axes: [1, 2], fixed_indices: {}, view_shape: [3, 4], mode: 'exact' })
+    await expect(modal.locator('.tensor-heatmap span')).toHaveCount(12)
+    const heatmapGeometry = await modal.locator('.tensor-heatmap span').evaluateAll((cells) => {
+      const positions = cells.map((cell) => {
+        const rect = cell.getBoundingClientRect()
+        return { top: Math.round(rect.top), left: Math.round(rect.left) }
+      })
+      return {
+        rows: new Set(positions.map((position) => position.top)).size,
+        columns: new Set(positions.map((position) => position.left)).size,
+      }
+    })
+    expect(heatmapGeometry).toEqual({ rows: 3, columns: 4 })
+    if (saveScreenshot) await page.screenshot({ path: path.join(evidenceDir, 'nw-t2-05-builder-sequence-heatmap.png'), fullPage: false })
+
+    await modal.getByRole('button', { name: 'Statistics', exact: true }).click()
+    await expect(modal.locator('.tensor-stat-grid')).toBeVisible()
+    await modal.getByRole('button', { name: 'Histogram', exact: true }).click()
+    await expect(modal.locator('.tensor-histogram span')).toHaveCount(64)
+    const hiddenState = recurrent!.outputs.find((tensor) => tensor.port_id === 'hidden_state')!
+    await tensorSelect.selectOption(hiddenState.id)
+    await expect(modal.locator('.tensor-detail-list')).toContainText('[1, 4]')
+
+    const deleteResponsePromise = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === `/api/tensor-inspections/${session.id}` && response.request().method() === 'DELETE',
+    )
+    await modal.getByRole('button', { name: 'Close tensor inspection' }).click()
+    const deleteResponse = await deleteResponsePromise
+    expect(deleteResponse.status()).toBe(204)
+    await expect(modal).toBeHidden()
+    expect((await request.get(`/api/tensor-inspections/${session.id}`)).status()).toBe(404)
+    return sequenceView.values
+  }
+
+  try {
+    const builderValues = await inspectFrom(`/builder/${fixture.id}`, true)
+    const overviewValues = await inspectFrom(`/models/${fixture.id}`, false)
+    expect(overviewValues).toEqual(builderValues)
+
+    await prepareRoute(`/builder/${fixture.id}`)
+    const cancelNode = page.locator('.nw-flow-node').filter({ hasText: 'Sequence encoder' })
+    await cancelNode.click({ button: 'right' })
+    const cancelInspect = page.getByRole('menuitem', { name: 'Inspect tensor', exact: true })
+    const submittedJobResponse = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === '/api/execution/jobs' && response.request().method() === 'POST',
+    )
+    await cancelInspect.click()
+    const submittedJob = await (await submittedJobResponse).json() as { id: string; operation: string; state: string }
+    expect(submittedJob.operation).toBe('tensor_inspection')
+    const stopResponsePromise = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === `/api/execution/jobs/${submittedJob.id}/stop` && response.request().method() === 'POST',
+    )
+    await page.getByRole('dialog').getByRole('button', { name: 'Close tensor inspection' }).click()
+    const stopResponse = await stopResponsePromise
+    expect(stopResponse.ok()).toBeTruthy()
+    let finalJob: { state: string; cancellation_requested: boolean; result?: Record<string, unknown> | null } | null = null
+    await expect.poll(async () => {
+      const current = await request.get(`/api/execution/jobs/${submittedJob.id}`)
+      finalJob = await current.json() as typeof finalJob
+      return finalJob?.state
+    }, { timeout: 45_000 }).toBe('terminated')
+    expect(finalJob?.cancellation_requested).toBeTruthy()
+    expect(finalJob?.result?.['session_id']).toBeUndefined()
+
+    const after = await (await request.get(`/api/projects/${fixture.id}`)).json() as {
+      current_revision: number
+      graph: unknown
+    }
+    expect(after.current_revision).toBe(initialProject.current_revision)
+    expect(after.graph).toEqual(initialProject.graph)
+  } finally {
+    for (const sessionId of sessionIds) {
+      await request.delete(`/api/tensor-inspections/${sessionId}`).catch(() => undefined)
+    }
     await deleteProject(request, fixture.id)
   }
 })
