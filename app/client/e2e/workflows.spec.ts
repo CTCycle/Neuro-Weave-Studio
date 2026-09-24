@@ -653,6 +653,8 @@ test('NW-T2-04 restores functional-validation results and active jobs after relo
   try {
     await page.goto(`/models/${fixture.id}/validation`)
     await expect(page.getByRole('heading', { name: 'Run a safe model check' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(/temporary optimizer step in worker memory/i)).toBeVisible()
+    await expect(page.getByText(/does not train or change the saved model/i)).toBeVisible()
     await expect(page.getByText(/keras · pytorch ·/i)).toBeVisible({ timeout: 75_000 })
 
     const firstSubmit = page.waitForResponse((response) => response.url().includes('/api/execution/jobs') && response.request().method() === 'POST')
