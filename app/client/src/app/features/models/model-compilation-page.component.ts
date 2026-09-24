@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core'
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core'
 import { LucideCheckCircle2, LucideClipboardCheck, LucideFileCode2, LucideRefreshCw, LucideSettings2 } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
 import { AppResourcesService } from '../../core/state/app-resources.service'
@@ -24,7 +24,7 @@ import { ModelWorkspaceState } from './model-workspace.state'
 
         <div class="compilation-layout">
           <section class="workflow-card panel configuration-card">
-            <div class="section-heading"><div><span class="eyebrow">CONFIGURATION</span><h3>{{ configurationSummary(project) }}</h3></div><button class="secondary compact-action" type="button" (click)="openConfiguration()" [disabled]="!resources.runtimeReady() || configurationBusy()"><svg lucideSettings2 [size]="15"></svg>{{ configurationBusy() ? 'Saving…' : 'Configure' }}</button></div>
+            <div class="section-heading"><div><span class="eyebrow">CONFIGURATION</span><h3>{{ configurationSummary(project) }}</h3></div><button class="secondary compact-action" type="button" (click)="openConfiguration()" [disabled]="!resources.runtimeReady() || configurationBusy() || configurationLoading()"><svg lucideSettings2 [size]="15"></svg>{{ configurationLoading() ? 'Checking runtime…' : configurationBusy() ? 'Saving…' : 'Configure' }}</button></div>
             <div class="configuration-line"><span>Optimizer</span><strong>{{ optimizerLabel(project) }}</strong></div>
             <div class="output-summary-list">
               @for (modelOutput of ioSummary().outputs; track modelOutput.node_id + ':' + modelOutput.port_id) {
@@ -85,6 +85,7 @@ import { ModelWorkspaceState } from './model-workspace.state'
 export class ModelCompilationPageComponent {
   readonly state = inject(ModelWorkspaceState)
   private readonly api = inject(ApiService)
+  private readonly destroyRef = inject(DestroyRef)
   readonly resources = inject(AppResourcesService)
   readonly implementationLabel = implementationLabel
   readonly code = signal<string | null>(null)
@@ -93,6 +94,7 @@ export class ModelCompilationPageComponent {
   readonly busy = signal(false)
   readonly configurationOpen = signal(false)
   readonly configurationBusy = signal(false)
+  readonly configurationLoading = signal(false)
   readonly validationBusy = signal(false)
   readonly kerasCatalog = computed(() => this.resources.compilationCapabilities()?.keras ?? null)
   readonly nativeCapability = computed<NativeCompilationCapability | null>(() => { const project = this.state.project(); return project ? this.resources.compilationCapabilities()?.native[project.execution_backend] ?? null : null })
@@ -109,9 +111,12 @@ export class ModelCompilationPageComponent {
       : []
   })
 
+  private readonly discoveryAbort = new AbortController()
+
   constructor() {
     void this.resources.loadRuntimeMetadata()
     void this.resources.loadCatalog()
+    this.destroyRef.onDestroy(() => this.discoveryAbort.abort())
     effect(() => { const project = this.state.project(); if (project) { this.code.set(project.generated_source ?? null); this.validation.set(null) } })
   }
 
@@ -131,7 +136,22 @@ export class ModelCompilationPageComponent {
     try { const result = await this.api.validate(project.graph, project.execution_backend, project.keras_enabled); this.validation.set(result); this.notice.set(result.valid ? 'Compilation configuration is valid for this graph.' : 'Compilation configuration has blocking findings.') } catch (reason) { this.notice.set(`Validation failed: ${reason instanceof Error ? reason.message : String(reason)}`) } finally { this.validationBusy.set(false) }
   }
 
-  openConfiguration(): void { if (this.resources.runtimeReady()) this.configurationOpen.set(true) }
+  async openConfiguration(): Promise<void> {
+    const project = this.state.project()
+    if (!project || !this.resources.runtimeReady() || this.configurationLoading() || this.configurationBusy()) return
+    this.configurationLoading.set(true)
+    try {
+      const api = project.keras_enabled ? 'keras' : 'native'
+      if (!this.resources.runtimeCapabilityReady(project.execution_backend, api)) {
+        await this.resources.discoverRuntime(project.execution_backend, api, false, this.discoveryAbort.signal)
+      }
+    } catch (reason) {
+      if (!this.destroyRef.destroyed) this.notice.set(`Runtime discovery failed: ${reason instanceof Error ? reason.message : String(reason)}`)
+    } finally {
+      this.configurationLoading.set(false)
+    }
+    if (!this.destroyRef.destroyed && this.state.project()?.id === project.id) this.configurationOpen.set(true)
+  }
   closeConfiguration(): void { if (!this.configurationBusy()) this.configurationOpen.set(false) }
 
   async saveConfiguration(configuration: ModelConfiguration): Promise<void> {

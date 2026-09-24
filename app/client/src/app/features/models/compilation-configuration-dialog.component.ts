@@ -82,7 +82,7 @@ type CompilationTab = 'optimizer' | 'outputs' | 'advanced' | 'native'
           @if (activeTab() === 'native' && nativeCapability(); as capability) {
             <section class="compilation-section compilation-tab-panel" role="tabpanel">
               <div class="section-heading"><div><span class="eyebrow">{{ capability.compiler }}</span><h3>Backend-native execution</h3></div></div>
-              @if (!capability.available) { <p class="compilation-unavailable">{{ capability.reason ?? 'This compiler is not operational in the current environment. Settings can still be saved for a later runtime.' }}</p> }
+              @if (!capability.available) { <p class="compilation-unavailable">{{ capability.reason ?? 'This runtime did not report the compiler as available. Compiler settings are read-only.' }}</p> }
               <div class="compilation-parameter-grid">@for (parameter of capability.parameters; track parameter.id) { <label [class.toggle-field]="parameter.type === 'boolean'" [class.field]="parameter.type !== 'boolean'"><span>{{ parameter.display_name }}<small>{{ parameter.description }}</small></span><nw-parameter-editor [definition]="parameter" [value]="nativeParameterValue(parameter)" [state]="nativeParameterState(capability)" (valueChange)="setNativeParameterValue(parameter, $event)" /></label> }</div>
             </section>
           }

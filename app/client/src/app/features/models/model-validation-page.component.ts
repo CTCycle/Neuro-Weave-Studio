@@ -2,10 +2,19 @@ import { Component, DestroyRef, effect, inject, signal } from '@angular/core'
 import { RouterLink } from '@angular/router'
 import { LucideFlaskConical, LucideSquare } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
+import { ApiError } from '../../core/api/api-error'
 import type { JobResponse, RuntimeDevice, WorkerConfiguration } from '../../domain/types'
 import { AppResourcesService } from '../../core/state/app-resources.service'
 import { pollJobUntilTerminal, terminalJobStates } from './job-polling'
 import { ModelWorkspaceState } from './model-workspace.state'
+
+interface SavedValidationJobReference {
+  jobId: string
+  projectId: string
+  revision: number
+  backend: string
+  api: 'keras' | 'native'
+}
 
 @Component({
   selector: 'nw-model-validation-page',
@@ -28,6 +37,7 @@ export class ModelValidationPageComponent {
   readonly error = signal<string | null>(null)
   readonly worker = () => this.workerForProject()
   private readonly discoveryAbort = new AbortController()
+  private currentTargetKey: string | null = null
 
   constructor() {
     void this.resources.loadRuntimeMetadata()
@@ -36,6 +46,15 @@ export class ModelValidationPageComponent {
       const project = this.state.project()
       if (!project) return
       const api = project.keras_enabled ? 'keras' : 'native'
+      const targetKey = `${project.id}:${project.current_revision}:${project.execution_backend}:${api}`
+      if (this.currentTargetKey !== targetKey) {
+        this.currentTargetKey = targetKey
+        this.job.set(null)
+        this.result.set(null)
+        this.error.set(null)
+        this.busy.set(false)
+        void this.restoreSavedJob(project.id, project.current_revision, project.execution_backend, api)
+      }
       void this.resources.discoverRuntime(project.execution_backend, api, false, this.discoveryAbort.signal).catch((reason) => {
         if (!this.destroyRef.destroyed) this.error.set(reason instanceof Error ? reason.message : String(reason))
       })
@@ -58,27 +77,104 @@ export class ModelValidationPageComponent {
   async run(): Promise<void> {
     const project = this.state.project()
     if (!project) return
+    const api = project.keras_enabled ? 'keras' : 'native'
     this.busy.set(true); this.error.set(null); this.result.set(null)
     try {
       let worker = this.worker()
       if (!worker) {
-        const api = project.keras_enabled ? 'keras' : 'native'
         await this.resources.discoverRuntime(project.execution_backend, api, false, this.discoveryAbort.signal)
         worker = this.worker()
       }
       if (!worker) throw new Error('The selected runtime is unavailable. Check it in Environment and retry.')
       let current = await this.api.submitFunctionalValidation(project.id, project.graph, worker)
+      this.saveJobReference(current.id, project.id, project.current_revision, project.execution_backend, api)
       this.job.set(current)
-      if (!terminalJobStates.has(current.state)) current = await pollJobUntilTerminal(current, (jobId) => this.api.getJob(jobId), (next) => this.job.set(next), { intervalMs: 250, timeoutMs: 60_000, isDestroyed: () => this.destroyRef.destroyed })
-      if (this.destroyRef.destroyed) return
+      if (!terminalJobStates.has(current.state)) current = await pollJobUntilTerminal(current, (jobId) => this.api.getJob(jobId), (next) => { if (this.isCurrentTarget(project.id, project.current_revision, project.execution_backend, api)) this.job.set(next) }, { intervalMs: 250, timeoutMs: 60_000, isDestroyed: () => this.destroyRef.destroyed || !this.isCurrentTarget(project.id, project.current_revision, project.execution_backend, api) })
+      if (this.destroyRef.destroyed || !this.isCurrentTarget(project.id, project.current_revision, project.execution_backend, api)) return
       if (!terminalJobStates.has(current.state)) throw new Error('The validation worker did not reach a terminal state within 60 seconds. Refresh the page to inspect it.')
-      if (current.state !== 'succeeded') throw new Error(current.error?.message || 'The validation worker did not complete.')
-      const data = current.result || {}
-      this.result.set({ device_name: String(data['device_name'] || worker.device_id), inputs: Array.isArray(data['inputs']) ? data['inputs'] : [], outputs: Array.isArray(data['outputs']) ? data['outputs'] : [], parameter_count: Number(data['parameter_count'] || 0), duration_ms: Number(data['duration_ms'] || 0) })
-    } catch (reason) { if (!this.destroyRef.destroyed) this.error.set(reason instanceof Error ? reason.message : String(reason)) } finally { if (!this.destroyRef.destroyed) this.busy.set(false) }
+      this.applyJobOutcome(current)
+    } catch (reason) { if (!this.destroyRef.destroyed && this.isCurrentTarget(project.id, project.current_revision, project.execution_backend, api)) this.error.set(reason instanceof Error ? reason.message : String(reason)) } finally { if (!this.destroyRef.destroyed && this.isCurrentTarget(project.id, project.current_revision, project.execution_backend, api)) this.busy.set(false) }
   }
 
   async stop(): Promise<void> { const current = this.job(); if (!current) return; try { this.job.set(await this.api.stopJob(current.id)) } catch (reason) { this.error.set(reason instanceof Error ? reason.message : String(reason)) } }
+
+  private async restoreSavedJob(projectId: string, revision: number, backend: string, api: 'keras' | 'native'): Promise<void> {
+    const saved = this.readJobReference(projectId)
+    if (!saved) return
+    if (saved.projectId !== projectId || saved.revision !== revision || saved.backend !== backend || saved.api !== api) {
+      this.clearJobReference(projectId)
+      return
+    }
+
+    this.busy.set(true)
+    try {
+      let current = await this.api.getJob(saved.jobId)
+      if (!this.isCurrentTarget(projectId, revision, backend, api)) return
+      if (current.operation !== 'smoke_inference' || current.worker.api !== api || current.worker.backend !== backend) {
+        this.clearJobReference(projectId)
+        return
+      }
+      this.job.set(current)
+      if (!terminalJobStates.has(current.state)) current = await pollJobUntilTerminal(current, (jobId) => this.api.getJob(jobId), (next) => { if (this.isCurrentTarget(projectId, revision, backend, api)) this.job.set(next) }, { intervalMs: 250, timeoutMs: 60_000, isDestroyed: () => this.destroyRef.destroyed || !this.isCurrentTarget(projectId, revision, backend, api) })
+      if (this.destroyRef.destroyed || !this.isCurrentTarget(projectId, revision, backend, api)) return
+      this.job.set(current)
+      this.applyJobOutcome(current)
+    } catch (reason) {
+      if (this.destroyRef.destroyed || !this.isCurrentTarget(projectId, revision, backend, api)) return
+      if (reason instanceof ApiError && reason.status === 404) {
+        this.clearJobReference(projectId)
+        this.job.set(null)
+        return
+      }
+      this.error.set(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      if (!this.destroyRef.destroyed && this.isCurrentTarget(projectId, revision, backend, api)) this.busy.set(false)
+    }
+  }
+
+  private applyJobOutcome(current: JobResponse): void {
+    if (current.state !== 'succeeded') {
+      this.error.set(current.error?.message || current.progress.message || 'The validation worker did not complete.')
+      return
+    }
+    const data = current.result || {}
+    this.result.set({ device_name: String(data['device_name'] || current.worker.device_id), inputs: Array.isArray(data['inputs']) ? data['inputs'] : [], outputs: Array.isArray(data['outputs']) ? data['outputs'] : [], parameter_count: Number(data['parameter_count'] || 0), duration_ms: Number(data['duration_ms'] || 0) })
+  }
+
+  private isCurrentTarget(projectId: string, revision: number, backend: string, api: 'keras' | 'native'): boolean {
+    const current = this.state.project()
+    return current?.id === projectId && current.current_revision === revision && current.execution_backend === backend && (current.keras_enabled ? 'keras' : 'native') === api
+  }
+
+  private saveJobReference(jobId: string, projectId: string, revision: number, backend: string, api: 'keras' | 'native'): void {
+    if (typeof sessionStorage === 'undefined') return
+    const reference: SavedValidationJobReference = { jobId, projectId, revision, backend, api }
+    try { sessionStorage.setItem(this.jobStorageKey(projectId), JSON.stringify(reference)) } catch { /* Storage is only a reload convenience. */ }
+  }
+
+  private readJobReference(projectId: string): SavedValidationJobReference | null {
+    if (typeof sessionStorage === 'undefined') return null
+    const key = this.jobStorageKey(projectId)
+    try {
+      const raw = sessionStorage.getItem(key)
+      if (!raw) return null
+      const value = JSON.parse(raw) as Partial<SavedValidationJobReference>
+      if (typeof value.jobId === 'string' && typeof value.projectId === 'string' && typeof value.revision === 'number' && typeof value.backend === 'string' && (value.api === 'keras' || value.api === 'native')) return value as SavedValidationJobReference
+      this.clearJobReference(projectId)
+      return null
+    } catch {
+      this.clearJobReference(projectId)
+      return null
+    }
+  }
+
+  private clearJobReference(projectId: string): void {
+    if (typeof sessionStorage !== 'undefined') {
+      try { sessionStorage.removeItem(this.jobStorageKey(projectId)) } catch { /* Storage is only a reload convenience. */ }
+    }
+  }
+
+  private jobStorageKey(projectId: string): string { return `neuro-weave:validation-job:${projectId}` }
 }
 
 function fallbackDevice(): RuntimeDevice { return { device_id: 'cpu', lease_key: 'cpu', kind: 'cpu', name: 'CPU', accelerator: 'cpu', available: true, supported_memory_policies: ['default'] } }

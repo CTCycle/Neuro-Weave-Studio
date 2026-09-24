@@ -643,6 +643,71 @@ test('polls a compatible functional-validation job to a verified result', async 
   }
 })
 
+test('NW-T2-04 restores functional-validation results and active jobs after reload', async ({ page, request }) => {
+  test.setTimeout(120_000)
+  const fixture = await createProject(request, `NW-T2-04 validation reload ${Date.now()}`)
+  const evidenceDir = process.env.NW_VALIDATION_EVIDENCE_DIR
+    ? campaignEvidenceDir
+    : path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'comprehensive-validation-20260923', 'evidence')
+  await mkdir(evidenceDir, { recursive: true })
+  try {
+    await page.goto(`/models/${fixture.id}/validation`)
+    await expect(page.getByRole('heading', { name: 'Run a safe model check' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(/keras · pytorch ·/i)).toBeVisible({ timeout: 75_000 })
+
+    const firstSubmit = page.waitForResponse((response) => response.url().includes('/api/execution/jobs') && response.request().method() === 'POST')
+    await page.getByRole('button', { name: 'Run functional validation', exact: true }).click()
+    const firstJob = await (await firstSubmit).json() as { id: string }
+    await expect(page.getByText(/Completed on/)).toBeVisible({ timeout: 75_000 })
+    const firstResult = await (await request.get(`/api/execution/jobs/${firstJob.id}`)).json() as {
+      state: string
+      worker: { api: string; backend: string }
+      result: { status: string; inputs: unknown[]; outputs: unknown[]; parameter_count: number }
+    }
+    expect(firstResult).toMatchObject({
+      state: 'succeeded',
+      worker: { api: 'keras', backend: 'pytorch' },
+      result: { status: 'succeeded', inputs: expect.any(Array), outputs: expect.any(Array), parameter_count: expect.any(Number) },
+    })
+
+    await page.reload()
+    await expect(page.getByText('succeeded', { exact: true })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(/Completed on/)).toBeVisible()
+
+    const secondSubmit = page.waitForResponse((response) => response.url().includes('/api/execution/jobs') && response.request().method() === 'POST')
+    await page.getByRole('button', { name: 'Run functional validation', exact: true }).click()
+    const secondJob = await (await secondSubmit).json() as { id: string }
+    await page.reload()
+
+    await expect.poll(async () => {
+      const response = await request.get(`/api/execution/jobs/${secondJob.id}`)
+      return response.ok() ? String((await response.json() as { state: string }).state) : 'missing'
+    }, { timeout: 30_000 }).not.toBe('missing')
+    let secondResult = await (await request.get(`/api/execution/jobs/${secondJob.id}`)).json() as {
+      state: string
+      worker: { api: string; backend: string }
+      cancellation_requested: boolean
+    }
+    expect(secondResult.worker).toMatchObject({ api: 'keras', backend: 'pytorch' })
+    if (!['succeeded', 'terminated', 'failed'].includes(secondResult.state)) {
+      await expect(page.getByRole('button', { name: 'Stop', exact: true })).toBeVisible({ timeout: 30_000 })
+      const stopResponse = page.waitForResponse((response) => response.url().includes(`/api/execution/jobs/${secondJob.id}/stop`) && response.request().method() === 'POST')
+      await page.getByRole('button', { name: 'Stop', exact: true }).click()
+      expect((await stopResponse).ok()).toBeTruthy()
+      await expect(page.getByText('terminated', { exact: true })).toBeVisible({ timeout: 30_000 })
+      secondResult = await (await request.get(`/api/execution/jobs/${secondJob.id}`)).json() as typeof secondResult
+      expect(secondResult.state).toBe('terminated')
+      expect(secondResult.cancellation_requested).toBeTruthy()
+    } else {
+      expect(secondResult.state).toBe('succeeded')
+      await expect(page.getByText(/Completed on/)).toBeVisible({ timeout: 30_000 })
+    }
+    await page.screenshot({ path: path.join(evidenceDir, 'nw-t2-04-validation-restored-after-reload.png'), fullPage: true })
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
 test('exposes keyboard-traversable graph nodes and ports', async ({ page, request }) => {
   const fixture = await createProject(request, `Angular graph accessibility ${Date.now()}`, fanOutGraph())
   try {
@@ -994,6 +1059,113 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     if (duplicateId) await deleteProject(request, duplicateId)
     await deleteProject(request, fixture.id)
     await page.setViewportSize({ width: 1280, height: 800 })
+  }
+})
+
+test('NW-T2-03: rechecks compiler capability and invalidates source when the saved profile changes', async ({ page, request }) => {
+  test.setTimeout(120_000)
+  const fixture = await createProject(request, `JAX compilation ${Date.now()}`)
+  const evidenceDir = campaignEvidenceDir
+  await mkdir(evidenceDir, { recursive: true })
+  try {
+    await page.goto(`/models/${fixture.id}/compilation`)
+    await page.getByRole('button', { name: 'Validate profile', exact: true }).click()
+    await expect(page.locator('.validation-panel.valid')).toBeVisible()
+    const kerasSourceResponse = page.waitForResponse((response) => response.url().includes(`/api/exports/${fixture.id}/source`) && response.request().method() === 'GET')
+    await page.getByRole('button', { name: 'Compile source', exact: true }).click()
+    expect((await kerasSourceResponse).ok()).toBeTruthy()
+    await expect(page.locator('.generated-code code')).toContainText('keras')
+
+    await page.goto(`/builder/${fixture.id}`)
+    const backend = page.getByRole('combobox', { name: 'Execution backend' })
+    await backend.click()
+    await page.getByRole('option', { name: 'JAX / Flax', exact: true }).click()
+    await page.getByLabel('Enable Keras', { exact: true }).uncheck()
+    const profileResponse = page.waitForResponse((response) => response.url().includes(`/api/projects/${fixture.id}`) && response.request().method() === 'PUT')
+    await page.getByRole('button', { name: 'Save model', exact: true }).click()
+    const savedProfile = await (await profileResponse).json() as { current_revision: number; execution_backend: string; keras_enabled: boolean; generated_source?: string | null }
+    expect(savedProfile).toMatchObject({ execution_backend: 'jax', keras_enabled: false, generated_source: null })
+
+    await page.goto(`/models/${fixture.id}/compilation`)
+    await expect(page.locator('.generated-code-placeholder')).toContainText('No generated source')
+    await page.getByRole('button', { name: 'Validate profile', exact: true }).click()
+    await expect(page.locator('.validation-panel.valid')).toBeVisible()
+    await page.getByRole('button', { name: 'Configure', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('tab', { name: /Compiler/ }).click()
+    const jitToggle = dialog.locator('.compilation-parameter-grid input[type="checkbox"]')
+    await expect(jitToggle).toHaveCount(1)
+    const metadataResponse = await request.get('/api/metadata')
+    expect(metadataResponse.ok()).toBeTruthy()
+    const metadata = await metadataResponse.json() as { configuration: { compilation_capabilities: { native: { jax: { available: boolean } } } } }
+    if (!metadata.configuration.compilation_capabilities.native.jax.available) {
+      await expect(jitToggle).toBeDisabled()
+      await expect(dialog.locator('.compilation-unavailable')).toContainText(/not operational|not report the compiler/i)
+      await page.screenshot({ path: path.join(evidenceDir, 'nw-t2-03-jax-compiler-unavailable.png'), fullPage: true })
+      return
+    }
+
+    await expect(jitToggle).toBeEnabled()
+    await jitToggle.check()
+    await dialog.getByRole('button', { name: 'Apply configuration', exact: true }).click()
+    await expect(page.getByRole('button', { name: /Saved validated compilation settings/ })).toBeVisible()
+    const jaxSourceResponse = page.waitForResponse((response) => response.url().includes(`/api/exports/${fixture.id}/source`) && response.request().method() === 'GET')
+    await page.getByRole('button', { name: 'Compile source', exact: true }).click()
+    expect((await jaxSourceResponse).ok()).toBeTruthy()
+    await expect(page.getByRole('heading', { name: `Python · revision ${savedProfile.current_revision + 1}` })).toBeVisible()
+    await expect(page.locator('.generated-code code')).toContainText('return jax.jit(model.apply)')
+    await page.locator('.generated-code').screenshot({ path: path.join(evidenceDir, 'nw-t2-03-jax-source-revision.png') })
+  } finally {
+    await deleteProject(request, fixture.id)
+  }
+})
+
+test('NW-T4-02: keeps native compiler controls aligned with live capability gates', async ({ page, request }) => {
+  test.setTimeout(120_000)
+  const fixture = await createProject(request, `Native compiler gates ${Date.now()}`)
+  const evidenceDir = campaignEvidenceDir
+  await mkdir(evidenceDir, { recursive: true })
+  try {
+    await page.goto(`/builder/${fixture.id}`)
+    await page.getByLabel('Enable Keras', { exact: true }).uncheck()
+    const saveNativeProfile = page.waitForResponse((response) => response.url().includes(`/api/projects/${fixture.id}`) && response.request().method() === 'PUT')
+    await page.getByRole('button', { name: 'Save model', exact: true }).click()
+    expect((await saveNativeProfile).ok()).toBeTruthy()
+
+    const verifyCompilerControl = async (backend: string, parameter: string, evidenceName: string): Promise<void> => {
+      await page.goto(`/models/${fixture.id}/compilation`)
+      await page.getByRole('button', { name: 'Configure', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog).toBeVisible()
+      await dialog.getByRole('tab', { name: /Compiler/ }).click()
+      const toggle = dialog.locator('.compilation-parameter-grid label').filter({ hasText: parameter }).locator('input[type="checkbox"]')
+      await expect(toggle).toHaveCount(1)
+      const response = await request.get('/api/metadata')
+      expect(response.ok()).toBeTruthy()
+      const metadata = await response.json() as { configuration: { compilation_capabilities: { native: Record<string, { available: boolean }> } } }
+      const capability = metadata.configuration.compilation_capabilities.native[backend]
+      if (capability.available) await expect(toggle).toBeEnabled()
+      else {
+        await expect(toggle).toBeDisabled()
+        await expect(dialog.locator('.compilation-unavailable')).toBeVisible()
+      }
+      await page.screenshot({ path: path.join(evidenceDir, evidenceName), fullPage: true })
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    }
+
+    await verifyCompilerControl('pytorch', 'Enable torch.compile', 'nw-t4-02-pytorch-compiler-gate.png')
+
+    await page.goto(`/builder/${fixture.id}`)
+    const backend = page.getByRole('combobox', { name: 'Execution backend' })
+    await backend.click()
+    await page.getByRole('option', { name: 'TensorFlow', exact: true }).click()
+    const saveTensorFlowProfile = page.waitForResponse((response) => response.url().includes(`/api/projects/${fixture.id}`) && response.request().method() === 'PUT')
+    await page.getByRole('button', { name: 'Save model', exact: true }).click()
+    expect((await saveTensorFlowProfile).ok()).toBeTruthy()
+    await verifyCompilerControl('tensorflow', 'XLA JIT compilation', 'nw-t4-02-tensorflow-xla-gate.png')
+  } finally {
+    await deleteProject(request, fixture.id)
   }
 })
 
