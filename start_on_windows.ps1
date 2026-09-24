@@ -434,9 +434,21 @@ for framework in frameworks:
     items.append({**framework, "installed": installed, "version": version})
 print(json.dumps(items))
 '@
-    $raw = (& $venvPython -c $probe 2>$null | Select-Object -Last 1)
+    # Windows PowerShell 5.1 strips embedded quotes when it marshals a multiline
+    # argument to a native process. Pass the source as base64 so Python receives
+    # the same probe under Windows PowerShell 5.1 and PowerShell 7.
+    $encodedProbe = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($probe))
+    $bootstrap = "import base64; exec(base64.b64decode('$encodedProbe'))"
+    $raw = (& $venvPython -c $bootstrap 2>$null | Select-Object -Last 1)
     if ([string]::IsNullOrWhiteSpace($raw)) { return @() }
-    try { return @($raw | ConvertFrom-Json) } catch { return @() }
+    try {
+        $parsed = $raw | ConvertFrom-Json
+        if ($parsed -is [System.Array]) {
+            foreach ($item in $parsed) { Write-Output $item }
+        } else {
+            Write-Output $parsed
+        }
+    } catch { return @() }
 }
 
 function Get-InstalledExecutionBackends {
@@ -657,14 +669,22 @@ function Get-BackendCapabilityReport {
     if ($backends.Count -eq 0) { return @() }
     $reports = [System.Collections.Generic.List[object]]::new()
     Push-Location $script:ServerDir
+    $previousErrorActionPreference = $ErrorActionPreference
     try {
+        # Windows PowerShell 5.1 promotes native stderr lines to terminating
+        # errors under Stop; framework startup diagnostics must not abort a
+        # capability probe whose JSON result is written to stdout.
+        $ErrorActionPreference = 'Continue'
         foreach ($backend in $backends) {
             $raw = (& $venvPython -m models.ml_worker --probe --backend $backend 2>$null | Select-Object -Last 1)
             if ($raw) {
                 try { $reports.Add(($raw | ConvertFrom-Json)) } catch { }
             }
         }
-    } finally { Pop-Location }
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+        Pop-Location
+    }
     return @($reports.ToArray())
 }
 
@@ -745,8 +765,24 @@ function Get-FrontendBuildInputFiles {
     }
 
     return @($paths | Sort-Object {
-            [System.IO.Path]::GetRelativePath($script:RepoRoot, [string]$_).Replace('\', '/')
+            (Get-RepositoryRelativePath -BasePath $script:RepoRoot -Path ([string]$_)).Replace('\', '/')
         })
+}
+
+function Get-RepositoryRelativePath {
+    param(
+        [Parameter(Mandatory = $true)][string]$BasePath,
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    $baseFullPath = [IO.Path]::GetFullPath($BasePath).TrimEnd('\')
+    $targetFullPath = [IO.Path]::GetFullPath($Path)
+    if ($targetFullPath.TrimEnd('\') -ieq $baseFullPath) { return '.' }
+
+    $baseUri = [Uri]($baseFullPath + '\')
+    $targetUri = [Uri]$targetFullPath
+    if (-not $baseUri.IsBaseOf($targetUri)) { return $targetFullPath }
+    return [Uri]::UnescapeDataString($baseUri.MakeRelativeUri($targetUri).ToString()).Replace('/', '\')
 }
 
 function Get-Sha256Text {
@@ -766,12 +802,12 @@ function Get-FrontendFingerprintForFiles {
 
     $manifest = [System.Text.StringBuilder]::new()
     foreach ($path in @($Paths | Sort-Object {
-                [System.IO.Path]::GetRelativePath($script:RepoRoot, [string]$_).Replace('\', '/')
+                (Get-RepositoryRelativePath -BasePath $script:RepoRoot -Path ([string]$_)).Replace('\', '/')
             })) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
             throw "Missing frontend fingerprint input: $path"
         }
-        $relativePath = [System.IO.Path]::GetRelativePath($script:RepoRoot, $path).Replace('\', '/')
+        $relativePath = (Get-RepositoryRelativePath -BasePath $script:RepoRoot -Path $path).Replace('\', '/')
         $fileHash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
         [void]$manifest.Append("path=$relativePath`n")
         [void]$manifest.Append("sha256=$fileHash`n")
@@ -1095,7 +1131,7 @@ function Invoke-BackendManagement {
     if (-not (Test-DependenciesReady)) {
         Write-Info 'Core dependencies are missing or use another Python version; installing the base environment first.'
         $repairBackends = @(Get-DependencyRepairBackends -State $state)
-        Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras $repairBackends -ExplicitBackendSet -SkipFrontend
+        Sync-Dependencies -IncludeTests:(Test-DevelopmentDependenciesInstalled) -BackendExtras $repairBackends -ExplicitBackendSet -IncludeExportTools:$includeExportTools -SkipFrontend
     }
     $selection = if ([string]::IsNullOrWhiteSpace($Backends)) { @(Read-BackendSelection) } else {
         @(ConvertTo-BackendExtras -Selection $Backends)
@@ -1860,7 +1896,7 @@ function Get-TrackedFilesUnderPath {
     param([Parameter(Mandatory = $true)][string]$Path)
 
     if (-not (Test-PathWithin -Child $Path -Parent $script:RepoRoot)) { return @() }
-    $relative = [IO.Path]::GetRelativePath($script:RepoRoot, [IO.Path]::GetFullPath($Path)).Replace('\', '/')
+    $relative = (Get-RepositoryRelativePath -BasePath $script:RepoRoot -Path [IO.Path]::GetFullPath($Path)).Replace('\', '/')
     if ([string]::IsNullOrWhiteSpace($relative) -or $relative -eq '.') {
         throw 'The repository root is not a removable user-data target.'
     }
