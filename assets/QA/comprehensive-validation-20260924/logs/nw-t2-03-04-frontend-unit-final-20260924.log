@@ -1,0 +1,16 @@
+command=npm test
+reason=re-run after final NW-T2-04 copy clarification
+
+> neuro-weave-frontend@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 G:/Projects/Repositories/Active projects/Neuro Weave Studio/app/client
+
+
+ Test Files  20 passed (20)
+      Tests  105 passed (105)
+   Start at  10:27:48
+   Duration  13.62s (transform 3.07s, setup 0ms, import 16.07s, tests 423ms, environment 31.82s)
+
+unit_exit_code=0
