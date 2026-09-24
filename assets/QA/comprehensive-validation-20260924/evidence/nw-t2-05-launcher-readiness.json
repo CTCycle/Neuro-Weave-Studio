@@ -1,0 +1,65 @@
+{
+  "captured_at_utc": "2026-09-24T13:54:42.9031223Z",
+  "official_launcher": "start_on_windows.ps1 -Action Launch -NoBrowser",
+  "isolated_runtime_root": "app/resources/runtime/comprehensive-validation-20260924-nw-t2-05",
+  "health": "ok",
+  "projects_before_shutdown": 0,
+  "active_jobs_before_shutdown": 0,
+  "tensor_inspection_sessions": 0,
+  "listeners": [
+    {
+      "LocalAddress": "127.0.0.1",
+      "LocalPort": 9750,
+      "OwningProcess": 16544
+    },
+    {
+      "LocalAddress": "127.0.0.1",
+      "LocalPort": 6425,
+      "OwningProcess": 33684
+    }
+  ],
+  "task_processes": [
+    {
+      "ProcessId": 5304,
+      "ParentProcessId": 3868,
+      "Name": "cmd.exe",
+      "CommandLine": "\"C:\\Windows\\system32\\cmd.exe\" /d /c \"\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\" -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750\""
+    },
+    {
+      "ProcessId": 22688,
+      "ParentProcessId": 3868,
+      "Name": "cmd.exe",
+      "CommandLine": "\"C:\\Windows\\system32\\cmd.exe\" /d /c \"\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\npm.cmd\" run preview -- --host 127.0.0.1 --port 6425 --strictPort\""
+    },
+    {
+      "ProcessId": 29616,
+      "ParentProcessId": 5304,
+      "Name": "python.exe",
+      "CommandLine": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750"
+    },
+    {
+      "ProcessId": 16544,
+      "ParentProcessId": 29616,
+      "Name": "python.exe",
+      "CommandLine": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750"
+    },
+    {
+      "ProcessId": 37300,
+      "ParentProcessId": 22688,
+      "Name": "node.exe",
+      "CommandLine": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\\\node.exe\"  \"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\node_modules\\npm\\bin\\npm-cli.js\" run preview -- --host 127.0.0.1 --port 6425 --strictPort"
+    },
+    {
+      "ProcessId": 7368,
+      "ParentProcessId": 37300,
+      "Name": "cmd.exe",
+      "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c node tools/preview-server.mjs --host 127.0.0.1 --port 6425 --strictPort"
+    },
+    {
+      "ProcessId": 33684,
+      "ParentProcessId": 7368,
+      "Name": "node.exe",
+      "CommandLine": "node  tools/preview-server.mjs --host 127.0.0.1 --port 6425 --strictPort"
+    }
+  ]
+}

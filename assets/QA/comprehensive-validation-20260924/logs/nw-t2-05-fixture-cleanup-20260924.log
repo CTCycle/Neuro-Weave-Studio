@@ -1,0 +1,9 @@
+{
+  "project_id": "9b3b576c-b8ac-4e85-8e30-32312bff195b",
+  "project_name": "Tensor inspection 1790255820836",
+  "description": "Browser regression fixture",
+  "isolated_database": "app/resources/runtime/comprehensive-validation-20260924-nw-t2-05/database.db",
+  "delete_status": 204,
+  "followup_status": 404,
+  "remaining_projects": 0
+}
