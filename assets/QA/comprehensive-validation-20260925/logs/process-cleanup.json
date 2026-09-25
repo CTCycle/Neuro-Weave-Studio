@@ -1,0 +1,25 @@
+{
+  "stopped_processes": [
+    {
+      "role": "node-listener",
+      "port": 6425,
+      "pid": 10328,
+      "path": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\node.exe",
+      "start_time": "2026-09-25T08:54:00.2811254+02:00"
+    },
+    {
+      "role": "python-listener",
+      "port": 9750,
+      "pid": 39788,
+      "path": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\python\\cpython-3.13.14-windows-x86_64-none\\python.exe",
+      "start_time": "2026-09-25T08:53:59.7233988+02:00"
+    }
+  ],
+  "listeners_remaining_on_9750_or_6425": 0,
+  "stopped_at": "2026-09-25T07:32:30.6026625Z",
+  "launcher_reported_process_roots_absent": [
+    33684,
+    40240
+  ],
+  "post_cleanup_process_check": "Get-Process returned no entries for listener PIDs 10328/39788 or launcher-reported root PIDs 33684/40240."
+}

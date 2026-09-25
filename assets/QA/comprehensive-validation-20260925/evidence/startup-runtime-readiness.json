@@ -1,0 +1,14 @@
+{
+  "observed_at_utc": "2026-09-25T07:31:34.2746398Z",
+  "backend_health": {
+    "status": "ok"
+  },
+  "exact_profile": {
+    "backend": "pytorch",
+    "api": "keras",
+    "state": "verified",
+    "available": true,
+    "source": "live",
+    "checked_at": "2026-09-25T07:15:45.073269Z"
+  }
+}
