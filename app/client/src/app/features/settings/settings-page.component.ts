@@ -8,11 +8,11 @@ import { LucideBox, LucideCpu } from '@lucide/angular'
   imports: [RouterLink, LucideBox, LucideCpu],
   template: `
     <div class="settings-page">
-      <header class="settings-header"><span class="eyebrow page-eyebrow">APPLICATION</span><h1>Settings</h1><p>Application-level preferences will live here as they become real, editable runtime features.</p></header>
+      <header class="settings-header"><h1>Settings</h1></header>
       <div class="settings-layout">
         <nav class="settings-nav" aria-label="Settings sections"><a href="/settings#application-general" class="active" aria-current="location">Application<span>General</span></a><a href="/settings#related-management">Related management<span>Installation resources</span></a></nav>
         <div class="settings-content">
-          <section id="application-general" class="settings-section"><div class="section-heading"><span class="eyebrow">APPLICATION</span><h2>General</h2><p>There are no editable application-level settings defined yet.</p></div><div class="empty-setting"><strong>No application preferences</strong><span>This section is intentionally minimal until a concrete, typed setting with useful persistence is introduced.</span></div></section>
+          <section id="application-general" class="settings-section"><div class="section-heading"><h2>General</h2><p>There are no editable application-level settings defined yet.</p></div><div class="empty-setting"><strong>No application preferences</strong><span>This section is intentionally minimal until a concrete, typed setting with useful persistence is introduced.</span></div></section>
           <section id="related-management" class="settings-section related-section"><div class="section-heading"><span class="eyebrow">RELATED MANAGEMENT</span><h2>Installation resources</h2><p>These are separate management surfaces, not editable application settings.</p></div><div class="management-links"><a class="management-row" routerLink="/nodes"><span class="management-icon"><svg lucideBox [size]="17"></svg></span><span><strong>Node Library</strong><small>Inspect built-in node contracts and manage reusable custom node definitions.</small></span><span class="management-meta">Authoring</span></a><a class="management-row" routerLink="/environment"><span class="management-icon"><svg lucideCpu [size]="17"></svg></span><span><strong>Runtime Environment</strong><small>Inspect installation-wide execution backends, devices, and runtime capabilities.</small></span><span class="management-meta">Runtime</span></a></div></section>
           <p class="settings-boundary">Environment variables, <code>.env</code> files, ports, hosts, database paths, logs, job roots, and launcher configuration remain outside this page.</p>
         </div>

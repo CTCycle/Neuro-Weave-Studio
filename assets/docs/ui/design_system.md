@@ -1,8 +1,10 @@
 # Design System
 
-Last updated: 2026-09-02
+Last updated: 2026-09-25
 
 NeuroWeave uses a dark technical drafting-board identity with slate surfaces, accent primary actions, cyan tensor ports, compact monospaced metadata, and restrained radii. It is intentionally distinct from ParaGraph. Design tokens live in `app/client/src/styles.css`; component-local styles use the canonical `--bg`, `--surface`, `--surface-raised`, `--border`, `--text`, `--muted`, `--accent`, `--accent-bright`, and `--cyan` tokens plus the repository font stack (`'IBM Plex Mono', Consolas, monospace` for metadata). Color is never the only validation cue; labels, icons, counts, and text remain present.
+
+Shared spacing, typography, control-height, and radius tokens extend that palette in the global stylesheet. The application header and page content use the same inset at a given viewport: 16px on wider layouts and 8px at 1024px and below. Page titles, descriptions, form controls, buttons, and icon actions share these tokens so route changes preserve the content origin and control proportions.
 
 Scrollbars share the same surface language across the page and nested overflow regions: thin geometry, a dark slate track, a muted slate thumb at rest, and a cyan thumb on hover or focus. Layout-critical scroll regions may reserve a stable gutter, but page-specific scrollbar colors should not override the shared treatment.
 

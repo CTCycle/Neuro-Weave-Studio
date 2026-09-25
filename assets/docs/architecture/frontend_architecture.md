@@ -1,10 +1,12 @@
 # Frontend Architecture
 
-Last updated: 2026-09-17
+Last updated: 2026-09-25
 
 The canonical Angular application lives in `app/client/src/app`. The standalone `AppShellComponent` owns primary navigation, route-level components are lazy-loaded from `app.routes.ts`, and typed API access is isolated under `core/api` against the relative `/api` path. `ApiService` remains the general application client while `CustomNodeApiService` owns the installation-wide custom-template CRUD surface. Framework-neutral graph contracts live in `domain/types.ts`; custom authoring-template contracts live in `domain/custom-node.types.ts`; editor-only records live in `domain/editor.types.ts`.
 
 The model catalog and model workspaces are reached through `/models`, `/models/:modelId`, `/models/:modelId/compilation`, `/models/:modelId/validation`, and `/models/:modelId/export`. New and existing architecture authoring is isolated under `/builder` and `/builder/:modelId`. Dataset and training bootstrap workspaces are available at `/datasets` and `/training`. The `/nodes` route provides a searchable node library with an index/detail layout for the complete built-in manifest catalog plus installation-wide custom templates. Built-ins are inspection-only; custom definitions expose edit and delete actions. The `/settings` route is a conventional application-settings shell with a left navigation rail and flat content sections. Its General section is intentionally minimal because no typed runtime-editable global settings exist yet; related Node Library and Runtime Environment links remain separate management destinations. Environment-backed launch configuration is not exposed or duplicated in the Settings UI. All of these routes are lazy-loaded primary destinations.
+
+`AppShellComponent` is the single persistent frame for these routes. At a fixed viewport, the header dimensions and page content origin remain stable while route content changes. The primary navigation keeps its horizontal layout on narrow screens and scrolls the active destination into view. Shared page insets, title hierarchy, control heights, and spacing come from global style tokens rather than route-specific shell copies.
 
 `AppResourcesService` exposes independent signal-backed catalog, project, runtime, and capability readiness; each route explicitly loads only the resources it consumes, deduplicates concurrent reads, and provides resource-level retry. The Nodes workspace consumes the same shared manifest resource instead of issuing a second built-in catalog request. Custom-template loading remains independent so a custom-template API failure does not prevent the immutable built-in catalog from being inspected. The root resource service performs no network work in its constructor.
 
