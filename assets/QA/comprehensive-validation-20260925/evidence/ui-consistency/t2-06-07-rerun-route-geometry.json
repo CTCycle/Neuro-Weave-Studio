@@ -1,0 +1,1518 @@
+{
+  "geometry": [
+    {
+      "route": "models",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-overview",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-compilation",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 877,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-validation",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-export",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 1438,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "builder-new",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "builder-saved-model",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "nodes",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "datasets",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-overview",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 850,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-validation",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-io",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-processing",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-split",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 838,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "training",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "environment",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "metrics",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 3216,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "settings",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 66
+      },
+      "content": {
+        "x": 0,
+        "y": 66,
+        "width": 1440,
+        "height": 834,
+        "scrollHeight": 834,
+        "clientHeight": 834
+      },
+      "pageOrigin": {
+        "x": 16,
+        "y": 82,
+        "width": 1398
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "models",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 710,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-overview",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 1330,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-compilation",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 1246,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-validation",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 764,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-export",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 907,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "builder-new",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 710,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "builder-saved-model",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 710,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "nodes",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 710,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "datasets",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 710,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-overview",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 878,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-validation",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 710,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-io",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 741,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-processing",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 710,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-split",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 866,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "training",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 710,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "environment",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 710,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "metrics",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 5521,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "settings",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 1024,
+        "height": 710,
+        "scrollHeight": 710,
+        "clientHeight": 710
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 998
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "models",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 642,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-overview",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 1513,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-compilation",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 1322,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-validation",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 808,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "model-export",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 656,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "builder-new",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 642,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "builder-saved-model",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 642,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "nodes",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 642,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "datasets",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 642,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-overview",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 1552,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-validation",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 902,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-io",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 1067,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-processing",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 823,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "dataset-split",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 983,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "training",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 642,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "environment",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 851,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "metrics",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 6452,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    },
+    {
+      "route": "settings",
+      "viewport": {
+        "width": 560,
+        "height": 700
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 58
+      },
+      "content": {
+        "x": 0,
+        "y": 58,
+        "width": 560,
+        "height": 642,
+        "scrollHeight": 642,
+        "clientHeight": 642
+      },
+      "pageOrigin": {
+        "x": 8,
+        "y": 66,
+        "width": 534
+      },
+      "activeNavigationVisible": true,
+      "documentOverflowsHorizontally": false
+    }
+  ],
+  "pageErrors": [],
+  "failedRequests": []
+}

@@ -1,0 +1,14 @@
+
+> neuro-weave-frontend@1.0.0 e2e
+> playwright test e2e/datasets.spec.ts --workers=1
+
+
+Running 2 tests using 1 worker
+
+
+
+(node:24928) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/2] e2e\datasets.spec.ts:55:1 › registers, configures, reloads, and deletes a tabular dataset without deleting its source
+[2/2] e2e\datasets.spec.ts:220:1 › returns authoritative registration findings to Inspect and confirm when the source changes
+  2 passed (12.8s)

@@ -1,0 +1,141 @@
+{
+  "run_id": "NW-CV-20260925-T2-06-07-DATASET-WORKSPACE",
+  "date": "2026-09-25",
+  "branch": "develop",
+  "validated_implementation_revision": "0ab274d51ad511cbda3a55c5a4599aade28d5404",
+  "baseline_revision": "5d14d3a9c8d7effaac4801dd272346552889c3aa",
+  "scope": [
+    { "slice": "NW-T2-06", "status": "PASS", "name": "Dataset registration and workspace" },
+    { "slice": "NW-T2-07", "status": "PASS", "name": "Processing and declarative split configuration" }
+  ],
+  "campaign_status": {
+    "overall": "PARTIAL",
+    "total_slices": 46,
+    "pass": 15,
+    "partial": 2,
+    "fail": 0,
+    "blocked": 0,
+    "untested": 29
+  },
+  "environment": {
+    "launcher": "start_on_windows.ps1 -Action Launch -NoBrowser",
+    "backend_url": "http://127.0.0.1:9750",
+    "frontend_url": "http://127.0.0.1:6425",
+    "database": "runtimes/cache/nw-t2-06-07-20260925/database.sqlite (removed after run)",
+    "runtime_discovery": "runtimes/cache/nw-t2-06-07-20260925/environment-discovery.json (removed after run)",
+    "runtime_profile": { "backend": "pytorch", "api": "keras", "state": "verified", "available": true, "source": "live" },
+    "browser_workers": 1,
+    "fixture_root": "runtimes/cache/nw-t2-06-07-20260925/dataset-fixtures (removed after run)",
+    "route_capture_directory": "assets/QA/comprehensive-validation-20260925/evidence/ui-consistency"
+  },
+  "checks": [
+    {
+      "name": "Official Windows launcher",
+      "result": "PASS",
+      "summary": "Frontend production inputs rebuilt; frontend readiness completed; backend health returned ok after an initial 2-second probe timeout and retry.",
+      "log": "logs/official-launcher.txt",
+      "readiness": "evidence/startup-runtime-readiness.json"
+    },
+    {
+      "name": "Dataset E2E",
+      "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:6425; npm --prefix app/client run e2e -- e2e/datasets.spec.ts --workers=1",
+      "result": "PASS",
+      "tests_passed": 2,
+      "summary": "Registration, revalidation, role persistence, valid source relink and delimiter edit, invalid replacement rejection without dataset update, valid recovery, invalid/valid split configuration, reload persistence, registration deletion, external source retention, and no job/materialization POSTs.",
+      "log": "logs/dataset-workspace-e2e-final.log",
+      "screenshots": [
+        "evidence/dataset-workspace/dataset-processing-relink-persisted.png",
+        "evidence/dataset-workspace/dataset-processing-invalid-replacement-rejected.png",
+        "evidence/dataset-workspace/dataset-split-configuration-persisted.png"
+      ]
+    },
+    {
+      "name": "Backend dataset tests",
+      "command": "app/server/.venv/Scripts/python.exe -m pytest -q -o cache_dir=<isolated-run-cache> --basetemp=<isolated-run-temp> app/tests/test_datasets.py",
+      "result": "PASS",
+      "tests_passed": 23,
+      "log": "logs/backend-datasets-pytest-final.log"
+    },
+    {
+      "name": "Changed Playwright spec ESLint",
+      "command": "npm exec -- eslint e2e/datasets.spec.ts e2e/ui-consistency.spec.ts --no-cache",
+      "result": "PASS",
+      "exit_code": 0,
+      "log": "logs/frontend-e2e-eslint-final.log"
+    },
+    {
+      "name": "Route and viewport consistency",
+      "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:6425; npm --prefix app/client run e2e -- e2e/ui-consistency.spec.ts --workers=1",
+      "result": "PASS",
+      "tests_passed": 1,
+      "route_count": 18,
+      "viewport_count": 3,
+      "state_count": 54,
+      "viewport_widths": [560, 1024, 1440],
+      "page_errors": 0,
+      "failed_requests": 0,
+      "horizontal_overflows": 0,
+      "log": "logs/ui-consistency-e2e-rerun.log",
+      "geometry": "evidence/ui-consistency/t2-06-07-rerun-route-geometry.json",
+      "curated_screenshots": [
+        "evidence/ui-consistency/t2-06-07-rerun-dataset-processing-1440x900.png",
+        "evidence/ui-consistency/t2-06-07-rerun-dataset-split-1440x900.png",
+        "evidence/ui-consistency/t2-06-07-rerun-dataset-processing-560x700.png"
+      ]
+    },
+    {
+      "name": "In-app Browser inspection",
+      "result": "PASS",
+      "summary": "Overview, Processing, and Split rendered; temporary registration was deleted; its CSV remained present immediately after deletion.",
+      "evidence": "evidence/in-app-browser-observation.md"
+    },
+    {
+      "name": "Process and cache cleanup",
+      "result": "PASS",
+      "summary": "Task-owned node/python listeners stopped; no listener remained on ports 6425 or 9750; isolated runtime root removed.",
+      "process_log": "logs/process-cleanup.json",
+      "cache_log": "logs/isolated-runtime-cleanup.json"
+    }
+  ],
+  "iteration_notes": [
+    {
+      "attempt": "ui-consistency-e2e-cold-profile-attempt.log",
+      "finding": "A cold isolated Builder showed its loading state before runtime discovery completed.",
+      "resolution": "Preflight the exact PyTorch/Keras profile and wait for verified availability before route geometry measurement."
+    },
+    {
+      "attempt": "ui-consistency-e2e-selector-attempt.log",
+      "finding": "The first readiness selector targeted a class on the wrong element.",
+      "resolution": "Use the rendered app-shell builder class; the final 54-state run passed."
+    },
+    {
+      "attempt": "dataset-workspace-e2e-update-count-attempt.log",
+      "finding": "The assertion counted the prior I/O save and successful relink when checking that invalid input did not update the dataset.",
+      "resolution": "Compare update counts immediately before and after the rejected edit; final two-test run passed."
+    },
+    {
+      "attempt": "backend-datasets-pytest-cache-provider-attempt.log",
+      "finding": "Disabling pytest's cache plugin removed the cache_dir option required by app/tests/conftest.py; no test cases ran.",
+      "resolution": "Keep the plugin enabled and direct cache/temp paths to this run's isolated cache; 23 tests passed."
+    }
+  ],
+  "remaining_gates": [
+    "NW-T0-03 remains PARTIAL; 52 strict Pyright errors are the last recorded result, and this run did not rerun repository-wide Pyright.",
+    "NW-T4-02 remains PARTIAL; positive PyTorch Inductor compilation still needs the unavailable Visual Studio C++/Windows SDK toolchain.",
+    "The full 1/2/4-worker SQLite matrix remains outstanding.",
+    "Assistive-technology and full WCAG checks remain outstanding.",
+    "application.startup.local remains PARTIAL; occupied-port/rebuild and comparable startup timing matrices are not closed.",
+    "dataset.split-materialization remains NOT_IMPLEMENTED; this run validated declarative metadata only.",
+    "Other dataset source types and additional processing/split strategies were not covered."
+  ],
+  "cleanup": {
+    "listeners_remaining_on_6425_or_9750": 0,
+    "isolated_runtime_root_removed": true,
+    "task_fixture_files_removed": true,
+    "qa_evidence_preserved": true
+  },
+  "ledger_updates": [
+    "assets/QA/comprehensive-validation-20260923/validation-ledger.md",
+    "assets/docs/project_status_ledger.md"
+  ]
+}
