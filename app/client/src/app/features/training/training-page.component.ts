@@ -14,7 +14,7 @@ import { ModalGuardDirective } from '../../shared/components/modal-guard.directi
     <div class="training-page">
       <header class="catalog-page-header">
         <div><span class="eyebrow page-eyebrow">EXPERIMENT WORKSPACE</span><h1>Training</h1><p>Draft a session-only training configuration by pairing a saved model with a dataset reference. Training does not start workers or persist records yet.</p></div>
-        <button class="primary" type="button" [disabled]="!resources.datasets().length || !resources.projects().length" (click)="openWizard()"><svg lucideFilePlus2 [size]="16"></svg>New training</button>
+        <button class="primary" type="button" [disabled]="!resources.datasets().length || !resources.projects().length" [attr.title]="!resources.datasets().length ? 'Register a dataset first' : !resources.projects().length ? 'Create and save a model first' : null" (click)="openWizard()"><svg lucideFilePlus2 [size]="16"></svg>New training</button>
       </header>
 
       @if (!resources.datasets().length) { <section class="training-prerequisite panel"><strong>A registered dataset is required.</strong><span>Register a dataset before creating a training session.</span><a class="secondary inline-action" routerLink="/datasets">Open Datasets</a></section> }
@@ -24,7 +24,7 @@ import { ModalGuardDirective } from '../../shared/components/modal-guard.directi
         <div class="training-grid">
           @for (training of drafts.trainings(); track training.id) {
             <article class="training-card panel">
-              <div class="training-card-top"><span class="eyebrow">TRAINING DRAFT</span><button class="icon-button danger-button" type="button" [attr.aria-label]="'Remove training ' + training.name" (click)="drafts.removeTraining(training.id)"><svg lucideTrash2 [size]="15"></svg></button></div>
+              <div class="training-card-top"><span class="eyebrow">TRAINING DRAFT</span><button class="icon-button danger-button" type="button" title="Remove training draft" [attr.aria-label]="'Remove training ' + training.name" (click)="drafts.removeTraining(training.id)"><svg lucideTrash2 [size]="15"></svg></button></div>
               <div class="training-title"><div class="training-icon"><svg lucideActivity [size]="18"></svg></div><div><h2>{{ training.name }}</h2><span>DRAFT · not started</span></div></div>
               <div class="training-links"><div><span>Model</span><strong>{{ training.modelName }}</strong></div><div><span>Dataset</span><strong>{{ training.datasetName }}</strong></div></div>
               <div class="training-stats"><div><span>Epochs</span><strong>{{ training.epochs }}</strong></div><div><span>Batch size</span><strong>{{ training.batchSize }}</strong></div><div><span>Status</span><strong>Draft</strong></div></div>
@@ -33,7 +33,7 @@ import { ModalGuardDirective } from '../../shared/components/modal-guard.directi
           }
         </div>
       } @else {
-        <section class="training-empty panel"><svg lucideActivity [size]="30"></svg><h2>No training sessions</h2><p>Create a lightweight session draft once a model and registered dataset are available.</p><button class="primary" type="button" [disabled]="!resources.datasets().length || !resources.projects().length" (click)="openWizard()">Create training draft</button></section>
+        <section class="training-empty panel"><svg lucideActivity [size]="30"></svg><h2>No training sessions</h2><p>Create a lightweight session draft once a model and registered dataset are available. Use New training above to begin.</p></section>
       }
 
       @if (wizardOpen()) {

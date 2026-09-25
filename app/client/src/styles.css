@@ -17,6 +17,25 @@
   --error: #ef6a72;
   --warning: #e5b75f;
   --success: #67c98b;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --page-inset: var(--space-4);
+  --control-height: 36px;
+  --control-height-compact: 32px;
+  --type-page-title: clamp(24px, 2.2vw, 32px);
+  --type-section-title: 17px;
+  --type-card-title: 14px;
+  --type-body: 12px;
+  --type-secondary: 11px;
+  --type-label: 10px;
+  --type-metadata: 9px;
+  --line-body: 1.45;
+  --radius-panel: 6px;
+  --radius-control: 4px;
   --scrollbar-track: rgba(11, 17, 23, .76);
   --scrollbar-thumb: rgba(139, 160, 174, .36);
   --scrollbar-thumb-hover: rgba(101, 201, 212, .68);
@@ -48,15 +67,15 @@ button { color: inherit; }
 .toolbar-group { display: flex; gap: 2px; border-left: 1px solid var(--border); padding-left: 10px; }
 .drawer-slot { min-width: 0; min-height: 0; display: flex; }
 .drawer-slot > .panel { width: 100%; }
-.panel { background: rgba(17,26,34,.96); border: 1px solid var(--border); border-radius: 8px; min-height: 0; }
+.panel { background: rgba(17,26,34,.96); border: 1px solid var(--border); border-radius: var(--radius-panel); min-height: 0; }
 .catalog-panel, .inspector-panel { display: flex; flex-direction: column; padding: 16px; overflow: hidden; }
 .panel-heading { display: flex; min-width: 0; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .panel-heading > div:first-child { min-width: 0; }
 .panel-heading-actions { display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 8px; }
-h2 { margin: 4px 0 0; font-size: 17px; }
-.eyebrow { color: var(--accent-bright); font: 500 9px 'IBM Plex Mono', Consolas, monospace; letter-spacing: .16em; }
+h2 { margin: 4px 0 0; font-size: var(--type-section-title); }
+.eyebrow { color: var(--accent-bright); font: 500 var(--type-metadata) 'IBM Plex Mono', Consolas, monospace; letter-spacing: .16em; }
 .page-eyebrow { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .18em; }
-.search-field { height: 38px; margin: 16px 0 10px; display: flex; align-items: center; gap: 8px; background: #0c141b; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; color: var(--muted); }
+.search-field { height: var(--control-height); margin: 16px 0 10px; display: flex; align-items: center; gap: 8px; background: #0c141b; border: 1px solid var(--border); border-radius: var(--radius-control); padding: 0 10px; color: var(--muted); }
 .search-field input { flex: 1; min-width: 0; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 12px; }
 .catalog-list, .inspector-panel, .diagnostic-list, .code-drawer pre { -webkit-overflow-scrolling: touch; }
 .catalog-list, .inspector-panel { scrollbar-gutter: stable; }
@@ -138,10 +157,10 @@ f-connection.is-selected path, f-connection.f-selected path { stroke: var(--acce
 .port-tensor_list { background: #63be91; border-radius: 2px; } .port-mask { background: #d9b55d; }
 .inspector-panel { overflow-x: hidden; overflow-y: auto; }
 .inspector-description, .muted { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 10px 0; }
-.field-stack { display: flex; flex-direction: column; gap: 10px; }
-.field { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
-.field span, .toggle-field span { color: var(--muted); font-size: 10px; font-weight: 600; }
-.field input, .field select { height: 34px; border: 1px solid var(--border); border-radius: 5px; padding: 0 9px; background: #0c141b; color: var(--text); font-size: 12px; }
+.field-stack { display: flex; flex-direction: column; gap: var(--space-3); }
+.field { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-3); }
+.field span, .toggle-field span { color: var(--muted); font-size: var(--type-label); font-weight: 600; }
+.field input, .field select { height: var(--control-height); border: 1px solid var(--border); border-radius: var(--radius-control); padding: 0 9px; background: #0c141b; color: var(--text); font-size: var(--type-body); }
 .toggle-field { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
 .summary-card { margin-top: 16px; border: 1px solid var(--border); border-radius: 6px; background: #0d151c; padding: 10px; }
 .summary-card > strong { font-size: 10px; color: var(--accent-bright); text-transform: uppercase; letter-spacing: .08em; }
@@ -222,7 +241,7 @@ f-connection.is-selected path, f-connection.f-selected path { stroke: var(--acce
 @keyframes smoke-test-spin { to { transform: rotate(360deg); } }
 .drawer-heading { display: flex; justify-content: space-between; align-items: center; }
 .drawer-heading > div:last-child { display: flex; gap: 5px; }
-.icon-button { width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); cursor: pointer; }
+.icon-button { width: 34px; height: 34px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); color: var(--text); cursor: pointer; }
 .code-drawer pre { overflow: auto; background: #070c10; border: 1px solid var(--border); border-radius: 7px; padding: 16px; color: #bed5c5; font: 400 11px/1.65 'IBM Plex Mono', Consolas, monospace; }
 .notice { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 60; border: 1px solid var(--border-strong); background: #18242d; color: var(--text); border-radius: 6px; padding: 10px 14px; box-shadow: 0 12px 30px rgba(0,0,0,.35); cursor: pointer; font-size: 11px; }
 .panel-close { display: none; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 5px; cursor: pointer; }
@@ -247,7 +266,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .inspector-description { margin: 4px 0; }
   .field-stack { gap: 6px; }
   .field { gap: 4px; margin-top: 8px; }
-  .field input, .field select { height: 32px; }
+  .field input, .field select { height: var(--control-height-compact); }
   .toggle-field { padding: 6px 0; }
   .parameter-group { padding-top: 6px; }
   .smoke-test-drawer { width: 100%; max-width: 100%; padding: 14px; }
@@ -261,8 +280,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
 
 /* Model catalog, workspace, and focused builder surfaces */
-.app-shell { grid-template-rows: auto minmax(0, 1fr); }
-.app-header { min-height: 66px; display: flex; align-items: center; gap: 28px; padding: 10px 18px; border-bottom: 1px solid var(--border); background: rgba(11,17,23,.94); backdrop-filter: blur(18px); z-index: 20; }
+.app-header { min-height: 66px; display: flex; align-items: center; gap: 28px; padding: 10px var(--page-inset); border-bottom: 1px solid var(--border); background: rgba(11,17,23,.94); backdrop-filter: blur(18px); z-index: 20; }
 .app-header .brand-mark { color: var(--text); text-decoration: none; margin-right: 8px; }
 .app-header .brand-icon { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--accent); color: var(--accent-bright); transform: rotate(45deg); }
 .app-header .brand-icon svg { transform: rotate(-45deg); }
@@ -271,15 +289,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .app-header .brand-mark strong { font-size: 13px; letter-spacing: .02em; }
 .app-header .brand-mark small { margin-top: 4px; color: var(--muted); font: 500 8px 'IBM Plex Mono', Consolas, monospace; letter-spacing: .14em; }
 .primary-nav { display: flex; gap: 4px; align-self: stretch; align-items: center; }
-.primary-nav a { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 12px; color: var(--muted); border: 1px solid transparent; border-radius: 6px; text-decoration: none; font-size: 12px; }
+.primary-nav a { display: inline-flex; align-items: center; gap: 7px; min-height: var(--control-height-compact); padding: 0 12px; color: var(--muted); border: 1px solid transparent; border-radius: var(--radius-control); text-decoration: none; font-size: var(--type-body); }
 .primary-nav a:hover, .primary-nav a.active { color: var(--text); border-color: var(--border); background: var(--surface); }
 .primary-nav a.active { box-shadow: inset 0 -2px var(--accent); }
-.primary, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.primary, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: var(--control-height); padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-control); cursor: pointer; }
 .primary { border-color: var(--accent); background: var(--accent); color: #18110d; font-weight: 700; }
 .secondary { background: var(--surface); color: var(--text); }
 .primary:hover, .secondary:hover { border-color: var(--accent-bright); }
 .primary:disabled, .secondary:disabled { cursor: not-allowed; opacity: .42; }
-.app-content { width: 100%; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 18px; scrollbar-gutter: stable; }
+.secondary.danger-button { border-color: rgba(239,106,114,.58); background: rgba(239,106,114,.08); color: var(--error); }
+.secondary.danger-button:hover:not(:disabled) { border-color: var(--error); background: rgba(239,106,114,.14); }
+.icon-button.danger-button { color: var(--error); }
+.icon-button.danger-button:hover:not(:disabled) { border-color: var(--error); background: rgba(239,106,114,.12); }
+.app-content { width: 100%; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: var(--page-inset); scrollbar-gutter: stable; }
 .app-content.nodes-content { overflow: hidden; }
 .app-notice { display: inline-flex; align-items: center; gap: 10px; }
 .backend-status-panel { display: flex; flex-direction: column; gap: 10px; padding: 10px 18px 12px; border-bottom: 1px solid var(--border); background: rgba(11,17,23,.9); }
@@ -332,8 +354,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .active-job-row .icon-button { width: 28px; height: 28px; }
 .environment-page { width: 100%; margin: 0; }
 .environment-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
-.environment-header h1 { margin: 6px 0 4px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.03em; }
-.environment-header p { margin: 0; color: var(--muted); font-size: 12px; }
 .environment-summary { display: inline-flex; align-items: center; gap: 7px; color: var(--cyan); font: 500 10px 'IBM Plex Mono', Consolas, monospace; }
 .environment-note { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 12px; padding: 11px 13px; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .environment-note svg { flex: 0 0 auto; color: var(--cyan); }
@@ -366,9 +386,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .inline-action { text-decoration: none; }
 button, a { transition: border-color .15s ease, background .15s ease, color .15s ease, transform .15s ease; }
 .catalog-page, .model-workspace-page, .builder-page, .environment-page, .metrics-page, .workflow-page { width: 100%; max-width: none; margin: 0; }
-.catalog-page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
-.catalog-page-header h1, .workspace-title-row h1 { margin: 6px 0 4px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.03em; }
-.catalog-page-header p, .workspace-title-row p { margin: 0; color: var(--muted); font-size: 12px; }
+.catalog-page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: var(--space-4); }
+.catalog-page-header h1, .workspace-title-row h1, .environment-header h1, .settings-header h1 { margin: 6px 0 4px; font-size: var(--type-page-title); letter-spacing: -.03em; }
+.catalog-page-header p, .workspace-title-row p, .environment-header p { margin: 0; color: var(--muted); font-size: var(--type-body); line-height: var(--line-body); }
 .catalog-header-actions, .workspace-header-actions, .dialog-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .catalog-header-actions button, .catalog-header-actions a, .workspace-header-actions button, .workspace-header-actions a, .workflow-card button, .validation-controls button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 6px; padding: 0 12px; cursor: pointer; }
 .catalog-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
@@ -393,14 +413,14 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .model-card-title { justify-content: space-between; gap: 8px; margin-top: 16px; }
 .model-card-title h2 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
 .model-card-arrow { color: var(--accent-bright); font-size: 20px; }
-.model-card p { min-height: 34px; margin: 8px 0 14px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.model-card p { min-height: 34px; margin: 8px 0 14px; color: var(--muted); font-size: var(--type-secondary); line-height: var(--line-body); }
 .model-card-meta { gap: 5px; flex-wrap: wrap; }
 .model-card-meta .status-indicator { padding-block: 2px; font-size: 9px; }
 .model-card-stats { gap: 8px; margin-top: auto; padding: 12px 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 10px; }
 .model-card-stats span { flex: 1; min-width: 0; }
 .model-card-stats strong { display: block; color: var(--text); font: 600 12px 'IBM Plex Mono', Consolas, monospace; }
 .model-card footer { justify-content: space-between; padding-top: 10px; }
-.catalog-empty { display: flex; align-items: center; flex-direction: column; gap: 8px; padding: 64px 20px; text-align: center; color: var(--muted); }
+.catalog-empty { display: flex; align-items: center; flex-direction: column; gap: 8px; padding: var(--space-6) var(--space-4); text-align: center; color: var(--muted); }
 .catalog-empty h2 { color: var(--text); font-size: 18px; }
 .catalog-empty p { max-width: 360px; margin: 0 0 10px; line-height: 1.5; }
 .catalog-notice, .workflow-notice, .builder-notice { max-width: min(620px, calc(100vw - 30px)); }
@@ -509,7 +529,7 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 .builder-center-workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: 28px minmax(0, 1fr) auto; gap: 5px; overflow: hidden; }
 .builder-center-workspace > * { min-width: 0; min-height: 0; }
 .builder-mobile-actions { display: none; }
-.builder-content { width: 100%; min-width: 0; min-height: 0; overflow: hidden; padding: 8px 10px 10px; }
+.builder-content { width: 100%; min-width: 0; min-height: 0; overflow: hidden; padding: var(--page-inset); }
 .model-tab-bar { display: flex; min-width: 0; min-height: 28px; align-items: stretch; gap: 3px; padding: 0; overflow: hidden; border-bottom: 1px solid rgba(58,82,98,.78); }
 .model-tab-list { display: grid; min-width: 0; flex: 1 1 auto; grid-template-columns: repeat(8, minmax(0, 1fr)); align-items: stretch; gap: 2px; overflow: hidden; }
 .model-tab { display: flex; min-width: 0; max-width: none; align-items: stretch; border: 1px solid rgba(58,82,98,.42); border-bottom: 0; border-radius: 0; background: rgba(12,20,27,.42); }
@@ -589,7 +609,7 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
   .tensor-inspection-summary { border-right: 0; border-bottom: 1px solid var(--border); }
 }
 .dialog-actions { justify-content: flex-end; margin-top: 18px; }
-.dialog-actions button { min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.dialog-actions button { min-height: var(--control-height); padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-control); cursor: pointer; }
 .dialog-actions .danger-action { border-color: var(--error); background: var(--error); color: #1b0d0f; }
 .delete-dialog-error { margin: 10px 0 0; padding: 8px 10px; border: 1px solid rgba(217,117,134,.45); background: rgba(57,28,35,.42); color: var(--error); font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
 
@@ -681,12 +701,13 @@ button, a { transition: border-color .15s ease, background .15s ease, color .15s
 }
 @media (max-width: 1024.99px) {
   body { overflow: hidden; }
-  .app-header { min-height: 58px; padding: 8px 12px; }
+  :root { --page-inset: var(--space-2); }
+  .app-header { min-height: 58px; padding: 8px var(--page-inset); }
   .app-header .brand-mark small { display: none; }
   .primary-nav { margin-left: auto; }
   .primary-nav a { padding-inline: 9px; font-size: 11px; }
-  .app-content { padding: 12px 8px; }
-  .builder-content { padding: 8px; }
+  .app-content { padding: var(--page-inset); }
+  .builder-content { padding: var(--page-inset); }
   .backend-status-panel { padding-inline: 10px; }
   .backend-status-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
   .catalog-page-header, .workspace-title-row, .workflow-intro { align-items: flex-start; flex-direction: column; }
@@ -1088,11 +1109,6 @@ nw-graph-canvas { display: contents; }
 
 /* Enterprise layout refinement: preserve the drafting-board language while
    keeping content, controls, and status surfaces comfortably separated. */
-:root {
-  --radius-panel: 6px;
-  --radius-control: 4px;
-}
-
 .catalog-page .panel,
 .model-card,
 .model-workspace-page .overview-preview,
@@ -1115,12 +1131,12 @@ nw-graph-canvas { display: contents; }
 }
 
 .catalog-page-header {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .catalog-controls {
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
   padding: 0;
 }
 
@@ -1133,7 +1149,7 @@ nw-graph-canvas { display: contents; }
 }
 
 .model-card-grid {
-  gap: 14px;
+  gap: var(--space-3);
 }
 
 .model-card-title,
@@ -1343,3 +1359,7 @@ nw-graph-canvas { display: contents; }
     height: 94px;
   }
 }
+
+nw-datasets-page .datasets-page .catalog-state { padding: var(--space-6) var(--space-4); }
+nw-training-page .training-page .training-empty { min-height: 240px; padding: var(--space-6) var(--space-4); }
+nw-training-page .training-page .training-title h2 { font-size: var(--type-card-title); }

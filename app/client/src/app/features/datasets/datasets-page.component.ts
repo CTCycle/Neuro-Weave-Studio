@@ -36,7 +36,7 @@ type AvailabilityFilter = 'all' | 'available' | 'unavailable'
       } @else if (resources.hasError('datasets')) {
         <section class="catalog-state panel"><svg lucideDatabase [size]="28"></svg><h2>Dataset catalog unavailable</h2><p>{{ resources.errors()['datasets'] }}</p><button class="secondary" type="button" (click)="resources.retryDatasets()"><svg lucideRefreshCw [size]="14"></svg>Retry</button></section>
       } @else if (!resources.datasets().length) {
-        <section class="catalog-state panel"><svg lucideDatabase [size]="30"></svg><h2>No registered datasets</h2><p>Register a table, image folder, text source, array, or composed dataset to create a durable metadata reference.</p><button class="primary" type="button" (click)="openWizard()">Register first dataset</button></section>
+        <section class="catalog-state panel"><svg lucideDatabase [size]="30"></svg><h2>No registered datasets</h2><p>Register a table, image folder, text source, array, or composed dataset to create a durable metadata reference.</p></section>
       } @else if (!filteredDatasets().length) {
         <section class="catalog-state panel"><svg lucideSearch [size]="28"></svg><h2>No matching datasets</h2><p>Adjust the search or availability filter.</p></section>
       } @else {
@@ -45,11 +45,11 @@ type AvailabilityFilter = 'all' | 'available' | 'unavailable'
             <article class="dataset-card panel" [class.unavailable]="dataset.availability.status === 'unavailable'">
               <div class="dataset-card-top"><span class="eyebrow">{{ typeLabel(dataset.dataset_type) }}</span><span class="availability" [class.bad]="dataset.availability.status === 'unavailable'">{{ dataset.availability.status === 'available' ? 'AVAILABLE' : 'SOURCE UNAVAILABLE' }}</span></div>
               <a class="dataset-card-link" [routerLink]="['/datasets', dataset.id]">
-                <div class="dataset-card-title"><div class="dataset-icon"><svg lucideDatabase [size]="18"></svg></div><div><h2>{{ dataset.name }}</h2><code>{{ dataset.primary_path }}</code></div></div>
+                <div class="dataset-card-title"><div class="dataset-icon"><svg lucideDatabase [size]="18"></svg></div><div><h2>{{ dataset.name }}</h2><code [title]="dataset.primary_path">{{ dataset.primary_path }}</code></div></div>
                 <div class="dataset-stats"><div><span>SELECTED</span><strong>{{ dataset.selected_sample_count | number }}</strong><small>of {{ dataset.sample_count | number }} available</small></div><div><span>FORMAT</span><strong>{{ dataset.format }}</strong><small>{{ dataset.validation_status === 'valid' ? 'Validated' : 'Needs review' }}</small></div></div>
                 <div class="dataset-roles"><span><b>Input</b> {{ dataset.input_summary || '—' }}</span><span><b>Output</b> {{ dataset.output_summary || 'None · input only' }}</span></div>
               </a>
-              <footer class="dataset-card-footer"><span>Updated {{ formatDate(dataset.updated_at) }}</span><button class="icon-button danger-button" type="button" [attr.aria-label]="'Delete registration for ' + dataset.name" (click)="askDelete(dataset, $event)"><svg lucideTrash2 [size]="15"></svg></button></footer>
+              <footer class="dataset-card-footer"><span>Updated {{ formatDate(dataset.updated_at) }}</span><button class="icon-button danger-button" type="button" title="Delete registration" [attr.aria-label]="'Delete registration for ' + dataset.name" (click)="askDelete(dataset, $event)"><svg lucideTrash2 [size]="15"></svg></button></footer>
             </article>
           }
         </div>
