@@ -3,8 +3,8 @@ import path from 'node:path'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 const repoRoot = path.resolve(process.cwd(), '..', '..')
-const evidenceRoot = path.join(repoRoot, 'assets', 'QA', 'ui-refinement-20260924')
-const fixtureRoot = path.join(repoRoot, 'runtimes', 'cache', 'ui-refinement-20260924', 'e2e-fixtures')
+const evidenceRoot = path.resolve(process.env.NW_UI_EVIDENCE_DIR ?? path.join(repoRoot, 'assets', 'QA', 'ui-refinement-20260924'))
+const fixtureRoot = path.resolve(process.env.NW_UI_FIXTURE_DIR ?? path.join(repoRoot, 'runtimes', 'cache', 'ui-refinement-20260924', 'e2e-fixtures'))
 const captureStage = (process.env.NW_UI_CAPTURE_STAGE ?? 'refined').replace(/[^a-z0-9-]/gi, '-').toLowerCase()
 
 type Route = { name: string; path: (ids: { modelId: string; datasetId: string }) => string; ready: string }
@@ -48,6 +48,24 @@ async function createDataset(request: APIRequestContext, sourcePath: string): Pr
 async function removeFixture(request: APIRequestContext, endpoint: string, id: string): Promise<void> {
   const response = await request.delete(`${endpoint}/${id}`)
   expect([204, 404]).toContain(response.status())
+}
+
+async function ensurePytorchKerasProfile(request: APIRequestContext): Promise<void> {
+  const started = await request.post('/api/execution/discovery', {
+    data: { backend: 'pytorch', api: 'keras', force_refresh: true },
+  })
+  expect(started.ok(), 'start exact PyTorch/Keras runtime discovery').toBeTruthy()
+
+  let status: { backend: string; api: string; state: string; available: boolean } | undefined
+  const deadline = Date.now() + 90_000
+  while (Date.now() < deadline) {
+    const response = await request.get('/api/execution/discovery?backend=pytorch&api=keras')
+    expect(response.ok(), 'read exact PyTorch/Keras runtime discovery').toBeTruthy()
+    status = await response.json() as typeof status
+    if (status?.state !== 'checking') break
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  expect(status, 'PyTorch/Keras discovery status').toMatchObject({ backend: 'pytorch', api: 'keras', state: 'verified', available: true })
 }
 
 async function measureRoute(page: Page, route: string, viewport: { width: number; height: number }): Promise<RouteGeometry> {
@@ -95,6 +113,7 @@ test('keeps the application shell stable and captures every primary workspace at
   page.on('requestfailed', (request) => failedRequests.push(`${request.method()} ${request.url()}`))
 
   try {
+    await ensurePytorchKerasProfile(request)
     modelId = await createProject(request)
     datasetId = await createDataset(request, sourcePath)
 
@@ -104,8 +123,8 @@ test('keeps the application shell stable and captures every primary workspace at
       { name: 'model-compilation', path: ({ modelId }) => `/models/${modelId}/compilation`, ready: 'nw-model-compilation-page' },
       { name: 'model-validation', path: ({ modelId }) => `/models/${modelId}/validation`, ready: 'nw-model-validation-page' },
       { name: 'model-export', path: ({ modelId }) => `/models/${modelId}/export`, ready: 'nw-model-export-page' },
-      { name: 'builder-new', path: () => '/builder', ready: 'nw-model-builder-page' },
-      { name: 'builder-saved-model', path: ({ modelId }) => `/builder/${modelId}`, ready: 'nw-model-builder-page' },
+      { name: 'builder-new', path: () => '/builder', ready: 'nw-app-shell .app-shell.builder-shell' },
+      { name: 'builder-saved-model', path: ({ modelId }) => `/builder/${modelId}`, ready: 'nw-app-shell .app-shell.builder-shell' },
       { name: 'nodes', path: () => '/nodes', ready: 'nw-nodes-page' },
       { name: 'datasets', path: () => '/datasets', ready: 'nw-datasets-page' },
       { name: 'dataset-overview', path: ({ datasetId }) => `/datasets/${datasetId}`, ready: 'nw-dataset-overview-page' },
@@ -170,6 +189,5 @@ test('keeps the application shell stable and captures every primary workspace at
     if (datasetId) await removeFixture(request, '/api/datasets', datasetId)
     if (modelId) await removeFixture(request, '/api/projects', modelId)
     await rm(sourcePath, { force: true })
-    await rm(fixtureRoot, { recursive: true, force: true })
   }
 })
