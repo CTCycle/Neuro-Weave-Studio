@@ -90,13 +90,34 @@ export class MetricsPageComponent {
     this.wizardOpen.set(true)
   }
 
+  private definitionFromOption(option: CompilationOption): MetricDefinition {
+    const kind: MetricDefinition['kind'] = this.resources.compilationCapabilities()?.keras.losses.some((candidate) => candidate.id === option.id)
+      ? 'loss'
+      : 'metric'
+    const existing = this.resources.metricDefinitions().find((candidate) => candidate.id === option.id)
+    return existing ?? {
+      id: option.id,
+      kind,
+      label: option.label,
+      description: option.description,
+      formula: option.formula,
+      origin: option.origin ?? 'custom',
+      locked: option.locked ?? false,
+      can_edit: option.can_edit ?? false,
+      can_delete: option.can_delete ?? false,
+      supported_tasks: option.supported_tasks ?? [],
+      target_contract: option.target_contract,
+      created_at: option.created_at,
+      updated_at: option.updated_at,
+    }
+  }
+
   viewDefinition(item: CompilationOption): void {
-    const definition = this.resources.metricDefinitions().find((candidate) => candidate.id === item.id)
-    if (definition) this.viewing.set(definition)
+    this.viewing.set(this.definitionFromOption(item))
   }
 
   editDefinition(item: CompilationOption | MetricDefinition): void {
-    const definition = 'kind' in item ? item : this.resources.metricDefinitions().find((candidate) => candidate.id === item.id)
+    const definition = 'kind' in item ? item : this.definitionFromOption(item)
     if (!definition || !definition.can_edit) return
     this.viewing.set(null)
     this.deleteTarget.set(null)
@@ -108,8 +129,10 @@ export class MetricsPageComponent {
   }
 
   requestDelete(item: CompilationOption): void {
-    const definition = this.resources.metricDefinitions().find((candidate) => candidate.id === item.id)
-    if (definition?.can_delete) { this.formError.set(null); this.deleteTarget.set(definition) }
+    const definition = this.definitionFromOption(item)
+    if (!definition.can_delete) return
+    this.formError.set(null)
+    this.deleteTarget.set(definition)
   }
 
   closeWizard(): void { if (!this.saving()) this.wizardOpen.set(false) }

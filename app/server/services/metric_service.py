@@ -140,7 +140,10 @@ class MetricService:
             can_edit=True,
             can_delete=True,
             supported_tasks=["regression", "binary_classification", "multiclass_classification"],
-            capabilities=cast(dict[str, bool], dict(record.capabilities_json)),
+            capabilities={
+                backend: bool(record.capabilities_json.get(backend, False))
+                for backend in ("keras", "pytorch")
+            },
             created_at=record.created_at,
             updated_at=record.updated_at,
         )
@@ -192,7 +195,7 @@ def _parse(formula: str):
 def _capabilities(parsed: object) -> dict[str, bool]:
     return {
         backend: _can_emit(parsed, backend)
-        for backend in ("keras", "tensorflow", "pytorch", "jax")
+        for backend in ("keras", "pytorch")
     }
 
 

@@ -58,6 +58,12 @@ def test_custom_metric_lifecycle_and_builtin_locking(client: httpx.Client) -> No
     assert definition["locked"] is False
     assert definition["can_edit"] is True
     assert definition["can_delete"] is True
+    assert definition["supported_tasks"] == [
+        "regression",
+        "binary_classification",
+        "multiclass_classification",
+    ]
+    assert definition["capabilities"] == {"keras": True, "pytorch": True}
 
     duplicate = client.post(
         "/api/metrics",
@@ -81,6 +87,11 @@ def test_custom_metric_lifecycle_and_builtin_locking(client: httpx.Client) -> No
     assert updated.status_code == 200, updated.text
     assert updated.json()["id"] == metric_id
     assert updated.json()["formula"] == "mean(abs(y-yhat))"
+    reloaded = next(
+        item for item in client.get("/api/metrics").json()["definitions"] if item["id"] == metric_id
+    )
+    assert reloaded["label"] == "Readable error v2"
+    assert reloaded["formula"] == "mean(abs(y-yhat))"
 
     locked_update = client.put(
         "/api/metrics/mean_squared_error",
@@ -93,6 +104,73 @@ def test_custom_metric_lifecycle_and_builtin_locking(client: httpx.Client) -> No
     deleted = client.delete(f"/api/metrics/{metric_id}")
     assert deleted.status_code == 204
     assert all(item["id"] != metric_id for item in client.get("/api/metrics").json()["definitions"])
+
+###############################################################################
+def test_custom_metric_and_loss_persist_into_supported_compilation_catalogs(
+    client: httpx.Client,
+) -> None:
+    created_metric = client.post(
+        "/api/metrics",
+        json={
+            "kind": "metric",
+            "label": "Persistent validation metric",
+            "description": "Metric catalog persistence test.",
+            "formula": "mean(abs(y-yhat))",
+        },
+    )
+    created_loss = client.post(
+        "/api/metrics",
+        json={
+            "kind": "loss",
+            "label": "Persistent validation loss",
+            "description": "Loss catalog persistence test.",
+            "formula": "mean((y-yhat)^2)",
+        },
+    )
+    assert created_metric.status_code == 201, created_metric.text
+    assert created_loss.status_code == 201, created_loss.text
+    metric_id = created_metric.json()["id"]
+    loss_id = created_loss.json()["id"]
+
+    try:
+        definitions = client.get("/api/metrics").json()["definitions"]
+        listed = {item["id"]: item for item in definitions}
+        assert listed[metric_id]["kind"] == "metric"
+        assert listed[loss_id]["kind"] == "loss"
+        assert listed[metric_id]["capabilities"] == {"keras": True, "pytorch": True}
+        assert listed[loss_id]["capabilities"] == {"keras": True, "pytorch": True}
+
+        capabilities = client.get("/api/metadata").json()["configuration"]["compilation_capabilities"]
+        keras_metric_ids = {item["id"] for item in capabilities["keras"]["metrics"]}
+        keras_loss_ids = {item["id"] for item in capabilities["keras"]["losses"]}
+        pytorch_catalog = capabilities["native"]["pytorch"]["catalog"]
+        pytorch_metric_ids = {item["id"] for item in pytorch_catalog["metrics"]}
+        pytorch_loss_ids = {item["id"] for item in pytorch_catalog["losses"]}
+        assert metric_id in keras_metric_ids
+        assert loss_id in keras_loss_ids
+        assert metric_id in pytorch_metric_ids
+        assert loss_id in pytorch_loss_ids
+
+        for backend in ("tensorflow", "jax"):
+            native_catalog = capabilities["native"][backend]["catalog"]
+            assert metric_id not in {item["id"] for item in native_catalog["metrics"]}
+            assert loss_id not in {item["id"] for item in native_catalog["losses"]}
+    finally:
+        assert client.delete(f"/api/metrics/{metric_id}").status_code == 204
+        assert client.delete(f"/api/metrics/{loss_id}").status_code == 204
+
+###############################################################################
+def test_custom_metric_formula_validation_rejects_unsafe_input(client: httpx.Client) -> None:
+    rejected = client.post(
+        "/api/metrics",
+        json={
+            "kind": "metric",
+            "label": "Unsafe formula",
+            "description": "Must be rejected.",
+            "formula": "__import__('os').system('whoami')",
+        },
+    )
+    assert rejected.status_code == 422
 
 ###############################################################################
 def test_custom_metric_delete_reports_saved_model_references(client: httpx.Client) -> None:
