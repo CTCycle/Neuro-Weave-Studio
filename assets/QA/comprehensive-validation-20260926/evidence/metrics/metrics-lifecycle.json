@@ -1,0 +1,30 @@
+{
+  "metricLabel": "Browser validation metric 1790414737182",
+  "lossLabel": "Browser validation loss 1790414737182",
+  "events": [
+    {
+      "action": "create-metric",
+      "status": 201
+    },
+    {
+      "action": "update-metric",
+      "status": 200
+    },
+    {
+      "action": "create-loss",
+      "status": 201
+    },
+    {
+      "action": "reject-invalid-formula",
+      "status": 422
+    },
+    {
+      "action": "delete-metric",
+      "status": 204
+    },
+    {
+      "action": "delete-loss",
+      "status": 204
+    }
+  ]
+}
