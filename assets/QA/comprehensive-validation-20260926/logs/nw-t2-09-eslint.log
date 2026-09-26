@@ -1,0 +1,2 @@
+Command: npm exec -- eslint e2e/custom-node-templates.spec.ts --no-cache
+Result: PASS (exit code 0; no diagnostics)
