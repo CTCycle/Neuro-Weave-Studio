@@ -1,14 +1,14 @@
 # NeuroWeave Comprehensive Validation Ledger
 
-Last updated: 2026-09-25
+Last updated: 2026-09-26
 
-Run ID: `NW-CV-20260925-T2-06-07-DATASET-WORKSPACE`
+Run ID: `NW-CV-20260926-T2-08-METRICS`
 
-Repository: `develop`; NW-T2-06 and NW-T2-07 were validated at `0ab274d51ad511cbda3a55c5a4599aade28d5404` after the clean `5d14d3a9c8d7effaac4801dd272346552889c3aa` baseline. Earlier slices retain their recorded revisions: NW-T2-03/04 and prior positive JAX evidence at `6c1687457822380f471c7ce8129b93632af96972`; NW-T2-05 and the initial NW-T4-02 refresh at `75bfc73f34636ba735985e2f7e21d8fc3e27fbf5`; TensorFlow/XLA follow-up based on `937f980e3f1759863a44fc6b936e46107e62fa97`. See the [2026-09-25 dataset workspace report](../comprehensive-validation-20260925/NW-T2-06-07.md) and [run manifest](../comprehensive-validation-20260925/NW-T2-06-07-run-manifest.json).
+Repository: `develop`; NW-T2-08 was validated at `6d05722d3e402fc8e77e78ff2737603bd992ce84`. NW-T2-06 and NW-T2-07 were validated at `0ab274d51ad511cbda3a55c5a4599aade28d5404` after the clean `5d14d3a9c8d7effaac4801dd272346552889c3aa` baseline. Earlier slices retain their recorded revisions: NW-T2-03/04 and prior positive JAX evidence at `6c1687457822380f471c7ce8129b93632af96972`; NW-T2-05 and the initial NW-T4-02 refresh at `75bfc73f34636ba735985e2f7e21d8fc3e27fbf5`; TensorFlow/XLA follow-up based on `937f980e3f1759863a44fc6b936e46107e62fa97`. See the [NW-T2-08 report](../comprehensive-validation-20260926/NW-T2-08.md), the [2026-09-25 dataset workspace report](../comprehensive-validation-20260925/NW-T2-06-07.md), and the [metrics lifecycle evidence](../comprehensive-validation-20260926/evidence/metrics/metrics-lifecycle.json).
 
 Historical Tier 0 evidence remains at `752ab151978b56dd2c20568f63434e346dcf6ea8`; the current NW-T0-03 revalidation is linked below.
 
-Campaign status: **PARTIAL**. NW-T2-03 through NW-T2-07 PASS. NW-T0-03 remains PARTIAL with 52 recorded strict Pyright errors. NW-T4-02 remains PARTIAL: TensorFlow/XLA and JAX JIT compile/forward checks pass on CPU; positive PyTorch Inductor compilation remains unavailable in the current launcher environment. The 1/2/4-worker SQLite matrix and assistive-technology checks remain outstanding. This is not a full application certification.
+Campaign status: **PARTIAL**. NW-T2-03 through NW-T2-08 PASS. NW-T0-03 remains PARTIAL with 52 recorded strict Pyright errors. NW-T4-02 remains PARTIAL: TensorFlow/XLA and JAX JIT compile/forward checks pass on CPU; positive PyTorch Inductor compilation remains unavailable in the current launcher environment. The 1/2/4-worker SQLite matrix, assistive-technology checks, and NW-T2-09 remain outstanding. This is not a full application certification.
 
 ## Aggregate status
 
@@ -16,11 +16,11 @@ Campaign status: **PARTIAL**. NW-T2-03 through NW-T2-07 PASS. NW-T0-03 remains P
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | Tier 0 | Environment and startup | 3 | 1 | 0 | 0 | 0 |
 | Tier 1 | Application foundations | 5 | 0 | 0 | 0 | 0 |
-| Tier 2 | Core workflows | 7 | 0 | 0 | 0 | 2 |
+| Tier 2 | Core workflows | 8 | 0 | 0 | 0 | 1 |
 | Tier 3 | Model Builder catalog | 0 | 0 | 0 | 0 | 19 |
 | Tier 4 | Runtime and integrations | 0 | 1 | 0 | 0 | 3 |
 | Tier 5 | Resilience, usability, closure | 0 | 0 | 0 | 0 | 5 |
-| Total | 46 slices | 15 | 2 | 0 | 0 | 29 |
+| Total | 46 slices | 16 | 2 | 0 | 0 | 28 |
 
 UNTESTED means that the slice remains in campaign scope but was not run in
 this revision-specific pass. It does not mean the feature is absent or broken.
@@ -45,9 +45,11 @@ this revision-specific pass. It does not mean the feature is absent or broken.
 | NW-T2-05 | Tensor inspection entry points, traces, statistics, slicing, expiry/cancellation, and fail-closed runtime checks | PASS | `75bfc73f34636ba735985e2f7e21d8fc3e27fbf5` | [NW-T2-05 report](../comprehensive-validation-20260924/NW-T2-05-T4-02.md), [browser lifecycle](../comprehensive-validation-20260924/logs/nw-t2-05-browser-e2e-20260924.log), [5 focused tests](../comprehensive-validation-20260924/logs/nw-t2-05-backend-focused-20260924.log), [rendered 3 × 4 sequence heatmap](../comprehensive-validation-20260924/evidence/nw-t2-05/nw-t2-05-builder-sequence-heatmap.png), [launcher readiness](../comprehensive-validation-20260924/evidence/nw-t2-05-launcher-readiness.json), [fixture cleanup](../comprehensive-validation-20260924/logs/nw-t2-05-fixture-cleanup-20260924.log) | This slice proves the exact Keras/PyTorch profile and the bounded ephemeral lifecycle exercised here; the six-profile live runtime/export matrix remains separate. |
 | NW-T2-06 | Dataset registration, bounded source inspection, roles, persistence, relink, and deletion | PASS | `0ab274d51ad511cbda3a55c5a4599aade28d5404` | [2026-09-25 report](../comprehensive-validation-20260925/NW-T2-06-07.md), [serial dataset browser workflow](../comprehensive-validation-20260925/logs/dataset-workspace-e2e-final.log), [23 backend dataset tests](../comprehensive-validation-20260925/logs/backend-datasets-pytest-final.log), [in-app Browser observation](../comprehensive-validation-20260925/evidence/in-app-browser-observation.md), [persisted relink screenshot](../comprehensive-validation-20260925/evidence/dataset-workspace/dataset-processing-relink-persisted.png) | The live browser slice covers tabular CSV sources. Image, text, array, and composed source workflows remain outside this run. |
 | NW-T2-07 | Processing interpretation edits, valid/invalid population bounds, and declarative split persistence | PASS | `0ab274d51ad511cbda3a55c5a4599aade28d5404` | [2026-09-25 report](../comprehensive-validation-20260925/NW-T2-06-07.md), [serial dataset browser workflow](../comprehensive-validation-20260925/logs/dataset-workspace-e2e-final.log), [23 backend dataset tests](../comprehensive-validation-20260925/logs/backend-datasets-pytest-final.log), [rejected replacement screenshot](../comprehensive-validation-20260925/evidence/dataset-workspace/dataset-processing-invalid-replacement-rejected.png), [persisted declarative split screenshot](../comprehensive-validation-20260925/evidence/dataset-workspace/dataset-split-configuration-persisted.png) | This validates metadata configuration only. Materialized partitions, row indexes, preprocessing, and training data execution remain NOT_IMPLEMENTED. |
+| NW-T2-08 | Custom metric/loss create, edit, safe formula validation, task compatibility, save/reload, supported catalogs, and deletion | PASS | `6d05722d3e402fc8e77e78ff2737603bd992ce84` | [NW-T2-08 report](../comprehensive-validation-20260926/NW-T2-08.md), [lifecycle record](../comprehensive-validation-20260926/evidence/metrics/metrics-lifecycle.json), [reloaded metric card](../comprehensive-validation-20260926/evidence/metrics/metrics-after-reload-metric-card.png), [reloaded loss card](../comprehensive-validation-20260926/evidence/metrics/metrics-after-reload-loss-card.png), [invalid formula screenshot](../comprehensive-validation-20260926/evidence/metrics/metrics-invalid-formula.png), [final catalog screenshot](../comprehensive-validation-20260926/evidence/metrics/metrics-after-delete.png) | Custom adapters are explicitly limited to Keras and native PyTorch; TensorFlow/JAX fallback is not claimed. Training execution and full profile/runtime coverage remain separate. |
+| NW-T2-09 | Safe mathematical and graph-template custom-node authoring | UNTESTED | — | — | Next ordered Tier 2 slice; no current revision-specific execution evidence. |
 | NW-T4-02 | TensorFlow XLA, JAX JIT, and PyTorch `torch.compile` capability gates without fallback | PARTIAL | `937f980e3f1759863a44fc6b936e46107e62fa97` plus the validated launcher/test worktree | [follow-up report](../comprehensive-validation-20260924/NW-T2-05-T4-02.md#tensorflowxla-follow-up--2026-09-24), [follow-up manifest](../comprehensive-validation-20260924/NW-T4-02-tensorflow-xla-followup-run-manifest.json), [native TensorFlow XLA smoke](../comprehensive-validation-20260924/logs/nw-t4-02-tensorflow-native-xla-smoke-20260924.log), [native JAX JIT smoke](../comprehensive-validation-20260924/logs/nw-t4-02-jax-native-jit-smoke-20260924.log), [compiler-gate browser run](../comprehensive-validation-20260924/logs/nw-t4-02-compiler-gates-e2e-final-20260924.log), [JAX browser run](../comprehensive-validation-20260924/logs/nw-t4-02-jax-live-gate-e2e-20260924.log), [unavailable compiler rejection tests](../comprehensive-validation-20260924/logs/nw-t4-02-pytorch-compiler-rejection-pytest-final-20260924.log), [live runtime summary](../comprehensive-validation-20260924/evidence/nw-t4-02-tensorflow-xla-followup/nw-t4-02-live-runtime-summary-20260924.json), [rendered TensorFlow control](../comprehensive-validation-20260924/evidence/nw-t4-02-tensorflow-xla-followup/nw-t4-02-tensorflow-xla-gate.png), [rendered PyTorch control](../comprehensive-validation-20260924/evidence/nw-t4-02-tensorflow-xla-followup/nw-t4-02-pytorch-compiler-gate.png) | TensorFlow XLA and JAX JIT are verified on CPU. PyTorch Inductor remains PARTIAL: the native control stays disabled and positive compilation is unavailable because the launcher has no `cl.exe` or Visual Studio/Windows SDK environment. |
 
-Two other Tier 2 slices, all Tier 3 and Tier 5 slices, and three Tier 4
+One other Tier 2 slice, all Tier 3 and Tier 5 slices, and three Tier 4
 slices remain UNTESTED. NW-T0-03 and NW-T4-02 remain PARTIAL. The TensorFlow/XLA
 blocker is resolved; positive PyTorch Inductor execution remains the open NW-T4-02
 subpath. The worker-count matrix and assistive-technology checks remain open.
@@ -76,6 +78,8 @@ subpath. The worker-count matrix and assistive-technology checks remain open.
 - Detailed NW-T2-06/07 report and run manifest: [report](../comprehensive-validation-20260925/NW-T2-06-07.md), [manifest](../comprehensive-validation-20260925/NW-T2-06-07-run-manifest.json)
 - NW-T2-06/07 official launcher, serial browser checks, focused backend dataset tests, changed-spec ESLint, process cleanup, and isolated cache cleanup: `../comprehensive-validation-20260925/logs/`
 - NW-T2-06/07 runtime readiness, route geometry, in-app Browser observation, and curated processing/split screenshots: `../comprehensive-validation-20260925/evidence/`
+- Detailed NW-T2-08 report: [NW-T2-08.md](../comprehensive-validation-20260926/NW-T2-08.md)
+- NW-T2-08 focused backend/frontend gates, serial browser lifecycle, screenshots, and cleanup record: `../comprehensive-validation-20260926/evidence/`
 - Latest NW-T4-02 follow-up manifest: [run manifest](../comprehensive-validation-20260924/NW-T4-02-tensorflow-xla-followup-run-manifest.json); TensorFlow/XLA, JAX JIT, launcher-contract, browser, live metadata, and [process/cache cleanup](../comprehensive-validation-20260924/logs/nw-t4-02-followup-process-cleanup-20260924.log) evidence: `../comprehensive-validation-20260924/logs/` and `../comprehensive-validation-20260924/evidence/nw-t4-02-tensorflow-xla-followup/`
 - 2026-09-24 disposable project, process, port, and isolated cache cleanup: [fixture cleanup](../comprehensive-validation-20260924/logs/nw-t2-03-04-fixture-cleanup-20260924.log), [process cleanup](../comprehensive-validation-20260924/logs/nw-t2-03-04-process-cleanup-20260924.log)
 - Detailed NW-T2-01 report: [NW-T2-01.md](NW-T2-01.md)
@@ -109,4 +113,4 @@ at 52 errors (`ISSUE-003`).
 
 ## Next action
 
-Continue with NW-T2-08, the next ordered untested Tier 2 workflow: custom metric/loss create, edit, validation, save/reload, task compatibility, and deletion. NW-T2-09 safe custom-node authoring follows. NW-T0-03 Pyright, the positive PyTorch Inductor compiler prerequisite, the 1/2/4-worker SQLite matrix, and assistive-technology checks remain open independently.
+Continue with NW-T2-09, the next ordered untested Tier 2 workflow: safe mathematical and graph-template custom-node authoring. NW-T0-03 Pyright, the positive PyTorch Inductor compiler prerequisite, the 1/2/4-worker SQLite matrix, and assistive-technology checks remain open independently.
