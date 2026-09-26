@@ -27,7 +27,7 @@ test('persists, edits, validates, reloads, and deletes custom metrics and losses
     await expect(createMetricDialog.getByRole('heading', { name: 'Add loss or metric' })).toBeVisible()
     await createMetricDialog.getByLabel('Name').fill(metricLabel)
     await createMetricDialog.getByLabel('Description').fill('Browser lifecycle metric.')
-    await createMetricDialog.getByLabel('Formula').fill('mean(abs(y-yhat))')
+    await createMetricDialog.getByRole('textbox', { name: 'Formula', exact: true }).fill('mean(abs(y-yhat))')
     const createMetricResponse = page.waitForResponse(
       (response) => response.url().endsWith('/api/metrics') && response.request().method() === 'POST',
     )
@@ -40,7 +40,7 @@ test('persists, edits, validates, reloads, and deletes custom metrics and losses
     const metricCard = page.locator('.metrics-card').filter({ hasText: metricLabel })
     await expect(metricCard).toBeVisible()
     await expect(metricCard.getByRole('button', { name: `View ${metricLabel}` })).toBeVisible()
-    await page.screenshot({ path: path.join(evidenceDir, 'metrics-after-create.png'), fullPage: false })
+    await page.screenshot({ path: path.join(evidenceDir, 'metrics-after-create.png'), fullPage: true })
 
     await metricCard.getByRole('button', { name: `View ${metricLabel}` }).click()
     const viewDialog = page.getByRole('dialog')
@@ -52,7 +52,7 @@ test('persists, edits, validates, reloads, and deletes custom metrics and losses
     const editDialog = page.getByRole('dialog')
     await expect(editDialog.getByRole('heading', { name: 'Edit loss or metric' })).toBeVisible()
     await editDialog.getByLabel('Description').fill('Edited browser lifecycle metric.')
-    await editDialog.getByLabel('Formula').fill('mean((y-yhat)^2)')
+    await editDialog.getByRole('textbox', { name: 'Formula', exact: true }).fill('mean((y-yhat)^2)')
     const updateMetricResponse = page.waitForResponse(
       (response) => response.url().includes(`/api/metrics/${metricId}`) && response.request().method() === 'PUT',
     )
@@ -69,7 +69,7 @@ test('persists, edits, validates, reloads, and deletes custom metrics and losses
     await createLossDialog.getByLabel('Description').fill('Browser lifecycle loss.')
     await createLossDialog.getByRole('tab', { name: 'Equation builder' }).click()
     await expect(createLossDialog.getByRole('button', { name: 'mean(' })).toBeVisible()
-    await createLossDialog.getByLabel('Formula').fill('mean((y-yhat)^2)')
+    await createLossDialog.getByRole('textbox', { name: 'Formula', exact: true }).fill('mean((y-yhat)^2)')
     const createLossResponse = page.waitForResponse(
       (response) => response.url().endsWith('/api/metrics') && response.request().method() === 'POST',
     )
@@ -82,15 +82,19 @@ test('persists, edits, validates, reloads, and deletes custom metrics and losses
 
     await page.reload()
     await expect(page.getByRole('heading', { name: 'Metrics', exact: true })).toBeVisible()
-    await expect(page.locator('.metrics-card').filter({ hasText: metricLabel })).toBeVisible()
-    await expect(page.locator('.metrics-card').filter({ hasText: lossLabel })).toBeVisible()
-    await page.screenshot({ path: path.join(evidenceDir, 'metrics-after-reload.png'), fullPage: false })
+    const reloadedMetricCard = page.locator('.metrics-card').filter({ hasText: metricLabel })
+    const reloadedLossCard = page.locator('.metrics-card').filter({ hasText: lossLabel })
+    await expect(reloadedMetricCard).toBeVisible()
+    await expect(reloadedLossCard).toBeVisible()
+    await reloadedMetricCard.screenshot({ path: path.join(evidenceDir, 'metrics-after-reload-metric-card.png') })
+    await reloadedLossCard.screenshot({ path: path.join(evidenceDir, 'metrics-after-reload-loss-card.png') })
+    await page.screenshot({ path: path.join(evidenceDir, 'metrics-after-reload.png'), fullPage: true })
 
     await page.getByRole('button', { name: 'Add loss / metric' }).click()
     const invalidDialog = page.getByRole('dialog')
     await invalidDialog.getByLabel('Name').fill(`Invalid formula ${suffix}`)
     await invalidDialog.getByLabel('Description').fill('Rejected browser validation case.')
-    await invalidDialog.getByLabel('Formula').fill("__import__('os').system('whoami')")
+    await invalidDialog.getByRole('textbox', { name: 'Formula', exact: true }).fill("__import__('os').system('whoami')")
     const invalidResponsePromise = page.waitForResponse(
       (response) => response.url().endsWith('/api/metrics') && response.request().method() === 'POST',
     )
@@ -99,6 +103,7 @@ test('persists, edits, validates, reloads, and deletes custom metrics and losses
     evidence.events.push({ action: 'reject-invalid-formula', status: invalidResponse.status() })
     expect(invalidResponse.status()).toBe(422)
     await expect(invalidDialog.getByRole('alert')).toBeVisible()
+    await page.screenshot({ path: path.join(evidenceDir, 'metrics-invalid-formula.png'), fullPage: false })
     await invalidDialog.getByRole('button', { name: 'Cancel' }).click()
 
     const deleteMetricCard = page.locator('.metrics-card').filter({ hasText: metricLabel })
@@ -127,6 +132,7 @@ test('persists, edits, validates, reloads, and deletes custom metrics and losses
     expect(deletedLossResponse.status()).toBe(204)
     lossId = undefined
     await expect(page.locator('.metrics-card').filter({ hasText: lossLabel })).toHaveCount(0)
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
     await page.screenshot({ path: path.join(evidenceDir, 'metrics-after-delete.png'), fullPage: false })
   } finally {
     if (metricId) {
