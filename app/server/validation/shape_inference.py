@@ -1005,7 +1005,12 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
                 raise ShapeInferenceError("Recurrent layers require rank 3: batch, time, features")
             units = _int_parameter(parameters, "units", 64)
             return_sequences = bool(parameters.get("return_sequences", False))
-            cell = str(parameters.get("cell", "lstm"))
+            cell = (
+                {"recurrent.simple_rnn": "simple_rnn", "recurrent.gru": "gru"}.get(
+                    node.definition_id,
+                    str(parameters.get("cell", "lstm")),
+                )
+            )
             multiplier = {"simple_rnn": 1, "gru": 3, "lstm": 4}.get(cell)
             if multiplier is None:
                 raise ShapeInferenceError(f"Unsupported recurrent cell: {cell}")

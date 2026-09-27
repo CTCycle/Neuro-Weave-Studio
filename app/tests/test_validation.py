@@ -1,3 +1,5 @@
+import pytest
+
 from common.catalogs.loader import get_node_catalog
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, OutputBinding, Position
@@ -101,6 +103,58 @@ def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
     assert result.total_parameters == 63
     dense = next(item for item in result.shape_summaries if item.node_id == "dense")
     assert dense.outputs["output"].shape == [None, 3]
+
+###############################################################################
+@pytest.mark.parametrize(
+    ("definition_id", "expected_parameter_count"),
+    [
+        ("recurrent.simple_rnn", 96),
+        ("recurrent.gru", 288),
+        ("recurrent.lstm", 384),
+    ],
+)
+def test_dedicated_recurrent_nodes_use_their_declared_cell_for_parameter_counts(
+    definition_id: str,
+    expected_parameter_count: int,
+) -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.sequence", {"shape": [4, 3], "dtype": "float32"}),
+            make_node(
+                "recurrent",
+                definition_id,
+                {"units": 8, "return_sequences": True},
+            ),
+            make_node("output", "output.sequence"),
+        ],
+        edges=[
+            EdgeInstance(
+                id="e1",
+                source_node_id="input",
+                source_port_id="output",
+                target_node_id="recurrent",
+                target_port_id="input",
+            ),
+            EdgeInstance(
+                id="e2",
+                source_node_id="recurrent",
+                source_port_id="output",
+                target_node_id="output",
+                target_port_id="input",
+            ),
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert result.valid
+    assert result.total_parameters == expected_parameter_count
+    recurrent = next(item for item in result.shape_summaries if item.node_id == "recurrent")
+    assert recurrent.parameter_count == expected_parameter_count
 
 ###############################################################################
 def test_cycle_is_reported_as_error() -> None:
