@@ -1,8 +1,8 @@
 # Model Builder validation ledger
 
-Last updated: 2026-09-21
+Last updated: 2026-09-27
 
-Preparation status: READY FOR FUTURE VALIDATION. This document was prepared without running a new validation pass and without changing application code.
+Preparation status: ACTIVE. The first bounded current-checkout run (`NW-T3-01`) is recorded below; full closure remains pending.
 
 ## Purpose
 
@@ -363,12 +363,12 @@ Use stable family IDs so the same graph intent can be compared across profiles a
 | GF-002 | 1D input → Conv1D → pooling → global pooling → output | rank-3 shape and 1D spatial transitions | node-functional-matrix-20260921.md | PASS only for named K/PyTorch case; expand |
 | GF-003 | 2D image → Conv2D → pooling → global pooling → output | rank-4 shape, channels, 2D transitions | node-functional-matrix-20260921.md | PASS only for named K/PyTorch and N/PyTorch cases; expand |
 | GF-004 | 3D tensor → Conv3D → pooling → global pooling → output | rank-5 shape and 3D transitions | node-functional-matrix-20260921.md | PASS only for named K/PyTorch case; expand |
-| GF-005 | Sequence → Simple RNN/GRU/LSTM → sequence output | rank-three input and return_sequences | Historical compatibility report | STALE; re-run |
-| GF-006 | Recurrent node with return_state → multi-output/state consumers | state ports, output selection, serialization | Historical compatibility report | STALE; re-run |
+| GF-005 | Sequence → Simple RNN/GRU/LSTM → sequence output | rank-three input and return_sequences | Historical compatibility report; current NW-T3-01 Simple RNN case | PASS for the current K/PyTorch Simple RNN case; expand to GRU/LSTM, parameters, and profiles |
+| GF-006 | Recurrent node with return_state → multi-output/state consumers | state ports, output selection, serialization | Historical compatibility report; current NW-T3-01 Simple RNN state-consumer case | PASS for the current K/PyTorch Simple RNN state case; full multi-output/profile matrix remains pending |
 | GF-007 | Sequence → self/multi-head attention → output | head divisibility, attention axes, output rank | Static contract evidence | PENDING live Builder/runtime |
 | GF-008 | Query/key/value or mask → cross-attention/transformer block | multi-input ports, masks, residuals, conditional parameters | Static contract evidence | PENDING live Builder/runtime |
-| GF-009 | Two branches → merge/concatenate/stack/residual/skip → output | fan-in, shape equality, axis, tensor-list cardinality | Backend compatibility evidence | PENDING expanded matrix |
-| GF-010 | Input → mathematical unary/binary/reduction/tensor operations | dtype/rank/shape rules and safe expressions | Native parity supporting evidence | PENDING Builder catalog coverage |
+| GF-009 | Two branches → merge/concatenate/stack/residual/skip → output | fan-in, shape equality, axis, tensor-list cardinality | Backend compatibility evidence; current NW-T3-01 Concatenate case | PASS for the current K/PyTorch tensor-list Concatenate case; expand merge/axis/cardinality matrix |
+| GF-010 | Input → mathematical unary/binary/reduction/tensor operations | dtype/rank/shape rules and safe expressions | Native parity supporting evidence; current NW-T3-01 Concatenate case | PASS for the current K/PyTorch Concatenate path only; full mathematical family remains pending |
 | GF-011 | Branch and fan-out graph | one output to multiple compatible consumers | Existing graph validation coverage | PENDING per profile |
 | GF-012 | Multi-input and multi-output graph | explicit output bindings, stable port IDs, independent terminals | Native parity supporting evidence | PENDING Builder/profile coverage |
 | GF-013 | Output adapter variants | classification, regression, segmentation, sequence, multi-head, custom, detection | Static/output contract evidence | PENDING live profile coverage |
@@ -407,6 +407,27 @@ For every PASS or EXPECTED_UNSUPPORTED row, retain:
 - cleanup result, including stopped task-owned processes and test data.
 
 Store new reports, screenshots, traces, logs, and matrices under assets/QA. Link them from this ledger and from the project status ledger when a component status changes.
+
+## Current bounded run: NW-T3-01
+
+Date: 2026-09-27
+Repository: `develop` at implementation commit `09d53a0`
+Run report: [NW-T3-01 risk-based catalog slice](comprehensive-validation-20260927/NW-T3-01.md)
+Catalog: 149 nodes; fingerprint `e0ea2f09ef44a4b3fcb10988495fcdea578f6d504c9bc39915e224d50276f439`
+Profile: `execution_backend=pytorch`, `keras_enabled=true`, Keras API / PyTorch backend, CPU worker
+Evidence root: `assets/QA/comprehensive-validation-20260927/`
+
+| Level | Bounded result | Closure boundary |
+| --- | --- | --- |
+| L0 catalog inventory | PASS | Live catalog count, category counts, IDs, and fingerprint are frozen; this does not close node-level coverage. |
+| L1 single-node behavior | PASS for `Simple RNN` and `Concatenate` materialization | The remaining 147 definitions and profile-specific enable/disable behavior remain PENDING. |
+| L2 parameter behavior | PASS for recurrent `units` / `return_sequences` / `return_state` and Concatenate `axis=-1` | Other parameters, boundaries, nullable values, and profile capabilities remain PENDING. |
+| L3 port/edge behavior | PASS for recurrent sequence/state consumers and two-input tensor-list fan-in | Exhaustive catalog edge generation and incompatible-pair coverage remain PENDING. |
+| L4 graph composition | PASS for GF-005, GF-006, GF-009, and the selected GF-010 Concatenate case | Each result is a named K/PyTorch graph only; the family/profile matrix remains PENDING. |
+| L5 runtime/profile | PASS for Functional Validation on the selected K/PyTorch lane | Source, export, profile switching, and the other five profiles remain PENDING. |
+| L6 persistence/recovery | PASS for save/reopen at revision 2 in both cases | Invalid repair, profile switching, export reload, and failure cleanup across the matrix remain PENDING. |
+
+The run found and fixed a static parameter-count defect: dedicated `recurrent.simple_rnn` and `recurrent.gru` definitions were using the LSTM multiplier when their `cell` parameter was absent. The regression and final live evidence are linked from the [run report](comprehensive-validation-20260927/NW-T3-01.md). This is a bounded PASS, not full Model Builder certification.
 
 ## Future session run template
 

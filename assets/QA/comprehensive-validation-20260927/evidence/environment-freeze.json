@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "recorded_at": "2026-09-27T19:05:28.026462+02:00",
+  "fingerprint": "59a7f0bd4e3a445c682e2b8ad5ef4ff20db9453585916f6f706ad3788a987612",
+  "system": "Windows 10.0.26200",
+  "python": "3.13.14",
+  "hardware": "NVIDIA GeForce RTX 3060 Laptop GPU, 610.88",
+  "packages": {
+    "keras": "3.15.1",
+    "numpy": "2.5.1",
+    "pytorch": "2.13.0+cu126",
+    "tensorflow": "2.21.0",
+    "jax": "0.11.0",
+    "flax": "0.12.8",
+    "onnx": "1.22.0",
+    "onnxruntime": "1.29.0"
+  },
+  "selected_profile": {
+    "execution_backend": "pytorch",
+    "keras_enabled": true,
+    "api": "keras",
+    "device": "cpu",
+    "discovery_state": "verified"
+  },
+  "other_runtime_lanes": "installed but not discovered in this bounded run"
+}
