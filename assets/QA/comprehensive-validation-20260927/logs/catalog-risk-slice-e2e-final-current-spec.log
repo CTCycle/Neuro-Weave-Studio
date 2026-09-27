@@ -1,0 +1,14 @@
+
+> neuro-weave-frontend@1.0.0 e2e
+> playwright test e2e/catalog-risk-slice.spec.ts --workers=1 --output G:\Projects\Repositories\Active projects\Neuro Weave Studio\assets\QA\comprehensive-validation-20260927\evidence\playwright-final-current-spec
+
+
+Running 2 tests using 1 worker
+
+
+
+(node:2872) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/2] e2e\catalog-risk-slice.spec.ts:238:3 › NW-T3-01 risk-based catalog slice › recurrent sequence/state ports build, persist, and execute from the catalog
+[2/2] e2e\catalog-risk-slice.spec.ts:274:3 › NW-T3-01 risk-based catalog slice › tensor-list merge fan-in and axis parameter build, persist, and execute from the catalog
+  2 passed (23.2s)
