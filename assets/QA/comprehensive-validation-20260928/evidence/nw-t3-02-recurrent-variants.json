@@ -1,0 +1,356 @@
+{
+  "case": "nw-t3-02-recurrent-variants",
+  "project_id": "d34ea3df-7020-44a4-9633-d024776ad364",
+  "revision": 2,
+  "validation": {
+    "valid": true,
+    "diagnostics": [],
+    "shape_summaries": [
+      {
+        "node_id": "gru-input",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              3
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "lstm-input",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              3
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "recurrent-gru-31f53b30-5df4-4efb-9c8c-dad65ba005a5",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          },
+          "hidden_state": {
+            "shape": [
+              null,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 312
+      },
+      {
+        "node_id": "recurrent-lstm-20c4019d-141f-4c96-97dd-4920a59dc5ac",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          },
+          "hidden_state": {
+            "shape": [
+              null,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          },
+          "cell_state": {
+            "shape": [
+              null,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 384
+      },
+      {
+        "node_id": "gru-sequence-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "gru-state-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "lstm-sequence-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "lstm-hidden-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "lstm-cell-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      }
+    ],
+    "total_parameters": 696,
+    "effective_outputs": [
+      {
+        "node_id": "gru-sequence-output",
+        "port_id": "output",
+        "name": "GRU sequence output",
+        "explicit": false,
+        "task_hint": "sequence"
+      },
+      {
+        "node_id": "gru-state-output",
+        "port_id": "output",
+        "name": "GRU hidden state output",
+        "explicit": false,
+        "task_hint": "generic"
+      },
+      {
+        "node_id": "lstm-sequence-output",
+        "port_id": "output",
+        "name": "LSTM sequence output",
+        "explicit": false,
+        "task_hint": "sequence"
+      },
+      {
+        "node_id": "lstm-hidden-output",
+        "port_id": "output",
+        "name": "LSTM hidden state output",
+        "explicit": false,
+        "task_hint": "generic"
+      },
+      {
+        "node_id": "lstm-cell-output",
+        "port_id": "output",
+        "name": "LSTM cell state output",
+        "explicit": false,
+        "task_hint": "generic"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "multi_output",
+      "confidence": "high",
+      "evidence": [
+        "5 outputs are selected"
+      ]
+    }
+  },
+  "submitted_job_id": "f28ac83c00da4f1597abcc6be7f62764",
+  "final_job": {
+    "id": "f28ac83c00da4f1597abcc6be7f62764",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 30068,
+    "created_at": "2026-09-28T06:55:43.477662Z",
+    "started_at": "2026-09-28T06:55:43.491740Z",
+    "updated_at": "2026-09-28T06:55:54.590149Z",
+    "finished_at": "2026-09-28T06:55:54.590148Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {},
+        "metrics": {},
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 3055.1,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "gru-input",
+          "shape": [
+            1,
+            4,
+            3
+          ]
+        },
+        {
+          "dtype": "float32",
+          "node_id": "lstm-input",
+          "shape": [
+            1,
+            4,
+            3
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "GRU sequence output",
+          "node_id": "gru-sequence-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            4,
+            8
+          ]
+        },
+        {
+          "dtype": "float32",
+          "name": "GRU hidden state output",
+          "node_id": "gru-state-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            8
+          ]
+        },
+        {
+          "dtype": "float32",
+          "name": "LSTM sequence output",
+          "node_id": "lstm-sequence-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            4,
+            8
+          ]
+        },
+        {
+          "dtype": "float32",
+          "name": "LSTM hidden state output",
+          "node_id": "lstm-hidden-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            8
+          ]
+        },
+        {
+          "dtype": "float32",
+          "name": "LSTM cell state output",
+          "node_id": "lstm-cell-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            8
+          ]
+        }
+      ],
+      "parameter_count": 696,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  }
+}
