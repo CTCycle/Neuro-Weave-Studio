@@ -1,8 +1,8 @@
 # Troubleshooting
 
-Last updated: 2026-09-16
+Last updated: 2026-09-28
 
-A blank catalog usually means node JSON failed Pydantic validation; inspect the backend log under `app/resources/runtime/logs`. If a configured port is occupied, the launcher reports the listener PID and leaves that process untouched. Save conflicts return HTTP 409 and require reopening before overwrite.
+A blank catalog usually means node JSON failed Pydantic validation; inspect the backend log under `resources/runtime/logs`. If a configured port is occupied, the launcher reports the listener PID and leaves that process untouched. Save conflicts return HTTP 409 and require reopening before overwrite.
 
 ## Execution jobs
 
@@ -14,7 +14,7 @@ The controller requests cooperative cancellation first. After five seconds it te
 
 `dependency_missing`, `backend_import_failed`, `probe_timeout`, and unsupported device/policy messages come from isolated runtime discovery. The Environment page starts a check only for the selected backend/API and shows `Not checked`, `Checking`, `Usable`, `Unavailable`, or `Failed`; an installed framework with an unchecked API is not reported as unavailable. Matching snapshots are display-only at process start and are validated when the requested capability is first used. After changing packages, hardware, runtime variables, or backend configuration, use the Environment refresh action or the explicit backend-management path to invalidate the snapshot. A stalled check has a bounded 60-second worker deadline and returns a visible diagnostic; it does not block `/health`, metadata, navigation, or source-only operations. Real native prediction reports `not_implemented` by design. Memory numbers are best-effort observations: PyTorch allocated and reserved/cache memory are different, TensorFlow reports tracked current/peak values, and JAX reports device statistics only when the platform exposes them. Cleanup calls do not replace process teardown.
 
-If the launcher reports that the frontend process exited, it includes the exit code, elapsed wait, endpoint, and recent frontend log output. The preview server serves only regular files, routes extensionless paths to `index.html`, and returns 404 for missing scripts, styles, and other assets. A missing build directory returns an actionable 503; run the explicit `RebuildFrontend` action. The launcher starts the frontend and backend independently, opens the browser after frontend readiness, and continues backend health polling with a bounded deadline. Backend diagnostics are retained in `app/resources/runtime/logs/backend.log` and the launcher terminal/log files.
+If the launcher reports that the frontend process exited, it includes the exit code, elapsed wait, endpoint, and recent frontend log output. The preview server serves only regular files, routes extensionless paths to `index.html`, and returns 404 for missing scripts, styles, and other assets. A missing build directory returns an actionable 503; run the explicit `RebuildFrontend` action. The launcher starts the frontend and backend independently, opens the browser after frontend readiness, and continues backend health polling with a bounded deadline. Backend diagnostics are retained in `resources/runtime/logs/backend.log` and the launcher terminal/log files.
 
 If a backend package is installed or removed, stop the application and restart it so the process environment is refreshed, then run an explicit capability check. Normal backend/device/policy selection changes only affect new workers.
 

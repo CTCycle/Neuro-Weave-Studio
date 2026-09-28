@@ -11,7 +11,8 @@ param(
     [ValidateSet('Standard', 'Development')]
     [string]$InstallationType = 'Development',
     [switch]$ExportTools,
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [string]$ResourcesDir = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,7 +21,7 @@ $ProgressPreference = 'Continue'
 Set-StrictMode -Version Latest
 $script:RepoRoot = $PSScriptRoot
 $script:AppDir = Join-Path $RepoRoot 'app'
-$script:ResourceDir = Join-Path $script:AppDir 'resources'
+$script:ResourceDir = Join-Path $script:RepoRoot 'resources'
 $script:SettingsDir = Join-Path $RepoRoot 'settings'
 $script:ServerDir = Join-Path $AppDir 'server'
 $script:ClientDir = Join-Path $AppDir 'client'
@@ -52,7 +53,7 @@ $script:EnvironmentFile = Join-Path (Join-Path $RepoRoot 'settings') '.env'
 $script:DefaultDatabasePath = Join-Path $script:ResourceDir 'database.db'
 $script:UserDataRuntimeDir = Join-Path $script:ResourceDir 'runtime'
 $script:LogDir = Join-Path $script:UserDataRuntimeDir 'logs'
-$script:BackendInstallState = Join-Path $AppDir 'resources\runtime\backend-installation.json'
+$script:BackendInstallState = Join-Path $script:ResourceDir 'runtime\backend-installation.json'
 $script:FrontendDistIndex = Join-Path $script:FrontendDistDir 'index.html'
 $script:GitRemote = 'origin'
 $script:GitMainBranch = 'main'
@@ -65,6 +66,10 @@ $script:NoBrowser = $NoBrowser
 $script:NextProgressId = 1
 $script:ActiveProgressActivities = [Collections.Generic.Dictionary[int, string]]::new()
 $script:LauncherInteractive = -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
+
+if (-not [string]::IsNullOrWhiteSpace($ResourcesDir)) {
+    $env:NEURO_WEAVE_RESOURCES_DIR = $ResourcesDir
+}
 
 # ===============================================================================
 # Output and diagnostics
@@ -1856,10 +1861,22 @@ function Resolve-ConfiguredPath {
     }
 }
 
+function Initialize-ResourcePaths {
+    $configuredResourceDir = Resolve-ConfiguredPath -Name 'NEURO_WEAVE_RESOURCES_DIR' -Default 'resources'
+    if ($null -eq $configuredResourceDir) {
+        throw 'NEURO_WEAVE_RESOURCES_DIR must identify a filesystem directory.'
+    }
+    $script:ResourceDir = $configuredResourceDir
+    $script:DefaultDatabasePath = Join-Path $script:ResourceDir 'database.db'
+    $script:UserDataRuntimeDir = Join-Path $script:ResourceDir 'runtime'
+    $script:LogDir = Join-Path $script:UserDataRuntimeDir 'logs'
+    $script:BackendInstallState = Join-Path $script:UserDataRuntimeDir 'backend-installation.json'
+}
+
 function Get-UserDataTargets {
     $targets = [System.Collections.Generic.List[string]]::new()
     $databasePaths = [System.Collections.Generic.List[string]]::new()
-    $configuredDatabase = Resolve-ConfiguredPath -Name 'DATABASE_SQLITE_PATH' -Default 'app/resources/database.db'
+    $configuredDatabase = Resolve-ConfiguredPath -Name 'DATABASE_SQLITE_PATH' -Default 'resources/database.db'
 
     foreach ($candidate in @($script:DefaultDatabasePath, $configuredDatabase)) {
         if ($null -eq $candidate) { continue }
@@ -1881,9 +1898,9 @@ function Get-UserDataTargets {
     }
 
     foreach ($configuredPath in @(
-            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_EXPORT_ROOT' -Default 'app/resources/runtime/exports'),
-            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_LOG_FILE' -Default 'app/resources/runtime/logs/backend.log'),
-            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_ML_JOB_ROOT' -Default 'app/resources/runtime/ml-jobs')
+            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_EXPORT_ROOT' -Default 'resources/runtime/exports'),
+            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_LOG_FILE' -Default 'resources/runtime/logs/backend.log'),
+            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_ML_JOB_ROOT' -Default 'resources/runtime/ml-jobs')
         )) {
         if ($null -ne $configuredPath -and -not (Test-PathWithin -Child $configuredPath -Parent $script:UserDataRuntimeDir)) {
             $targets.Add($configuredPath)
@@ -2246,6 +2263,8 @@ function Invoke-UninstallApplication {
 # ===============================================================================
 # Non-interactive action dispatch
 # ===============================================================================
+Initialize-ResourcePaths
+
 if ($Action -ne 'Menu') {
     try {
         Invoke-TrackedLauncherAction -Name "action $Action" -Operation {
