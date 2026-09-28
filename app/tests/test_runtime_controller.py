@@ -10,6 +10,7 @@ from typing import cast
 from uuid import uuid4
 
 import pytest
+
 from common.process_control import process_start_options
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend, keras_backend_value

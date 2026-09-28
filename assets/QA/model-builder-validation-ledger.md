@@ -487,8 +487,8 @@ frontend unit/lint/build gates passed. Full strict Pyright remains PARTIAL at
 was not clean: `19/20`, `18/20`, and `17/20` passed at workers 1, 2, and 4;
 no SQLite lock signatures were found, but active-job and parallel Builder
 failures keep `NW-T5-02`/`ISSUE-001` open. The bounded basic-convolution
-`NW-T3-03` slice was subsequently selected and passed; advanced/spatial
-convolution `NW-T3-04` is the next selected catalog slice.
+`NW-T3-03` slice was subsequently selected and passed; the advanced/spatial
+convolution `NW-T3-04` slice has now also passed, and `NW-T3-05` is next.
 
 ## Current bounded run: NW-T3-03
 
@@ -511,6 +511,28 @@ Evidence root: assets/QA/comprehensive-validation-20260928/
 | L6 persistence/recovery | PASS for save/reload of all four graphs, browser-error checks, and task-fixture cleanup | Invalid repair, retained incompatible state, profile switching, export reload, and matrix-wide recovery remain PENDING. |
 
 The authoritative browser matrix passed 4/4 cases with one worker after adding an explicit Builder reload assertion after save. Static shapes, parameter counts, exact worker identity, runtime outputs, and empty browser-error payloads passed for every case. The in-app Browser observation separately confirmed the live catalog search, Conv2D materialization, and rendered Inspector. No product defect was found in this slice; the change is a test-strengthening assertion. The next selected catalog slice is advanced/spatial convolution NW-T3-04. This remains a bounded PASS, not full Model Builder certification.
+
+## Current bounded run: NW-T3-04
+
+Date: 2026-09-28
+Repository: develop at implementation revision `65f1f7e99ec059876efb0fba256738ea7fb2ec01`
+Run report: [NW-T3-04 advanced and spatial convolution](comprehensive-validation-20260928/NW-T3-04.md)
+Run manifest: [NW-T3-04 run manifest](comprehensive-validation-20260928/NW-T3-04-run-manifest.json)
+Catalog: 149 nodes; current live-response fingerprint `ebff9fdbaf3d2a8ff09d783c6315fa81434362f5cd266b6b1b6b7fb589a3f333`; nine remaining advanced/spatial convolution definition IDs were confirmed live and Keras/PyTorch-supported
+Profile: selected Keras API / PyTorch backend / CPU and native PyTorch / CPU neighbor for depthwise convolution
+Evidence root: assets/QA/comprehensive-validation-20260928/
+
+| Level | Bounded result | Closure boundary |
+| --- | --- | --- |
+| L0 catalog inventory | PASS | Live catalog count, schema, selected IDs, profile mappings, and readiness were captured; full catalog coverage remains open. |
+| L1 single-node behavior | PASS for the nine selected advanced/spatial definitions | The other 140 definitions and untested parameter states remain pending. |
+| L2 parameter behavior | PASS for the live defaults and exercised shape-changing parameters | Full nullable, conditional, boundary, and profile-specific parameter coverage remains pending. |
+| L3 port/edge behavior | PASS for the selected input-to-operation-to-output edges | Exhaustive compatible and incompatible edge coverage remains pending. |
+| L4 graph composition | PASS for ten three-node graphs | Larger graph families and cross-family composition remain pending. |
+| L5 runtime/profile | PASS for Keras/PyTorch CPU and native PyTorch CPU; browser matrix 11/11 | Other live profiles, source/export, training, and compiler-positive paths remain pending. |
+| L6 persistence/recovery | PASS for save/reload, browser errors, project deletion, process cleanup, and port release | Invalid repair, retained incompatible state, profile switching, export reload, and matrix-wide recovery remain pending. |
+
+The authoritative serial browser matrix passed 11/11 cases. The cases covered Max Pooling 1D, Average Pooling 2D, Max Pooling 3D, Depthwise, Separable, and Transposed Convolution, Upsampling, Padding, Cropping, and a native-PyTorch Depthwise neighbor. Every case produced the expected static shape and parameter count, saved with three nodes and two edges, reloaded with three nodes, completed with the exact selected worker, and emitted an empty browser error payload. The in-app Browser observation confirmed the rendered live convolutional catalog. Full Ruff is green after three narrow import-block repairs; strict Pyright remains PARTIAL at 58 existing errors. The existing recurrent-wrapper, torch.compile, and 1/2/4-worker matrix limitations remain unchanged. The next selected catalog slice is NW-T3-05. This remains a bounded PASS, not full Model Builder certification.
 
 ## Future session run template
 

@@ -1,0 +1,212 @@
+{
+  "case": "nw-t3-04-max-pool-3d-keras-pytorch",
+  "project_id": "81b64aee-1c91-4df6-9057-f3bb675312d2",
+  "profile": {
+    "execution_backend": "pytorch",
+    "keras_enabled": true,
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    }
+  },
+  "revision": 2,
+  "expected": {
+    "static_output_shape": [
+      null,
+      2,
+      2,
+      2,
+      2
+    ],
+    "runtime_output_shape": [
+      1,
+      2,
+      2,
+      2,
+      2
+    ],
+    "parameter_count": 0
+  },
+  "validation": {
+    "valid": true,
+    "diagnostics": [],
+    "shape_summaries": [
+      {
+        "node_id": "matrix-input",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              4,
+              4,
+              2
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "conv-max_pool3d-d9ec3496-0da4-49a6-8875-4fd1071970fb",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              2,
+              2,
+              2,
+              2
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "matrix-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              2,
+              2,
+              2,
+              2
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      }
+    ],
+    "total_parameters": 0,
+    "effective_outputs": [
+      {
+        "node_id": "matrix-output",
+        "port_id": "output",
+        "name": "Matrix output",
+        "explicit": false,
+        "task_hint": "generic"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "generic",
+      "confidence": "low",
+      "evidence": [
+        "head=conv.max_pool3d",
+        "output_width=2",
+        "graph does not uniquely identify a task"
+      ]
+    }
+  },
+  "submitted_job_id": "7587f2e6193f489ca4c509ad15052b12",
+  "final_job": {
+    "id": "7587f2e6193f489ca4c509ad15052b12",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 4108,
+    "created_at": "2026-09-28T16:28:15.363330Z",
+    "started_at": "2026-09-28T16:28:15.382367Z",
+    "updated_at": "2026-09-28T16:28:32.381043Z",
+    "finished_at": "2026-09-28T16:28:32.381042Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {},
+        "metrics": {},
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 3684.4,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "matrix-input",
+          "shape": [
+            1,
+            4,
+            4,
+            4,
+            2
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Matrix output",
+          "node_id": "matrix-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            2,
+            2,
+            2,
+            2
+          ]
+        }
+      ],
+      "parameter_count": 0,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  "browser_errors": []
+}

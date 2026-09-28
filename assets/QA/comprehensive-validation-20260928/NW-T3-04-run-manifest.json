@@ -1,0 +1,91 @@
+{
+  "run_id": "NW-CV-20260928-T3-04-ADVANCED-SPATIAL-CONVOLUTION",
+  "date": "2026-09-28",
+  "branch": "develop",
+  "implementation_revision": "65f1f7e99ec059876efb0fba256738ea7fb2ec01",
+  "working_tree_validation_changes": [
+    "Added app/client/e2e/advanced-convolution-slice.spec.ts.",
+    "Repaired three existing Ruff import-block findings in app/tests/test_runtime_controller.py, app/tests/test_tensor_inspection.py, and app/tests/test_validation.py."
+  ],
+  "status": "PASS_BOUNDED",
+  "launcher": {
+    "command": ".\\start_on_windows.ps1 -Action Launch -Backends 'tensorflow,pytorch,jax' -Acceleration Auto -ExportTools -NoBrowser -ResourcesDir 'runtimes/cache/nw-t3-04-advanced-convolution-20260928'",
+    "backend_port": 9854,
+    "frontend_port": 6431,
+    "resources_dir": "runtimes/cache/nw-t3-04-advanced-convolution-20260928",
+    "requested_backends": ["tensorflow", "pytorch", "jax"],
+    "acceleration": "Auto",
+    "export_tools": true,
+    "browser_workers": 1
+  },
+  "catalog": {
+    "count": 149,
+    "schema_version": 1,
+    "fingerprint_sha256": "ebff9fdbaf3d2a8ff09d783c6315fa81434362f5cd266b6b1b6b7fb589a3f333",
+    "selected_definition_ids": [
+      "conv.average_pool2d",
+      "conv.cropping",
+      "conv.depthwise",
+      "conv.max_pool1d",
+      "conv.max_pool3d",
+      "conv.padding",
+      "conv.separable",
+      "conv.transposed",
+      "conv.upsampling"
+    ],
+    "evidence": "evidence/nw-t3-04-live-catalog.json"
+  },
+  "profiles": [
+    "Keras API / PyTorch backend / CPU",
+    "Native PyTorch / CPU"
+  ],
+  "cases": [
+    "nw-t3-04-max-pool-1d-keras-pytorch",
+    "nw-t3-04-average-pool-2d-keras-pytorch",
+    "nw-t3-04-max-pool-3d-keras-pytorch",
+    "nw-t3-04-depthwise-keras-pytorch",
+    "nw-t3-04-depthwise-native-pytorch",
+    "nw-t3-04-separable-keras-pytorch",
+    "nw-t3-04-transposed-keras-pytorch",
+    "nw-t3-04-upsampling-keras-pytorch",
+    "nw-t3-04-padding-keras-pytorch",
+    "nw-t3-04-cropping-keras-pytorch"
+  ],
+  "quality_gates": {
+    "backend_focused_suite": "PASS, exit 0",
+    "full_ruff": "PASS after three import-block repairs",
+    "full_pyright": "PARTIAL, 58 errors across seven existing test modules",
+    "frontend_unit": "PASS, 20 files and 105 tests",
+    "frontend_lint": "PASS",
+    "frontend_build": "PASS",
+    "browser_e2e": "PASS, 11/11 serial cases with one worker",
+    "browser_errors": "PASS, empty for all ten graph cases",
+    "in_app_browser": "PASS, rendered live convolutional catalog observation"
+  },
+  "cleanup": {
+    "disposable_run_root_removed": true,
+    "launcher_processes_stopped": true,
+    "ports_9854_and_6431_free": true,
+    "evidence": "logs/process-cleanup-nw-t3-04.md"
+  },
+  "evidence": {
+    "report": "NW-T3-04.md",
+    "browser_log": "logs/nw-t3-04-advanced-convolution-e2e.log",
+    "case_payloads_and_screenshots": "evidence/",
+    "live_catalog": "evidence/nw-t3-04-live-catalog.json",
+    "runtime_readiness": "evidence/nw-t3-04-runtime-readiness.json",
+    "in_app_browser": "evidence/nw-t3-04-inapp-browser-observation.md",
+    "launcher_log": "logs/official-launcher-nw-t3-04-advanced-convolution.txt",
+    "backend_log": "logs/backend-nw-t3-04-focused.log",
+    "ruff_log": "logs/ruff-nw-t3-04-full.log",
+    "pyright_log": "logs/pyright-nw-t3-04-full.log",
+    "cleanup": "logs/process-cleanup-nw-t3-04.md"
+  },
+  "remaining_limits": [
+    "NW-T3-RW remains PARTIAL at standard Keras LSTM counts 256/272 versus requested 64/68.",
+    "NW-T0-03/ISSUE-003 remains PARTIAL with 58 strict Pyright errors across seven existing test modules.",
+    "NW-T4-02/ISSUE-005 remains PARTIAL because positive PyTorch Inductor execution is unavailable and torch_compile=false.",
+    "NW-T5-02/ISSUE-001 remains PARTIAL because the 1/2/4-worker matrix was not clean despite no reproduced SQLite-lock signature.",
+    "Full catalog/profile, source/export, training, assistive-technology, and remaining Tier 3/4/5 slices remain open."
+  ]
+}

@@ -1,0 +1,22 @@
+
+> neuro-weave-frontend@1.0.0 e2e
+> playwright test e2e/advanced-convolution-slice.spec.ts --workers=1 --reporter=list
+
+
+Running 11 tests using 1 worker
+
+(node:23792) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 e2e\advanced-convolution-slice.spec.ts:390:3 › NW-T3-04 advanced and spatial convolution catalog slice › live catalog exposes the selected convolution definitions and profile mappings (326ms)
+  ok  2 e2e\advanced-convolution-slice.spec.ts:429:5 › NW-T3-04 advanced and spatial convolution catalog slice › nw-t3-04-max-pool-1d-keras-pytorch builds, persists, and completes exact-profile functional validation (21.6s)
+  ok  3 e2e\advanced-convolution-slice.spec.ts:429:5 › NW-T3-04 advanced and spatial convolution catalog slice › nw-t3-04-average-pool-2d-keras-pytorch builds, persists, and completes exact-profile functional validation (21.1s)
+  ok  4 e2e\advanced-convolution-slice.spec.ts:429:5 › NW-T3-04 advanced and spatial convolution catalog slice › nw-t3-04-max-pool-3d-keras-pytorch builds, persists, and completes exact-profile functional validation (21.5s)
+  ok  5 e2e\advanced-convolution-slice.spec.ts:429:5 › NW-T3-04 advanced and spatial convolution catalog slice › nw-t3-04-depthwise-keras-pytorch builds, persists, and completes exact-profile functional validation (22.5s)
+  ok  6 e2e\advanced-convolution-slice.spec.ts:429:5 › NW-T3-04 advanced and spatial convolution catalog slice › nw-t3-04-depthwise-native-pytorch builds, persists, and completes exact-profile functional validation (12.7s)
+  ok  7 e2e\advanced-convolution-slice.spec.ts:429:5 › NW-T3-04 advanced and spatial convolution catalog slice › nw-t3-04-separable-keras-pytorch builds, persists, and completes exact-profile functional validation (21.5s)
+  ok  8 e2e\advanced-convolution-slice.spec.ts:429:5 › NW-T3-04 advanced and spatial convolution catalog slice › nw-t3-04-transposed-keras-pytorch builds, persists, and completes exact-profile functional validation (22.2s)
+  ok  9 e2e\advanced-convolution-slice.spec.ts:429:5 › NW-T3-04 advanced and spatial convolution catalog slice › nw-t3-04-upsampling-keras-pytorch builds, persists, and completes exact-profile functional validation (19.3s)
+  ok 10 e2e\advanced-convolution-slice.spec.ts:429:5 › NW-T3-04 advanced and spatial convolution catalog slice › nw-t3-04-padding-keras-pytorch builds, persists, and completes exact-profile functional validation (21.3s)
+  ok 11 e2e\advanced-convolution-slice.spec.ts:429:5 › NW-T3-04 advanced and spatial convolution catalog slice › nw-t3-04-cropping-keras-pytorch builds, persists, and completes exact-profile functional validation (20.4s)
+
+  11 passed (3.5m)
