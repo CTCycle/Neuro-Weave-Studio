@@ -1,8 +1,8 @@
 # Model Builder validation ledger
 
-Last updated: 2026-09-27
+Last updated: 2026-09-28
 
-Preparation status: ACTIVE. The first bounded current-checkout run (`NW-T3-01`) is recorded below; full closure remains pending.
+Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` and `NW-T3-02`) are recorded below; full closure remains pending.
 
 ## Purpose
 
@@ -363,8 +363,8 @@ Use stable family IDs so the same graph intent can be compared across profiles a
 | GF-002 | 1D input → Conv1D → pooling → global pooling → output | rank-3 shape and 1D spatial transitions | node-functional-matrix-20260921.md | PASS only for named K/PyTorch case; expand |
 | GF-003 | 2D image → Conv2D → pooling → global pooling → output | rank-4 shape, channels, 2D transitions | node-functional-matrix-20260921.md | PASS only for named K/PyTorch and N/PyTorch cases; expand |
 | GF-004 | 3D tensor → Conv3D → pooling → global pooling → output | rank-5 shape and 3D transitions | node-functional-matrix-20260921.md | PASS only for named K/PyTorch case; expand |
-| GF-005 | Sequence → Simple RNN/GRU/LSTM → sequence output | rank-three input and return_sequences | Historical compatibility report; current NW-T3-01 Simple RNN case | PASS for the current K/PyTorch Simple RNN case; expand to GRU/LSTM, parameters, and profiles |
-| GF-006 | Recurrent node with return_state → multi-output/state consumers | state ports, output selection, serialization | Historical compatibility report; current NW-T3-01 Simple RNN state-consumer case | PASS for the current K/PyTorch Simple RNN state case; full multi-output/profile matrix remains pending |
+| GF-005 | Sequence → Simple RNN/GRU/LSTM → sequence output | rank-three input and return_sequences | Current NW-T3-01 and NW-T3-02 recurrent cases | PASS for the current K/PyTorch Simple RNN, GRU, and LSTM cases; broader parameters and profiles remain pending |
+| GF-006 | Recurrent node with return_state → multi-output/state consumers | state ports, output selection, serialization | Current NW-T3-01 and NW-T3-02 recurrent state-consumer cases | PASS for the current K/PyTorch Simple RNN, GRU, and LSTM state cases; full multi-output/profile matrix remains pending |
 | GF-007 | Sequence → self/multi-head attention → output | head divisibility, attention axes, output rank | Static contract evidence | PENDING live Builder/runtime |
 | GF-008 | Query/key/value or mask → cross-attention/transformer block | multi-input ports, masks, residuals, conditional parameters | Static contract evidence | PENDING live Builder/runtime |
 | GF-009 | Two branches → merge/concatenate/stack/residual/skip → output | fan-in, shape equality, axis, tensor-list cardinality | Backend compatibility evidence; current NW-T3-01 Concatenate case | PASS for the current K/PyTorch tensor-list Concatenate case; expand merge/axis/cardinality matrix |
@@ -428,6 +428,35 @@ Evidence root: `assets/QA/comprehensive-validation-20260927/`
 | L6 persistence/recovery | PASS for save/reopen at revision 2 in both cases | Invalid repair, profile switching, export reload, and failure cleanup across the matrix remain PENDING. |
 
 The run found and fixed a static parameter-count defect: dedicated `recurrent.simple_rnn` and `recurrent.gru` definitions were using the LSTM multiplier when their `cell` parameter was absent. The regression and final live evidence are linked from the [run report](comprehensive-validation-20260927/NW-T3-01.md). This is a bounded PASS, not full Model Builder certification.
+
+## Current bounded run: NW-T3-02
+
+Date: 2026-09-28
+Repository: `develop` at implementation commit `4ec01814ca1a3d53a83d1012c84181f92fc000e4`
+Run report: [NW-T3-02 recurrent GRU/LSTM variant slice](comprehensive-validation-20260928/NW-T3-02.md)
+Run manifest: [NW-T3-02-run-manifest.json](comprehensive-validation-20260928/NW-T3-02-run-manifest.json)
+Catalog: 149 nodes; fingerprint `e0ea2f09ef44a4b3fcb10988495fcdea578f6d504c9bc39915e224d50276f439`; definition IDs match the prior freeze
+Profile: `execution_backend=pytorch`, `keras_enabled=true`, Keras API / PyTorch backend, CPU worker
+Evidence root: `assets/QA/comprehensive-validation-20260928/`
+
+| Level | Bounded result | Closure boundary |
+| --- | --- | --- |
+| L0 catalog inventory | PASS | Live count, category counts, IDs, and fingerprint were checked against the prior freeze; node-level coverage remains open. |
+| L1 single-node behavior | PASS for Simple RNN, GRU, LSTM, and Concatenate materialization | 145 definitions and profile-specific enable/disable behavior remain PENDING. |
+| L2 parameter behavior | PASS for recurrent units, `return_sequences`, `return_state`, GRU `reset_after`, and Concatenate `axis=-1` | Other parameters, constraints, nullable values, and profile capabilities remain PENDING. |
+| L3 port/edge behavior | PASS for recurrent sequence/state consumers and selected tensor-list fan-in | Exhaustive catalog edge generation and incompatible-pair coverage remain PENDING. |
+| L4 graph composition | PASS for GF-005, GF-006, GF-009, and the selected GF-010 Concatenate case | Full graph-family and profile matrix remains PENDING. |
+| L5 runtime/profile | PASS for Functional Validation on the selected K/PyTorch CPU lane | Source, export, profile switching, and the other five profiles remain PENDING. |
+| L6 persistence/recovery | PASS for save/reopen at revision 2 in the exercised GRU/LSTM and neighbor cases | Invalid repair, profile switching, export reload, and matrix-wide failure cleanup remain PENDING. |
+
+This run found and fixed a live static/runtime parameter-count mismatch: the
+first GRU/LSTM run reported static total `672` while the successful
+Keras/PyTorch worker reported `696`. Keras GRU `reset_after=true` uses two bias
+vectors, so `shape_inference.py` now counts two GRU bias vectors by default and
+one when `reset_after=false`. Regression coverage records GRU `312`/`288`,
+Simple RNN `96`, and LSTM `384`. The final graph persisted at revision 2,
+returned five outputs, completed successfully on CPU, and emitted no browser
+errors. This is a bounded PASS, not full Model Builder certification.
 
 ## Future session run template
 
