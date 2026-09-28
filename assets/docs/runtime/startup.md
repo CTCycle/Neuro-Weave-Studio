@@ -1,6 +1,6 @@
 # Startup
 
-Last updated: 2026-09-21
+Last updated: 2026-09-28
 
 On Windows run `start_on_windows.ps1` and select **Launch application**. On the first launch, after core dependencies are ready, the launcher offers a numbered backend choice covering Keras-only, PyTorch GPU/CUDA, PyTorch CPU-only, TensorFlow CPU-only, JAX CPU-only, and combined configurations. It detects NVIDIA CUDA with `nvidia-smi`, falls back to the CPU wheel when a PyTorch CUDA install fails, records the requested and resolved extras, and reports each backend's actual installed version and worker capability during explicit setup or management. A configured normal launch reuses that installation record; the separate **Manage compute backends** action can be revisited later and refuses to mutate the environment while the application is running.
 
@@ -40,7 +40,7 @@ cd app/client
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-Backend and frontend output from the launcher is written to `app/resources/runtime/logs` when backend logs are hidden. Set `BACKEND_LOGS_VISIBLE=false` in `settings/.env` to use that file-only mode; it defaults to `true`, which opens a dedicated terminal for backend logs while application log files continue to be written.
+Backend and frontend output from the launcher is written to `resources/runtime/logs` when backend logs are hidden. Set `BACKEND_LOGS_VISIBLE=false` in `settings/.env` to use that file-only mode; it defaults to `true`, which opens a dedicated terminal for backend logs while application log files continue to be written. The resource directory defaults to `resources` and can be changed with `NEURO_WEAVE_RESOURCES_DIR` or the launcher's `-ResourcesDir` parameter.
 
 The launcher menu groups **Remove logs**, **Clear cache**, **Remove all data**, and **Uninstall application** under maintenance and data actions. Cache and data removal enumerates each target and removes individual files and directories in a deterministic, deepest-first order. Locked or protected items are reported and skipped so the action continues. Clear cache removes the canonical runtime and test cache roots; locked or admin-owned files are reported and skipped so the action continues. Remove all data shows a `[y/N]` confirmation; it removes the configured database, SQLite sidecars, runtime data, exports, job workspaces, logs, and backend state while preserving application files, settings, runtimes, dependencies, caches, and build output. Uninstall shows a `[y/N]` confirmation; it removes repository-local runtimes, the server virtual environment, frontend dependencies, and both canonical cache roots while preserving settings, lockfiles, database files, and exports.
 

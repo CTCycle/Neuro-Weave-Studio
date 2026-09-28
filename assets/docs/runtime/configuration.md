@@ -1,6 +1,6 @@
 # Configuration
 
-Last updated: 2026-09-17
+Last updated: 2026-09-28
 
 Configuration is loaded through `pydantic-settings` from inherited environment variables and `settings/.env`. Inherited process variables take precedence, which allows isolated QA databases without changing the local file. The launcher never prints environment values.
 
@@ -8,7 +8,7 @@ This launch/runtime configuration remains outside the Angular Settings workspace
 
 Database settings are SQLite-only and use `DATABASE_SQLITE_PATH` and `DATABASE_CONNECT_TIMEOUT`.
 
-Application settings use `NEURO_WEAVE_CORS_ORIGINS`, `NEURO_WEAVE_LOG_LEVEL`, `NEURO_WEAVE_LOG_FILE`, `NEURO_WEAVE_EXPORT_ROOT`, and `NEURO_WEAVE_RUNTIME_DISCOVERY_PATH`. Relative SQLite, log, export, ML-job, and runtime-discovery paths are anchored to the repository root. The default database is `app/resources/database.db`; canonical artifacts use `app/resources/runtime/exports`; ephemeral worker workspaces use `app/resources/runtime/ml-jobs`; the environment discovery cache uses `runtimes/cache/environment-discovery.json`. Runtime, application, frontend, tooling, pytest, and temporary test caches all use `runtimes/cache`.
+Application settings use `NEURO_WEAVE_CORS_ORIGINS`, `NEURO_WEAVE_LOG_LEVEL`, `NEURO_WEAVE_RESOURCES_DIR`, `NEURO_WEAVE_LOG_FILE`, `NEURO_WEAVE_EXPORT_ROOT`, and `NEURO_WEAVE_RUNTIME_DISCOVERY_PATH`. `NEURO_WEAVE_RESOURCES_DIR` defaults to `resources` and accepts a repository-relative or absolute directory. The default database is `resources/database.db`; canonical artifacts use `resources/runtime/exports`; ephemeral worker workspaces use `resources/runtime/ml-jobs`; and launcher logs use `resources/runtime/logs`. `DATABASE_SQLITE_PATH`, `NEURO_WEAVE_LOG_FILE`, `NEURO_WEAVE_EXPORT_ROOT`, and `NEURO_WEAVE_ML_JOB_ROOT` remain available as explicit per-path overrides. The environment discovery cache uses `runtimes/cache/environment-discovery.json`. Runtime, application, frontend, tooling, pytest, and temporary test caches all use `runtimes/cache`.
 
 The process controller settings are `NEURO_WEAVE_ML_JOB_ROOT`, `NEURO_WEAVE_ML_WORKER_TIMEOUT_SECONDS`, `NEURO_WEAVE_ML_CANCEL_GRACE_SECONDS`, `NEURO_WEAVE_ML_TERMINATE_GRACE_SECONDS`, and `NEURO_WEAVE_ML_JOB_HISTORY_LIMIT`. Defaults are a bounded runtime root, 300 seconds, five seconds cooperative cancellation, five seconds termination escalation, and 100 terminal records. These values govern worker lifecycle only; they do not enable training or native inference.
 
