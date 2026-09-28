@@ -384,4 +384,188 @@ test.describe('NW-T3-01 risk-based catalog slice', () => {
       await deleteProject(request, fixture.id)
     }
   })
+
+  test('bidirectional recurrent merge modes infer focused output shapes', async ({ page, request }, testInfo) => {
+    const fixture = await createProject(
+      request,
+      `Tier 3 bidirectional merge modes ${Date.now()}`,
+      graphShell([
+        node('sequence-input', 'input.sequence', 'Sequence input', { x: 48, y: 160 }, { shape: [4, 3], dtype: 'float32' }),
+        node('sequence-output', 'output.sequence', 'Sequence output', { x: 1040, y: 160 }, {}),
+      ]),
+    )
+    const browserErrors: string[] = []
+    page.on('pageerror', (error) => browserErrors.push(`pageerror: ${error.message}`))
+    page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(`console: ${message.text()}`) })
+    try {
+      await page.goto(`/builder/${fixture.id}`)
+      await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+      const bidirectionalNodeId = await addCatalogNode(page, 'Bidirectional Recurrent Layer')
+      const bidirectional = page.locator(`[data-node-id="${bidirectionalNodeId}"]`)
+      await bidirectional.click()
+      const inspector = page.getByRole('complementary', { name: 'Properties inspector' })
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Cell' }).locator('select').selectOption('lstm')
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Units' }).locator('input').fill('4')
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Return sequences' }).locator('input[type="checkbox"]').check()
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Merge mode' }).locator('select').selectOption('concat')
+
+      await connectByPorts(page, 'Sequence input', 'Output', 'Bidirectional Recurrent Layer', 'Input', 1)
+      await connectByPorts(page, 'Bidirectional Recurrent Layer', 'Output', 'Sequence output', 'Input', 2)
+      await expect(page.locator('.validation-summary')).toContainText('Ready', { timeout: 30_000 })
+
+      const expectedShapes: Record<string, (number | null)[]> = {
+        sum: [null, 4, 4],
+        mul: [null, 4, 4],
+        ave: [null, 4, 4],
+        concat: [null, 4, 8],
+      }
+      const observed: Record<string, unknown> = {}
+      for (const mergeMode of ['sum', 'mul', 'ave', 'concat']) {
+        const validationResponsePromise = page.waitForResponse(
+          (response) => response.url().endsWith('/api/validation') && response.request().method() === 'POST',
+        )
+        await inspector.locator('label.inspector-field').filter({ hasText: 'Merge mode' }).locator('select').selectOption(mergeMode)
+        const validationResponse = await validationResponsePromise
+        expect(validationResponse.ok()).toBeTruthy()
+        const validationPayload = await validationResponse.json() as {
+          valid: boolean
+          total_parameters?: number
+          shape_summaries?: Array<{ node_id: string; parameter_count: number; outputs: Record<string, { shape: unknown[] }> }>
+        }
+        expect(validationPayload.valid).toBe(true)
+        const summary = validationPayload.shape_summaries?.find((item) => item.node_id === bidirectionalNodeId)
+        expect(summary?.parameter_count).toBe(256)
+        expect(summary?.outputs['output']?.shape).toEqual(expectedShapes[mergeMode])
+        expect(validationPayload.total_parameters).toBe(256)
+        observed[mergeMode] = { shape: summary?.outputs['output']?.shape, parameter_count: summary?.parameter_count }
+      }
+      await page.screenshot({ path: testInfo.outputPath('nw-t3-wrapper-bidirectional-merge-modes.png'), fullPage: true })
+      await mkdir(evidenceDir, { recursive: true })
+      await page.screenshot({ path: path.join(evidenceDir, 'nw-t3-wrapper-bidirectional-merge-modes.png'), fullPage: true })
+      await writeFile(path.join(evidenceDir, 'nw-t3-wrapper-bidirectional-merge-modes.json'), JSON.stringify({
+        case: 'nw-t3-wrapper-bidirectional-merge-modes',
+        project_id: fixture.id,
+        observed,
+      }, null, 2))
+      expect(browserErrors, 'bidirectional merge-mode workflow should not emit browser errors').toEqual([])
+      await writeFile(path.join(evidenceDir, 'nw-t3-wrapper-bidirectional-merge-modes-browser-errors.json'), JSON.stringify(browserErrors, null, 2))
+    } finally {
+      await deleteProject(request, fixture.id)
+    }
+  })
+
+  test('bidirectional LSTM wrapper builds, persists, and executes on the selected CPU lane', async ({ page, request }, testInfo) => {
+    const fixture = await createProject(
+      request,
+      `Tier 3 bidirectional LSTM ${Date.now()}`,
+      graphShell([
+        node('sequence-input', 'input.sequence', 'Sequence input', { x: 48, y: 160 }, { shape: [4, 3], dtype: 'float32' }),
+        node('sequence-output', 'output.sequence', 'Sequence output', { x: 1040, y: 160 }, {}),
+      ]),
+    )
+    const browserErrors: string[] = []
+    page.on('pageerror', (error) => browserErrors.push(`pageerror: ${error.message}`))
+    page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(`console: ${message.text()}`) })
+    try {
+      await page.goto(`/builder/${fixture.id}`)
+      await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+      const bidirectionalNodeId = await addCatalogNode(page, 'Bidirectional Recurrent Layer')
+      const bidirectional = page.locator(`[data-node-id="${bidirectionalNodeId}"]`)
+      await bidirectional.click()
+      const inspector = page.getByRole('complementary', { name: 'Properties inspector' })
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Cell' }).locator('select').selectOption('lstm')
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Units' }).locator('input').fill('4')
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Return sequences' }).locator('input[type="checkbox"]').check()
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Merge mode' }).locator('select').selectOption('concat')
+
+      await connectByPorts(page, 'Sequence input', 'Output', 'Bidirectional Recurrent Layer', 'Input', 1)
+      await connectByPorts(page, 'Bidirectional Recurrent Layer', 'Output', 'Sequence output', 'Input', 2)
+      const result = await saveValidateAndRun(page, request, fixture, 3, 2, 'nw-t3-wrapper-bidirectional-lstm', testInfo)
+      const validationPayload = result['validation'] as {
+        shape_summaries?: Array<{ node_id: string; parameter_count: number; outputs: Record<string, { shape: unknown[] }> }>
+        total_parameters?: number
+      }
+      const summary = validationPayload.shape_summaries?.find((item) => item.node_id === bidirectionalNodeId)
+      expect(summary?.parameter_count).toBe(256)
+      expect(summary?.outputs['output']?.shape).toEqual([null, 4, 8])
+      expect(validationPayload.total_parameters).toBe(256)
+
+      const finalJob = result['final_job'] as { result?: { parameter_count?: number; outputs?: unknown[] } }
+      expect(finalJob.result?.parameter_count).toBe(256)
+      expect(finalJob.result?.outputs).toHaveLength(1)
+      expect(browserErrors, 'bidirectional LSTM workflow should not emit browser errors').toEqual([])
+      await writeFile(path.join(evidenceDir, 'nw-t3-wrapper-bidirectional-lstm-browser-errors.json'), JSON.stringify(browserErrors, null, 2))
+    } finally {
+      await deleteProject(request, fixture.id)
+    }
+  })
+
+  test('recurrent stack repairs a blocked layer count, persists, and executes', async ({ page, request }, testInfo) => {
+    const fixture = await createProject(
+      request,
+      `Tier 3 recurrent stack ${Date.now()}`,
+      graphShell([
+        node('sequence-input', 'input.sequence', 'Sequence input', { x: 48, y: 160 }, { shape: [4, 3], dtype: 'float32' }),
+        node('sequence-output', 'output.sequence', 'Sequence output', { x: 1040, y: 160 }, {}),
+      ]),
+    )
+    const browserErrors: string[] = []
+    page.on('pageerror', (error) => browserErrors.push(`pageerror: ${error.message}`))
+    page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(`console: ${message.text()}`) })
+    try {
+      await page.goto(`/builder/${fixture.id}`)
+      await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+      const stackNodeId = await addCatalogNode(page, 'Recurrent Stack')
+      const stack = page.locator(`[data-node-id="${stackNodeId}"]`)
+      await stack.click()
+      const inspector = page.getByRole('complementary', { name: 'Properties inspector' })
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Cell' }).locator('select').selectOption('lstm')
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Units' }).locator('input').fill('4')
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Return sequences' }).locator('input[type="checkbox"]').check()
+      await connectByPorts(page, 'Sequence input', 'Output', 'Recurrent Stack', 'Input', 1)
+      await connectByPorts(page, 'Recurrent Stack', 'Output', 'Sequence output', 'Input', 2)
+      await expect(page.locator('.validation-summary')).toContainText('Ready', { timeout: 30_000 })
+
+      const layers = inspector.locator('label.inspector-field').filter({ hasText: 'Layers' }).locator('input')
+      await layers.fill('0')
+      await expect(layers).toHaveValue('0')
+      await expect(page.locator('.validation-summary')).toContainText('Blocked', { timeout: 30_000 })
+      const blockedNotice = page.getByRole('button', { name: 'Model graph has blocking findings.', exact: true })
+      await expect(blockedNotice).toBeVisible()
+      await blockedNotice.click()
+      await page.locator('.validation-summary').click()
+      await expect(page.locator('.diagnostic-list')).toContainText('Recurrent stack layers must be positive')
+      const invalidDiagnostic = await page.locator('.diagnostic-list').innerText()
+      await mkdir(evidenceDir, { recursive: true })
+      await page.screenshot({ path: testInfo.outputPath('nw-t3-wrapper-stack-invalid.png'), fullPage: true })
+      await page.screenshot({ path: path.join(evidenceDir, 'nw-t3-wrapper-stack-invalid.png'), fullPage: true })
+      await writeFile(path.join(evidenceDir, 'nw-t3-wrapper-stack-invalid.json'), JSON.stringify({
+        case: 'nw-t3-wrapper-stack-invalid',
+        project_id: fixture.id,
+        layers: 0,
+        validation_status: 'blocked',
+        diagnostic: invalidDiagnostic,
+      }, null, 2))
+
+      await layers.fill('2')
+      await expect(layers).toHaveValue('2')
+      const result = await saveValidateAndRun(page, request, fixture, 3, 2, 'nw-t3-wrapper-stack-lstm', testInfo)
+      const validationPayload = result['validation'] as {
+        shape_summaries?: Array<{ node_id: string; parameter_count: number; outputs: Record<string, { shape: unknown[] }> }>
+        total_parameters?: number
+      }
+      const summary = validationPayload.shape_summaries?.find((item) => item.node_id === stackNodeId)
+      expect(summary?.parameter_count).toBe(272)
+      expect(summary?.outputs['output']?.shape).toEqual([null, 4, 4])
+      expect(validationPayload.total_parameters).toBe(272)
+
+      const finalJob = result['final_job'] as { result?: { parameter_count?: number; outputs?: unknown[] } }
+      expect(finalJob.result?.parameter_count).toBe(272)
+      expect(finalJob.result?.outputs).toHaveLength(1)
+      expect(browserErrors, 'recurrent stack workflow should not emit browser errors').toEqual([])
+      await writeFile(path.join(evidenceDir, 'nw-t3-wrapper-stack-browser-errors.json'), JSON.stringify(browserErrors, null, 2))
+    } finally {
+      await deleteProject(request, fixture.id)
+    }
+  })
 })

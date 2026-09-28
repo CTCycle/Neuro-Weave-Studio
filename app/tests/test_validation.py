@@ -111,6 +111,16 @@ def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
         ("recurrent.gru", {"units": 8, "return_sequences": True}, 312),
         ("recurrent.gru", {"units": 8, "return_sequences": True, "reset_after": False}, 288),
         ("recurrent.lstm", {"units": 8, "return_sequences": True}, 384),
+        (
+            "recurrent.bidirectional",
+            {"cell": "lstm", "units": 4, "return_sequences": True, "merge_mode": "concat"},
+            256,
+        ),
+        (
+            "recurrent.stack",
+            {"cell": "lstm", "units": 4, "layers": 2, "return_sequences": True},
+            272,
+        ),
     ],
 )
 def test_dedicated_recurrent_nodes_use_their_declared_cell_for_parameter_counts(
@@ -156,6 +166,103 @@ def test_dedicated_recurrent_nodes_use_their_declared_cell_for_parameter_counts(
     assert result.total_parameters == expected_parameter_count
     recurrent = next(item for item in result.shape_summaries if item.node_id == "recurrent")
     assert recurrent.parameter_count == expected_parameter_count
+
+###############################################################################
+@pytest.mark.parametrize(
+    ("merge_mode", "expected_shape"),
+    [
+        ("sum", [None, 4, 4]),
+        ("mul", [None, 4, 4]),
+        ("ave", [None, 4, 4]),
+        ("concat", [None, 4, 8]),
+    ],
+)
+def test_bidirectional_recurrent_merge_modes_infer_shapes_and_parameters(
+    merge_mode: str,
+    expected_shape: list[int | None],
+) -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.sequence", {"shape": [4, 3], "dtype": "float32"}),
+            make_node(
+                "recurrent",
+                "recurrent.bidirectional",
+                {"cell": "lstm", "units": 4, "return_sequences": True, "merge_mode": merge_mode},
+            ),
+            make_node("output", "output.sequence"),
+        ],
+        edges=[
+            EdgeInstance(
+                id="e1",
+                source_node_id="input",
+                source_port_id="output",
+                target_node_id="recurrent",
+                target_port_id="input",
+            ),
+            EdgeInstance(
+                id="e2",
+                source_node_id="recurrent",
+                source_port_id="output",
+                target_node_id="output",
+                target_port_id="input",
+            ),
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert result.valid, result.diagnostics
+    assert result.total_parameters == 256
+    recurrent = next(item for item in result.shape_summaries if item.node_id == "recurrent")
+    assert recurrent.parameter_count == 256
+    assert recurrent.outputs["output"].shape == expected_shape
+
+###############################################################################
+def test_recurrent_stack_rejects_non_positive_layer_count() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.sequence", {"shape": [4, 3], "dtype": "float32"}),
+            make_node(
+                "recurrent",
+                "recurrent.stack",
+                {"cell": "lstm", "units": 4, "layers": 0, "return_sequences": True},
+            ),
+            make_node("output", "output.sequence"),
+        ],
+        edges=[
+            EdgeInstance(
+                id="e1",
+                source_node_id="input",
+                source_port_id="output",
+                target_node_id="recurrent",
+                target_port_id="input",
+            ),
+            EdgeInstance(
+                id="e2",
+                source_node_id="recurrent",
+                source_port_id="output",
+                target_node_id="output",
+                target_port_id="input",
+            ),
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert not result.valid
+    assert any(
+        item.code == "shape_inference_failed"
+        and "layers must be positive" in item.message
+        for item in result.diagnostics
+    )
 
 ###############################################################################
 def test_cycle_is_reported_as_error() -> None:
