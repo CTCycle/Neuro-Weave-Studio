@@ -1,0 +1,50 @@
+{
+  "run_id": "NW-T5-02-20260928",
+  "date": "2026-09-28",
+  "branch": "develop",
+  "workflow": "app/client/e2e/workflows.spec.ts",
+  "workflow_unchanged": true,
+  "launcher": "start_on_windows.ps1 -Action Launch -NoBrowser",
+  "ports": {"backend": 9853, "frontend": 6429},
+  "runs": [
+    {
+      "workers": 1,
+      "passed": 19,
+      "total": 20,
+      "duration_ms": 100559,
+      "failures": ["NW-T4-02 Configure dialog missing while runtime control was checking"],
+      "sqlite_lock_signatures": 0,
+      "projects_after_suite": 0,
+      "remaining_listeners_after_stop": 0,
+      "run_root": "runtimes/cache/nw-t5-02-workers-1-20260928"
+    },
+    {
+      "workers": 2,
+      "passed": 18,
+      "total": 20,
+      "duration_ms": 90790,
+      "failures": ["NW-T2-04 active CPU job / Completed on timeout", "NW-T4-02 Configure dialog missing while runtime control was checking"],
+      "sqlite_lock_signatures": 0,
+      "execution_job_409_count": 1,
+      "projects_after_suite": 0,
+      "remaining_listeners_after_stop": 0,
+      "run_root": "runtimes/cache/nw-t5-02-workers-2-20260928"
+    },
+    {
+      "workers": 4,
+      "passed": 17,
+      "total": 20,
+      "duration_ms": 206121,
+      "failures": ["NW-T2-04 active CPU job / Completed on timeout", "builder-tab Untitled model isolation failure", "NW-T2-05 timeout with browser-close cleanup error"],
+      "sqlite_lock_signatures": 0,
+      "execution_job_409_count": 2,
+      "projects_after_suite": 1,
+      "projects_after_explicit_cleanup": 0,
+      "remaining_listeners_after_stop": 0,
+      "run_root": "runtimes/cache/nw-t5-02-workers-4-20260928"
+    }
+  ],
+  "gate_status": "PARTIAL",
+  "issue_001": "OPEN",
+  "limitation": "The matrix is not clean at any worker count. No SQLite-lock signature was observed, but active-job admission and unrelated parallel Builder/workflow failures remain."
+}

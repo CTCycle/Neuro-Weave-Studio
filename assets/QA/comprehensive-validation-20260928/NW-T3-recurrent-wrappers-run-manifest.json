@@ -1,0 +1,88 @@
+{
+  "run_id": "NW-CV-20260928-T3-RECURRENT-WRAPPERS",
+  "date": "2026-09-28",
+  "branch": "develop",
+  "implementation_revision": "38c9ccc",
+  "catalog": {
+    "count": 149,
+    "fingerprint": "e0ea2f09ef44a4b3fcb10988495fcdea578f6d504c9bc39915e224d50276f439",
+    "evidence": "evidence/catalog-runtime-freeze.json"
+  },
+  "profile": {
+    "execution_backend": "pytorch",
+    "keras_enabled": true,
+    "api": "keras",
+    "backend": "pytorch",
+    "device": "cpu",
+    "launcher_backend_port": 9853,
+    "launcher_frontend_port": 6429
+  },
+  "selection": {
+    "catalog_e2e_cases": 6,
+    "catalog_e2e_passed": 6,
+    "cases": [
+      "Simple RNN/state neighbor",
+      "GRU/LSTM variant neighbors",
+      "Concatenate neighbor",
+      "Bidirectional merge modes sum/mul/ave/concat",
+      "Bidirectional LSTM persistence and runtime",
+      "Recurrent stack invalid repair, persistence, and runtime"
+    ],
+    "formal_nw_t3_03_basic_convolution": "UNTESTED"
+  },
+  "observed_contract": {
+    "bidirectional_lstm": {
+      "static_shape": [null, 4, 8],
+      "runtime_shape": [1, 4, 8],
+      "static_parameters": 256,
+      "runtime_parameters": 256,
+      "revision": 2,
+      "browser_errors": []
+    },
+    "recurrent_stack_lstm": {
+      "static_shape": [null, 4, 4],
+      "runtime_shape": [1, 4, 4],
+      "static_parameters": 272,
+      "runtime_parameters": 272,
+      "revision": 2,
+      "browser_errors": []
+    },
+    "bidirectional_merge_modes": {
+      "sum": {"shape": [null, 4, 4], "parameter_count": 256},
+      "mul": {"shape": [null, 4, 4], "parameter_count": 256},
+      "ave": {"shape": [null, 4, 4], "parameter_count": 256},
+      "concat": {"shape": [null, 4, 8], "parameter_count": 256}
+    }
+  },
+  "acceptance_boundary": {
+    "status": "PARTIAL",
+    "requested_bidirectional_lstm_parameters": 64,
+    "requested_recurrent_stack_lstm_parameters": 68,
+    "reason": "The requested values are Simple RNN-style counts. Standard Keras LSTM semantics on input width 3 and units 4 produce 256 and 272, confirmed by static inference and the Keras/PyTorch CPU worker."
+  },
+  "quality_gates": {
+    "focused_backend_export_native_parity": "PASS",
+    "changed_file_ruff": "PASS",
+    "changed_spec_eslint": "PASS",
+    "frontend_unit": "PASS: 20 files, 105 tests",
+    "frontend_lint": "PASS",
+    "frontend_build": "PASS",
+    "full_pyright": "PARTIAL: 58 errors across seven existing test modules"
+  },
+  "cleanup": {
+    "disposable_run_roots": true,
+    "wrapper_launcher_stopped": true,
+    "ports_9853_and_6429_free": true,
+    "protected_canonical_caches_modified": false
+  },
+  "not_promoted": [
+    "full catalog coverage",
+    "five other live profiles",
+    "source/export closure",
+    "assistive technology",
+    "PyTorch Inductor",
+    "training",
+    "dataset materialization",
+    "formal NW-T3-03 basic convolution"
+  ]
+}

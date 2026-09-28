@@ -1,0 +1,170 @@
+{
+  "case": "nw-t3-wrapper-stack-lstm",
+  "project_id": "35a60684-bac6-44bc-8a25-6ebc54892b60",
+  "revision": 2,
+  "validation": {
+    "valid": true,
+    "diagnostics": [],
+    "shape_summaries": [
+      {
+        "node_id": "sequence-input",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              3
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "recurrent-stack-06ef6db4-437e-49a3-96d0-402f2750bee7",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              4
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 272
+      },
+      {
+        "node_id": "sequence-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              4
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      }
+    ],
+    "total_parameters": 272,
+    "effective_outputs": [
+      {
+        "node_id": "sequence-output",
+        "port_id": "output",
+        "name": "Sequence output",
+        "explicit": false,
+        "task_hint": "sequence"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "sequence",
+      "confidence": "high",
+      "evidence": [
+        "head=recurrent.stack",
+        "activation=tanh",
+        "width=4",
+        "sequence output adapter"
+      ]
+    }
+  },
+  "submitted_job_id": "6135ef59ddb1430eb3da0abbd2e85f89",
+  "final_job": {
+    "id": "6135ef59ddb1430eb3da0abbd2e85f89",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 40096,
+    "created_at": "2026-09-28T08:15:27.633204Z",
+    "started_at": "2026-09-28T08:15:27.648978Z",
+    "updated_at": "2026-09-28T08:15:39.154629Z",
+    "finished_at": "2026-09-28T08:15:39.154629Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {},
+        "metrics": {},
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 2735.1,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "sequence-input",
+          "shape": [
+            1,
+            4,
+            3
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Sequence output",
+          "node_id": "sequence-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            4,
+            4
+          ]
+        }
+      ],
+      "parameter_count": 272,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  }
+}

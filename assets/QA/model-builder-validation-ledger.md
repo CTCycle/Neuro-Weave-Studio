@@ -458,6 +458,38 @@ Simple RNN `96`, and LSTM `384`. The final graph persisted at revision 2,
 returned five outputs, completed successfully on CPU, and emitted no browser
 errors. This is a bounded PASS, not full Model Builder certification.
 
+## Current bounded run: recurrent wrapper continuation
+
+Date: 2026-09-28
+Repository: `develop` at implementation commit `38c9ccc`
+Run report: [bounded recurrent wrapper continuation](comprehensive-validation-20260928/NW-T3-recurrent-wrappers.md)
+Run manifest: [recurrent wrapper manifest](comprehensive-validation-20260928/NW-T3-recurrent-wrappers-run-manifest.json)
+Worker matrix: [NW-T5-02 disposable worker matrix](comprehensive-validation-20260928/NW-T5-02-workers.md)
+Catalog: 149 nodes; fingerprint `e0ea2f09ef44a4b3fcb10988495fcdea578f6d504c9bc39915e224d50276f439`
+Profile: `execution_backend=pytorch`, `keras_enabled=true`, Keras API / PyTorch backend, CPU worker
+Evidence root: `assets/QA/comprehensive-validation-20260928/`
+
+| Level | Bounded result | Closure boundary |
+| --- | --- | --- |
+| L0 catalog inventory | PASS | The live catalog count and fingerprint match the freeze; node-level coverage remains open. |
+| L1 single-node behavior | PASS for Bidirectional Recurrent Layer, Recurrent Stack, and retained Simple RNN/GRU/LSTM/Concatenate neighbors | The remaining definitions and profile-specific enable/disable behavior remain PENDING. |
+| L2 parameter behavior | PARTIAL | All bidirectional merge shapes, standard LSTM counts, stack layers, and invalid-layer diagnostics pass. The plan's requested LSTM counts `64`/`68` conflict with standard Keras LSTM semantics; observed static/runtime counts are `256`/`272`. |
+| L3 port/edge behavior | PASS for the selected sequence input/wrapper/output graphs | Exhaustive catalog edge generation and incompatible-pair coverage remain PENDING. |
+| L4 graph composition | PASS for the selected bidirectional and two-layer stack graphs | Full graph-family and profile composition remain PENDING. |
+| L5 runtime/profile | PASS for the selected Keras/PyTorch CPU lane | Source/export, profile switching, the other five profiles, and positive PyTorch Inductor remain PENDING/PARTIAL at their existing boundaries. |
+| L6 persistence/recovery | PASS for blocked stack repair, save/reopen at revision 2, validation, runtime, and fixture cleanup | Matrix-wide recovery and failure cleanup remain PENDING. |
+
+The serial authoritative catalog run passed `6/6` cases and captured rendered
+Builder/runtime screenshots plus empty browser-error payloads. The focused
+backend/export/native-parity suite, changed-file Ruff, changed-spec ESLint,
+frontend unit/lint/build gates passed. Full strict Pyright remains PARTIAL at
+58 existing errors. The separate unchanged `workflows.spec.ts` worker matrix
+was not clean: `19/20`, `18/20`, and `17/20` passed at workers 1, 2, and 4;
+no SQLite lock signatures were found, but active-job and parallel Builder
+failures keep `NW-T5-02`/`ISSUE-001` open. Formal basic-convolution `NW-T3-03`
+remains explicitly UNTESTED because this continuation selected recurrent
+bidirectional/stack rows.
+
 ## Future session run template
 
 Copy this block for each validation session. Do not overwrite prior run blocks.
