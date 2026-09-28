@@ -32,8 +32,8 @@ def test_repository_cache_paths_share_one_canonical_root() -> None:
 
 
 ###############################################################################
-def test_resource_root_defaults_to_repository_resources() -> None:
-    expected = REPOSITORY_ROOT / "resources"
+def test_resource_root_defaults_to_repository_data() -> None:
+    expected = REPOSITORY_ROOT / "data"
 
     assert expected == DEFAULT_RESOURCE_ROOT
     assert expected == RESOURCE_ROOT
@@ -69,7 +69,7 @@ def test_runtime_discovery_defaults_to_the_canonical_cache_root(monkeypatch: pyt
 
 ###############################################################################
 def test_runtime_discovery_cannot_be_redirected_to_persistent_application_data() -> None:
-    persistent_path = Path("resources/runtime/environment-discovery.json")
+    persistent_path = Path("data/runtime/environment-discovery.json")
 
     with pytest.raises(ValidationError, match="canonical cache root"):
         Settings(runtime_discovery_path=persistent_path)
