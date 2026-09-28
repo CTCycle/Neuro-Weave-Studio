@@ -197,9 +197,9 @@ def test_launcher_uses_configurable_repository_resource_root() -> None:
     launcher = launcher_source()
     initialization = function_body(launcher, "Initialize-ResourcePaths", "Get-UserDataTargets")
 
-    assert "$script:ResourceDir = Join-Path $script:RepoRoot 'resources'" in launcher
+    assert "$script:ResourceDir = Join-Path $script:RepoRoot 'data'" in launcher
     assert "[string]$ResourcesDir = ''" in launcher
     assert "$env:NEURO_WEAVE_RESOURCES_DIR = $ResourcesDir" in launcher
-    assert "Resolve-ConfiguredPath -Name 'NEURO_WEAVE_RESOURCES_DIR' -Default 'resources'" in initialization
+    assert "Resolve-ConfiguredPath -Name 'NEURO_WEAVE_RESOURCES_DIR' -Default 'data'" in initialization
     assert "$script:BackendInstallState = Join-Path $script:UserDataRuntimeDir 'backend-installation.json'" in initialization
     assert "app" + "/resources" not in launcher

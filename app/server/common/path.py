@@ -14,7 +14,7 @@ sys.pycache_prefix = str(PYTHON_BYTECODE_CACHE_ROOT)
 PYTEST_CACHE_ROOT = CACHE_ROOT / "pytest"
 PYTEST_BASETEMP_ROOT = CACHE_ROOT / "pytest-tmp"
 RESOURCE_ROOT_ENV = "NEURO_WEAVE_RESOURCES_DIR"
-DEFAULT_RESOURCE_ROOT = REPOSITORY_ROOT / "resources"
+DEFAULT_RESOURCE_ROOT = REPOSITORY_ROOT / "data"
 
 
 def _read_dotenv_value(name: str) -> str | None:

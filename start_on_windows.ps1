@@ -21,7 +21,7 @@ $ProgressPreference = 'Continue'
 Set-StrictMode -Version Latest
 $script:RepoRoot = $PSScriptRoot
 $script:AppDir = Join-Path $RepoRoot 'app'
-$script:ResourceDir = Join-Path $script:RepoRoot 'resources'
+$script:ResourceDir = Join-Path $script:RepoRoot 'data'
 $script:SettingsDir = Join-Path $RepoRoot 'settings'
 $script:ServerDir = Join-Path $AppDir 'server'
 $script:ClientDir = Join-Path $AppDir 'client'
@@ -1862,7 +1862,7 @@ function Resolve-ConfiguredPath {
 }
 
 function Initialize-ResourcePaths {
-    $configuredResourceDir = Resolve-ConfiguredPath -Name 'NEURO_WEAVE_RESOURCES_DIR' -Default 'resources'
+    $configuredResourceDir = Resolve-ConfiguredPath -Name 'NEURO_WEAVE_RESOURCES_DIR' -Default 'data'
     if ($null -eq $configuredResourceDir) {
         throw 'NEURO_WEAVE_RESOURCES_DIR must identify a filesystem directory.'
     }
@@ -1876,7 +1876,7 @@ function Initialize-ResourcePaths {
 function Get-UserDataTargets {
     $targets = [System.Collections.Generic.List[string]]::new()
     $databasePaths = [System.Collections.Generic.List[string]]::new()
-    $configuredDatabase = Resolve-ConfiguredPath -Name 'DATABASE_SQLITE_PATH' -Default 'resources/database.db'
+    $configuredDatabase = Resolve-ConfiguredPath -Name 'DATABASE_SQLITE_PATH' -Default 'data/database.db'
 
     foreach ($candidate in @($script:DefaultDatabasePath, $configuredDatabase)) {
         if ($null -eq $candidate) { continue }
@@ -1898,9 +1898,9 @@ function Get-UserDataTargets {
     }
 
     foreach ($configuredPath in @(
-            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_EXPORT_ROOT' -Default 'resources/runtime/exports'),
-            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_LOG_FILE' -Default 'resources/runtime/logs/backend.log'),
-            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_ML_JOB_ROOT' -Default 'resources/runtime/ml-jobs')
+            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_EXPORT_ROOT' -Default 'data/runtime/exports'),
+            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_LOG_FILE' -Default 'data/runtime/logs/backend.log'),
+            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_ML_JOB_ROOT' -Default 'data/runtime/ml-jobs')
         )) {
         if ($null -ne $configuredPath -and -not (Test-PathWithin -Child $configuredPath -Parent $script:UserDataRuntimeDir)) {
             $targets.Add($configuredPath)

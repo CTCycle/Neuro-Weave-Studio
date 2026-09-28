@@ -23,7 +23,7 @@ node_modules/
 exports/
 artifacts/
 logs/
-resources/runtime/
+data/runtime/
 assets/QA/
 # Repository-managed runtime data and the canonical cache root.
 runtimes/

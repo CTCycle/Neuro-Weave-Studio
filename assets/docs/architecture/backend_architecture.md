@@ -18,9 +18,9 @@ The server process never imports Keras, TensorFlow, JAX, or PyTorch. `RuntimeCon
 
 The controller owns one lease per normalized physical device (`cpu`, `cuda:0`, `rocm:0`, `mps:0`, or `xpu:0`). Jobs on different leases may run concurrently. States are `starting`, `running`, `stop_requested`, `stopping`, `succeeded`, `terminated`, and `failed`. A lease is released only after the worker PID has been waited on and any termination escalation has completed.
 
-Each job has a bounded workspace under `resources/runtime/ml-jobs` containing immutable input/configuration, atomic status/result publication, a cancellation marker, and bounded diagnostics. Graph input is removed after worker startup; terminal workspaces are removed. At most 100 terminal records remain in controller memory. Cancellation checks surround import, initialization, construction/loading, forward execution, save/reload, and publication. Cooperative cancellation receives five seconds, then the worker process tree is terminated and, after another five seconds, force-terminated.
+Each job has a bounded workspace under `data/runtime/ml-jobs` containing immutable input/configuration, atomic status/result publication, a cancellation marker, and bounded diagnostics. Graph input is removed after worker startup; terminal workspaces are removed. At most 100 terminal records remain in controller memory. Cancellation checks surround import, initialization, construction/loading, forward execution, save/reload, and publication. Cooperative cancellation receives five seconds, then the worker process tree is terminated and, after another five seconds, force-terminated.
 
-Keras export writes a temporary `.keras` file in the job workspace. Reload/forward-pass verification and a final project-revision check must pass before atomic replacement of the canonical export under `resources/runtime/exports`; failures and revision conflicts never overwrite a prior artifact.
+Keras export writes a temporary `.keras` file in the job workspace. Reload/forward-pass verification and a final project-revision check must pass before atomic replacement of the canonical export under `data/runtime/exports`; failures and revision conflicts never overwrite a prior artifact.
 
 ## Ephemeral tensor inspection
 
