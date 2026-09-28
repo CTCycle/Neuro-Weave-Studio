@@ -1,0 +1,202 @@
+{
+  "case": "nw-t3-05-simple-rnn-native-pytorch",
+  "project_id": "00ffe6cf-1503-420e-905f-8c1dbd454672",
+  "definition_id": "recurrent.simple_rnn",
+  "profile": {
+    "execution_backend": "pytorch",
+    "keras_enabled": false,
+    "worker": {
+      "api": "native",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    }
+  },
+  "revision": 2,
+  "expected": {
+    "static_output_shape": [
+      null,
+      4,
+      4
+    ],
+    "runtime_output_shape": [
+      1,
+      4,
+      4
+    ],
+    "static_parameter_count": 32,
+    "runtime_parameter_count": 36
+  },
+  "validation": {
+    "valid": true,
+    "diagnostics": [],
+    "shape_summaries": [
+      {
+        "node_id": "sequence-input",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              3
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "recurrent-simple_rnn-3675f824-01c5-40bb-9c47-700ce3105b34",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              4
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 32
+      },
+      {
+        "node_id": "sequence-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4,
+              4
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      }
+    ],
+    "total_parameters": 32,
+    "effective_outputs": [
+      {
+        "node_id": "sequence-output",
+        "port_id": "output",
+        "name": "Sequence output",
+        "explicit": false,
+        "task_hint": "sequence"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "sequence",
+      "confidence": "high",
+      "evidence": [
+        "head=recurrent.simple_rnn",
+        "activation=tanh",
+        "width=4",
+        "sequence output adapter"
+      ]
+    }
+  },
+  "submitted_job_id": "0c50c48d0dfc44b3a7b87aae57d4607e",
+  "final_job": {
+    "id": "0c50c48d0dfc44b3a7b87aae57d4607e",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "native",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 15304,
+    "created_at": "2026-09-28T20:53:48.621643Z",
+    "started_at": "2026-09-28T20:53:48.630335Z",
+    "updated_at": "2026-09-28T20:53:52.162359Z",
+    "finished_at": "2026-09-28T20:53:52.162358Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "new_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {},
+        "metrics": {},
+        "optimizer": {
+          "id": "adamw",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 1042.8,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "sequence-input",
+          "shape": [
+            1,
+            4,
+            3
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Sequence output",
+          "node_id": "sequence-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            4,
+            4
+          ]
+        }
+      ],
+      "parameter_count": 36,
+      "status": "succeeded",
+      "training": "not_run"
+    },
+    "artifact": null,
+    "error": null
+  },
+  "browser_errors": []
+}

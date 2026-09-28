@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-28
 
-Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` and `NW-T3-02`) are recorded below; full closure remains pending.
+Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-05`) are recorded below; full closure remains pending.
 
 ## Purpose
 
@@ -488,7 +488,8 @@ was not clean: `19/20`, `18/20`, and `17/20` passed at workers 1, 2, and 4;
 no SQLite lock signatures were found, but active-job and parallel Builder
 failures keep `NW-T5-02`/`ISSUE-001` open. The bounded basic-convolution
 `NW-T3-03` slice was subsequently selected and passed; the advanced/spatial
-convolution `NW-T3-04` slice has now also passed, and `NW-T3-05` is next.
+convolution `NW-T3-04` slice has now also passed, and the bounded recurrent
+`NW-T3-05` slice is recorded below. `NW-T3-06` attention primitives is next.
 
 ## Current bounded run: NW-T3-03
 
@@ -532,7 +533,38 @@ Evidence root: assets/QA/comprehensive-validation-20260928/
 | L5 runtime/profile | PASS for Keras/PyTorch CPU and native PyTorch CPU; browser matrix 11/11 | Other live profiles, source/export, training, and compiler-positive paths remain pending. |
 | L6 persistence/recovery | PASS for save/reload, browser errors, project deletion, process cleanup, and port release | Invalid repair, retained incompatible state, profile switching, export reload, and matrix-wide recovery remain pending. |
 
-The authoritative serial browser matrix passed 11/11 cases. The cases covered Max Pooling 1D, Average Pooling 2D, Max Pooling 3D, Depthwise, Separable, and Transposed Convolution, Upsampling, Padding, Cropping, and a native-PyTorch Depthwise neighbor. Every case produced the expected static shape and parameter count, saved with three nodes and two edges, reloaded with three nodes, completed with the exact selected worker, and emitted an empty browser error payload. The in-app Browser observation confirmed the rendered live convolutional catalog. Full Ruff is green after three narrow import-block repairs; strict Pyright remains PARTIAL at 58 existing errors. The existing recurrent-wrapper, torch.compile, and 1/2/4-worker matrix limitations remain unchanged. The next selected catalog slice is NW-T3-05. This remains a bounded PASS, not full Model Builder certification.
+The authoritative serial browser matrix passed 11/11 cases. The cases covered Max Pooling 1D, Average Pooling 2D, Max Pooling 3D, Depthwise, Separable, and Transposed Convolution, Upsampling, Padding, Cropping, and a native-PyTorch Depthwise neighbor. Every case produced the expected static shape and parameter count, saved with three nodes and two edges, reloaded with three nodes, completed with the exact selected worker, and emitted an empty browser error payload. The in-app Browser observation confirmed the rendered live convolutional catalog. Full Ruff is green after three narrow import-block repairs; strict Pyright remains PARTIAL at 58 existing errors. The existing recurrent-wrapper, torch.compile, and 1/2/4-worker matrix limitations remain unchanged. The next selected catalog slice is NW-T3-06 attention primitives. This remains a bounded PASS, not full Model Builder certification.
+
+## Current bounded run: NW-T3-05
+
+Date: 2026-09-28
+Repository: develop; validation began at implementation revision `492567e06472b2b5bafd157135bec4099f3e3989`
+Run report: [NW-T3-05 recurrent nodes](comprehensive-validation-20260928/NW-T3-05.md)
+Run manifest: [NW-T3-05 run manifest](comprehensive-validation-20260928/NW-T3-05-run-manifest.json)
+Catalog: 149 nodes; live recurrent category contains five definitions and all five expose Keras/PyTorch mappings
+Profile: selected Keras/PyTorch CPU and native PyTorch CPU; TensorFlow/JAX recurrent runtime and remaining profiles are outside this slice
+Evidence root: assets/QA/comprehensive-validation-20260928/
+
+| Level | Bounded result | Closure boundary |
+| --- | --- | --- |
+| L0 catalog inventory | PASS | Live catalog and recurrent IDs/mappings were frozen; full catalog coverage remains open. |
+| L1 single-node behavior | PASS for Bidirectional, GRU, LSTM, Recurrent Stack, and Simple RNN | Remaining definitions and untested recurrent parameter states remain pending. |
+| L2 parameter behavior | PASS for selected units, sequence output, cell, merge mode, and stack layer values | Full conditional/boundary/profile-specific parameter coverage remains pending; the separate Keras wrapper count mismatch remains PARTIAL. |
+| L3 port/edge behavior | PASS for selected sequence input-to-node-to-output chains | Exhaustive recurrent compatible/incompatible edge coverage remains pending. |
+| L4 graph composition | PASS for the six existing Keras/PyTorch recurrent cases and five native PyTorch CPU graphs | Larger, cross-family, and all remaining graph families remain pending. |
+| L5 runtime/profile | PASS for the selected Keras/PyTorch CPU and native PyTorch CPU lanes | TensorFlow/JAX recurrent runtime, source/export, training, and compiler-positive paths remain pending. |
+| L6 persistence/recovery | PASS for validation, save/reload, exact worker identity, browser-error checks, project deletion, and process/port cleanup | Matrix-wide recovery and full profile/export closure remain pending. |
+
+The current authoritative browser matrix passed 6/6 native cases and 6/6
+existing Keras/PyTorch recurrent cases. A repository-wide backend rerun passed
+after fixing a compiler-gate alias defect: worker probes use
+`tensorflow_jit`/`torch_compile`, while the controller previously checked only
+`tensorflow_function`/`pytorch_compile`. The controller now uses the existing
+alias-aware capability resolver. Full Ruff, frontend unit/lint/build, and the
+focused backend/catalog/export/parity suite pass. Strict Pyright remains
+PARTIAL at 58 existing errors. The next selected catalog slice is NW-T3-06
+attention primitives. This remains a bounded PASS, not full Model Builder
+certification.
 
 ## Future session run template
 

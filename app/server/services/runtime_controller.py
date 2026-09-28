@@ -1117,15 +1117,12 @@ class RuntimeController:
     ) -> None:
         if worker.api is not RuntimeApi.NATIVE or graph is None:
             return
-        capability = get_native_compilation_capabilities().get(worker.backend)
-        if capability is None:
+        capability = get_native_compilation_capabilities(self._backend_statuses).get(worker.backend)
+        if capability is None or capability.available:
             return
         backend_configuration = getattr(graph.model_configuration.native, worker.backend.value)
         enabled_parameter = "jit_compile" if worker.backend is ExecutionBackend.TENSORFLOW else "enabled"
         if not bool(backend_configuration.compiler.parameters.get(enabled_parameter, False)):
-            return
-        status = self._backend_statuses.get(worker.backend)
-        if status is not None and status.native_compilers.get(capability.compiler_id, False):
             return
         raise RuntimeControllerError(
             "native_compiler_unavailable",

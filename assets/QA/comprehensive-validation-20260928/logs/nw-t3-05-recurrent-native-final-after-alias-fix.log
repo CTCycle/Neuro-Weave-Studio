@@ -1,0 +1,17 @@
+
+> neuro-weave-frontend@1.0.0 e2e
+> playwright test e2e/recurrent-nodes-slice.spec.ts --workers=1 --reporter=list
+
+
+Running 6 tests using 1 worker
+
+(node:4248) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 e2e\recurrent-nodes-slice.spec.ts:240:3 › NW-T3-05 recurrent catalog slice › live catalog renders all recurrent definitions with native support mappings (1.7s)
+  ok 2 e2e\recurrent-nodes-slice.spec.ts:276:5 › NW-T3-05 recurrent catalog slice › nw-t3-05-simple-rnn-native-pytorch builds, persists, and completes exact-profile functional validation (9.9s)
+  ok 3 e2e\recurrent-nodes-slice.spec.ts:276:5 › NW-T3-05 recurrent catalog slice › nw-t3-05-gru-native-pytorch builds, persists, and completes exact-profile functional validation (5.8s)
+  ok 4 e2e\recurrent-nodes-slice.spec.ts:276:5 › NW-T3-05 recurrent catalog slice › nw-t3-05-lstm-native-pytorch builds, persists, and completes exact-profile functional validation (5.8s)
+  ok 5 e2e\recurrent-nodes-slice.spec.ts:276:5 › NW-T3-05 recurrent catalog slice › nw-t3-05-bidirectional-native-pytorch builds, persists, and completes exact-profile functional validation (5.8s)
+  ok 6 e2e\recurrent-nodes-slice.spec.ts:276:5 › NW-T3-05 recurrent catalog slice › nw-t3-05-stack-native-pytorch builds, persists, and completes exact-profile functional validation (5.8s)
+
+  6 passed (36.6s)
