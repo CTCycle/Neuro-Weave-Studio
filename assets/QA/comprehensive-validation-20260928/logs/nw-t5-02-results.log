@@ -1,0 +1,17 @@
+2026-09-28 NW-T5-02 result summary
+Workflow: unchanged app/client/e2e/workflows.spec.ts
+Launcher: official start_on_windows.ps1 -Action Launch -NoBrowser
+
+workers=1 passed=19 total=20 duration_ms=100559 failures=1 sqlite_lock_signatures=0 projects_after_suite=0 remaining_listeners=0
+failure: NW-T4-02 Configure dialog missing while the runtime control was still Checking runtime…
+
+workers=2 passed=18 total=20 duration_ms=90790 failures=2 sqlite_lock_signatures=0 projects_after_suite=0 remaining_listeners=0
+failures: NW-T2-04 active CPU job / Completed on timeout; NW-T4-02 Configure dialog missing while the runtime control was still Checking runtime…
+application.log: one POST /api/execution/jobs status=409; two typed 422 rejections.
+
+workers=4 passed=17 total=20 duration_ms=206121 failures=3 sqlite_lock_signatures=0 projects_after_suite=1 remaining_listeners=0
+failures: NW-T2-04 active CPU job / Completed on timeout; builder-tab Untitled model isolation failure; NW-T2-05 timeout with browser-close cleanup error.
+application.log: two POST /api/execution/jobs status=409; one typed 422 rejection.
+Explicit post-run cleanup deleted the remaining project with HTTP 204 and confirmed remaining_projects=0.
+
+Lock scan searched each isolated application.log for database is locked, sqlite3.OperationalError, SQLite objects created in a thread, and database table is locked. No actual matches were found. The word lock in the launcher script itself is not counted.

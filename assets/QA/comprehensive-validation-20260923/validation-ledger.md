@@ -2,18 +2,19 @@
 
 Last updated: 2026-09-28
 
-Run ID: `NW-CV-20260928-T3-02-RECURRENT-VARIANTS`
+Run ID: `NW-CV-20260928-T3-RECURRENT-WRAPPERS-T5-02`
 
 Repository: `develop`; NW-T2-09 was validated against implementation revision `bb5f9e4f8dd2ed495676e88f8577ae13811369e3` and its authoritative browser spec is included in the resulting change. NW-T2-08 was validated at `6d05722d3e402fc8e77e78ff2737603bd992ce84`. NW-T2-06 and NW-T2-07 were validated at `0ab274d51ad511cbda3a55c5a4599aade28d5404` after the clean `5d14d3a9c8d7effaac4801dd272346552889c3aa` baseline. Earlier slices retain their recorded revisions: NW-T2-03/04 and prior positive JAX evidence at `6c1687457822380f471c7ce8129b93632af96972`; NW-T2-05 and the initial NW-T4-02 refresh at `75bfc73f34636ba735985e2f7e21d8fc3e27fbf5`; TensorFlow/XLA follow-up based on `937f980e3f1759863a44fc6b936e46107e62fa97`. See the [NW-T2-09 report](../comprehensive-validation-20260926/NW-T2-09.md), the [NW-T2-08 report](../comprehensive-validation-20260926/NW-T2-08.md), the [2026-09-25 dataset workspace report](../comprehensive-validation-20260925/NW-T2-06-07.md), and the [custom-node result payload](../comprehensive-validation-20260926/evidence/nw-t2-09/custom-node-template-results.json).
 
 Historical Tier 0 evidence remains at `752ab151978b56dd2c20568f63434e346dcf6ea8`; the current NW-T0-03 revalidation is linked below.
 
-The current bounded NW-T3-02 run was validated against implementation revision
-`4ec01814ca1a3d53a83d1012c84181f92fc000e4`; its detailed report, manifest,
-screenshots, payloads, logs, and cleanup record are under
-`../comprehensive-validation-20260928/`.
+The bounded NW-T3-02 run was validated against implementation revision
+`4ec01814ca1a3d53a83d1012c84181f92fc000e4`. The current recurrent-wrapper
+continuation and NW-T5-02 worker matrix were validated against implementation
+revision `38c9ccc`; their detailed reports, manifests, screenshots, payloads,
+logs, and cleanup records are under `../comprehensive-validation-20260928/`.
 
-Campaign status: **PARTIAL**. NW-T2-03 through NW-T2-09 and the bounded NW-T3-01 and NW-T3-02 catalog slices PASS. NW-T0-03 remains PARTIAL with 58 current strict Pyright errors across seven test modules. NW-T4-02 remains PARTIAL: TensorFlow/XLA and JAX JIT compile/forward checks pass on CPU; positive PyTorch Inductor compilation remains unavailable in the current launcher environment. The 1/2/4-worker SQLite matrix, assistive-technology checks, full built-in catalog matrix, and remaining Tier 3/4/5 slices remain outstanding. This is not a full application certification.
+Campaign status: **PARTIAL**. NW-T2-03 through NW-T2-09 and the bounded NW-T3-01 and NW-T3-02 catalog slices PASS. The recurrent-wrapper continuation is PARTIAL because the live LSTM behavior produced standard Keras counts `256`/`272`, not the requested `64`/`68`. NW-T0-03 remains PARTIAL with 58 current strict Pyright errors across seven test modules. NW-T4-02 remains PARTIAL: TensorFlow/XLA and JAX JIT compile/forward checks pass on CPU; positive PyTorch Inductor compilation remains unavailable in the current launcher environment. NW-T5-02 is PARTIAL: the 1/2/4-worker matrix found no SQLite-lock signatures but was not clean at any worker count. Assistive-technology checks, full built-in catalog coverage, and the remaining Tier 3/4 slices remain outstanding. This is not a full application certification.
 
 ## Aggregate status
 
@@ -22,10 +23,10 @@ Campaign status: **PARTIAL**. NW-T2-03 through NW-T2-09 and the bounded NW-T3-01
 | Tier 0 | Environment and startup | 3 | 1 | 0 | 0 | 0 |
 | Tier 1 | Application foundations | 5 | 0 | 0 | 0 | 0 |
 | Tier 2 | Core workflows | 9 | 0 | 0 | 0 | 0 |
-| Tier 3 | Model Builder catalog | 2 | 0 | 0 | 0 | 17 |
+| Tier 3 | Model Builder catalog | 2 | 1 | 0 | 0 | 17 |
 | Tier 4 | Runtime and integrations | 0 | 1 | 0 | 0 | 3 |
-| Tier 5 | Resilience, usability, closure | 0 | 0 | 0 | 0 | 5 |
-| Total | 47 slices | 19 | 2 | 0 | 0 | 25 |
+| Tier 5 | Resilience, usability, closure | 0 | 1 | 0 | 0 | 5 |
+| Total | 49 slices | 19 | 4 | 0 | 0 | 25 |
 
 UNTESTED means that the slice remains in campaign scope but was not run in
 this revision-specific pass. It does not mean the feature is absent or broken.
@@ -35,8 +36,8 @@ this revision-specific pass. It does not mean the feature is absent or broken.
 | Slice ID | Capability | Status | Revision | Evidence | Remaining gap |
 | --- | --- | --- | --- | --- | --- |
 | NW-T0-01 | Freeze validation baseline and live catalog | PASS | `752ab151978b56dd2c20568f63434e346dcf6ea8` | 2026-09-21 ledger | Repeat when branch, dependencies, catalog, or runtime identity changes. |
-| NW-T0-02 | Official launcher startup and owned-process shutdown | PASS | `752ab151978b56dd2c20568f63434e346dcf6ea8` | 2026-09-21 ledger | Repeat after launcher, port, dependency, runtime, or startup-log changes. |
-| NW-T0-03 | Repository quality-gate baseline | PARTIAL | `09d53a0` | [current NW-T3-01 report](../comprehensive-validation-20260927/NW-T3-01.md), [backend/catalog suite](../comprehensive-validation-20260927/logs/backend-catalog-contracts-final.log), [Ruff](../comprehensive-validation-20260927/logs/ruff-changed-files-final.log), [current Pyright](../comprehensive-validation-20260927/logs/pyright-current.log), [frontend lint/unit/build](../comprehensive-validation-20260927/NW-T3-01.md#validation-results) | Current focused backend/catalog tests, changed-file Ruff, frontend lint, 20 frontend files/105 tests, production build, and the serial browser slice pass. Full strict Pyright exits nonzero with 58 errors across seven existing test modules; the worker matrix remains open. |
+| NW-T0-02 | Official launcher startup and owned-process shutdown | PASS | `38c9ccc` | [recurrent-wrapper launcher](../comprehensive-validation-20260928/logs/official-launcher-nw-t3-recurrent-wrappers.txt), [worker launchers](../comprehensive-validation-20260928/logs/official-launcher-nw-t5-02-workers-1.txt), [cleanup](../comprehensive-validation-20260928/logs/process-cleanup-nw-t3-t5.md) | The selected official launches reached frontend/backend readiness and released ports 9853/6429 after shutdown. The occupied-port/rebuild matrix remains separate. |
+| NW-T0-03 | Repository quality-gate baseline | PARTIAL | `38c9ccc` | [recurrent-wrapper report](../comprehensive-validation-20260928/NW-T3-recurrent-wrappers.md), [backend suite](../comprehensive-validation-20260928/logs/backend-recurrent-wrappers-current.log), [Ruff](../comprehensive-validation-20260928/logs/ruff-recurrent-wrappers-current.log), [frontend lint/unit/build](../comprehensive-validation-20260928/NW-T3-recurrent-wrappers.md#quality-gates), [current Pyright](../comprehensive-validation-20260928/logs/pyright-current-nw-t3-recurrent-wrappers.log) | Focused backend/export/native-parity tests, changed-file Ruff/ESLint, frontend lint, 20 frontend files/105 tests, production build, and the serial browser slice pass. Full strict Pyright exits nonzero with 58 errors across seven existing test modules; NW-T5-02 is complete but remains partial with 1/2/3 failures. |
 | NW-T0-04 | Direct deep links and refresh | PASS | `752ab151978b56dd2c20568f63434e346dcf6ea8` | 2026-09-21 ledger | Preserve route coverage when the shell contract changes. |
 | NW-T1-01 | Shell navigation and route boundaries | PASS | `50d54116c4a007d1342ff99dc7e11e9e6e2f41d8` | [NW-T1-01 report](../comprehensive-validation-20260922/NW-T1-01.md), browser diagnostics | Preserve route coverage when shell or route contracts change. |
 | NW-T1-02 | Database migrations and persistence | PASS | `a30eefc93658138400e4061f4af07eed4c021985` | [NW-T1-02 report](../comprehensive-validation-20260922/NW-T1-02.md), 10 focused tests | Repeat migration and persistence checks after schema or repository changes. |
@@ -54,7 +55,10 @@ this revision-specific pass. It does not mean the feature is absent or broken.
 | NW-T2-09 | Safe mathematical and graph-template custom-node authoring | PASS | `bb5f9e4f8dd2ed495676e88f8577ae13811369e3` | [NW-T2-09 report](../comprehensive-validation-20260926/NW-T2-09.md), [backend tests](../comprehensive-validation-20260926/logs/nw-t2-09-backend-focused.log), [frontend materializer tests](../comprehensive-validation-20260926/logs/nw-t2-09-materializer-focused.log), [browser E2E](../comprehensive-validation-20260926/logs/nw-t2-09-browser-e2e.log), [persisted payload](../comprehensive-validation-20260926/evidence/nw-t2-09/custom-node-template-results.json), [rendered Builder materialization](../comprehensive-validation-20260926/evidence/nw-t2-09/graph-template-materialized.png) | Mathematical and graph-template save/reload and canonical expansion pass. The scratch Builder graph remains intentionally source-less and therefore shows expected health findings; repository references stay metadata-only and trusted plugins remain unimplemented. |
 | NW-T3-01 | Risk-based recurrent sequence/state and tensor-list Concatenate catalog slice | PASS | `09d53a0` | [NW-T3-01 report](../comprehensive-validation-20260927/NW-T3-01.md), [authoritative browser spec](../../app/client/e2e/catalog-risk-slice.spec.ts), [catalog freeze](../comprehensive-validation-20260927/evidence/catalog-runtime-freeze.json), [serial E2E](../comprehensive-validation-20260927/logs/catalog-risk-slice-e2e-final-current-spec.log), [recurrent payload](../comprehensive-validation-20260927/evidence/nw-t3-01-recurrent.json), [merge payload](../comprehensive-validation-20260927/evidence/nw-t3-01-merge.json), [rendered evidence](../comprehensive-validation-20260927/evidence/) | PASS is limited to the named K/PyTorch cases and selected graph families GF-005, GF-006, GF-009, and GF-010. The remaining 147 catalog definitions, parameters, edges, compositions, five other profiles, source/export, and profile-switch rows remain pending. |
 | NW-T3-02 | Recurrent GRU/LSTM sequence and state variants | PASS | `4ec01814ca1a3d53a83d1012c84181f92fc000e4` | [NW-T3-02 report](../comprehensive-validation-20260928/NW-T3-02.md), [run manifest](../comprehensive-validation-20260928/NW-T3-02-run-manifest.json), [catalog freeze](../comprehensive-validation-20260928/evidence/catalog-runtime-freeze.json), [runtime readiness](../comprehensive-validation-20260928/evidence/runtime-readiness.json), [serial E2E](../comprehensive-validation-20260928/logs/catalog-risk-slice-e2e-full.log), [recurrent payload](../comprehensive-validation-20260928/evidence/nw-t3-02-recurrent-variants.json), [rendered evidence](../comprehensive-validation-20260928/evidence/nw-t3-02-recurrent-variants-runtime-succeeded.png), [Browser observation](../comprehensive-validation-20260928/evidence/nw-t3-02-inapp-browser-observation.md) | PASS is limited to the named K/PyTorch CPU cases and selected recurrent/merge graph families. The remaining 145 catalog definitions, broader parameters and edges, five other profiles, source/export, assistive technology, and full L1-L6 closure remain pending. |
+| NW-T3-RW | Recurrent bidirectional/stack wrapper continuation | PARTIAL | `38c9ccc` | [bounded wrapper report](../comprehensive-validation-20260928/NW-T3-recurrent-wrappers.md), [run manifest](../comprehensive-validation-20260928/NW-T3-recurrent-wrappers-run-manifest.json), [serial E2E log](../comprehensive-validation-20260928/logs/catalog-risk-slice-recurrent-wrappers-final.log), [wrapper evidence](../comprehensive-validation-20260928/evidence/), [cleanup](../comprehensive-validation-20260928/logs/process-cleanup-nw-t3-t5.md) | Shapes, all merge modes, invalid-layer repair, persistence, Keras/PyTorch CPU runtime, diagnostics, screenshots, empty browser-error evidence, and cleanup pass. The requested LSTM parameter values `64`/`68` conflict with standard Keras semantics; observed static/runtime values are `256`/`272`. Formal basic-convolution `NW-T3-03` remains UNTESTED and full catalog/profile closure remains open. |
+| NW-T3-03 | Formal basic-convolution continuation | UNTESTED | — | No execution in this revision; the canonical next action selected the recurrent bidirectional/stack continuation. | Keep explicitly untested until the basic-convolution slice is selected and run. |
 | NW-T4-02 | TensorFlow XLA, JAX JIT, and PyTorch `torch.compile` capability gates without fallback | PARTIAL | `937f980e3f1759863a44fc6b936e46107e62fa97` plus the validated launcher/test worktree | [follow-up report](../comprehensive-validation-20260924/NW-T2-05-T4-02.md#tensorflowxla-follow-up--2026-09-24), [follow-up manifest](../comprehensive-validation-20260924/NW-T4-02-tensorflow-xla-followup-run-manifest.json), [native TensorFlow XLA smoke](../comprehensive-validation-20260924/logs/nw-t4-02-tensorflow-native-xla-smoke-20260924.log), [native JAX JIT smoke](../comprehensive-validation-20260924/logs/nw-t4-02-jax-native-jit-smoke-20260924.log), [compiler-gate browser run](../comprehensive-validation-20260924/logs/nw-t4-02-compiler-gates-e2e-final-20260924.log), [JAX browser run](../comprehensive-validation-20260924/logs/nw-t4-02-jax-live-gate-e2e-20260924.log), [unavailable compiler rejection tests](../comprehensive-validation-20260924/logs/nw-t4-02-pytorch-compiler-rejection-pytest-final-20260924.log), [live runtime summary](../comprehensive-validation-20260924/evidence/nw-t4-02-tensorflow-xla-followup/nw-t4-02-live-runtime-summary-20260924.json), [rendered TensorFlow control](../comprehensive-validation-20260924/evidence/nw-t4-02-tensorflow-xla-followup/nw-t4-02-tensorflow-xla-gate.png), [rendered PyTorch control](../comprehensive-validation-20260924/evidence/nw-t4-02-tensorflow-xla-followup/nw-t4-02-pytorch-compiler-gate.png) | TensorFlow XLA and JAX JIT are verified on CPU. PyTorch Inductor remains PARTIAL: the native control stays disabled and positive compilation is unavailable because the launcher has no `cl.exe` or Visual Studio/Windows SDK environment. |
+| NW-T5-02 | Disposable Playwright worker matrix at 1/2/4 workers | PARTIAL | `38c9ccc` | [worker matrix report](../comprehensive-validation-20260928/NW-T5-02-workers.md), [run manifest](../comprehensive-validation-20260928/NW-T5-02-run-manifest.json), [result summary](../comprehensive-validation-20260928/logs/nw-t5-02-results.log), [worker launch/workflow logs](../comprehensive-validation-20260928/logs/), [cleanup](../comprehensive-validation-20260928/logs/process-cleanup-nw-t3-t5.md) | The unchanged workflow was not clean: 19/20, 18/20, and 17/20 passed at workers 1, 2, and 4. No actual SQLite-lock signature was observed, but active CPU-job admission and parallel Builder/workflow failures remain; worker 4 required explicit fixture cleanup. `ISSUE-001` remains open. |
 
 The remaining Tier 3 and Tier 5 slices, and three Tier 4
 slices remain UNTESTED. NW-T0-03 and NW-T4-02 remain PARTIAL. The TensorFlow/XLA
@@ -99,6 +103,8 @@ subpath. The worker-count matrix and assistive-technology checks remain open.
 - Separate full Model Builder catalog/profile work remains pending in the [Model Builder validation ledger](../model-builder-validation-ledger.md).
 - Detailed bounded NW-T3-01 report, evidence, logs, screenshots, and cleanup record: [report](../comprehensive-validation-20260927/NW-T3-01.md), `../comprehensive-validation-20260927/evidence/`, and `../comprehensive-validation-20260927/logs/`
 - Detailed bounded NW-T3-02 report, manifest, evidence, logs, screenshots, and cleanup record: [report](../comprehensive-validation-20260928/NW-T3-02.md), [manifest](../comprehensive-validation-20260928/NW-T3-02-run-manifest.json), `../comprehensive-validation-20260928/evidence/`, and `../comprehensive-validation-20260928/logs/`
+- Detailed recurrent-wrapper continuation report and manifest: [report](../comprehensive-validation-20260928/NW-T3-recurrent-wrappers.md), [manifest](../comprehensive-validation-20260928/NW-T3-recurrent-wrappers-run-manifest.json), wrapper screenshots/payloads/browser diagnostics in `../comprehensive-validation-20260928/evidence/`, and focused gates in `../comprehensive-validation-20260928/logs/`
+- Detailed NW-T5-02 worker matrix report and manifest: [report](../comprehensive-validation-20260928/NW-T5-02-workers.md), [manifest](../comprehensive-validation-20260928/NW-T5-02-run-manifest.json), worker transcripts/results in `../comprehensive-validation-20260928/logs/`, and failure screenshots/observations in `../comprehensive-validation-20260928/evidence/`
 
 The 2026-09-22 ledger remains historical and unchanged. This ledger preserves
 the revision and evidence boundary for every completed slice.
@@ -116,11 +122,18 @@ exercise Playwright's configured `webServer` lifecycle. NW-T2-02 ran the
 default serial shell suite without a base URL override; all ten tests passed,
 the Playwright command exited naturally, and port 6426 had no listener. This
 closes `ISSUE-006` for the current Windows workflow. The full worker-count
-matrix for shared SQLite remains open as `NW-T5-02`/`ISSUE-001`; its focused
-two-worker recheck passed without reproducing a lock. The current strict
-Pyright rerun remains nonzero at 58 errors across seven test modules
-(`ISSUE-003`).
+matrix for shared SQLite is now recorded as `NW-T5-02`/`ISSUE-001`: workers
+1/2/4 had 1/2/3 workflow failures, no actual SQLite-lock signatures, and zero
+listeners after cleanup; worker 4 needed explicit deletion of one disposable
+fixture. The current strict Pyright rerun remains nonzero at 58 errors across
+seven test modules (`ISSUE-003`).
 
 ## Next action
 
-Continue with the prepared Model Builder validation ledger beyond the bounded NW-T3-02 recurrent cases, using the next coherent recurrent bidirectional/stack or adjacent merge/math slice. NW-T0-03 strict Pyright (58 current errors), the positive PyTorch Inductor compiler prerequisite, the 1/2/4-worker SQLite matrix, the all-six-profile live runtime/export matrix, and assistive-technology checks remain open independently.
+Continue with the prepared Model Builder validation ledger beyond the bounded
+recurrent-wrapper continuation, selecting the next coherent catalog family;
+formal basic-convolution `NW-T3-03` remains explicitly UNTESTED. NW-T0-03
+strict Pyright (58 current errors), the positive PyTorch Inductor compiler
+prerequisite, the not-clean `NW-T5-02` worker matrix, the all-six-profile live
+runtime/export matrix, and assistive-technology checks remain open
+independently.

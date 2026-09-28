@@ -1,0 +1,25 @@
+**********************
+Avvio della trascrizione di PowerShell
+Ora di inizio: 20260928102246
+Nome utente: BLUEGENE\TV
+Utente RunAs: BLUEGENE\TV
+Nome configurazione:
+Computer: BLUEGENE (Microsoft Windows NT 10.0.26200.0)
+Applicazione host: C:\Program Files\PowerShell\7\pwsh.dll -Command try { [Console]::OutputEncoding=[System.Text.Encoding]::UTF8 } catch {}
+$repo = (Resolve-Path '.').Path; $runRoot = Join-Path $repo 'runtimes/cache/nw-t5-02-workers-4-20260928'; $qa = Join-Path $repo 'assets/QA/comprehensive-validation-20260928'; $logDir = Join-Path $qa 'logs'; New-Item -ItemType Directory -Force -Path $runRoot,$logDir | Out-Null; $occupied = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in 9853,6429 }; if ($occupied) { $occupied | Select-Object LocalAddress,LocalPort,OwningProcess; throw 'Worker-4 validation ports are occupied.' }; $env:DATABASE_SQLITE_PATH = Join-Path $runRoot 'database.sqlite'; $env:NEURO_WEAVE_RUNTIME_DISCOVERY_PATH = Join-Path $runRoot 'environment-discovery.json'; $env:NEURO_WEAVE_ML_JOB_ROOT = Join-Path $runRoot 'jobs'; $env:NEURO_WEAVE_EXPORT_ROOT = Join-Path $runRoot 'exports'; $env:NEURO_WEAVE_LOG_FILE = Join-Path $runRoot 'application.log'; $env:FASTAPI_HOST = '127.0.0.1'; $env:FASTAPI_PORT = '9853'; $env:UI_HOST = '127.0.0.1'; $env:UI_PORT = '6429'; $env:RELOAD = 'false'; $env:BACKEND_LOGS_VISIBLE = 'false'; $launcherLog = Join-Path $logDir 'official-launcher-nw-t5-02-workers-4.txt'; $e2eLog = Join-Path $logDir 'nw-t5-02-workers-4-workflows.log'; $launchExit = 1; $e2eExit = 1; $portPids = @(); try { Start-Transcript -Path $launcherLog -Force | Out-Null; try { & (Join-Path $repo 'start_on_windows.ps1') -Action Launch -NoBrowser; $launchExit = $LASTEXITCODE } finally { Stop-Transcript | Out-Null }; if ($launchExit -ne 0) { throw "Official launcher failed with exit code $launchExit." }; $portPids = @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.LocalPort -in 9853,6429 } | Select-Object -ExpandProperty OwningProcess -Unique); if ($portPids.Count -ne 2) { throw "Expected two task-owned listener PIDs, found $($portPids.Count)." }; $env:PLAYWRIGHT_BASE_URL = 'http://127.0.0.1:6429'; $env:PLAYWRIGHT_WORKERS = '4'; $stopwatch = [System.Diagnostics.Stopwatch]::StartNew(); Start-Transcript -Path $e2eLog -Force | Out-Null; try { & npm --prefix (Join-Path $repo 'app/client') run e2e -- e2e/workflows.spec.ts --workers=4 --reporter=list; $e2eExit = $LASTEXITCODE } finally { Stop-Transcript | Out-Null; $stopwatch.Stop() }; $projects = Invoke-RestMethod -Uri 'http://127.0.0.1:9853/api/projects'; $projectCount = @($projects.projects).Count; $lockMatches = @(Select-String -Path (Join-Path $runRoot 'application.log') -Pattern 'database is locked|sqlite3\.OperationalError|SQLite objects created in a thread|database table is locked' -CaseSensitive -ErrorAction SilentlyContinue); Write-Host ("worker=4 e2e_exit={0} duration_ms={1} project_count={2} lock_matches={3}" -f $e2eExit,[math]::Round($stopwatch.Elapsed.TotalMilliseconds,0),$projectCount,$lockMatches.Count) } finally { if ($portPids.Count -gt 0) { $portPids | ForEach-Object { Stop-Process -Id ([int]$_) -Force -ErrorAction SilentlyContinue } }; Start-Sleep -Milliseconds 700; $remaining = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in 9853,6429 }); Write-Host ("worker=4 remaining_listeners={0}" -f $remaining.Count); if ($remaining.Count -gt 0) { $remaining | Select-Object LocalAddress,LocalPort,OwningProcess } }; exit $e2eExit
+ID processo: 23208
+PSVersion: 7.6.6
+PSEdition: Core
+GitCommitId: 7.6.6
+OS: Microsoft Windows 10.0.26200
+Platform: Win32NT
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1, 6.0, 7.0
+PSRemotingProtocolVersion: 2.4
+SerializationVersion: 1.1.0.1
+WSManStackVersion: 3.0
+**********************
+
+**********************
+Fine della trascrizione di PowerShell
+Ora di fine: 20260928102612
+**********************

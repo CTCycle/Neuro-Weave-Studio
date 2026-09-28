@@ -1,0 +1,5 @@
+2026-09-28 current validation
+Command:
+  .\app\server\.venv\Scripts\python.exe -m pytest app/tests/test_validation.py app/tests/test_pytorch_exporter.py app/tests/test_native_parity.py app/tests/test_node_catalog_audit.py app/tests/test_parameter_surface_parity.py -q --basetemp "G:\Projects\Repositories\Active projects\Neuro Weave Studio\runtimes\cache\pytest-nw-t3-focused-20260928-final"
+Result: PASS (all collected tests passed; exit code 0).
+Scope: recurrent validation, exporter, native parity, catalog audit, and parameter-surface parity.

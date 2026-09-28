@@ -1,0 +1,5 @@
+2026-09-28 current validation
+Command: npm run build
+Working directory: app/client
+Result: PASS (Angular production bundle generated; exit code 0).
+Reported output: initial total 629.30 kB raw / 116.64 kB estimated transfer; output location runtimes/cache/frontend-dist.

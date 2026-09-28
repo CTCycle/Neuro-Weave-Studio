@@ -1,0 +1,7 @@
+{
+  "case": "nw-t3-wrapper-stack-invalid",
+  "project_id": "35a60684-bac6-44bc-8a25-6ebc54892b60",
+  "layers": 0,
+  "validation_status": "blocked",
+  "diagnostic": "ERROR\nShape inference failed for 'Recurrent Stack': Recurrent stack layers must be positive\nParameter layers · Node recurrent-stack-06ef6db4-437e-49a3-96d0-402f2750bee7"
+}
