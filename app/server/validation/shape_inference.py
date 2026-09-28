@@ -1040,7 +1040,14 @@ def infer_shapes(graph: ModelGraph, catalog: NodeCatalog) -> list[ShapeSummary]:
             )
             output = TensorSpec(shape=output_shape, dtype=source.dtype)
             input_features = source.shape[-1]
-            bias_count = units if bool(parameters.get("use_bias", True)) else 0
+            bias_vectors = (
+                2
+                if cell == "gru" and bool(parameters.get("reset_after", True))
+                else 1
+            )
+            bias_count = (
+                units * bias_vectors if bool(parameters.get("use_bias", True)) else 0
+            )
             parameter_count = (
                 multiplier
                 * (
