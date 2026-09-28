@@ -1,0 +1,79 @@
+{
+  "run_id": "NW-CV-20260928-T3-05-RECURRENT",
+  "date": "2026-09-28",
+  "branch": "develop",
+  "implementation_baseline": "492567e06472b2b5bafd157135bec4099f3e3989",
+  "status": "PASS",
+  "scope": "Bounded recurrent catalog, Builder, persistence, and selected CPU runtime validation",
+  "launcher": {
+    "frontend": "http://127.0.0.1:6425/",
+    "backend": "http://127.0.0.1:9750/",
+    "backends": ["tensorflow", "pytorch", "jax"],
+    "tensorflow": "2.21.0",
+    "pytorch": "2.13.0+cu126",
+    "jax": "0.11.0",
+    "native_compilers": {
+      "tensorflow_jit": true,
+      "jax_jit": true,
+      "torch_compile": false
+    }
+  },
+  "catalog": {
+    "count": 149,
+    "recurrent_count": 5,
+    "recurrent_ids": [
+      "recurrent.bidirectional",
+      "recurrent.gru",
+      "recurrent.lstm",
+      "recurrent.stack",
+      "recurrent.simple_rnn"
+    ],
+    "mappings": "All five recurrent definitions expose supported Keras and PyTorch mappings."
+  },
+  "profiles": [
+    "keras/tensorflow CPU selected by existing recurrent browser spec",
+    "keras/pytorch CPU selected by existing recurrent browser spec",
+    "native/pytorch CPU selected by current recurrent browser spec"
+  ],
+  "results": {
+    "native_browser_cases": 6,
+    "native_browser_passed": 6,
+    "keras_browser_cases": 6,
+    "keras_browser_passed": 6,
+    "focused_backend": "PASS",
+    "full_backend": "PASS",
+    "ruff": "PASS",
+    "frontend_unit": "20 files / 105 tests PASS",
+    "frontend_lint": "PASS",
+    "frontend_build": "PASS",
+    "pyright": "PARTIAL: 58 existing errors across seven test modules",
+    "process_cleanup": "PASS: ports 6425 and 9750 released"
+  },
+  "evidence": {
+    "report": "NW-T3-05.md",
+    "inapp_browser": "evidence/nw-t3-05-inapp-browser-observation.md",
+    "native": "evidence/nw-t3-05-recurrent-native-final/",
+    "keras": "evidence/nw-t3-05-recurrent-final/",
+    "logs": [
+      "logs/official-launcher-nw-t3-05-final.txt",
+      "logs/backend-nw-t3-05-focused-after-alias-fix.log",
+      "logs/backend-nw-t3-05-full-final.log",
+      "logs/backend-nw-t3-05-compiler-alias-repro.md",
+      "logs/nw-t3-05-recurrent-native-final-after-alias-fix.log",
+      "logs/nw-t3-05-recurrent-e2e-final-after-alias-fix.log",
+      "logs/frontend-unit-nw-t3-05-final.log",
+      "logs/frontend-lint-nw-t3-05-final.log",
+      "logs/frontend-build-nw-t3-05-final.log",
+      "logs/ruff-nw-t3-05-final.log",
+      "logs/pyright-nw-t3-05-final-after-test-cleanup.log",
+      "logs/process-cleanup-nw-t3-05-final.md"
+    ]
+  },
+  "remaining": [
+    "NW-T3-RW Keras wrapper count mismatch remains PARTIAL",
+    "NW-T0-03 strict Pyright remains PARTIAL at 58 errors",
+    "NW-T4-02 positive PyTorch Inductor remains unavailable",
+    "NW-T5-02 worker matrix remains PARTIAL",
+    "NW-T3-06 attention primitives is next"
+  ]
+}
