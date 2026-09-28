@@ -1,0 +1,4531 @@
+{
+  "schema_version": 1,
+  "catalog_count": 149,
+  "selected": [
+    {
+      "id": "conv.average_pool2d",
+      "version": 1,
+      "display_name": "Average Pooling 2D",
+      "category": "convolutional",
+      "description": "Average Pooling 2D operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 4,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "pool_size",
+          "display_name": "Pool Size",
+          "type": "shape",
+          "default": [
+            2,
+            2
+          ],
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure Pool Size.",
+          "group": "Shape",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            2,
+            2
+          ],
+          "editor_default": [
+            2,
+            2
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": null,
+          "required": false,
+          "constraints": {},
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "bfloat16",
+            "int8",
+            "int16",
+            "int32",
+            "int64",
+            "uint8",
+            "uint16",
+            "uint32",
+            "bool"
+          ],
+          "description": "Configure the dtype used by this layer.",
+          "group": "Advanced",
+          "nullable": true,
+          "ui": {
+            "control": "select",
+            "allow_global_policy": true
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": "float32",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "trainable",
+          "display_name": "Trainable",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the trainable used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "autocast",
+          "display_name": "Autocast",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the autocast used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "strides",
+          "display_name": "Strides",
+          "type": "shape",
+          "default": null,
+          "required": false,
+          "constraints": {
+            "length": 2,
+            "item_min": 1
+          },
+          "options": [],
+          "description": "Configure the strides used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": true,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": null,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "enum",
+          "default": "valid",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "valid",
+            "same"
+          ],
+          "description": "Configure the padding used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "valid",
+          "editor_default": "valid",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "description": "Configure the data format used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "channels_last",
+          "editor_default": "channels_last",
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "pool_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_average_pool2d",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.nn.avg_pool2d",
+          "adapter": "pool_nd",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.nn.functional.avg_pool2d",
+          "adapter": "pool_nd",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "nn.avg_pool",
+          "adapter": "pool_nd",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "ChevronsDown",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.cropping",
+      "version": 1,
+      "display_name": "Cropping",
+      "category": "convolutional",
+      "description": "Cropping operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "cropping",
+          "display_name": "Cropping",
+          "type": "shape",
+          "default": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure Cropping.",
+          "group": "General",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "editor_default": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": null,
+          "required": false,
+          "constraints": {},
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "bfloat16",
+            "int8",
+            "int16",
+            "int32",
+            "int64",
+            "uint8",
+            "uint16",
+            "uint32",
+            "bool"
+          ],
+          "description": "Configure the dtype used by this layer.",
+          "group": "Advanced",
+          "nullable": true,
+          "ui": {
+            "control": "select",
+            "allow_global_policy": true
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": "float32",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "trainable",
+          "display_name": "Trainable",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the trainable used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "autocast",
+          "display_name": "Autocast",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the autocast used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dimensions",
+          "display_name": "Dimensions",
+          "type": "enum",
+          "default": 2,
+          "required": false,
+          "constraints": {},
+          "options": [
+            1,
+            2,
+            3
+          ],
+          "description": "Configure the dimensions used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": 2,
+          "editor_default": 2,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "description": "Configure the data format used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "channels_last",
+          "editor_default": "channels_last",
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_cropping",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.slice",
+          "adapter": "cropping",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.narrow",
+          "adapter": "cropping",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jax.numpy.ndarray.__getitem__",
+          "adapter": "cropping",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "Crop",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.depthwise",
+      "version": 1,
+      "display_name": "Depthwise Convolution",
+      "category": "convolutional",
+      "description": "Depthwise Convolution operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "dimensions",
+          "display_name": "Dimensions",
+          "type": "enum",
+          "default": 2,
+          "required": false,
+          "constraints": {},
+          "options": [
+            1,
+            2
+          ],
+          "description": "Configure Dimensions.",
+          "group": "General",
+          "nullable": false,
+          "ui": {
+            "control": "enum"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": 2,
+          "editor_default": 2,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "depth_multiplier",
+          "display_name": "Depth Multiplier",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "constraints": {
+            "min": 1
+          },
+          "options": [],
+          "description": "Configure Depth Multiplier.",
+          "group": "General",
+          "nullable": false,
+          "ui": {
+            "control": "integer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": 1,
+          "editor_default": 1,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "kernel_size",
+          "display_name": "Kernel Size",
+          "type": "shape",
+          "default": [
+            3,
+            3
+          ],
+          "required": false,
+          "constraints": {
+            "length": 2,
+            "item_min": 1
+          },
+          "options": [],
+          "description": "Configure Kernel Size.",
+          "group": "Shape",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            3,
+            3
+          ],
+          "editor_default": [
+            3,
+            3
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": null,
+          "required": false,
+          "constraints": {},
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "bfloat16",
+            "int8",
+            "int16",
+            "int32",
+            "int64",
+            "uint8",
+            "uint16",
+            "uint32",
+            "bool"
+          ],
+          "description": "Configure the dtype used by this layer.",
+          "group": "Advanced",
+          "nullable": true,
+          "ui": {
+            "control": "select",
+            "allow_global_policy": true
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": "float32",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "trainable",
+          "display_name": "Trainable",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the trainable used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "autocast",
+          "display_name": "Autocast",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the autocast used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "strides",
+          "display_name": "Strides",
+          "type": "shape",
+          "default": [
+            1,
+            1
+          ],
+          "required": false,
+          "constraints": {
+            "item_min": 1
+          },
+          "options": [],
+          "description": "Configure the strides used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            1,
+            1
+          ],
+          "editor_default": [
+            1,
+            1
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "enum",
+          "default": "valid",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "valid",
+            "same"
+          ],
+          "description": "Configure the padding used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "valid",
+          "editor_default": "valid",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "description": "Configure the data format used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "channels_last",
+          "editor_default": "channels_last",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dilation_rate",
+          "display_name": "Dilation rate",
+          "type": "shape",
+          "default": [
+            1,
+            1
+          ],
+          "required": false,
+          "constraints": {
+            "item_min": 1
+          },
+          "options": [],
+          "description": "Configure the dilation rate used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            1,
+            1
+          ],
+          "editor_default": [
+            1,
+            1
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "activation",
+          "display_name": "Activation",
+          "type": "activation",
+          "default": "linear",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "linear",
+            "relu",
+            "gelu",
+            "sigmoid",
+            "tanh",
+            "softmax",
+            "softplus",
+            "softsign",
+            "elu",
+            "selu",
+            "silu",
+            "swish",
+            "mish",
+            "hard_sigmoid",
+            "exponential"
+          ],
+          "description": "Configure the activation used by this layer.",
+          "group": "Activation",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "linear",
+          "editor_default": "linear",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "use_bias",
+          "display_name": "Use bias",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the use bias used by this layer.",
+          "group": "Behavior",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "depthwise_initializer",
+          "display_name": "Depthwise initializer",
+          "type": "initializer",
+          "default": "glorot_uniform",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "uniform",
+            "normal",
+            "truncated_normal",
+            "constant",
+            "variance_scaling",
+            "glorot_uniform",
+            "glorot_normal",
+            "he_uniform",
+            "he_normal",
+            "lecun_uniform",
+            "lecun_normal",
+            "zeros",
+            "ones",
+            "random_normal",
+            "random_uniform",
+            "orthogonal",
+            "identity"
+          ],
+          "description": "Configure the depthwise initializer used by this layer.",
+          "group": "Initializers",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "initializer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "glorot_uniform",
+          "editor_default": "glorot_uniform",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "bias_initializer",
+          "display_name": "Bias initializer",
+          "type": "initializer",
+          "default": "zeros",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "uniform",
+            "normal",
+            "truncated_normal",
+            "constant",
+            "variance_scaling",
+            "glorot_uniform",
+            "glorot_normal",
+            "he_uniform",
+            "he_normal",
+            "lecun_uniform",
+            "lecun_normal",
+            "zeros",
+            "ones",
+            "random_normal",
+            "random_uniform",
+            "orthogonal",
+            "identity"
+          ],
+          "description": "Configure the bias initializer used by this layer.",
+          "group": "Initializers",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "initializer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "zeros",
+          "editor_default": "zeros",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "depthwise_regularizer",
+          "display_name": "Depthwise regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "l1",
+            "l2",
+            "l1_l2"
+          ],
+          "description": "Configure the depthwise regularizer used by this layer.",
+          "group": "Regularization",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "regularizer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "bias_regularizer",
+          "display_name": "Bias regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "l1",
+            "l2",
+            "l1_l2"
+          ],
+          "description": "Configure the bias regularizer used by this layer.",
+          "group": "Regularization",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "regularizer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "activity_regularizer",
+          "display_name": "Activity regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "l1",
+            "l2",
+            "l1_l2"
+          ],
+          "description": "Configure the activity regularizer used by this layer.",
+          "group": "Regularization",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "regularizer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "depthwise_constraint",
+          "display_name": "Depthwise constraint",
+          "type": "constraint",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "max_norm",
+            "min_max_norm",
+            "non_neg",
+            "unit_norm"
+          ],
+          "description": "Configure the depthwise constraint used by this layer.",
+          "group": "Constraints",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "constraint"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "bias_constraint",
+          "display_name": "Bias constraint",
+          "type": "constraint",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "max_norm",
+            "min_max_norm",
+            "non_neg",
+            "unit_norm"
+          ],
+          "description": "Configure the bias constraint used by this layer.",
+          "group": "Constraints",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "constraint"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "conv_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_depthwise",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.nn.depthwise_conv2d",
+          "adapter": "depthwise",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {
+            "bias_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "bias_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            }
+          },
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.nn.Conv2d",
+          "adapter": "depthwise",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {
+            "bias_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "bias_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            }
+          },
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "nn.Conv",
+          "adapter": "depthwise",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {
+            "bias_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "bias_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            }
+          },
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "ScanLine",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.max_pool1d",
+      "version": 1,
+      "display_name": "Max Pooling 1D",
+      "category": "convolutional",
+      "description": "Max Pooling 1D operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 3,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "pool_size",
+          "display_name": "Pool Size",
+          "type": "shape",
+          "default": [
+            2
+          ],
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure Pool Size.",
+          "group": "Shape",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            2
+          ],
+          "editor_default": [
+            2
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": null,
+          "required": false,
+          "constraints": {},
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "bfloat16",
+            "int8",
+            "int16",
+            "int32",
+            "int64",
+            "uint8",
+            "uint16",
+            "uint32",
+            "bool"
+          ],
+          "description": "Configure the dtype used by this layer.",
+          "group": "Advanced",
+          "nullable": true,
+          "ui": {
+            "control": "select",
+            "allow_global_policy": true
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": "float32",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "trainable",
+          "display_name": "Trainable",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the trainable used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "autocast",
+          "display_name": "Autocast",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the autocast used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "strides",
+          "display_name": "Strides",
+          "type": "shape",
+          "default": null,
+          "required": false,
+          "constraints": {
+            "length": 1,
+            "item_min": 1
+          },
+          "options": [],
+          "description": "Configure the strides used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": true,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": null,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "enum",
+          "default": "valid",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "valid",
+            "same"
+          ],
+          "description": "Configure the padding used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "valid",
+          "editor_default": "valid",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "description": "Configure the data format used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "channels_last",
+          "editor_default": "channels_last",
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "pool_nd",
+        "config": {
+          "dimensions": 1
+        }
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_max_pool1d",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.nn.max_pool1d",
+          "adapter": "pool_nd",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.nn.functional.max_pool1d",
+          "adapter": "pool_nd",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "nn.max_pool",
+          "adapter": "pool_nd",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "ChevronsDown",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.max_pool3d",
+      "version": 1,
+      "display_name": "Max Pooling 3D",
+      "category": "convolutional",
+      "description": "Max Pooling 3D operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": 5,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "pool_size",
+          "display_name": "Pool Size",
+          "type": "shape",
+          "default": [
+            2,
+            2,
+            2
+          ],
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure Pool Size.",
+          "group": "Shape",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            2,
+            2,
+            2
+          ],
+          "editor_default": [
+            2,
+            2,
+            2
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": null,
+          "required": false,
+          "constraints": {},
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "bfloat16",
+            "int8",
+            "int16",
+            "int32",
+            "int64",
+            "uint8",
+            "uint16",
+            "uint32",
+            "bool"
+          ],
+          "description": "Configure the dtype used by this layer.",
+          "group": "Advanced",
+          "nullable": true,
+          "ui": {
+            "control": "select",
+            "allow_global_policy": true
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": "float32",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "trainable",
+          "display_name": "Trainable",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the trainable used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "autocast",
+          "display_name": "Autocast",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the autocast used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "strides",
+          "display_name": "Strides",
+          "type": "shape",
+          "default": null,
+          "required": false,
+          "constraints": {
+            "length": 3,
+            "item_min": 1
+          },
+          "options": [],
+          "description": "Configure the strides used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": true,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": null,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "enum",
+          "default": "valid",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "valid",
+            "same"
+          ],
+          "description": "Configure the padding used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "valid",
+          "editor_default": "valid",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "description": "Configure the data format used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "channels_last",
+          "editor_default": "channels_last",
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "pool_nd",
+        "config": {
+          "dimensions": 3
+        }
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_max_pool3d",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.nn.max_pool3d",
+          "adapter": "pool_nd",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.nn.functional.max_pool3d",
+          "adapter": "pool_nd",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "nn.max_pool",
+          "adapter": "pool_nd",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "ChevronsDown",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.padding",
+      "version": 1,
+      "display_name": "Padding",
+      "category": "convolutional",
+      "description": "Padding operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "shape",
+          "default": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure Padding.",
+          "group": "General",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "editor_default": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": null,
+          "required": false,
+          "constraints": {},
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "bfloat16",
+            "int8",
+            "int16",
+            "int32",
+            "int64",
+            "uint8",
+            "uint16",
+            "uint32",
+            "bool"
+          ],
+          "description": "Configure the dtype used by this layer.",
+          "group": "Advanced",
+          "nullable": true,
+          "ui": {
+            "control": "select",
+            "allow_global_policy": true
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": "float32",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "trainable",
+          "display_name": "Trainable",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the trainable used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "autocast",
+          "display_name": "Autocast",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the autocast used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dimensions",
+          "display_name": "Dimensions",
+          "type": "enum",
+          "default": 2,
+          "required": false,
+          "constraints": {},
+          "options": [
+            1,
+            2,
+            3
+          ],
+          "description": "Configure the dimensions used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": 2,
+          "editor_default": 2,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "description": "Configure the data format used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "channels_last",
+          "editor_default": "channels_last",
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_padding",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.pad",
+          "adapter": "padding",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.nn.functional.pad",
+          "adapter": "padding",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.pad",
+          "adapter": "padding",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "Expand",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.separable",
+      "version": 1,
+      "display_name": "Separable Convolution",
+      "category": "convolutional",
+      "description": "Separable Convolution operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "filters",
+          "display_name": "Filters",
+          "type": "integer",
+          "default": 32,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure Filters.",
+          "group": "Shape",
+          "nullable": false,
+          "ui": {
+            "control": "integer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": 32,
+          "editor_default": 32,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "kernel_size",
+          "display_name": "Kernel Size",
+          "type": "shape",
+          "default": [
+            3,
+            3
+          ],
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure Kernel Size.",
+          "group": "Shape",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            3,
+            3
+          ],
+          "editor_default": [
+            3,
+            3
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": null,
+          "required": false,
+          "constraints": {},
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "bfloat16",
+            "int8",
+            "int16",
+            "int32",
+            "int64",
+            "uint8",
+            "uint16",
+            "uint32",
+            "bool"
+          ],
+          "description": "Configure the dtype used by this layer.",
+          "group": "Advanced",
+          "nullable": true,
+          "ui": {
+            "control": "select",
+            "allow_global_policy": true
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": "float32",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "trainable",
+          "display_name": "Trainable",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the trainable used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "autocast",
+          "display_name": "Autocast",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the autocast used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dimensions",
+          "display_name": "Dimensions",
+          "type": "enum",
+          "default": 2,
+          "required": false,
+          "constraints": {},
+          "options": [
+            1,
+            2
+          ],
+          "description": "Configure the dimensions used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": 2,
+          "editor_default": 2,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "strides",
+          "display_name": "Strides",
+          "type": "shape",
+          "default": [
+            1,
+            1
+          ],
+          "required": false,
+          "constraints": {
+            "item_min": 1
+          },
+          "options": [],
+          "description": "Configure the strides used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            1,
+            1
+          ],
+          "editor_default": [
+            1,
+            1
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "enum",
+          "default": "valid",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "valid",
+            "same"
+          ],
+          "description": "Configure the padding used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "valid",
+          "editor_default": "valid",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "description": "Configure the data format used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "channels_last",
+          "editor_default": "channels_last",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dilation_rate",
+          "display_name": "Dilation rate",
+          "type": "shape",
+          "default": [
+            1,
+            1
+          ],
+          "required": false,
+          "constraints": {
+            "item_min": 1
+          },
+          "options": [],
+          "description": "Configure the dilation rate used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            1,
+            1
+          ],
+          "editor_default": [
+            1,
+            1
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "activation",
+          "display_name": "Activation",
+          "type": "activation",
+          "default": "linear",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "linear",
+            "relu",
+            "gelu",
+            "sigmoid",
+            "tanh",
+            "softmax",
+            "softplus",
+            "softsign",
+            "elu",
+            "selu",
+            "silu",
+            "swish",
+            "mish",
+            "hard_sigmoid",
+            "exponential"
+          ],
+          "description": "Configure the activation used by this layer.",
+          "group": "Activation",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "linear",
+          "editor_default": "linear",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "use_bias",
+          "display_name": "Use bias",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the use bias used by this layer.",
+          "group": "Behavior",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "depth_multiplier",
+          "display_name": "Depth multiplier",
+          "type": "integer",
+          "default": 1,
+          "required": false,
+          "constraints": {
+            "min": 1
+          },
+          "options": [],
+          "description": "Configure the depth multiplier used by this layer.",
+          "group": "Channels",
+          "nullable": false,
+          "ui": {
+            "control": "integer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": 1,
+          "editor_default": 1,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "depthwise_initializer",
+          "display_name": "Depthwise initializer",
+          "type": "initializer",
+          "default": "glorot_uniform",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "uniform",
+            "normal",
+            "truncated_normal",
+            "constant",
+            "variance_scaling",
+            "glorot_uniform",
+            "glorot_normal",
+            "he_uniform",
+            "he_normal",
+            "lecun_uniform",
+            "lecun_normal",
+            "zeros",
+            "ones",
+            "random_normal",
+            "random_uniform",
+            "orthogonal",
+            "identity"
+          ],
+          "description": "Configure the depthwise initializer used by this layer.",
+          "group": "Initializers",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "initializer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "glorot_uniform",
+          "editor_default": "glorot_uniform",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "pointwise_initializer",
+          "display_name": "Pointwise initializer",
+          "type": "initializer",
+          "default": "glorot_uniform",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "uniform",
+            "normal",
+            "truncated_normal",
+            "constant",
+            "variance_scaling",
+            "glorot_uniform",
+            "glorot_normal",
+            "he_uniform",
+            "he_normal",
+            "lecun_uniform",
+            "lecun_normal",
+            "zeros",
+            "ones",
+            "random_normal",
+            "random_uniform",
+            "orthogonal",
+            "identity"
+          ],
+          "description": "Configure the pointwise initializer used by this layer.",
+          "group": "Initializers",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "initializer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "glorot_uniform",
+          "editor_default": "glorot_uniform",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "bias_initializer",
+          "display_name": "Bias initializer",
+          "type": "initializer",
+          "default": "zeros",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "uniform",
+            "normal",
+            "truncated_normal",
+            "constant",
+            "variance_scaling",
+            "glorot_uniform",
+            "glorot_normal",
+            "he_uniform",
+            "he_normal",
+            "lecun_uniform",
+            "lecun_normal",
+            "zeros",
+            "ones",
+            "random_normal",
+            "random_uniform",
+            "orthogonal",
+            "identity"
+          ],
+          "description": "Configure the bias initializer used by this layer.",
+          "group": "Initializers",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "initializer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "zeros",
+          "editor_default": "zeros",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "depthwise_regularizer",
+          "display_name": "Depthwise regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "l1",
+            "l2",
+            "l1_l2"
+          ],
+          "description": "Configure the depthwise regularizer used by this layer.",
+          "group": "Regularization",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "regularizer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "pointwise_regularizer",
+          "display_name": "Pointwise regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "l1",
+            "l2",
+            "l1_l2"
+          ],
+          "description": "Configure the pointwise regularizer used by this layer.",
+          "group": "Regularization",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "regularizer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "bias_regularizer",
+          "display_name": "Bias regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "l1",
+            "l2",
+            "l1_l2"
+          ],
+          "description": "Configure the bias regularizer used by this layer.",
+          "group": "Regularization",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "regularizer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "activity_regularizer",
+          "display_name": "Activity regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "l1",
+            "l2",
+            "l1_l2"
+          ],
+          "description": "Configure the activity regularizer used by this layer.",
+          "group": "Regularization",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "regularizer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "depthwise_constraint",
+          "display_name": "Depthwise constraint",
+          "type": "constraint",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "max_norm",
+            "min_max_norm",
+            "non_neg",
+            "unit_norm"
+          ],
+          "description": "Configure the depthwise constraint used by this layer.",
+          "group": "Constraints",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "constraint"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "pointwise_constraint",
+          "display_name": "Pointwise constraint",
+          "type": "constraint",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "max_norm",
+            "min_max_norm",
+            "non_neg",
+            "unit_norm"
+          ],
+          "description": "Configure the pointwise constraint used by this layer.",
+          "group": "Constraints",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "constraint"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "bias_constraint",
+          "display_name": "Bias constraint",
+          "type": "constraint",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "max_norm",
+            "min_max_norm",
+            "non_neg",
+            "unit_norm"
+          ],
+          "description": "Configure the bias constraint used by this layer.",
+          "group": "Constraints",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "constraint"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "conv_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_separable",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.nn.separable_conv2d",
+          "adapter": "separable",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {
+            "bias_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "bias_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            }
+          },
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.nn.Conv2d",
+          "adapter": "separable",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {
+            "bias_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "bias_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            }
+          },
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "nn.Conv",
+          "adapter": "separable",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {
+            "bias_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "bias_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            }
+          },
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "ScanLine",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.transposed",
+      "version": 1,
+      "display_name": "Transposed Convolution",
+      "category": "convolutional",
+      "description": "Transposed Convolution operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "dimensions",
+          "display_name": "Dimensions",
+          "type": "enum",
+          "default": 2,
+          "required": false,
+          "constraints": {},
+          "options": [
+            1,
+            2,
+            3
+          ],
+          "description": "Configure Dimensions.",
+          "group": "General",
+          "nullable": false,
+          "ui": {
+            "control": "enum"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": 2,
+          "editor_default": 2,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "filters",
+          "display_name": "Filters",
+          "type": "integer",
+          "default": 32,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure Filters.",
+          "group": "Shape",
+          "nullable": false,
+          "ui": {
+            "control": "integer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": 32,
+          "editor_default": 32,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "kernel_size",
+          "display_name": "Kernel Size",
+          "type": "shape",
+          "default": [
+            3,
+            3
+          ],
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure Kernel Size.",
+          "group": "Shape",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            3,
+            3
+          ],
+          "editor_default": [
+            3,
+            3
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": null,
+          "required": false,
+          "constraints": {},
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "bfloat16",
+            "int8",
+            "int16",
+            "int32",
+            "int64",
+            "uint8",
+            "uint16",
+            "uint32",
+            "bool"
+          ],
+          "description": "Configure the dtype used by this layer.",
+          "group": "Advanced",
+          "nullable": true,
+          "ui": {
+            "control": "select",
+            "allow_global_policy": true
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": "float32",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "trainable",
+          "display_name": "Trainable",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the trainable used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "autocast",
+          "display_name": "Autocast",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the autocast used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "output_padding",
+          "display_name": "Output padding",
+          "type": "shape",
+          "default": null,
+          "required": false,
+          "constraints": {
+            "item_min": 0
+          },
+          "options": [],
+          "description": "Configure the output padding used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": true,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": null,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "strides",
+          "display_name": "Strides",
+          "type": "shape",
+          "default": [
+            1,
+            1
+          ],
+          "required": false,
+          "constraints": {
+            "item_min": 1
+          },
+          "options": [],
+          "description": "Configure the strides used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            1,
+            1
+          ],
+          "editor_default": [
+            1,
+            1
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "padding",
+          "display_name": "Padding",
+          "type": "enum",
+          "default": "valid",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "valid",
+            "same"
+          ],
+          "description": "Configure the padding used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "valid",
+          "editor_default": "valid",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "description": "Configure the data format used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "channels_last",
+          "editor_default": "channels_last",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dilation_rate",
+          "display_name": "Dilation rate",
+          "type": "shape",
+          "default": [
+            1,
+            1
+          ],
+          "required": false,
+          "constraints": {
+            "item_min": 1
+          },
+          "options": [],
+          "description": "Configure the dilation rate used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            1,
+            1
+          ],
+          "editor_default": [
+            1,
+            1
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "activation",
+          "display_name": "Activation",
+          "type": "activation",
+          "default": "linear",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "linear",
+            "relu",
+            "gelu",
+            "sigmoid",
+            "tanh",
+            "softmax",
+            "softplus",
+            "softsign",
+            "elu",
+            "selu",
+            "silu",
+            "swish",
+            "mish",
+            "hard_sigmoid",
+            "exponential"
+          ],
+          "description": "Configure the activation used by this layer.",
+          "group": "Activation",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "linear",
+          "editor_default": "linear",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "use_bias",
+          "display_name": "Use bias",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the use bias used by this layer.",
+          "group": "Behavior",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "kernel_initializer",
+          "display_name": "Kernel initializer",
+          "type": "initializer",
+          "default": "glorot_uniform",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "uniform",
+            "normal",
+            "truncated_normal",
+            "constant",
+            "variance_scaling",
+            "glorot_uniform",
+            "glorot_normal",
+            "he_uniform",
+            "he_normal",
+            "lecun_uniform",
+            "lecun_normal",
+            "zeros",
+            "ones",
+            "random_normal",
+            "random_uniform",
+            "orthogonal",
+            "identity"
+          ],
+          "description": "Configure the kernel initializer used by this layer.",
+          "group": "Initializers",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "initializer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "glorot_uniform",
+          "editor_default": "glorot_uniform",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "bias_initializer",
+          "display_name": "Bias initializer",
+          "type": "initializer",
+          "default": "zeros",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "uniform",
+            "normal",
+            "truncated_normal",
+            "constant",
+            "variance_scaling",
+            "glorot_uniform",
+            "glorot_normal",
+            "he_uniform",
+            "he_normal",
+            "lecun_uniform",
+            "lecun_normal",
+            "zeros",
+            "ones",
+            "random_normal",
+            "random_uniform",
+            "orthogonal",
+            "identity"
+          ],
+          "description": "Configure the bias initializer used by this layer.",
+          "group": "Initializers",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "initializer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "zeros",
+          "editor_default": "zeros",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "kernel_regularizer",
+          "display_name": "Kernel regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "l1",
+            "l2",
+            "l1_l2"
+          ],
+          "description": "Configure the kernel regularizer used by this layer.",
+          "group": "Regularization",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "regularizer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "bias_regularizer",
+          "display_name": "Bias regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "l1",
+            "l2",
+            "l1_l2"
+          ],
+          "description": "Configure the bias regularizer used by this layer.",
+          "group": "Regularization",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "regularizer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "activity_regularizer",
+          "display_name": "Activity regularizer",
+          "type": "regularizer",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "l1",
+            "l2",
+            "l1_l2"
+          ],
+          "description": "Configure the activity regularizer used by this layer.",
+          "group": "Regularization",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "regularizer"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "kernel_constraint",
+          "display_name": "Kernel constraint",
+          "type": "constraint",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "max_norm",
+            "min_max_norm",
+            "non_neg",
+            "unit_norm"
+          ],
+          "description": "Configure the kernel constraint used by this layer.",
+          "group": "Constraints",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "constraint"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "bias_constraint",
+          "display_name": "Bias constraint",
+          "type": "constraint",
+          "default": "none",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "none",
+            "max_norm",
+            "min_max_norm",
+            "non_neg",
+            "unit_norm"
+          ],
+          "description": "Configure the bias constraint used by this layer.",
+          "group": "Constraints",
+          "nullable": false,
+          "ui": {
+            "control": "select_or_json",
+            "json_type": "constraint"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "none",
+          "editor_default": "none",
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "conv_nd",
+        "config": {
+          "dimensions": 2
+        }
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_transposed",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.nn.conv2d_transpose",
+          "adapter": "transposed",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {
+            "kernel_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "kernel_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "kernel_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            },
+            "bias_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            }
+          },
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.nn.ConvTranspose2d",
+          "adapter": "transposed",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {
+            "kernel_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "kernel_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "kernel_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            },
+            "bias_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            }
+          },
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "nn.ConvTranspose",
+          "adapter": "transposed",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {
+            "kernel_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_initializer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Native inference uses deterministic worker-owned parameters.",
+              "default": null
+            },
+            "bias_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "kernel_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "activity_regularizer": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Regularizers are not part of generated inference modules.",
+              "default": null
+            },
+            "kernel_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            },
+            "bias_constraint": {
+              "supported": false,
+              "status": "verified",
+              "allowed_values": null,
+              "constraints": {},
+              "mapping": null,
+              "notes": "Constraints are not part of generated inference modules.",
+              "default": null
+            }
+          },
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "ScanLine",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    },
+    {
+      "id": "conv.upsampling",
+      "version": 1,
+      "display_name": "Upsampling",
+      "category": "convolutional",
+      "description": "Upsampling operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "size",
+          "display_name": "Size",
+          "type": "shape",
+          "default": [
+            2,
+            2
+          ],
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure Size.",
+          "group": "General",
+          "nullable": false,
+          "ui": {
+            "control": "shape"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": [
+            2,
+            2
+          ],
+          "editor_default": [
+            2,
+            2
+          ],
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dtype",
+          "display_name": "Dtype",
+          "type": "dtype",
+          "default": null,
+          "required": false,
+          "constraints": {},
+          "options": [
+            "float16",
+            "float32",
+            "float64",
+            "bfloat16",
+            "int8",
+            "int16",
+            "int32",
+            "int64",
+            "uint8",
+            "uint16",
+            "uint32",
+            "bool"
+          ],
+          "description": "Configure the dtype used by this layer.",
+          "group": "Advanced",
+          "nullable": true,
+          "ui": {
+            "control": "select",
+            "allow_global_policy": true
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": "float32",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "trainable",
+          "display_name": "Trainable",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the trainable used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "autocast",
+          "display_name": "Autocast",
+          "type": "boolean",
+          "default": true,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "Configure the autocast used by this layer.",
+          "group": "Advanced",
+          "nullable": false,
+          "ui": {
+            "control": "boolean"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": true,
+          "editor_default": true,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "dimensions",
+          "display_name": "Dimensions",
+          "type": "enum",
+          "default": 2,
+          "required": false,
+          "constraints": {},
+          "options": [
+            1,
+            2,
+            3
+          ],
+          "description": "Configure the dimensions used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": 2,
+          "editor_default": 2,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "data_format",
+          "display_name": "Data format",
+          "type": "enum",
+          "default": "channels_last",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "channels_last",
+            "channels_first"
+          ],
+          "description": "Configure the data format used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": "channels_last",
+          "editor_default": "channels_last",
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "interpolation",
+          "display_name": "Interpolation",
+          "type": "enum",
+          "default": "nearest",
+          "required": false,
+          "constraints": {},
+          "options": [
+            "nearest",
+            "bilinear"
+          ],
+          "description": "Configure the interpolation used by this layer.",
+          "group": "Spatial configuration",
+          "nullable": false,
+          "ui": {
+            "control": "select"
+          },
+          "value_schema": null,
+          "visible_when": {
+            "dimensions": 2
+          },
+          "enabled_when": {
+            "dimensions": 2
+          },
+          "required_when": {},
+          "framework_default": "nearest",
+          "editor_default": "nearest",
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "identity",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_upsampling",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.repeat",
+          "adapter": "upsampling",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.nn.functional.interpolate",
+          "adapter": "upsampling",
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.repeat",
+          "adapter": "upsampling",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "ChevronsUp",
+        "accent": "blue",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/convolutional_layers.md"
+    }
+  ]
+}

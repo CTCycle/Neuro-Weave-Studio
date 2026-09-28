@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import numpy as np
 import pytest
+
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph

@@ -1,4 +1,5 @@
 import pytest
+
 from common.catalogs.loader import get_node_catalog
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, OutputBinding, Position
