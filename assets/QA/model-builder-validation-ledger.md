@@ -486,9 +486,31 @@ frontend unit/lint/build gates passed. Full strict Pyright remains PARTIAL at
 58 existing errors. The separate unchanged `workflows.spec.ts` worker matrix
 was not clean: `19/20`, `18/20`, and `17/20` passed at workers 1, 2, and 4;
 no SQLite lock signatures were found, but active-job and parallel Builder
-failures keep `NW-T5-02`/`ISSUE-001` open. Formal basic-convolution `NW-T3-03`
-remains explicitly UNTESTED because this continuation selected recurrent
-bidirectional/stack rows.
+failures keep `NW-T5-02`/`ISSUE-001` open. The bounded basic-convolution
+`NW-T3-03` slice was subsequently selected and passed; advanced/spatial
+convolution `NW-T3-04` is the next selected catalog slice.
+
+## Current bounded run: NW-T3-03
+
+Date: 2026-09-28
+Repository: develop at implementation revision `bc1ea4d0bff24cfb53bdfbaa5a821da047dc6503`
+Run report: [NW-T3-03 basic convolution and pooling](comprehensive-validation-20260928/NW-T3-03.md)
+Run manifest: [NW-T3-03 run manifest](comprehensive-validation-20260928/NW-T3-03-run-manifest.json)
+Catalog: 149 nodes; fingerprint `b92166f9e933c1db7bc95e7d48b0d083b570e2f551e573d668cb5d368fd6f7dd`; all definition IDs match the previous freeze
+Profile: selected Keras API / PyTorch backend / CPU and native PyTorch / CPU neighbors
+Evidence root: assets/QA/comprehensive-validation-20260928/
+
+| Level | Bounded result | Closure boundary |
+| --- | --- | --- |
+| L0 catalog inventory | PASS | Live catalog, category counts, metadata, and current fingerprint were frozen; node-level coverage remains open. |
+| L1 single-node behavior | PASS for Conv1D, Average Pooling 1D, Global Pooling 1D, Conv2D, Max Pooling 2D, Global Pooling 2D, Conv3D, Average Pooling 3D, and Global Pooling 3D | The other nine convolutional definitions and 140 non-convolutional definitions remain PENDING. |
+| L2 parameter behavior | PASS for the defaults and shape-changing parameters exercised by the four named graphs | Full convolution/pooling parameter boundaries, nullable and conditional states, and profile capabilities remain PENDING. |
+| L3 port/edge behavior | PASS for the four selected input-to-convolution-to-pooling chains | Exhaustive catalog edge generation and incompatible-pair coverage remain PENDING. |
+| L4 graph composition | PASS for GF-002, GF-003, and GF-004 in the named Keras/PyTorch cases plus the native PyTorch Conv2D neighbor | The remaining graph families and profile matrix remain PENDING. |
+| L5 runtime/profile | PASS for Functional Validation on the selected Keras/PyTorch CPU and native PyTorch CPU lanes | Source, export, profile switching, the other four profiles, and training remain PENDING. |
+| L6 persistence/recovery | PASS for save/reload of all four graphs, browser-error checks, and task-fixture cleanup | Invalid repair, retained incompatible state, profile switching, export reload, and matrix-wide recovery remain PENDING. |
+
+The authoritative browser matrix passed 4/4 cases with one worker after adding an explicit Builder reload assertion after save. Static shapes, parameter counts, exact worker identity, runtime outputs, and empty browser-error payloads passed for every case. The in-app Browser observation separately confirmed the live catalog search, Conv2D materialization, and rendered Inspector. No product defect was found in this slice; the change is a test-strengthening assertion. The next selected catalog slice is advanced/spatial convolution NW-T3-04. This remains a bounded PASS, not full Model Builder certification.
 
 ## Future session run template
 

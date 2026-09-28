@@ -198,6 +198,10 @@ async function validateSaveAndRun(
   expect(saved.graph.nodes).toHaveLength(expectedNodes)
   expect(saved.graph.edges).toHaveLength(expectedEdges)
 
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.locator('[data-node-id]')).toHaveCount(expectedNodes)
+
   await page.goto(`/models/${fixture.id}/validation`)
   await expect(page.getByRole('heading', { name: 'Run a safe model check' })).toBeVisible({ timeout: 30_000 })
   const profilePattern = kerasEnabled ? /keras.*pytorch/i : /native.*pytorch/i
