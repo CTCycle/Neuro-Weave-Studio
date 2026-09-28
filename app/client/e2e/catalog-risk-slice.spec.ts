@@ -198,6 +198,8 @@ async function saveValidateAndRun(
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
   await expect(page.locator('[data-node-id]')).toHaveCount(expectedNodes)
+  await mkdir(evidenceDir, { recursive: true })
+  await page.screenshot({ path: path.join(evidenceDir, `${caseName}-builder-ready.png`), fullPage: true })
 
   await page.goto(`/models/${fixture.id}/validation`)
   await expect(page.getByRole('heading', { name: 'Run a safe model check' })).toBeVisible({ timeout: 30_000 })
@@ -219,7 +221,7 @@ async function saveValidateAndRun(
   }, { timeout: 90_000 }).toBe('succeeded')
 
   await page.screenshot({ path: testInfo.outputPath(`${caseName}-runtime-succeeded.png`), fullPage: true })
-  await mkdir(evidenceDir, { recursive: true })
+  await page.screenshot({ path: path.join(evidenceDir, `${caseName}-runtime-succeeded.png`), fullPage: true })
   await writeFile(path.join(evidenceDir, `${caseName}.json`), JSON.stringify({
     case: caseName,
     project_id: fixture.id,
@@ -266,6 +268,80 @@ test.describe('NW-T3-01 risk-based catalog slice', () => {
       await saveValidateAndRun(page, request, fixture, 4, 3, 'nw-t3-01-recurrent', testInfo)
       expect(browserErrors, 'recurrent catalog workflow should not emit browser errors').toEqual([])
       await writeFile(path.join(evidenceDir, 'nw-t3-01-recurrent-browser-errors.json'), JSON.stringify(browserErrors, null, 2))
+    } finally {
+      await deleteProject(request, fixture.id)
+    }
+  })
+
+  test('GRU and LSTM sequence/state variants build, persist, and execute from the catalog', async ({ page, request }, testInfo) => {
+    const fixture = await createProject(
+      request,
+      `Tier 3 recurrent variants ${Date.now()}`,
+      graphShell([
+        node('gru-input', 'input.sequence', 'GRU input', { x: 48, y: 80 }, { shape: [4, 3], dtype: 'float32' }),
+        node('gru-sequence-output', 'output.sequence', 'GRU sequence output', { x: 1040, y: 40 }, {}),
+        node('gru-state-output', 'output.custom', 'GRU hidden state output', { x: 1040, y: 220 }, {}),
+        node('lstm-input', 'input.sequence', 'LSTM input', { x: 48, y: 520 }, { shape: [4, 3], dtype: 'float32' }),
+        node('lstm-sequence-output', 'output.sequence', 'LSTM sequence output', { x: 1040, y: 480 }, {}),
+        node('lstm-hidden-output', 'output.custom', 'LSTM hidden state output', { x: 1040, y: 660 }, {}),
+        node('lstm-cell-output', 'output.custom', 'LSTM cell state output', { x: 1040, y: 840 }, {}),
+      ]),
+    )
+    const browserErrors: string[] = []
+    page.on('pageerror', (error) => browserErrors.push(`pageerror: ${error.message}`))
+    page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(`console: ${message.text()}`) })
+    try {
+      await page.goto(`/builder/${fixture.id}`)
+      await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+
+      const gruNodeId = await addCatalogNode(page, 'GRU')
+      const gru = page.locator(`[data-node-id="${gruNodeId}"]`)
+      await gru.click()
+      let inspector = page.getByRole('complementary', { name: 'Properties inspector' })
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Units' }).locator('input').fill('8')
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Return sequences' }).locator('input[type="checkbox"]').check()
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Return state' }).locator('input[type="checkbox"]').check()
+      await expect(gru.getByRole('button', { name: /^Port Hidden state \(output\)/ })).toBeVisible()
+
+      await connectByPorts(page, 'GRU input', 'Output', 'GRU', 'Input', 1)
+      await connectByPorts(page, 'GRU', 'Output', 'GRU sequence output', 'Input', 2)
+      await connectByPorts(page, 'GRU', 'Hidden state', 'GRU hidden state output', 'Input', 3)
+
+      const lstmNodeId = await addCatalogNode(page, 'LSTM')
+      const lstm = page.locator(`[data-node-id="${lstmNodeId}"]`)
+      await lstm.click()
+      inspector = page.getByRole('complementary', { name: 'Properties inspector' })
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Units' }).locator('input').fill('8')
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Return sequences' }).locator('input[type="checkbox"]').check()
+      await inspector.locator('label.inspector-field').filter({ hasText: 'Return state' }).locator('input[type="checkbox"]').check()
+      await expect(lstm.getByRole('button', { name: /^Port Hidden state \(output\)/ })).toBeVisible()
+      await expect(lstm.getByRole('button', { name: /^Port Cell state \(output\)/ })).toBeVisible()
+
+      await connectByPorts(page, 'LSTM input', 'Output', 'LSTM', 'Input', 4)
+      await connectByPorts(page, 'LSTM', 'Output', 'LSTM sequence output', 'Input', 5)
+      await connectByPorts(page, 'LSTM', 'Hidden state', 'LSTM hidden state output', 'Input', 6)
+      await connectByPorts(page, 'LSTM', 'Cell state', 'LSTM cell state output', 'Input', 7)
+
+      const result = await saveValidateAndRun(page, request, fixture, 9, 7, 'nw-t3-02-recurrent-variants', testInfo)
+      const validationPayload = result['validation'] as {
+        shape_summaries?: Array<{ node_id: string; parameter_count: number; outputs: Record<string, { shape: unknown[] }> }>
+        total_parameters?: number
+      }
+      const summaryByNode = new Map(validationPayload.shape_summaries?.map((summary) => [summary.node_id, summary]))
+      expect(summaryByNode.get(gruNodeId)?.parameter_count).toBe(312)
+      expect(summaryByNode.get(gruNodeId)?.outputs['output']?.shape).toEqual([null, 4, 8])
+      expect(summaryByNode.get(gruNodeId)?.outputs['hidden_state']?.shape).toEqual([null, 8])
+      expect(summaryByNode.get(lstmNodeId)?.parameter_count).toBe(384)
+      expect(summaryByNode.get(lstmNodeId)?.outputs['output']?.shape).toEqual([null, 4, 8])
+      expect(summaryByNode.get(lstmNodeId)?.outputs['hidden_state']?.shape).toEqual([null, 8])
+      expect(summaryByNode.get(lstmNodeId)?.outputs['cell_state']?.shape).toEqual([null, 8])
+      expect(validationPayload.total_parameters).toBe(696)
+
+      const finalJob = result['final_job'] as { result?: { parameter_count?: number; outputs?: unknown[] } }
+      expect(finalJob.result?.parameter_count).toBe(696)
+      expect(finalJob.result?.outputs).toHaveLength(5)
+      expect(browserErrors, 'recurrent variant workflow should not emit browser errors').toEqual([])
+      await writeFile(path.join(evidenceDir, 'nw-t3-02-recurrent-variants-browser-errors.json'), JSON.stringify(browserErrors, null, 2))
     } finally {
       await deleteProject(request, fixture.id)
     }

@@ -1,5 +1,4 @@
 import pytest
-
 from common.catalogs.loader import get_node_catalog
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, OutputBinding, Position
@@ -106,15 +105,17 @@ def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
 
 ###############################################################################
 @pytest.mark.parametrize(
-    ("definition_id", "expected_parameter_count"),
+    ("definition_id", "parameters", "expected_parameter_count"),
     [
-        ("recurrent.simple_rnn", 96),
-        ("recurrent.gru", 288),
-        ("recurrent.lstm", 384),
+        ("recurrent.simple_rnn", {"units": 8, "return_sequences": True}, 96),
+        ("recurrent.gru", {"units": 8, "return_sequences": True}, 312),
+        ("recurrent.gru", {"units": 8, "return_sequences": True, "reset_after": False}, 288),
+        ("recurrent.lstm", {"units": 8, "return_sequences": True}, 384),
     ],
 )
 def test_dedicated_recurrent_nodes_use_their_declared_cell_for_parameter_counts(
     definition_id: str,
+    parameters: dict[str, object],
     expected_parameter_count: int,
 ) -> None:
     graph = ModelGraph(
@@ -123,7 +124,7 @@ def test_dedicated_recurrent_nodes_use_their_declared_cell_for_parameter_counts(
             make_node(
                 "recurrent",
                 definition_id,
-                {"units": 8, "return_sequences": True},
+                parameters,
             ),
             make_node("output", "output.sequence"),
         ],
