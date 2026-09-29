@@ -84,11 +84,15 @@ def _operation_graph(
     definition_id: str,
     input_shapes: list[list[Any]],
     parameters: dict[str, Any] | None = None,
+    input_dtypes: list[str] | None = None,
 ) -> ModelGraph:
     input_ids = [f"input_{index}" for index in range(len(input_shapes))]
+    dtypes = input_dtypes or ["float32"] * len(input_shapes)
+    if len(dtypes) != len(input_shapes):
+        raise ValueError("input_dtypes must match input_shapes")
     nodes = [
-        _node(node_id, "input.tensor", {"shape": shape, "dtype": "float32"})
-        for node_id, shape in zip(input_ids, input_shapes, strict=True)
+        _node(node_id, "input.tensor", {"shape": shape, "dtype": dtype})
+        for node_id, shape, dtype in zip(input_ids, input_shapes, dtypes, strict=True)
     ]
     nodes.extend(
         [
@@ -148,6 +152,52 @@ def _native_float_input(backend: ExecutionBackend) -> Any:
 
     jnp_module = cast(Any, jnp)
     return jnp_module.asarray(values)
+
+
+def _native_values(backend: ExecutionBackend, values: Any, dtype: str) -> Any:
+    array = np.asarray(values, dtype=np.bool_ if dtype == "bool" else np.float32)
+    if backend is ExecutionBackend.TENSORFLOW:
+        import tensorflow as tf
+
+        return tf.convert_to_tensor(array)
+    if backend is ExecutionBackend.PYTORCH:
+        import torch
+
+        torch_module = cast(Any, torch)
+        return torch_module.from_numpy(array)
+    import jax.numpy as jnp
+
+    jnp_module = cast(Any, jnp)
+    return jnp_module.asarray(array)
+
+
+_ELEMENTWISE_BOOLEAN_CASES: list[tuple[str, dict[str, str]]] = [
+    ("math.equal", {"keras": "keras.ops.equal", "tensorflow": "tf.equal", "pytorch": "torch.eq", "jax": "jnp.equal"}),
+    ("math.not_equal", {"keras": "keras.ops.not_equal", "tensorflow": "tf.not_equal", "pytorch": "torch.ne", "jax": "jnp.not_equal"}),
+    ("math.greater", {"keras": "keras.ops.greater", "tensorflow": "tf.greater", "pytorch": "torch.gt", "jax": "jnp.greater"}),
+    ("math.greater_equal", {"keras": "keras.ops.greater_equal", "tensorflow": "tf.greater_equal", "pytorch": "torch.ge", "jax": "jnp.greater_equal"}),
+    ("math.less", {"keras": "keras.ops.less", "tensorflow": "tf.less", "pytorch": "torch.lt", "jax": "jnp.less"}),
+    ("math.less_equal", {"keras": "keras.ops.less_equal", "tensorflow": "tf.less_equal", "pytorch": "torch.le", "jax": "jnp.less_equal"}),
+    ("math.logical_and", {"keras": "keras.ops.logical_and", "tensorflow": "tf.logical_and", "pytorch": "torch.logical_and", "jax": "jnp.logical_and"}),
+    ("math.logical_or", {"keras": "keras.ops.logical_or", "tensorflow": "tf.logical_or", "pytorch": "torch.logical_or", "jax": "jnp.logical_or"}),
+    ("math.logical_xor", {"keras": "keras.ops.logical_xor", "tensorflow": "tf.math.logical_xor", "pytorch": "torch.logical_xor", "jax": "jnp.logical_xor"}),
+]
+
+
+_REDUCTION_CASES: list[tuple[str, dict[str, Any], dict[str, str], str, list[int | None], str]] = [
+    ("math.argmax", {"axis": 1}, {"keras": "keras.ops.argmax", "tensorflow": "tf.argmax", "pytorch": "torch.argmax", "jax": "jnp.argmax"}, "float32", [None, 3], "int64"),
+    ("math.sum", {"axis": 1, "keepdims": True}, {"keras": "keras.ops.sum", "tensorflow": "tf.reduce_sum", "pytorch": "torch.sum", "jax": "jnp.sum"}, "float32", [None, 1, 3], "float32"),
+    ("math.mean", {"axis": 1, "keepdims": True}, {"keras": "keras.ops.mean", "tensorflow": "tf.reduce_mean", "pytorch": "torch.mean", "jax": "jnp.mean"}, "float32", [None, 1, 3], "float32"),
+    ("math.min", {"axis": 1, "keepdims": True}, {"keras": "keras.ops.min", "tensorflow": "tf.reduce_min", "pytorch": "torch.amin", "jax": "jnp.min"}, "float32", [None, 1, 3], "float32"),
+    ("math.max", {"axis": 1, "keepdims": True}, {"keras": "keras.ops.max", "tensorflow": "tf.reduce_max", "pytorch": "torch.amax", "jax": "jnp.max"}, "float32", [None, 1, 3], "float32"),
+    ("math.prod", {"axis": 1, "keepdims": True}, {"keras": "keras.ops.prod", "tensorflow": "tf.reduce_prod", "pytorch": "torch.prod", "jax": "jnp.prod"}, "float32", [None, 1, 3], "float32"),
+    ("math.all", {"axis": 1, "keepdims": True}, {"keras": "keras.ops.all", "tensorflow": "tf.reduce_all", "pytorch": "torch.all", "jax": "jnp.all"}, "bool", [None, 1, 3], "bool"),
+    ("math.any", {"axis": 1, "keepdims": True}, {"keras": "keras.ops.any", "tensorflow": "tf.reduce_any", "pytorch": "torch.any", "jax": "jnp.any"}, "bool", [None, 1, 3], "bool"),
+    ("math.variance", {"axis": 1, "keepdims": True}, {"keras": "keras.ops.var", "tensorflow": "tf.math.reduce_variance", "pytorch": "torch.var", "jax": "jnp.var"}, "float32", [None, 1, 3], "float32"),
+    ("math.stddev", {"axis": 1, "keepdims": True}, {"keras": "keras.ops.std", "tensorflow": "tf.math.reduce_std", "pytorch": "torch.std", "jax": "jnp.std"}, "float32", [None, 1, 3], "float32"),
+    ("math.logsumexp", {"axis": 1, "keepdims": True}, {"keras": "keras.ops.logsumexp", "tensorflow": "tf.math.reduce_logsumexp", "pytorch": "torch.logsumexp", "jax": "jax.scipy.special.logsumexp"}, "float32", [None, 1, 3], "float32"),
+    ("math.reduce", {"operation": "sum", "axis": 1, "keepdims": True}, {"keras": "keras.ops.sum", "tensorflow": "tf.reduce_sum", "pytorch": "torch.sum", "jax": "jnp.sum"}, "float32", [None, 1, 3], "float32"),
+]
 
 ###############################################################################
 def test_conv1d_manifest_exposes_capabilities_and_exact_footer_shape() -> None:
@@ -304,6 +354,205 @@ def test_unary_operations_execute_with_finite_nonzero_inputs_across_native_backe
     assert value.shape == (1, 4)
     assert value.dtype == np.dtype("float32")
     assert np.isfinite(value).all()
+
+
+@pytest.mark.parametrize(("definition_id", "symbols"), _ELEMENTWISE_BOOLEAN_CASES)
+def test_boolean_elementwise_catalog_and_static_contract(
+    definition_id: str,
+    symbols: dict[str, str],
+) -> None:
+    catalog = get_node_catalog()
+    manifest = catalog.get(definition_id)
+    assert manifest.operation is not None
+    assert manifest.operation.family == "elementwise"
+    assert manifest.operation.arity == 2
+    assert manifest.operation.variadic
+    assert manifest.operation.output_dtype == "bool"
+    for implementation, symbol in symbols.items():
+        mapping = manifest.implementations[implementation]
+        assert mapping.supported
+        assert mapping.status == "verified"
+        assert mapping.symbol == symbol
+        assert symbol in emit_operation_source(manifest, implementation, ["left", "right"], {})
+
+    input_dtype = "bool" if definition_id.startswith("math.logical_") else "float32"
+    summary = next(
+        item
+        for item in infer_shapes(
+            _operation_graph(
+                definition_id,
+                [[4], [4]],
+                input_dtypes=[input_dtype, input_dtype],
+            ),
+            catalog,
+        )
+        if item.node_id == "operation"
+    )
+    assert summary.outputs["output"].shape == [None, 4]
+    assert summary.outputs["output"].dtype.value == "bool"
+
+
+@pytest.mark.parametrize("backend", list(ExecutionBackend))
+@pytest.mark.parametrize(("definition_id", "_symbols"), _ELEMENTWISE_BOOLEAN_CASES)
+def test_boolean_elementwise_operations_execute_across_native_backends(
+    definition_id: str,
+    _symbols: dict[str, str],
+    backend: ExecutionBackend,
+) -> None:
+    pytest.importorskip(
+        {
+            ExecutionBackend.TENSORFLOW: "tensorflow",
+            ExecutionBackend.PYTORCH: "torch",
+            ExecutionBackend.JAX: "jax",
+        }[backend]
+    )
+
+    input_dtype = "bool" if definition_id.startswith("math.logical_") else "float32"
+    if input_dtype == "bool":
+        left = [True, True, False, False]
+        right = [True, False, True, False]
+        expected_by_id = {
+            "math.logical_and": [True, False, False, False],
+            "math.logical_or": [True, True, True, False],
+            "math.logical_xor": [False, True, True, False],
+        }
+    else:
+        left = [0.0, 1.0, 2.0, 3.0]
+        right = [0.0, 2.0, 1.0, 4.0]
+        expected_by_id = {
+            "math.equal": [True, False, False, False],
+            "math.not_equal": [False, True, True, True],
+            "math.greater": [False, False, True, False],
+            "math.greater_equal": [True, False, True, False],
+            "math.less": [False, True, False, True],
+            "math.less_equal": [True, True, False, True],
+        }
+
+    handle = build_native_model(
+        _operation_graph(
+            definition_id,
+            [[4], [4]],
+            input_dtypes=[input_dtype, input_dtype],
+        ),
+        backend,
+        input_values=[
+            _native_values(backend, [left], input_dtype),
+            _native_values(backend, [right], input_dtype),
+        ],
+    )
+    outputs = forward_native(handle)
+    value = (
+        outputs[0].detach().cpu().numpy()
+        if backend is ExecutionBackend.PYTORCH
+        else np.asarray(outputs[0])
+    )
+    assert value.shape == (1, 4)
+    assert value.dtype == np.dtype("bool")
+    np.testing.assert_array_equal(value, np.asarray([expected_by_id[definition_id]], dtype=bool))
+
+
+@pytest.mark.parametrize(
+    ("definition_id", "parameters", "symbols", "input_dtype", "expected_shape", "expected_dtype"),
+    _REDUCTION_CASES,
+)
+def test_reduction_catalog_source_and_static_contract(
+    definition_id: str,
+    parameters: dict[str, Any],
+    symbols: dict[str, str],
+    input_dtype: str,
+    expected_shape: list[int | None],
+    expected_dtype: str,
+) -> None:
+    catalog = get_node_catalog()
+    manifest = catalog.get(definition_id)
+    assert manifest.operation is not None
+    assert manifest.operation.family == "reduction"
+    assert manifest.operation.shape_behavior == "reduce"
+    assert manifest.operation.arity == 1
+    for implementation, symbol in symbols.items():
+        mapping = manifest.implementations[implementation]
+        assert mapping.supported
+        assert mapping.status == "verified"
+        assert mapping.symbol == symbol
+        assert symbol in emit_operation_source(manifest, implementation, ["value"], parameters)
+
+    summary = next(
+        item
+        for item in infer_shapes(
+            _operation_graph(definition_id, [[2, 3]], parameters, [input_dtype]),
+            catalog,
+        )
+        if item.node_id == "operation"
+    )
+    assert summary.outputs["output"].shape == expected_shape
+    assert summary.outputs["output"].dtype.value == expected_dtype
+
+
+@pytest.mark.parametrize("backend", list(ExecutionBackend))
+@pytest.mark.parametrize(
+    ("definition_id", "parameters", "input_dtype"),
+    [(case[0], case[1], case[3]) for case in _REDUCTION_CASES],
+)
+def test_reductions_execute_with_expected_values_across_native_backends(
+    definition_id: str,
+    parameters: dict[str, Any],
+    input_dtype: str,
+    backend: ExecutionBackend,
+) -> None:
+    pytest.importorskip(
+        {
+            ExecutionBackend.TENSORFLOW: "tensorflow",
+            ExecutionBackend.PYTORCH: "torch",
+            ExecutionBackend.JAX: "jax",
+        }[backend]
+    )
+
+    source_values = (
+        [[[True, False, True], [True, True, False]]]
+        if input_dtype == "bool"
+        else [[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]]
+    )
+    source = np.asarray(source_values, dtype=np.bool_ if input_dtype == "bool" else np.float32)
+    if definition_id == "math.argmax":
+        expected = np.asarray([[1, 1, 1]], dtype=np.int64)
+    elif definition_id in {"math.all", "math.any"}:
+        expected = np.asarray(
+            [[[True, False, False]] if definition_id == "math.all" else [[True, True, True]]],
+            dtype=bool,
+        )
+    elif definition_id in {"math.sum", "math.reduce"}:
+        expected = np.sum(source, axis=1, keepdims=True)
+    elif definition_id == "math.mean":
+        expected = np.mean(source, axis=1, keepdims=True)
+    elif definition_id == "math.min":
+        expected = np.min(source, axis=1, keepdims=True)
+    elif definition_id == "math.max":
+        expected = np.max(source, axis=1, keepdims=True)
+    elif definition_id == "math.prod":
+        expected = np.prod(source, axis=1, keepdims=True)
+    elif definition_id == "math.variance":
+        expected = np.var(source, axis=1, keepdims=True)
+    elif definition_id == "math.stddev":
+        expected = np.std(source, axis=1, keepdims=True)
+    else:
+        expected = np.log(np.exp(source).sum(axis=1, keepdims=True))
+
+    handle = build_native_model(
+        _operation_graph(definition_id, [[2, 3]], parameters, [input_dtype]),
+        backend,
+        input_values=[_native_values(backend, source_values, input_dtype)],
+    )
+    outputs = forward_native(handle)
+    value = (
+        outputs[0].detach().cpu().numpy()
+        if backend is ExecutionBackend.PYTORCH
+        else np.asarray(outputs[0])
+    )
+    assert value.shape == expected.shape
+    if expected.dtype == np.dtype("bool") or expected.dtype == np.dtype("int64"):
+        np.testing.assert_array_equal(value, expected)
+    else:
+        np.testing.assert_allclose(value, expected, rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
