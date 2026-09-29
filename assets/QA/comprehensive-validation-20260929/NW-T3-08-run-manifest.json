@@ -1,0 +1,93 @@
+{
+  "run_id": "NW-T3-08-20260929-arithmetic-merge",
+  "date": "2026-09-29",
+  "repository": "develop",
+  "validation_revision": "b9606f6c6a364c892c6b934be6c6aa6fba002646",
+  "status": "PASS",
+  "bounded": true,
+  "scope": {
+    "definition_ids": [
+      "merge.add",
+      "merge.subtract",
+      "merge.multiply",
+      "merge.divide",
+      "merge.maximum",
+      "merge.minimum",
+      "merge.average"
+    ],
+    "graph": "three tensor inputs shape [4] -> variadic merge -> output",
+    "profiles": [
+      "keras_api/pytorch/cpu",
+      "native_pytorch/cpu"
+    ]
+  },
+  "runtime": {
+    "launcher": ".\\start_on_windows.ps1 -Action Launch -Backends 'tensorflow,pytorch,jax' -Acceleration Auto -ExportTools -NoBrowser -ResourcesDir 'runtimes/cache/nw-t3-08-merge-20260929'",
+    "frontend_url": "http://127.0.0.1:6425",
+    "backend_health_url": "http://127.0.0.1:9750",
+    "resource_root": "runtimes/cache/nw-t3-08-merge-20260929",
+    "tensorflow": "2.21.0/cpu",
+    "pytorch": "2.13.0+cu126/eager cpu lane; NVIDIA GeForce RTX 3060 Laptop GPU available",
+    "jax": "0.11.0/cpu",
+    "torch_compile": false
+  },
+  "catalog": {
+    "count": 149,
+    "merge_count": 14,
+    "fingerprint_sha256": "306042a67a66852161de34e2c72c35bccb509a80b1245172af11f53180b500d1",
+    "rendered_builder_category": "Merge 14 nodes"
+  },
+  "browser": {
+    "workers": 1,
+    "cases_passed": 11,
+    "cases_total": 11,
+    "positive_cases": 9,
+    "negative_cases": 1,
+    "catalog_cases": 1,
+    "browser_errors": 0,
+    "failed_requests": 0
+  },
+  "positive_assertions": {
+    "saved_revision": 2,
+    "node_count": 5,
+    "edge_count": 4,
+    "static_output_shape": [null, 4],
+    "runtime_output_shape": [1, 4],
+    "parameter_count": 0,
+    "final_state": "succeeded",
+    "exact_worker_identity": true
+  },
+  "negative_assertions": {
+    "valid": false,
+    "diagnostic_code": "shape_inference_failed",
+    "diagnostic_message": "Element-wise operation inputs must have compatible shapes",
+    "execution_job_submissions": 0
+  },
+  "quality_gates": {
+    "focused_validation": "6 passed",
+    "native_parity": "15 passed, 223 deselected",
+    "export_regressions": "5 passed with isolated basetemp",
+    "frontend_unit": "20 files, 105 tests passed",
+    "frontend_lint": "passed",
+    "frontend_build": "passed",
+    "changed_spec_lint": "passed",
+    "ruff": "passed",
+    "pyright": "partial: 58 errors",
+    "worker_matrix": "partial: 19/20, 18/20, 17/20"
+  },
+  "cleanup": {
+    "projects_remaining": 0,
+    "ports_released": [6425, 9750],
+    "task_processes_stopped": true,
+    "browser_tab_closed": true,
+    "isolated_export_temp": "empty but deletion denied by managed environment ACL"
+  },
+  "limitations": [
+    "Remaining merge definitions and full built-in catalog are not certified.",
+    "TensorFlow/JAX live browser execution and all-six-profile export closure remain open.",
+    "Positive PyTorch Inductor compilation remains unavailable with torch_compile=false.",
+    "Strict Pyright remains nonzero with 58 existing errors.",
+    "The 1/2/4-worker matrix remains partial and assistive-technology/training validation remains open."
+  ],
+  "evidence_root": "assets/QA/comprehensive-validation-20260929/evidence/nw-t3-08-merge"
+}

@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-29
 
-Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-07`) are recorded below; full closure remains pending.
+Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-08`) are recorded below; full closure remains pending.
 
 ## Purpose
 
@@ -367,8 +367,8 @@ Use stable family IDs so the same graph intent can be compared across profiles a
 | GF-006 | Recurrent node with return_state → multi-output/state consumers | state ports, output selection, serialization | Current NW-T3-01 and NW-T3-02 recurrent state-consumer cases | PASS for the current K/PyTorch Simple RNN, GRU, and LSTM state cases; full multi-output/profile matrix remains pending |
 | GF-007 | Sequence → self/multi-head attention → output | head divisibility, attention axes, output rank | Static contract evidence | PENDING live Builder/runtime |
 | GF-008 | Query/key/value or mask → cross-attention/transformer block | multi-input ports, masks, residuals, conditional parameters | Static contract evidence | PENDING live Builder/runtime |
-| GF-009 | Two branches → merge/concatenate/stack/residual/skip → output | fan-in, shape equality, axis, tensor-list cardinality | Backend compatibility evidence; current NW-T3-01 Concatenate case | PASS for the current K/PyTorch tensor-list Concatenate case; expand merge/axis/cardinality matrix |
-| GF-010 | Input → mathematical unary/binary/reduction/tensor operations | dtype/rank/shape rules and safe expressions | Native parity supporting evidence; current NW-T3-01 Concatenate case | PASS for the current K/PyTorch Concatenate path only; full mathematical family remains pending |
+| GF-009 | Two branches → merge/concatenate/stack/residual/skip → output | fan-in, shape equality, axis, tensor-list cardinality | Backend compatibility evidence; current NW-T3-01 Concatenate and NW-T3-08 arithmetic fan-in cases | PASS for the current K/PyTorch tensor-list Concatenate and arithmetic fan-in cases; expand merge/axis/cardinality matrix |
+| GF-010 | Input → mathematical unary/binary/reduction/tensor operations | dtype/rank/shape rules and safe expressions | Native parity supporting evidence; current NW-T3-08 arithmetic cases | PASS for the current K/PyTorch arithmetic and Concatenate paths plus native Add/Average neighbors; full mathematical family remains pending |
 | GF-011 | Branch and fan-out graph | one output to multiple compatible consumers | Existing graph validation coverage | PENDING per profile |
 | GF-012 | Multi-input and multi-output graph | explicit output bindings, stable port IDs, independent terminals | Native parity supporting evidence | PENDING Builder/profile coverage |
 | GF-013 | Output adapter variants | classification, regression, segmentation, sequence, multi-head, custom, detection | Static/output contract evidence | PENDING live profile coverage |
@@ -626,6 +626,39 @@ runtime because the current catalog has no mask-capable terminal consumer.
 Strict Pyright remains PARTIAL at 58 existing errors, and the worker matrix,
 torch.compile, recurrent-wrapper count, and all-six-profile limitations remain
 unchanged. NW-T3-07 is a bounded PASS, not full Model Builder certification.
+
+## Current bounded run: NW-T3-08 Arithmetic merge and fan-in
+
+Date: 2026-09-29
+Repository: develop at validation revision `b9606f6c6a364c892c6b934be6c6aa6fba002646`
+Run report: [NW-T3-08 arithmetic merge and fan-in](comprehensive-validation-20260929/NW-T3-08.md)
+Run manifest: [NW-T3-08 run manifest](comprehensive-validation-20260929/NW-T3-08-run-manifest.json)
+Catalog: 149 nodes; 14 merge entries; arithmetic definitions and live normalized catalog fingerprint `306042a67a66852161de34e2c72c35bccb509a80b1245172af11f53180b500d1`
+Profile: selected Keras API / PyTorch backend / CPU and native PyTorch / CPU browser lanes
+Evidence root: assets/QA/comprehensive-validation-20260929/evidence/nw-t3-08-merge/
+
+| Level | Bounded result | Closure boundary |
+| --- | --- | --- |
+| L0 catalog inventory | PASS for the live 149-node/14-merge catalog, seven named arithmetic IDs, mappings, and rendered Builder category | Full catalog coverage remains pending. |
+| L1 single-node behavior | PASS for Add, Subtract, Multiply, Divide, Maximum, Minimum, and Average materialization | The remaining seven merge definitions remain pending. |
+| L2 parameter behavior | PASS for the parameter-free arithmetic/average cases with zero parameters | Parameterized merge definitions and full profile-specific parameter states remain pending. |
+| L3 port/edge behavior | PASS for three-input tensor-list fan-in, compatible shapes, and fail-closed incompatible `[4]`/`[5]` fan-in | Exhaustive merge cardinality, axis, rank, dtype, and edge compatibility remain pending. |
+| L4 graph composition | PASS for nine selected positive graphs across Keras/PyTorch and native PyTorch | Larger cross-family graphs and remaining merge families remain pending. |
+| L5 runtime/profile | PASS for seven Keras/PyTorch CPU and two native PyTorch CPU cases, all with exact workers and runtime shape `[1,4]` | TensorFlow/JAX browser execution, all-six profile/export closure, and positive Inductor remain pending. |
+| L6 persistence/recovery | PASS for revision-2 save/reload, successful execution, invalid-state no-job behavior, project deletion, and process/port cleanup | Matrix-wide recovery, export reload, accessibility, and worker-matrix closure remain pending. |
+
+The serial authoritative browser run passed 11/11. Every positive receipt
+reported five nodes/four edges, static `[null,4]`, runtime `[1,4]`, zero
+parameters, success, exact worker identity, and empty browser/request errors.
+The negative receipt rejected the mismatched middle input with
+`shape_inference_failed` and submitted zero execution jobs. Focused validation
+passed 6 tests, native parity passed 15 selected tests, export regressions
+passed 5 tests with an isolated basetemp, frontend unit/lint/build passed, and
+canonical Ruff passed. Strict Pyright remains PARTIAL at 58 existing errors;
+the worker matrix, torch.compile, recurrent-wrapper count, all-six-profile,
+accessibility, and training limitations remain unchanged. The protected
+isolated pytest directory is recorded as an environment cleanup limitation.
+NW-T3-08 is a bounded PASS, not full Model Builder certification.
 
 ## Future session run template
 
