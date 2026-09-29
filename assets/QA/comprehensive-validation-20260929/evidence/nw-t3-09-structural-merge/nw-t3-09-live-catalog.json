@@ -1,0 +1,1825 @@
+{
+  "schema_version": 1,
+  "catalog_count": 149,
+  "catalog_fingerprint_sha256": "306042a67a66852161de34e2c72c35bccb509a80b1245172af11f53180b500d1",
+  "merge": [
+    {
+      "id": "merge.add",
+      "version": 1,
+      "display_name": "Add",
+      "category": "merge",
+      "description": "Add operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "keras.ops.add",
+          "adapter": null,
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.add",
+          "adapter": null,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.add",
+          "adapter": null,
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.add",
+          "adapter": null,
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": {
+        "family": "elementwise",
+        "shape_behavior": "preserve",
+        "output_dtype": "same",
+        "arity": 2,
+        "variadic": true,
+        "arguments": [],
+        "keywords": []
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.average",
+      "version": 1,
+      "display_name": "Average",
+      "category": "merge",
+      "description": "Average operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "average",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "average",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "average",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "average",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.concatenate",
+      "version": 1,
+      "display_name": "Concatenate",
+      "category": "merge",
+      "description": "Concatenate operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": -1,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "",
+          "group": "General",
+          "nullable": false,
+          "ui": {},
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": null,
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "concatenate",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "keras.ops.concatenate",
+          "adapter": null,
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.concat",
+          "adapter": null,
+          "notes": "Native TensorFlow source export is deferred pending runtime parity.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.cat",
+          "adapter": null,
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.concatenate",
+          "adapter": null,
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": {
+        "family": "tensor",
+        "shape_behavior": "concatenate",
+        "output_dtype": "same",
+        "arity": 1,
+        "variadic": true,
+        "arguments": [],
+        "keywords": [
+          "axis"
+        ]
+      },
+      "ui": {
+        "icon": "Combine",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.divide",
+      "version": 1,
+      "display_name": "Divide",
+      "category": "merge",
+      "description": "Divide operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "keras.ops.divide",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.divide",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.divide",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.divide",
+          "adapter": null,
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": {
+        "family": "elementwise",
+        "shape_behavior": "preserve",
+        "output_dtype": "same",
+        "arity": 2,
+        "variadic": true,
+        "arguments": [],
+        "keywords": []
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.dot",
+      "version": 1,
+      "display_name": "Dot Product",
+      "category": "merge",
+      "description": "Dot Product operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "keras.ops.matmul",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.linalg.matmul",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.matmul",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.matmul",
+          "adapter": null,
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": {
+        "family": "binary",
+        "shape_behavior": "matmul",
+        "output_dtype": "same",
+        "arity": 2,
+        "variadic": false,
+        "arguments": [],
+        "keywords": []
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.matmul",
+      "version": 1,
+      "display_name": "Matrix Multiplication",
+      "category": "merge",
+      "description": "Matrix Multiplication operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "keras.ops.matmul",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.linalg.matmul",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.matmul",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.matmul",
+          "adapter": null,
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": {
+        "family": "binary",
+        "shape_behavior": "matmul",
+        "output_dtype": "same",
+        "arity": 2,
+        "variadic": false,
+        "arguments": [],
+        "keywords": []
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.maximum",
+      "version": 1,
+      "display_name": "Maximum",
+      "category": "merge",
+      "description": "Maximum operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "keras.ops.maximum",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.maximum",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.maximum",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.maximum",
+          "adapter": null,
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": {
+        "family": "elementwise",
+        "shape_behavior": "preserve",
+        "output_dtype": "same",
+        "arity": 2,
+        "variadic": true,
+        "arguments": [],
+        "keywords": []
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.minimum",
+      "version": 1,
+      "display_name": "Minimum",
+      "category": "merge",
+      "description": "Minimum operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "keras.ops.minimum",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.minimum",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.minimum",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.minimum",
+          "adapter": null,
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": {
+        "family": "elementwise",
+        "shape_behavior": "preserve",
+        "output_dtype": "same",
+        "arity": 2,
+        "variadic": true,
+        "arguments": [],
+        "keywords": []
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.multiply",
+      "version": 1,
+      "display_name": "Multiply",
+      "category": "merge",
+      "description": "Multiply operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "keras.ops.multiply",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.multiply",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.multiply",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.multiply",
+          "adapter": null,
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": {
+        "family": "elementwise",
+        "shape_behavior": "preserve",
+        "output_dtype": "same",
+        "arity": 2,
+        "variadic": true,
+        "arguments": [],
+        "keywords": []
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.residual",
+      "version": 1,
+      "display_name": "Residual Connection",
+      "category": "merge",
+      "description": "Residual Connection operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_merge",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.add_n",
+          "adapter": "add",
+          "notes": "Native TensorFlow source export is deferred pending runtime parity.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "add",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.add",
+          "adapter": "add",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.skip",
+      "version": 1,
+      "display_name": "Skip Connection",
+      "category": "merge",
+      "description": "Skip Connection operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "keras_merge",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.add_n",
+          "adapter": "add",
+          "notes": "Native TensorFlow source export is deferred pending runtime parity.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "add",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.add",
+          "adapter": "add",
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.split",
+      "version": 1,
+      "display_name": "Split",
+      "category": "merge",
+      "description": "Split operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "input",
+          "display_name": "Input",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_{index}",
+          "display_name": "Output {index}",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "parameter",
+            "parameter_id": "sections",
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "output_{index}",
+            "display_name_pattern": "Output {index}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "sections",
+          "display_name": "Sections",
+          "type": "integer",
+          "default": 2,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "",
+          "group": "General",
+          "nullable": false,
+          "ui": {},
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": null,
+          "scope": "authoring",
+          "aliases": []
+        },
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": -1,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "",
+          "group": "General",
+          "nullable": false,
+          "ui": {},
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": null,
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "split",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "split",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "split",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "split",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": null,
+          "adapter": "split",
+          "notes": null,
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": null,
+      "ui": {
+        "icon": "Split",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.stack",
+      "version": 1,
+      "display_name": "Stack",
+      "category": "merge",
+      "description": "Stack operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "id": "axis",
+          "display_name": "Axis",
+          "type": "axis",
+          "default": 0,
+          "required": false,
+          "constraints": {},
+          "options": [],
+          "description": "",
+          "group": "General",
+          "nullable": false,
+          "ui": {},
+          "value_schema": null,
+          "visible_when": {},
+          "enabled_when": {},
+          "required_when": {},
+          "framework_default": null,
+          "editor_default": null,
+          "scope": "authoring",
+          "aliases": []
+        }
+      ],
+      "shape_rule": {
+        "kind": "concatenate",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "keras.ops.stack",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.stack",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.stack",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.stack",
+          "adapter": null,
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": {
+        "family": "tensor",
+        "shape_behavior": "stack",
+        "output_dtype": "same",
+        "arity": 1,
+        "variadic": true,
+        "arguments": [],
+        "keywords": [
+          "axis"
+        ]
+      },
+      "ui": {
+        "icon": "Layers",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    },
+    {
+      "id": "merge.subtract",
+      "version": 1,
+      "display_name": "Subtract",
+      "category": "merge",
+      "description": "Subtract operation.",
+      "semantic_role": "operation",
+      "source_kind": null,
+      "parameter_groups": [],
+      "task_hint": null,
+      "inputs": [
+        {
+          "id": "inputs",
+          "display_name": "Inputs",
+          "kind": "tensor_list",
+          "required": true,
+          "accepts_multiple": true,
+          "rank": null,
+          "element_kind": "tensor",
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output",
+          "display_name": "Output",
+          "kind": "tensor",
+          "required": true,
+          "accepts_multiple": false,
+          "rank": null,
+          "element_kind": null,
+          "description": "",
+          "enabled_when": {},
+          "cardinality": {
+            "kind": "single",
+            "parameter_id": null,
+            "minimum": 1,
+            "maximum": 64,
+            "id_pattern": "{id}",
+            "display_name_pattern": "{display_name}"
+          }
+        }
+      ],
+      "parameters": [],
+      "shape_rule": {
+        "kind": "merge_same",
+        "config": {}
+      },
+      "implementations": {
+        "keras": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "keras.ops.subtract",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {
+            "tensorflow": true,
+            "pytorch": true,
+            "jax": true
+          }
+        },
+        "tensorflow": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "tf.subtract",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "pytorch": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "torch.subtract",
+          "adapter": null,
+          "notes": "Cataloged for architecture design; source export mapping is not implemented in MVP.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        },
+        "jax": {
+          "supported": true,
+          "status": "verified",
+          "symbol": "jnp.subtract",
+          "adapter": null,
+          "notes": "Native JAX implementation is not available for this node.",
+          "parameters": {},
+          "variant_symbols": {},
+          "constructor_omissions": {},
+          "execution_backends": {}
+        }
+      },
+      "operation": {
+        "family": "elementwise",
+        "shape_behavior": "preserve",
+        "output_dtype": "same",
+        "arity": 2,
+        "variadic": true,
+        "arguments": [],
+        "keywords": []
+      },
+      "ui": {
+        "icon": "GitMerge",
+        "accent": "emerald",
+        "width": 250,
+        "height": 120
+      },
+      "deprecated": false,
+      "documentation_ref": "assets/docs/nodes/manifest_specification.md"
+    }
+  ],
+  "structural_ids": [
+    "merge.concatenate",
+    "merge.dot",
+    "merge.matmul",
+    "merge.stack",
+    "merge.residual",
+    "merge.skip",
+    "merge.split"
+  ]
+}

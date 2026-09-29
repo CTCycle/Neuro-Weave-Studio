@@ -1,0 +1,8 @@
+NW-T3-09 official launcher record
+Date: 2026-09-29
+Command: .\start_on_windows.ps1 -Action Launch -NoBrowser -ResourcesDir assets/QA/comprehensive-validation-20260929/nw-t3-09-runtime
+Backend: http://127.0.0.1:9750/health reached healthy readiness
+Frontend: http://127.0.0.1:6425/ reached ready preview
+Live catalog: 149 nodes, 14 merge entries, fingerprint 306042a67a66852161de34e2c72c35bccb509a80b1245172af11f53180b500d1
+Evidence resource root: assets/QA/comprehensive-validation-20260929/nw-t3-09-runtime
+Final state: task-owned services stopped; ports 9750 and 6425 released

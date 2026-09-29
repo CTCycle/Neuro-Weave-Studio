@@ -621,6 +621,50 @@ def test_matmul_requires_batch_first_matrix_tensors() -> None:
     )
 
 ###############################################################################
+def test_binary_merge_preserves_shared_tensor_list_connection_order() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("left", "input.tensor", {"shape": [2, 3], "dtype": "float32"}),
+            make_node("right", "input.tensor", {"shape": [3, 4], "dtype": "float32"}),
+            make_node("matmul", "merge.matmul"),
+            make_node("output", "output.custom"),
+        ],
+        edges=[
+            EdgeInstance(
+                id="z-left",
+                source_node_id="left",
+                source_port_id="output",
+                target_node_id="matmul",
+                target_port_id="inputs",
+            ),
+            EdgeInstance(
+                id="a-right",
+                source_node_id="right",
+                source_port_id="output",
+                target_node_id="matmul",
+                target_port_id="inputs",
+            ),
+            EdgeInstance(
+                id="matmul-output",
+                source_node_id="matmul",
+                source_port_id="output",
+                target_node_id="output",
+                target_port_id="input",
+            ),
+        ],
+    )
+
+    result = ValidationService(get_node_catalog()).validate(
+        graph,
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert result.valid
+    summary = next(item for item in result.shape_summaries if item.node_id == "matmul")
+    assert summary.outputs["output"].shape == [None, 2, 4]
+
+###############################################################################
 def test_declared_parameter_contract_rejects_null_and_unknown_values() -> None:
     def graph(parameters: dict[str, object]) -> ModelGraph:
         return ModelGraph(

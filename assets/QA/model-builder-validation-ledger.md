@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-29
 
-Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-08`) are recorded below; full closure remains pending.
+Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-09`) are recorded below; full closure remains pending.
 
 ## Purpose
 
@@ -367,7 +367,7 @@ Use stable family IDs so the same graph intent can be compared across profiles a
 | GF-006 | Recurrent node with return_state → multi-output/state consumers | state ports, output selection, serialization | Current NW-T3-01 and NW-T3-02 recurrent state-consumer cases | PASS for the current K/PyTorch Simple RNN, GRU, and LSTM state cases; full multi-output/profile matrix remains pending |
 | GF-007 | Sequence → self/multi-head attention → output | head divisibility, attention axes, output rank | Static contract evidence | PENDING live Builder/runtime |
 | GF-008 | Query/key/value or mask → cross-attention/transformer block | multi-input ports, masks, residuals, conditional parameters | Static contract evidence | PENDING live Builder/runtime |
-| GF-009 | Two branches → merge/concatenate/stack/residual/skip → output | fan-in, shape equality, axis, tensor-list cardinality | Backend compatibility evidence; current NW-T3-01 Concatenate and NW-T3-08 arithmetic fan-in cases | PASS for the current K/PyTorch tensor-list Concatenate and arithmetic fan-in cases; expand merge/axis/cardinality matrix |
+| GF-009 | Two branches → merge/concatenate/stack/residual/skip → output | fan-in, shape equality, axis, tensor-list cardinality | NW-T3-01 Concatenate, NW-T3-08 arithmetic fan-in, and NW-T3-09 structural merge cases | PASS for the selected K/PyTorch and native-PyTorch Concatenate, Stack, Split, Dot, MatMul, Residual, and Skip paths; expand merge axis/cardinality/profile matrix |
 | GF-010 | Input → mathematical unary/binary/reduction/tensor operations | dtype/rank/shape rules and safe expressions | Native parity supporting evidence; current NW-T3-08 arithmetic cases | PASS for the current K/PyTorch arithmetic and Concatenate paths plus native Add/Average neighbors; full mathematical family remains pending |
 | GF-011 | Branch and fan-out graph | one output to multiple compatible consumers | Existing graph validation coverage | PENDING per profile |
 | GF-012 | Multi-input and multi-output graph | explicit output bindings, stable port IDs, independent terminals | Native parity supporting evidence | PENDING Builder/profile coverage |
@@ -659,6 +659,43 @@ the worker matrix, torch.compile, recurrent-wrapper count, all-six-profile,
 accessibility, and training limitations remain unchanged. The protected
 isolated pytest directory is recorded as an environment cleanup limitation.
 NW-T3-08 is a bounded PASS, not full Model Builder certification.
+
+## Current bounded run: NW-T3-09 Structural merge catalog
+
+Date: 2026-09-29
+Repository: develop at the pre-commit validation checkout based on `b9dfb7a4a9f16fda2f0e0e762e815a822c3db0b6`
+Run report: [NW-T3-09 structural merge catalog](comprehensive-validation-20260929/NW-T3-09.md)
+Run manifest: [NW-T3-09 run manifest](comprehensive-validation-20260929/NW-T3-09-run-manifest.json)
+Catalog: 149 nodes; 14 merge entries; live normalized catalog fingerprint `306042a67a66852161de34e2c72c35bccb509a80b1245172af11f53180b500d1`
+Profile: selected Keras API / PyTorch backend / CPU and native PyTorch / CPU browser lanes
+Evidence root: assets/QA/comprehensive-validation-20260929/evidence/nw-t3-09-structural-merge/
+
+| Level | Bounded result | Closure boundary |
+| --- | --- | --- |
+| L0 catalog inventory | PASS for all 149 live nodes, all 14 merge entries, structural operation contracts, verified Keras/PyTorch mappings, and rendered Merge category | Full catalog/profile freeze and exhaustive per-node closure remain pending. |
+| L1 single-node behavior | PASS for Concatenate, Stack, Split, Dot, MatMul, Residual, and Skip materialization | Other definitions and broader parameter states remain pending. |
+| L2 parameter behavior | PASS for Split `sections=3`/`axis=-1`, Concatenate default axis, and Stack default axis | Alternate axes, section/cardinality limits, dtype/rank boundaries, and profile-specific parameters remain pending. |
+| L3 port/edge behavior | PASS for ordered binary operands, tensor-list fan-in, Split dynamic output IDs, selected multi-output binding, and invalid MatMul/Split rejection | Exhaustive port/edge combinations and all cardinality/rank/dtype boundaries remain pending. |
+| L4 graph composition | PASS for the seven selected structural merge families on the named Keras/PyTorch and native PyTorch lanes | Larger cross-family graphs and the full family/profile matrix remain pending. |
+| L5 runtime/profile | PASS for 13 positive graphs with exact workers and expected static/runtime shapes; two invalid graphs fail closed without jobs | TensorFlow/JAX browser execution, six-profile/export closure, and positive Inductor remain pending. |
+| L6 persistence/recovery | PASS for revision-2 save/reload, runtime success, invalid no-job behavior, fixture deletion, and process/port cleanup | Matrix-wide recovery, structural source/export reload, accessibility, and worker-matrix closure remain pending. |
+
+The final serial authoritative browser run passed 15/15: one catalog/render
+case, 13 positive structural merge cases, and two invalid-shape cases. Split
+materialized `output_0`/`output_1`/`output_2` for `sections=3`; Stack’s default
+axis produced `[2,null,4]` statically and `[2,1,4]` at runtime. The run found
+and fixed a real same-port operand-order defect in `ordered_incoming_edges`:
+shared tensor-list edges now preserve graph connection order while named ports
+retain manifest order. The focused regression and final browser Dot/MatMul
+cases pass with the fix.
+
+Focused validation passed 2 tests, split/merge execution passed 10 tests,
+native merge parity passed 18 tests, catalog audit passed 6 tests, isolated
+export regressions passed 5 tests, frontend unit/lint/build passed, and Ruff
+passed. Strict Pyright remains PARTIAL at 58 existing errors; the worker
+matrix, torch.compile, all-six-profile/export, accessibility, and training
+limitations remain unchanged. NW-T3-09 is a bounded PASS, not full Model
+Builder certification.
 
 ## Future session run template
 

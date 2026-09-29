@@ -101,21 +101,25 @@ def ordered_incoming_edges(
 ) -> list[EdgeInstance]:
     """Return inbound edges in the node contract's port order.
 
-    Graph edge order is an editor/storage detail. Runtime consumers must use
-    the manifest contract so that, for example, an attention node always sees
-    ``query`` before ``context`` even when the user connected them in the
-    opposite order.
+    Named ports use the manifest order so, for example, an attention node
+    always sees ``query`` before ``context`` even when the user connected them
+    in the opposite order. Multiple edges sharing one ``tensor_list`` port
+    have no named-port order; preserve their graph order so ordered operations
+    such as matrix multiplication retain the user's operand order.
     """
 
     port_order = {
         port.id: index
         for index, port in enumerate(materialized_inputs(manifest, parameters))
     }
-    return sorted(
-        incoming_edges(graph).get(node_id, []),
-        key=lambda edge: (
-            port_order.get(edge.target_port_id, len(port_order)),
-            edge.target_port_id,
-            edge.id,
-        ),
-    )
+    return [
+        edge
+        for _, edge in sorted(
+            enumerate(incoming_edges(graph).get(node_id, [])),
+            key=lambda indexed_edge: (
+                port_order.get(indexed_edge[1].target_port_id, len(port_order)),
+                indexed_edge[1].target_port_id,
+                indexed_edge[0],
+            ),
+        )
+    ]
