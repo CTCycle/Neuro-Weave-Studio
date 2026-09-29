@@ -1,0 +1,55 @@
+{
+  "case": "nw-t3-06-invalid-layers",
+  "project_id": "3cf525cd-1d1f-46ff-81ad-70264c2e6d2d",
+  "authored_parameters": {
+    "num_heads": 2,
+    "key_dim": 4,
+    "value_dim": 4,
+    "layers": 2,
+    "dropout": 0,
+    "use_bias": true
+  },
+  "validation": {
+    "valid": false,
+    "diagnostics": [
+      {
+        "code": "shape_inference_failed",
+        "severity": "error",
+        "message": "Shape inference failed for 'Self-attention': The supported multi-head attention node accepts layers=1",
+        "node_id": "attention-self-6db60b87-ed98-4ee4-8c72-d7e399bcf3ee",
+        "edge_id": null,
+        "parameter_id": "layers",
+        "execution_backend": null,
+        "keras_enabled": null,
+        "details": {
+          "reason": "The supported multi-head attention node accepts layers=1",
+          "node_id": "attention-self-6db60b87-ed98-4ee4-8c72-d7e399bcf3ee",
+          "parameter_id": "layers"
+        }
+      }
+    ],
+    "shape_summaries": [],
+    "total_parameters": 0,
+    "effective_outputs": [
+      {
+        "node_id": "custom-output",
+        "port_id": "output",
+        "name": "Custom Output",
+        "explicit": false,
+        "task_hint": "generic"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "generic",
+      "confidence": "low",
+      "evidence": [
+        "head=attention.self",
+        "graph does not uniquely identify a task"
+      ]
+    }
+  },
+  "execution_job_submissions": 0,
+  "browser_errors": [],
+  "failed_requests": []
+}

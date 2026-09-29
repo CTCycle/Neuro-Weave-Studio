@@ -60,6 +60,214 @@ def two_input_graph(
     )
 
 ###############################################################################
+def attention_graph(
+    definition_id: str,
+    *,
+    include_context: bool = False,
+    query_shape: list[int] | None = None,
+    context_shape: list[int] | None = None,
+    parameters: dict[str, object] | None = None,
+) -> ModelGraph:
+    configuration: dict[str, object] = {
+        "num_heads": 2,
+        "key_dim": 4,
+        "value_dim": 4,
+        "layers": 1,
+        "use_bias": True,
+    }
+    if parameters:
+        configuration.update(parameters)
+    nodes = [
+        make_node(
+            "query",
+            "input.sequence",
+            {"shape": query_shape or [5, 8], "dtype": "float32"},
+        ),
+    ]
+    edges = [
+        EdgeInstance(
+            id="query-attention",
+            source_node_id="query",
+            source_port_id="output",
+            target_node_id="attention",
+            target_port_id="query",
+        ),
+    ]
+    if include_context:
+        nodes.append(
+            make_node(
+                "context",
+                "input.sequence",
+                {"shape": context_shape or [3, 8], "dtype": "float32"},
+            )
+        )
+        edges.append(
+            EdgeInstance(
+                id="context-attention",
+                source_node_id="context",
+                source_port_id="output",
+                target_node_id="attention",
+                target_port_id="context",
+            )
+        )
+    nodes.extend(
+        [
+            make_node("attention", definition_id, configuration),
+            make_node("output", "output.custom"),
+        ]
+    )
+    edges.append(
+        EdgeInstance(
+            id="attention-output",
+            source_node_id="attention",
+            source_port_id="output",
+            target_node_id="output",
+            target_port_id="input",
+        )
+    )
+    return ModelGraph(nodes=nodes, edges=edges)
+
+###############################################################################
+@pytest.mark.parametrize(
+    ("definition_id", "include_context", "parameters", "expected_shape", "expected_count"),
+    [
+        (
+            "attention.self",
+            False,
+            {},
+            [None, 5, 8],
+            288,
+        ),
+        (
+            "attention.cross",
+            True,
+            {},
+            [None, 5, 8],
+            288,
+        ),
+        (
+            "attention.multi_head",
+            False,
+            {"output_shape": [2, 4]},
+            [None, 5, 2, 4],
+            288,
+        ),
+        (
+            "attention.self",
+            False,
+            {"use_bias": False},
+            [None, 5, 8],
+            256,
+        ),
+    ],
+)
+def test_attention_primitives_infer_shapes_and_bias_aware_parameter_counts(
+    definition_id: str,
+    include_context: bool,
+    parameters: dict[str, object],
+    expected_shape: list[int | None],
+    expected_count: int,
+) -> None:
+    result = ValidationService(get_node_catalog()).validate(
+        attention_graph(
+            definition_id,
+            include_context=include_context,
+            parameters=parameters,
+        ),
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert result.valid, result.diagnostics
+    summary = next(item for item in result.shape_summaries if item.node_id == "attention")
+    assert summary.outputs["output"].shape == expected_shape
+    assert summary.parameter_count == expected_count
+    assert result.total_parameters == expected_count
+
+###############################################################################
+def test_attention_primitive_rejects_layers_above_one() -> None:
+    result = ValidationService(get_node_catalog()).validate(
+        attention_graph("attention.self", parameters={"layers": 2}),
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert not result.valid
+    assert any(
+        "The supported multi-head attention node accepts layers=1" in item.message
+        for item in result.diagnostics
+    )
+
+###############################################################################
+def test_attention_primitive_rejects_non_rank_three_query() -> None:
+    result = ValidationService(get_node_catalog()).validate(
+        attention_graph("attention.self", query_shape=[8]),
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert not result.valid
+    assert any(
+        "Attention requires rank 3: batch, sequence, embedding" in item.message
+        for item in result.diagnostics
+    )
+
+###############################################################################
+@pytest.mark.parametrize("output_shape", [[], [0], [-1]])
+def test_attention_primitive_rejects_empty_or_non_positive_output_shape(
+    output_shape: list[int],
+) -> None:
+    result = ValidationService(get_node_catalog()).validate(
+        attention_graph(
+            "attention.multi_head",
+            parameters={"output_shape": output_shape},
+        ),
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert not result.valid
+    assert any(
+        item.parameter_id == "output_shape"
+        and (
+            "Attention output_shape" in item.message
+            or "Shape dimensions cannot be zero" in item.message
+        )
+        for item in result.diagnostics
+    )
+    assert result.shape_summaries == []
+
+###############################################################################
+def test_cross_attention_requires_explicit_context_input() -> None:
+    result = ValidationService(get_node_catalog()).validate(
+        attention_graph("attention.cross"),
+        ExecutionBackend.PYTORCH,
+        True,
+    )
+
+    assert not result.valid
+    assert any(
+        item.code == "missing_required_connection"
+        and item.node_id == "attention"
+        and "Context" in item.message
+        for item in result.diagnostics
+    )
+
+###############################################################################
+def test_native_attention_rejects_nonzero_dropout_instead_of_dropping_it() -> None:
+    result = ValidationService(get_node_catalog()).validate(
+        attention_graph("attention.self", parameters={"dropout": 0.25}),
+        ExecutionBackend.PYTORCH,
+        False,
+    )
+
+    assert not result.valid
+    assert any(
+        item.code == "unsupported_parameter_option" and item.parameter_id == "dropout"
+        for item in result.diagnostics
+    )
+
+###############################################################################
 def test_valid_mlp_propagates_shapes_and_counts_parameters() -> None:
     graph = ModelGraph(
         nodes=[
