@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-29
 
-Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-09`) are recorded below; full closure remains pending.
+Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-10`) are recorded below; full closure remains pending.
 
 ## Purpose
 
@@ -696,6 +696,42 @@ passed. Strict Pyright remains PARTIAL at 58 existing errors; the worker
 matrix, torch.compile, all-six-profile/export, accessibility, and training
 limitations remain unchanged. NW-T3-09 is a bounded PASS, not full Model
 Builder certification.
+
+## Current bounded run: NW-T3-10 Mathematical operation catalog
+
+Date: 2026-09-29
+Repository: `develop`; validation checkout started at implementation revision `ff8ce1508e4d9bd0d5b0fa791398245375bad7ff` before the validation changes were committed
+Run report: [NW-T3-10 mathematical operation catalog](comprehensive-validation-20260929/NW-T3-10.md)
+Run manifest: [NW-T3-10 run manifest](comprehensive-validation-20260929/NW-T3-10-run-manifest.json)
+Catalog: 149 nodes; 73 mathematical entries; live normalized catalog fingerprint `3d2cd10184858d906b904e8e9cee1a9aee715f6a70c79434891a4efa0b20a884`
+Profiles: Keras API / PyTorch backend / CPU and native PyTorch / CPU browser lanes
+Evidence root: `assets/QA/comprehensive-validation-20260929/evidence/nw-t3-10-mathematical-operations/`
+
+| Level | Bounded result | Closure boundary |
+| --- | --- | --- |
+| L0 catalog inventory | PASS for the live catalog, Mathematical category rendering, selected typed operation contracts, and implementation mappings | The remaining mathematical definitions and full catalog/profile freeze remain pending. |
+| L1 single-node behavior | PASS for 13 selected mathematical definitions across both named CPU profiles | The remaining 60 mathematical definitions and alternate parameter states remain pending. |
+| L2 parameter behavior | PASS for exponent, axes/axis, reduction operation/keepdims, cast dtype, transpose, expand-dims, expression, and slice/index parameters | Full parameter, rank, dtype, and edge boundary coverage remains pending. |
+| L3 port/edge behavior | PASS for the selected unary/tensor paths, ordered binary operands, and output terminal | Exhaustive mathematical port/edge combinations and profile-specific compatibility remain pending. |
+| L4 graph composition | PASS for 26 positive three-node/two-edge graphs with revision-2 save/reload | Larger cross-family graphs and the full family/profile matrix remain pending. |
+| L5 runtime/profile | PASS for 26 exact-profile smoke-inference jobs; unsafe expression rejected before execution with zero jobs | Live TensorFlow/JAX Builder execution/export, all-six-profile closure, and positive Inductor remain pending. |
+| L6 persistence/recovery | PASS for save/reload, receipts, empty browser/request diagnostics, fixture deletion, and process/port cleanup | Matrix-wide recovery, accessibility, source/export, and worker-matrix closure remain pending. |
+
+The authoritative serial browser run passed 28/28: one catalog/render case,
+26 positive profile cases, and one unsafe-expression case. The run found and
+fixed three real issues: incomplete binary drafts were rejected before the
+declared arity was satisfied; typed Keras/PyTorch reductions did not preserve
+the manifest's `int64` output contract; and `math.transpose.axes` used a
+shape-valued editor that rejected the valid axis index `0`. The final evidence
+contains 54 JSON payloads and 54 PNG renders, and the project fixture list was
+empty before shutdown.
+
+Focused backend tests, the native TensorFlow/PyTorch/JAX operation matrix,
+the argmin `int64` regression, targeted Ruff, changed-spec ESLint, and catalog
+JSON parsing passed. Strict Pyright remains PARTIAL at 58 existing errors; the
+worker matrix, torch.compile, recurrent-wrapper count, standalone Transformer
+mask, all-six-profile/export, accessibility, and training limitations remain
+unchanged. NW-T3-10 is a bounded PASS, not full Model Builder certification.
 
 ## Future session run template
 

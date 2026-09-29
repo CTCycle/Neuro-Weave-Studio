@@ -435,12 +435,24 @@ class NativeJaxSourceExporter(SourceExporter):
         catalog = catalog or get_node_catalog()
         compilation_catalog = compilation_catalog or get_compilation_catalog()
         nodes = {node.id: node for node in graph.nodes}
+        requires_int64_output = any(
+            (
+                catalog.get(node.definition_id, node.definition_version).operation is not None
+                and catalog.get(node.definition_id, node.definition_version).operation.output_dtype == "int64"
+            )
+            for node in graph.nodes
+        )
         summaries = self._summary_map(ir)
         lines = [
             "from __future__ import annotations",
             "",
             "import functools",
             "import jax",
+            *(
+                ["jax.config.update('jax_enable_x64', True)"]
+                if requires_int64_output
+                else []
+            ),
             "import jax.numpy as jnp",
             "import optax",
             "from flax import linen as nn",

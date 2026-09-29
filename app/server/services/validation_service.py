@@ -250,6 +250,8 @@ def _shape_error_is_pending(
         for port in materialized_inputs(manifest, node.parameters)
     ):
         return True
+    if manifest.operation is not None and len(incoming) < manifest.operation.arity:
+        return True
     return manifest.shape_rule.kind in {"merge_same", "concatenate"} and len(incoming) < 2
 
 ###############################################################################
