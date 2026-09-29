@@ -1,0 +1,203 @@
+{
+  "run_id": "NW-T3-07-TRANSFORMER-20260929",
+  "date": "2026-09-29",
+  "repository": "CTCycle/Neuro-Weave-Studio",
+  "branch": "develop",
+  "git_head": "f1e03831bdcf36037c3c194022981cd017264dd2",
+  "working_tree": "clean after the scoped NW-T3-07 validation commit",
+  "launcher": {
+    "script": "start_on_windows.ps1",
+    "command": "-Action Launch -Backends tensorflow,pytorch,jax -Acceleration Auto -ExportTools -NoBrowser -ResourcesDir runtimes/cache/nw-t3-07-transformer-20260929",
+    "fastapi_port": 9750,
+    "ui_port": 6425,
+    "resources_dir": "runtimes/cache/nw-t3-07-transformer-20260929",
+    "database": "runtimes/cache/nw-t3-07-transformer-20260929/database.db",
+    "readiness": "frontend and backend healthy",
+    "cleanup": {
+      "projects_deleted_in_fixture_finalizers": true,
+      "timed_out_fixture_leftover_removed_via_api": true,
+      "projects_remaining_in_database": 0,
+      "fastapi_listener_released": true,
+      "ui_listener_released": true
+    }
+  },
+  "catalog": {
+    "freeze": "evidence/nw-t3-07-transformer/nw-t3-07-live-catalog.json",
+    "count": 149,
+    "fingerprint_sha256": "306042a67a66852161de34e2c72c35bccb509a80b1245172af11f53180b500d1",
+    "transformer_ids": [
+      "transformer.attention_mask",
+      "transformer.decoder_block",
+      "transformer.encoder_block",
+      "transformer.feed_forward",
+      "transformer.positional_encoding",
+      "transformer.residual",
+      "transformer.stack"
+    ],
+    "declared_profile_capabilities": {
+      "keras_tensorflow": true,
+      "keras_pytorch": true,
+      "keras_jax": true,
+      "native_tensorflow": true,
+      "native_pytorch": true,
+      "native_jax": true
+    }
+  },
+  "runtime": {
+    "python": "3.13.14",
+    "keras": "3.15.1",
+    "tensorflow": "2.21.0",
+    "pytorch": "2.13.0+cu126",
+    "jax": "0.11.0",
+    "tensorflow_device": "CPU",
+    "pytorch_device": "NVIDIA GeForce RTX 3060 Laptop GPU",
+    "jax_device": "cpu:0",
+    "native_compilers": {
+      "tensorflow_jit": true,
+      "torch_compile": false,
+      "jax_jit": true
+    }
+  },
+  "positive_cases": [
+    {
+      "name": "nw-t3-07-encoder-keras-pytorch",
+      "project_id": "7cc18b3d-c27e-46c4-a207-6901c741b2cc",
+      "saved_revision": 2,
+      "definition_id": "transformer.encoder_block",
+      "parameters": {"num_heads": 2, "key_dim": 4, "layers": 2, "dropout": 0, "ffn_multiplier": 2, "pre_norm": true},
+      "graph": {"node_count": 3, "edge_count": 2},
+      "static_output": [null, 5, 8],
+      "parameter_count": 1200,
+      "runtime_output": [1, 5, 8],
+      "job_id": "6f4af98f27e64699aa5353d3f8ced3c3",
+      "worker": {"api": "keras", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-07-transformer/nw-t3-07-encoder-keras-pytorch.json"
+    },
+    {
+      "name": "nw-t3-07-decoder-keras-pytorch",
+      "project_id": "908297e3-e2de-449e-80b7-9ab80ef91eda",
+      "saved_revision": 2,
+      "definition_id": "transformer.decoder_block",
+      "parameters": {"num_heads": 2, "key_dim": 4, "layers": 1, "dropout": 0, "ffn_multiplier": 2, "pre_norm": true},
+      "graph": {"node_count": 4, "edge_count": 3, "explicit_input_ports": ["Query", "Context"]},
+      "static_output": [null, 5, 8],
+      "parameter_count": 904,
+      "runtime_output": [1, 5, 8],
+      "job_id": "3f1ee4547dfe4ec2b75f388521f1ef79",
+      "worker": {"api": "keras", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-07-transformer/nw-t3-07-decoder-keras-pytorch.json"
+    },
+    {
+      "name": "nw-t3-07-feed-forward-keras-pytorch",
+      "project_id": "36acbc51-e5c7-4c4d-a8ac-013052767260",
+      "saved_revision": 2,
+      "definition_id": "transformer.feed_forward",
+      "parameters": {"ffn_multiplier": 2, "dropout": 0},
+      "graph": {"node_count": 3, "edge_count": 2},
+      "static_output": [null, 5, 8],
+      "parameter_count": 280,
+      "runtime_output": [1, 5, 8],
+      "job_id": "15bb100119584dea95f6bd897876ff89",
+      "worker": {"api": "keras", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-07-transformer/nw-t3-07-feed-forward-keras-pytorch.json"
+    },
+    {
+      "name": "nw-t3-07-stack-keras-pytorch",
+      "project_id": "e3cb7cd1-aac5-4de2-9533-473997f61a27",
+      "saved_revision": 2,
+      "definition_id": "transformer.stack",
+      "parameters": {"num_heads": 2, "key_dim": 4, "layers": 2, "dropout": 0, "ffn_multiplier": 2, "pre_norm": false},
+      "graph": {"node_count": 3, "edge_count": 2},
+      "static_output": [null, 5, 8],
+      "parameter_count": 1200,
+      "runtime_output": [1, 5, 8],
+      "job_id": "b78c0c35e60f494b9099cd08b85a13f6",
+      "worker": {"api": "keras", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-07-transformer/nw-t3-07-stack-keras-pytorch.json"
+    },
+    {
+      "name": "nw-t3-07-positional-encoding-keras-pytorch",
+      "project_id": "cd56203d-2622-434c-9cce-ae5dff223e5d",
+      "saved_revision": 2,
+      "definition_id": "transformer.positional_encoding",
+      "parameters": {},
+      "graph": {"node_count": 3, "edge_count": 2},
+      "static_output": [null, 5, 8],
+      "parameter_count": 0,
+      "runtime_output": [1, 5, 8],
+      "job_id": "a5061e55d0494c62a269a8b6fe8d4ac6",
+      "worker": {"api": "keras", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-07-transformer/nw-t3-07-positional-encoding-keras-pytorch.json"
+    },
+    {
+      "name": "nw-t3-07-residual-keras-pytorch",
+      "project_id": "29b9cdc1-47cb-400b-9d4d-5d9288c7d2fa",
+      "saved_revision": 2,
+      "definition_id": "transformer.residual",
+      "parameters": {},
+      "graph": {"node_count": 4, "edge_count": 3},
+      "static_output": [null, 5, 8],
+      "parameter_count": 0,
+      "runtime_output": [1, 5, 8],
+      "job_id": "105f1375a06149d195460e1c74fd281f",
+      "worker": {"api": "keras", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-07-transformer/nw-t3-07-residual-keras-pytorch.json"
+    },
+    {
+      "name": "nw-t3-07-encoder-native-pytorch",
+      "project_id": "42ea803e-22d5-4bbe-99bb-71910b318121",
+      "saved_revision": 2,
+      "definition_id": "transformer.encoder_block",
+      "parameters": {"num_heads": 2, "key_dim": 4, "layers": 2, "dropout": 0, "ffn_multiplier": 2, "pre_norm": true},
+      "graph": {"node_count": 3, "edge_count": 2},
+      "static_output": [null, 5, 8],
+      "parameter_count": 1200,
+      "runtime_output": [1, 5, 8],
+      "job_id": "6d603ff40b77424c8d5851c5bd6f8949",
+      "worker": {"api": "native", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-07-transformer/nw-t3-07-encoder-native-pytorch.json"
+    }
+  ],
+  "negative_and_recovery": {
+    "attention_mask_type_boundary": {
+      "accepted_connection": "Mask Input -> Attention Mask.Input",
+      "rejected_connection": "Attention Mask -> Custom Output.Input",
+      "diagnostic_code": "incompatible_port_kind",
+      "execution_job_submissions": 0,
+      "evidence": "evidence/nw-t3-07-transformer/nw-t3-07-attention-mask-type-boundary.json",
+      "limitation": "No mask-capable terminal consumer is present in the current catalog, so standalone attention-mask runtime execution remains untested."
+    },
+    "invalid_layers": {
+      "authored_layers": 0,
+      "ui_parameter_error": "Enter a valid layers.",
+      "validate_action": "disabled",
+      "save_action": "disabled",
+      "server_validation_submitted": false,
+      "execution_job_submissions_before_repair": 0,
+      "evidence": "evidence/nw-t3-07-transformer/nw-t3-07-invalid-layers.json"
+    },
+    "repaired_layers": {
+      "authored_layers": 1,
+      "project_id": "31979a85-fd44-4986-a82a-d1a502a3fa65",
+      "saved_revision": 2,
+      "persisted_layers": 1,
+      "job_id": "07b8b2f92a8040749d657ca18b3e9a74",
+      "final_state": "succeeded",
+      "parameter_count": 600,
+      "evidence": "evidence/nw-t3-07-transformer/nw-t3-07-repaired-layers.json"
+    }
+  },
+  "quality_gates": {
+    "focused_validation_pytest": "11 selected tests passed",
+    "native_transformer_parity_pytest": "43 selected tests passed",
+    "frontend_parameter_editor_unit_tests": "11 tests passed in 2 files",
+    "frontend_changed_spec_eslint": "passed",
+    "browser_e2e": "9/9 catalog, positive, native, and mask-boundary cases passed serially; repaired invalid-layer case passed 1/1 focused rerun",
+    "pyright": "58 existing errors; unchanged documented baseline",
+    "worker_matrix": "existing 1/2/4-worker partial result unchanged",
+    "torch_compile": "existing ordinary-launcher unavailable boundary unchanged"
+  },
+  "in_app_browser": "evidence/nw-t3-07-transformer/in-app-browser-builder-observation.md",
+  "launcher_cleanup": "evidence/nw-t3-07-transformer/launcher-readiness-and-cleanup.md",
+  "status": "PASS, bounded; attention-mask standalone runtime remains UNTESTED/PARTIAL"
+}
