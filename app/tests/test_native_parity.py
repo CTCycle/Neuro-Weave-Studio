@@ -267,12 +267,13 @@ def attention_graph(
     *,
     context: bool = False,
     output_shape: list[int] | None = None,
+    use_bias: bool = True,
 ) -> ModelGraph:
     parameters: dict[str, Any] = {
         "num_heads": 2,
         "key_dim": 4,
         "value_dim": 4,
-        "use_bias": True,
+        "use_bias": use_bias,
     }
     if output_shape is not None:
         parameters["output_shape"] = output_shape
@@ -791,6 +792,19 @@ def test_native_attention_parameter_count_includes_all_projections(
     handle = build_native_model(attention_graph("attention.self"), backend)
 
     assert handle.parameter_count() == 288
+
+###############################################################################
+@pytest.mark.parametrize("backend", native_parity_backends())
+def test_native_attention_parameter_count_excludes_biases_when_disabled(
+    backend: ExecutionBackend,
+) -> None:
+    require_backend(backend)
+    handle = build_native_model(
+        attention_graph("attention.self", use_bias=False),
+        backend,
+    )
+
+    assert handle.parameter_count() == 256
 
 ###############################################################################
 @pytest.mark.parametrize("definition_id", ["transformer.encoder_block", "transformer.decoder_block"])

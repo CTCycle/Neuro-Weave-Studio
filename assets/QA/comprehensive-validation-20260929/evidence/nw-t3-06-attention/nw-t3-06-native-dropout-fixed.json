@@ -1,0 +1,98 @@
+{
+  "case": "nw-t3-06-native-dropout-fixed",
+  "project_id": "f13d9cf6-7965-42f9-92df-1d2e150478f7",
+  "profile": {
+    "api": "native",
+    "backend": "pytorch",
+    "device_id": "cpu"
+  },
+  "authored_parameters": {
+    "num_heads": 2,
+    "key_dim": 4,
+    "value_dim": 4,
+    "layers": 1,
+    "dropout": 0,
+    "use_bias": true
+  },
+  "capability_boundary": {
+    "parameter_id": "dropout",
+    "rendered_value": 0,
+    "editable": false,
+    "message": "Fixed to 0 by this backend.",
+    "authored_nonzero_value_is_rejected_by_static_contract": true
+  },
+  "validation": {
+    "valid": true,
+    "diagnostics": [],
+    "shape_summaries": [
+      {
+        "node_id": "sequence-input",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              5,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "attention-self-44e20c2b-7591-4b2c-a5a1-b03815a9e642",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              5,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 288
+      },
+      {
+        "node_id": "custom-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              5,
+              8
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      }
+    ],
+    "total_parameters": 288,
+    "effective_outputs": [
+      {
+        "node_id": "custom-output",
+        "port_id": "output",
+        "name": "Custom Output",
+        "explicit": false,
+        "task_hint": "generic"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "generic",
+      "confidence": "low",
+      "evidence": [
+        "head=attention.self",
+        "output_width=8",
+        "graph does not uniquely identify a task"
+      ]
+    }
+  },
+  "execution_job_submissions": 0,
+  "browser_errors": [],
+  "failed_requests": []
+}

@@ -1,0 +1,165 @@
+{
+  "run_id": "NW-T3-06-ATTENTION-20260929",
+  "date": "2026-09-29",
+  "repository": "CTCycle/Neuro-Weave-Studio",
+  "branch": "develop",
+  "git_head": "42666a8374599e27367fcc2c9ae2a1ac77798ee7",
+  "working_tree": "dirty by the scoped attention tests/spec",
+  "launcher": {
+    "script": "start_on_windows.ps1",
+    "command": "-Action Launch -Backends tensorflow,pytorch,jax -Acceleration Auto -ExportTools -NoBrowser -ResourcesDir runtimes/cache/nw-t3-06-attention-20260929",
+    "fastapi_port": 9855,
+    "ui_port": 6432,
+    "resources_dir": "runtimes/cache/nw-t3-06-attention-20260929",
+    "database": "runtimes/cache/nw-t3-06-attention-20260929/database.db",
+    "backend_log": "evidence/nw-t3-06-attention/backend.log",
+    "readiness": "frontend and backend healthy",
+    "cleanup": {
+      "projects_remaining_in_database": 0,
+      "fastapi_listener_released": true,
+      "ui_listener_released": true
+    }
+  },
+  "catalog": {
+    "freeze": "evidence/catalog-freeze.json",
+    "count": 149,
+    "fingerprint_sha256": "306042a67a66852161de34e2c72c35bccb509a80b1245172af11f53180b500d1",
+    "attention_ids": ["attention.self", "attention.cross", "attention.multi_head"],
+    "attention_capabilities": {
+      "keras_tensorflow": true,
+      "keras_pytorch": true,
+      "keras_jax": true,
+      "native_tensorflow": true,
+      "native_pytorch": true,
+      "native_jax": true
+    }
+  },
+  "runtime": {
+    "python": "3.13.14",
+    "keras": "3.15.1",
+    "tensorflow": "2.21.0",
+    "pytorch": "2.13.0+cu126",
+    "jax": "0.11.0",
+    "tensorflow_device": "CPU",
+    "pytorch_device": "NVIDIA GeForce RTX 3060 Laptop GPU",
+    "jax_device": "cpu:0",
+    "native_compilers": {
+      "tensorflow_jit": true,
+      "torch_compile": false,
+      "jax_jit": true
+    }
+  },
+  "positive_cases": [
+    {
+      "name": "nw-t3-06-self-keras-pytorch",
+      "project_id": "df1327be-692d-4799-9c7f-1279d45f2cd0",
+      "saved_revision": 2,
+      "definition_id": "attention.self",
+      "parameters": {"num_heads": 2, "key_dim": 4, "value_dim": 4, "layers": 1, "dropout": 0, "use_bias": true},
+      "graph": {"node_count": 3, "edge_count": 2},
+      "static_output": [null, 5, 8],
+      "static_parameter_count": 288,
+      "runtime_output": [1, 5, 8],
+      "runtime_parameter_count": 288,
+      "job_id": "a2ef40f09a1249dea2fcb4095d749b62",
+      "worker": {"api": "keras", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-06-attention/nw-t3-06-self-keras-pytorch.json",
+      "browser_errors": "evidence/nw-t3-06-attention/nw-t3-06-self-keras-pytorch-browser-errors.json"
+    },
+    {
+      "name": "nw-t3-06-cross-keras-pytorch",
+      "project_id": "47830b95-517b-43b5-a5b8-7fd55d68bf3f",
+      "saved_revision": 2,
+      "definition_id": "attention.cross",
+      "parameters": {"num_heads": 2, "key_dim": 4, "value_dim": 4, "layers": 1, "dropout": 0, "use_bias": true},
+      "graph": {"node_count": 4, "edge_count": 3, "explicit_input_ports": ["Query", "Context"]},
+      "static_output": [null, 5, 8],
+      "static_parameter_count": 288,
+      "runtime_output": [1, 5, 8],
+      "runtime_parameter_count": 288,
+      "job_id": "6d733cd03302491c82c7ff3ab39b6661",
+      "worker": {"api": "keras", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-06-attention/nw-t3-06-cross-keras-pytorch.json",
+      "browser_errors": "evidence/nw-t3-06-attention/nw-t3-06-cross-keras-pytorch-browser-errors.json"
+    },
+    {
+      "name": "nw-t3-06-multi-head-output-shape-keras-pytorch",
+      "project_id": "b1adbb3d-6648-4d22-a5ac-9f8f92d581dd",
+      "saved_revision": 2,
+      "definition_id": "attention.multi_head",
+      "parameters": {"num_heads": 2, "key_dim": 4, "value_dim": 4, "output_shape": [2, 4], "layers": 1},
+      "graph": {"node_count": 3, "edge_count": 2},
+      "static_output": [null, 5, 2, 4],
+      "static_parameter_count": 288,
+      "runtime_output": [1, 5, 2, 4],
+      "runtime_parameter_count": 288,
+      "job_id": "9336b3f584e445af891642d514f6fdf1",
+      "worker": {"api": "keras", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-06-attention/nw-t3-06-multi-head-output-shape-keras-pytorch.json",
+      "browser_errors": "evidence/nw-t3-06-attention/nw-t3-06-multi-head-output-shape-keras-pytorch-browser-errors.json"
+    },
+    {
+      "name": "nw-t3-06-self-native-pytorch",
+      "project_id": "b364b5bf-d399-4e89-8642-c335be95e0c0",
+      "saved_revision": 2,
+      "definition_id": "attention.self",
+      "parameters": {"num_heads": 2, "key_dim": 4, "value_dim": 4, "layers": 1, "dropout": 0, "use_bias": true},
+      "graph": {"node_count": 3, "edge_count": 2},
+      "static_output": [null, 5, 8],
+      "static_parameter_count": 288,
+      "runtime_output": [1, 5, 8],
+      "runtime_parameter_count": 288,
+      "job_id": "b6f11d14e57543af8e227ef275e9c1d9",
+      "worker": {"api": "native", "backend": "pytorch", "device_id": "cpu"},
+      "evidence": "evidence/nw-t3-06-attention/nw-t3-06-self-native-pytorch.json",
+      "browser_errors": "evidence/nw-t3-06-attention/nw-t3-06-self-native-pytorch-browser-errors.json"
+    }
+  ],
+  "negative_and_recovery": {
+    "invalid_layers": {
+      "authored_layers": 2,
+      "diagnostic_code": "shape_inference_failed",
+      "diagnostic_message": "Shape inference failed for 'Self-attention': The supported multi-head attention node accepts layers=1",
+      "execution_job_submissions_before_repair": 0,
+      "evidence": "evidence/nw-t3-06-attention/nw-t3-06-invalid-layers.json"
+    },
+    "repaired_layers": {
+      "authored_layers": 1,
+      "project_id": "3cf525cd-1d1f-46ff-81ad-70264c2e6d2d",
+      "saved_revision": 2,
+      "persisted_layers": 1,
+      "job_id": "9e53ec3f76844b1ea20d2b7b68ac82d3",
+      "final_state": "succeeded",
+      "evidence": "evidence/nw-t3-06-attention/nw-t3-06-repaired-layers.json"
+    },
+    "native_dropout_capability": {
+      "parameter_id": "dropout",
+      "rendered_value": 0,
+      "editable": false,
+      "message": "Fixed to 0 by this backend.",
+      "job_submissions": 0,
+      "evidence": "evidence/nw-t3-06-attention/nw-t3-06-native-dropout-fixed.json"
+    },
+    "static_negative_contracts": [
+      "layers=2",
+      "attention input rank other than 3",
+      "empty/zero/negative output_shape",
+      "cross-attention without Context",
+      "native dropout=0.25 rejected with unsupported_parameter_option"
+    ]
+  },
+  "quality_gates": {
+    "compileall": "passed with dependency/cache directories excluded",
+    "focused_backend": "passed",
+    "native_attention_parity": "18 selected attention tests passed across available parity backends",
+    "ruff": "passed",
+    "frontend_changed_spec_eslint": "passed",
+    "frontend_lint": "passed",
+    "frontend_unit_tests": "105 passed",
+    "frontend_build": "passed",
+    "pyright": "58 existing errors; unchanged documented baseline",
+    "browser_e2e": "7/7 passed serially; recovery rerun 1/1 passed"
+  },
+  "in_app_browser": "evidence/nw-t3-06-attention/in-app-browser-builder-observation.md",
+  "status": "PASS, bounded"
+}
