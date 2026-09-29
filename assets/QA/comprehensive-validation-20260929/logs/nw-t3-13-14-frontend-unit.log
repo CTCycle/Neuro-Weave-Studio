@@ -1,0 +1,13 @@
+
+> neuro-weave-frontend@1.0.0 test
+> vitest run --reporter=dot
+
+
+ RUN  v4.1.11 G:/Projects/Repositories/Active projects/Neuro Weave Studio/app/client
+
+·········································································································
+
+ Test Files  20 passed (20)
+      Tests  105 passed (105)
+   Start at  21:45:45
+   Duration  18.70s (transform 4.40s, setup 0ms, import 25.79s, tests 519ms, environment 42.36s)

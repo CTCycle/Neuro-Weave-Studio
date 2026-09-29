@@ -771,7 +771,53 @@ training, accessibility, worker-matrix, or later-slice closure.
 
 The new authoritative browser spec is [`mathematical-unary-families-slice.spec.ts`](../../app/client/e2e/mathematical-unary-families-slice.spec.ts). The graph-aware Functional Validation fixture uses deterministic ones only for `math.log`, `math.log1p`, `math.sqrt`, `math.rsqrt`, and `math.reciprocal`; unrelated graphs retain the historical zero fixture. Focused backend tests cover catalog metadata, implementation mappings, emitted symbols, static shape/dtype, and native forward execution across TensorFlow, PyTorch, and JAX. No catalog, emitter, shape-inference, or Builder defect was found.
 
-Campaign arithmetic was corrected during this run: 46 named strategy slices plus the separate recurrent-wrapper continuation make 47 actual slices. The final aggregate is 29 PASS, 4 PARTIAL, 0 FAIL, 0 BLOCKED, and 14 UNTESTED. The pre-run 49-slice aggregate and 48 displayed status sum were bookkeeping errors; the unrelated recurrent-wrapper, Pyright, worker, Inductor, standalone mask, accessibility, training, and startup limitations remain unchanged.
+Before the comparison/reduction continuation, campaign arithmetic was corrected:
+46 named strategy slices plus the separate recurrent-wrapper continuation make
+47 actual slices, with 29 PASS, 4 PARTIAL, 0 FAIL, 0 BLOCKED, and 14 UNTESTED.
+The pre-run 49-slice aggregate and 48 displayed status sum were bookkeeping
+errors; the continuation and its final aggregate are recorded below.
+
+## Current bounded run: NW-T3-13/NW-T3-14 comparison, logical, and reduction families
+
+Date: 2026-09-29
+Repository: `develop`; validation checkout before scoped changes: `264fbc81f55bfd77c44dab4b9ee9227f66b45ecf`
+Run report: [NW-T3-13/NW-T3-14 comparison and reduction validation](comprehensive-validation-20260929/NW-T3-13-14.md)
+Run manifest: [NW-T3-13/NW-T3-14 run manifest](comprehensive-validation-20260929/NW-T3-13-14-run-manifest.json)
+Catalog: 149 nodes; 73 Mathematical entries; normalized fingerprint `acf538fb04f50552e1577299aa3f0cc09511d4e7d0937f73aa8418125a3a9ef8`
+Profiles: Keras API / PyTorch backend / CPU and native PyTorch / CPU browser lanes; native TensorFlow/PyTorch/JAX CPU operation matrix
+Evidence root: `assets/QA/comprehensive-validation-20260929/evidence/nw-t3-13-14-comparison-reduction/`
+
+| Slice | Level | Result | Bounded evidence |
+| --- | --- | --- | --- |
+| NW-T3-13 | L0 catalog inventory | PASS | Nine live comparison/logical definitions, verified mappings, static contracts, rendered Mathematical Builder category, and live catalog fingerprint. |
+| NW-T3-13 | L1 node behavior | PASS | Nine elementwise nodes materialized and runtime-validated on the two exact browser lanes; boolean truth tables pass. |
+| NW-T3-13 | L2 parameter behavior | PASS | Parameter-free comparison/logical contracts and float/bool input dtype boundaries; broader dtype/rank state coverage remains open. |
+| NW-T3-13 | L3 ports/edges | PASS | Ordered binary tensor-list inputs and output terminal connected and statically validated for every selected definition. |
+| NW-T3-13 | L4 composition | PASS | Input → operation → output graphs, revision-2 save/reload, exact static and runtime shapes. |
+| NW-T3-13 | L5 runtime/profile | PASS | 18 positive browser cases plus 27 native TensorFlow/PyTorch/JAX CPU cases; browser coverage is limited to Keras/PyTorch and native PyTorch. |
+| NW-T3-13 | L6 persistence/recovery | PASS | Functional Validation, exact receipts, empty diagnostics, project deletion, process shutdown, and port release. |
+| NW-T3-14 | L0 catalog inventory | PASS | Twelve live reduction/aggregate definitions, verified mappings, static contracts, rendered Mathematical Builder category, and live catalog fingerprint. |
+| NW-T3-14 | L1 node behavior | PASS | Twelve reduction nodes materialized and runtime-validated on the two exact browser lanes; numeric and boolean aggregate values pass. |
+| NW-T3-14 | L2 parameter behavior | PASS | Selected axis/keepdims cases plus generic `math.reduce` sum; broader axes, ranks, dtypes, and parameter combinations remain open. |
+| NW-T3-14 | L3 ports/edges | PASS | Single tensor input and output terminal connected and statically validated for every selected definition. |
+| NW-T3-14 | L4 composition | PASS | Input → reduction → output graphs, revision-2 save/reload, reduced static and runtime shapes. |
+| NW-T3-14 | L5 runtime/profile | PASS | 24 positive browser cases plus 36 native TensorFlow/PyTorch/JAX CPU cases; browser coverage is limited to Keras/PyTorch and native PyTorch. |
+| NW-T3-14 | L6 persistence/recovery | PASS | Functional Validation, exact receipts, empty diagnostics, project deletion, process shutdown, and port release. |
+
+The authoritative serial browser run passed 44/44: one live catalog/render
+case, 42 positive exact-profile cases, and one cleanup case. The backend
+operation file passed 260 tests; frontend unit, lint, and build gates also
+passed. The first browser attempt exposed and corrected a test-harness catalog
+locator mismatch; the repaired focused run and final full run passed. No
+product defect was found in the selected catalog, emitter, shape, Builder,
+persistence, or runtime paths.
+
+The campaign inventory is now 47 actual slices: 31 PASS, 4 PARTIAL, 0 FAIL,
+0 BLOCKED, and 12 UNTESTED. Full Mathematical catalog/profile/source/export
+closure, strict Pyright, the worker matrix, positive Inductor, accessibility,
+training, recurrent-wrapper count, and standalone Transformer mask limitations
+remain unchanged. NW-T3-13 and NW-T3-14 are bounded PASS slices, not full Model
+Builder certification.
 
 ## Future session run template
 

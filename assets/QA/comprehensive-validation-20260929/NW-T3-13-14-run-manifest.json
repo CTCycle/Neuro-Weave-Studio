@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "run_id": "NW-CV-20260929-T3-13-14-COMPARISON-REDUCTION",
+  "date": "2026-09-29",
+  "repository": "Neuro Weave Studio",
+  "branch": "develop",
+  "validation_checkout_before_scoped_changes": "264fbc81f55bfd77c44dab4b9ee9227f66b45ecf",
+  "working_tree_before_validation": "clean",
+  "slices": {
+    "NW-T3-13": {
+      "status": "PASS",
+      "definitions": [
+        "math.equal",
+        "math.not_equal",
+        "math.greater",
+        "math.greater_equal",
+        "math.less",
+        "math.less_equal",
+        "math.logical_and",
+        "math.logical_or",
+        "math.logical_xor"
+      ]
+    },
+    "NW-T3-14": {
+      "status": "PASS",
+      "definitions": [
+        "math.argmax",
+        "math.sum",
+        "math.mean",
+        "math.min",
+        "math.max",
+        "math.prod",
+        "math.all",
+        "math.any",
+        "math.variance",
+        "math.stddev",
+        "math.logsumexp",
+        "math.reduce"
+      ]
+    }
+  },
+  "catalog": {
+    "catalog_count": 149,
+    "mathematical_count": 73,
+    "normalized_catalog_fingerprint_sha256": "acf538fb04f50552e1577299aa3f0cc09511d4e7d0937f73aa8418125a3a9ef8"
+  },
+  "profiles": [
+    "keras-api-over-pytorch-cpu",
+    "native-pytorch-cpu"
+  ],
+  "coverage": {
+    "browser_cases_passed": 44,
+    "browser_positive_cases": 42,
+    "browser_catalog_and_cleanup_cases": 2,
+    "native_backend_cases_passed": 63,
+    "native_backends": ["tensorflow-cpu", "pytorch-cpu", "jax-cpu"],
+    "backend_operation_tests": "260 passed",
+    "backend_targeted_ruff": "PASS",
+    "frontend_unit_tests": "20 files, 105 tests passed",
+    "frontend_lint": "PASS",
+    "frontend_build": "PASS",
+    "new_spec_eslint": "PASS"
+  },
+  "evidence": {
+    "report": "assets/QA/comprehensive-validation-20260929/NW-T3-13-14.md",
+    "browser_spec": "app/client/e2e/mathematical-comparison-reduction-slices.spec.ts",
+    "backend_tests": "app/tests/test_conv1d_and_operations.py",
+    "evidence_root": "assets/QA/comprehensive-validation-20260929/evidence/nw-t3-13-14-comparison-reduction",
+    "logs_root": "assets/QA/comprehensive-validation-20260929/logs"
+  },
+  "cleanup": {
+    "projects_remaining": 0,
+    "backend_port_9750": "released",
+    "frontend_port_6425": "released",
+    "isolated_runtime_root": "removed"
+  },
+  "limitations": [
+    "Remaining Mathematical definitions and broader parameter/rank/edge states are not closed.",
+    "The six-profile live browser/source/export matrix is not closed.",
+    "NW-T0-03 strict Pyright, NW-T4-02 positive PyTorch Inductor, and NW-T5-02 worker matrix remain PARTIAL.",
+    "Accessibility, training, recurrent-wrapper count, and standalone Transformer mask runtime remain outside this run."
+  ]
+}

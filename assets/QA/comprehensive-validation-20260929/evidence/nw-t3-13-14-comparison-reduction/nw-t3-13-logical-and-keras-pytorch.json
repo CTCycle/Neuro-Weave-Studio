@@ -1,0 +1,224 @@
+{
+  "case": "nw-t3-13-logical-and-keras-pytorch",
+  "slice": "nw-t3-13",
+  "project_id": "fabd5f49-b499-48b7-acee-4e573322336c",
+  "definition_id": "math.logical_and",
+  "input_dtype": "bool",
+  "profile": {
+    "execution_backend": "pytorch",
+    "keras_enabled": true,
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    }
+  },
+  "saved_revision": 2,
+  "graph": {
+    "node_count": 4,
+    "edge_count": 3,
+    "exact_reload_match": true
+  },
+  "expected": {
+    "static_output_shape": [
+      null,
+      4
+    ],
+    "runtime_output_shape": [
+      1,
+      4
+    ],
+    "output_dtype": "bool",
+    "parameter_count": 0
+  },
+  "validation": {
+    "valid": true,
+    "diagnostics": [],
+    "shape_summaries": [
+      {
+        "node_id": "input-1",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4
+            ],
+            "dtype": "bool",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "input-2",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4
+            ],
+            "dtype": "bool",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "math-logical_and-dd72a5c7-b92a-4cbc-8955-3211e636f875",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4
+            ],
+            "dtype": "bool",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "operation-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4
+            ],
+            "dtype": "bool",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      }
+    ],
+    "total_parameters": 0,
+    "effective_outputs": [
+      {
+        "node_id": "operation-output",
+        "port_id": "output",
+        "name": "Operation output",
+        "explicit": false,
+        "task_hint": "generic"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "generic",
+      "confidence": "low",
+      "evidence": [
+        "head=math.logical_and",
+        "output_width=4",
+        "graph does not uniquely identify a task"
+      ]
+    }
+  },
+  "submitted_job_id": "9768805c6aea4405b2f3fcfc6f05a886",
+  "final_job": {
+    "id": "9768805c6aea4405b2f3fcfc6f05a886",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 35544,
+    "created_at": "2026-09-29T19:35:22.867976Z",
+    "started_at": "2026-09-29T19:35:22.878667Z",
+    "updated_at": "2026-09-29T19:35:31.955773Z",
+    "finished_at": "2026-09-29T19:35:31.955772Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "api_changed",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {},
+        "metrics": {},
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 2043.5,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "bool",
+          "node_id": "input-1",
+          "shape": [
+            1,
+            4
+          ]
+        },
+        {
+          "dtype": "bool",
+          "node_id": "input-2",
+          "shape": [
+            1,
+            4
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "bool",
+          "name": "Operation output",
+          "node_id": "operation-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            4
+          ]
+        }
+      ],
+      "parameter_count": 0,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  "browser_errors": [],
+  "failed_requests": [],
+  "cleanup": "project deleted in finally block"
+}
