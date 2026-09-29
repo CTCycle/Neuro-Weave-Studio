@@ -224,8 +224,9 @@ seven test modules (`ISSUE-003`).
 
 Continue with the prepared Model Builder validation ledger by selecting the
 next coherent remaining Tier 3 family after the bounded NW-T3-14 reduction
-slice; the remaining mathematical definitions or the next catalog family
-should be covered only with their relevant parameter/profile evidence.
+slice. The next actionable prepared slice is NW-T3-15 arithmetic, dot, and
+matrix operations; cover it with its relevant parameter/profile evidence and
+keep NW-T3-16 tensor-shape operations as a separate follow-on scope.
 NW-T0-03 strict Pyright (58 current errors), the positive PyTorch Inductor
 compiler prerequisite, the not-clean `NW-T5-02` worker matrix, the all-six-
 profile live runtime/export matrix, and assistive-technology checks remain
