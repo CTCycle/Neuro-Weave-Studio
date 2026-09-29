@@ -599,7 +599,7 @@ Builder certification.
 ## Current bounded run: NW-T3-07 Transformer blocks
 
 Date: 2026-09-29
-Repository: develop at current checkout HEAD `f1e03831bdcf36037c3c194022981cd017264dd2`
+Repository: develop; validation source tree was based on `f1e03831bdcf36037c3c194022981cd017264dd2`
 Run report: [NW-T3-07 Transformer blocks](comprehensive-validation-20260929/NW-T3-07.md)
 Run manifest: [NW-T3-07 run manifest](comprehensive-validation-20260929/NW-T3-07-run-manifest.json)
 Catalog: 149 nodes; Transformer category contains ten entries; seven remaining Transformer definitions were frozen with catalog fingerprint `306042a67a66852161de34e2c72c35bccb509a80b1245172af11f53180b500d1`
