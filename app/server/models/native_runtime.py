@@ -195,6 +195,14 @@ def _dummy_inputs(
     graph_nodes = {node.id: node for node in graph.nodes}
     nodes = [graph_nodes[node_id] for node_id in input_node_ids]
     result: list[Any] = []
+    domain_sensitive = {
+        "math.log",
+        "math.log1p",
+        "math.sqrt",
+        "math.rsqrt",
+        "math.reciprocal",
+    }
+    use_nonzero_inputs = any(node.definition_id in domain_sensitive for node in graph.nodes)
     for node in nodes:
         shape_value = node.parameters.get("shape", [None, 1])
         shape = [
@@ -208,15 +216,18 @@ def _dummy_inputs(
         if backend is ExecutionBackend.PYTORCH:
             import torch
 
-            result.append(torch.zeros(shape, dtype=_torch_dtype(torch, dtype)))
+            fill = torch.ones if use_nonzero_inputs else torch.zeros
+            result.append(fill(shape, dtype=_torch_dtype(torch, dtype)))
         elif backend is ExecutionBackend.TENSORFLOW:
             import tensorflow as tf
 
-            result.append(tf.zeros(shape, dtype=_tensorflow_dtype(tf, dtype)))
+            fill = tf.ones if use_nonzero_inputs else tf.zeros
+            result.append(fill(shape, dtype=_tensorflow_dtype(tf, dtype)))
         else:
             import jax.numpy as jnp
 
-            result.append(jnp.zeros(shape, dtype=dtype))
+            fill = jnp.ones if use_nonzero_inputs else jnp.zeros
+            result.append(fill(shape, dtype=dtype))
     return result
 
 ###############################################################################

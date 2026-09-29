@@ -104,6 +104,51 @@ def _operation_graph(
     edges.append(_edge("output_edge", "operation", "output"))
     return ModelGraph(nodes=nodes, edges=edges)
 
+
+_UNARY_OPERATION_CASES: list[tuple[str, dict[str, int], dict[str, str]]] = [
+    ("math.ceil", {}, {"keras": "keras.ops.ceil", "tensorflow": "tf.math.ceil", "pytorch": "torch.ceil", "jax": "jnp.ceil"}),
+    ("math.floor", {}, {"keras": "keras.ops.floor", "tensorflow": "tf.math.floor", "pytorch": "torch.floor", "jax": "jnp.floor"}),
+    ("math.round", {}, {"keras": "keras.ops.round", "tensorflow": "tf.math.round", "pytorch": "torch.round", "jax": "jnp.round"}),
+    ("math.sin", {}, {"keras": "keras.ops.sin", "tensorflow": "tf.math.sin", "pytorch": "torch.sin", "jax": "jnp.sin"}),
+    ("math.cos", {}, {"keras": "keras.ops.cos", "tensorflow": "tf.math.cos", "pytorch": "torch.cos", "jax": "jnp.cos"}),
+    ("math.tan", {}, {"keras": "keras.ops.tan", "tensorflow": "tf.math.tan", "pytorch": "torch.tan", "jax": "jnp.tan"}),
+    ("math.exp", {}, {"keras": "keras.ops.exp", "tensorflow": "tf.math.exp", "pytorch": "torch.exp", "jax": "jnp.exp"}),
+    ("math.log", {}, {"keras": "keras.ops.log", "tensorflow": "tf.math.log", "pytorch": "torch.log", "jax": "jnp.log"}),
+    ("math.log1p", {}, {"keras": "keras.ops.log1p", "tensorflow": "tf.math.log1p", "pytorch": "torch.log1p", "jax": "jnp.log1p"}),
+    ("math.erf", {}, {"keras": "keras.ops.erf", "tensorflow": "tf.math.erf", "pytorch": "torch.erf", "jax": "jax.scipy.special.erf"}),
+    ("math.sqrt", {}, {"keras": "keras.ops.sqrt", "tensorflow": "tf.math.sqrt", "pytorch": "torch.sqrt", "jax": "jnp.sqrt"}),
+    ("math.rsqrt", {}, {"keras": "keras.ops.rsqrt", "tensorflow": "tf.math.rsqrt", "pytorch": "torch.rsqrt", "jax": "jax.lax.rsqrt"}),
+    ("math.square", {}, {"keras": "keras.ops.square", "tensorflow": "tf.math.square", "pytorch": "torch.square", "jax": "jnp.square"}),
+    ("math.negative", {}, {"keras": "keras.ops.negative", "tensorflow": "tf.math.negative", "pytorch": "torch.neg", "jax": "jnp.negative"}),
+    ("math.reciprocal", {}, {"keras": "keras.ops.reciprocal", "tensorflow": "tf.math.reciprocal", "pytorch": "torch.reciprocal", "jax": "jnp.reciprocal"}),
+    ("math.sign", {}, {"keras": "keras.ops.sign", "tensorflow": "tf.math.sign", "pytorch": "torch.sign", "jax": "jnp.sign"}),
+    ("math.clip", {"min_value": -1, "max_value": 1}, {"keras": "keras.ops.clip", "tensorflow": "tf.clip_by_value", "pytorch": "torch.clamp", "jax": "jnp.clip"}),
+    ("math.sinh", {}, {"keras": "keras.ops.sinh", "tensorflow": "tf.math.sinh", "pytorch": "torch.sinh", "jax": "jnp.sinh"}),
+    ("math.cosh", {}, {"keras": "keras.ops.cosh", "tensorflow": "tf.math.cosh", "pytorch": "torch.cosh", "jax": "jnp.cosh"}),
+    ("math.tanh", {}, {"keras": "keras.ops.tanh", "tensorflow": "tf.math.tanh", "pytorch": "torch.tanh", "jax": "jnp.tanh"}),
+    ("math.relu", {}, {"keras": "keras.ops.relu", "tensorflow": "tf.nn.relu", "pytorch": "torch.relu", "jax": "jax.nn.relu"}),
+    ("math.gelu", {}, {"keras": "keras.ops.gelu", "tensorflow": "tf.nn.gelu", "pytorch": "torch.nn.functional.gelu", "jax": "jax.nn.gelu"}),
+    ("math.sigmoid", {}, {"keras": "keras.ops.sigmoid", "tensorflow": "tf.nn.sigmoid", "pytorch": "torch.sigmoid", "jax": "jax.nn.sigmoid"}),
+    ("math.softplus", {}, {"keras": "keras.ops.softplus", "tensorflow": "tf.nn.softplus", "pytorch": "torch.nn.functional.softplus", "jax": "jax.nn.softplus"}),
+]
+
+
+def _native_float_input(backend: ExecutionBackend) -> Any:
+    values = np.asarray([[0.25, 0.5, 1.25, 2.0]], dtype=np.float32)
+    if backend is ExecutionBackend.TENSORFLOW:
+        import tensorflow as tf
+
+        return tf.convert_to_tensor(values)
+    if backend is ExecutionBackend.PYTORCH:
+        import torch
+
+        torch_module = cast(Any, torch)
+        return torch_module.from_numpy(values)
+    import jax.numpy as jnp
+
+    jnp_module = cast(Any, jnp)
+    return jnp_module.asarray(values)
+
 ###############################################################################
 def test_conv1d_manifest_exposes_capabilities_and_exact_footer_shape() -> None:
     catalog = get_node_catalog()
@@ -196,6 +241,89 @@ def test_keras_slice_executes_without_dynamic_code() -> None:
         else np.asarray(value)
     )
     assert detached.shape == (1, 2, 3)
+
+
+@pytest.mark.parametrize(("definition_id", "parameters", "symbols"), _UNARY_OPERATION_CASES)
+def test_unary_operation_catalog_source_and_static_contract(
+    definition_id: str,
+    parameters: dict[str, Any],
+    symbols: dict[str, str],
+) -> None:
+    catalog = get_node_catalog()
+    manifest = catalog.get(definition_id)
+    assert manifest.category == "mathematical"
+    assert manifest.operation is not None
+    assert manifest.operation.family == "unary"
+    assert manifest.operation.shape_behavior == "preserve"
+    assert manifest.operation.arity == 1
+    assert manifest.operation.output_dtype == "same"
+
+    for implementation, symbol in symbols.items():
+        mapping = manifest.implementations[implementation]
+        assert mapping.supported
+        assert mapping.status == "verified"
+        assert mapping.symbol == symbol
+        assert symbol in emit_operation_source(manifest, implementation, ["value"], parameters)
+
+    summary = next(
+        item
+        for item in infer_shapes(_operation_graph(definition_id, [[4]], parameters), catalog)
+        if item.node_id == "operation"
+    )
+    assert summary.outputs["output"].shape == [None, 4]
+    assert summary.outputs["output"].dtype.value == "float32"
+
+
+@pytest.mark.parametrize(("definition_id", "parameters", "_symbols"), _UNARY_OPERATION_CASES)
+@pytest.mark.parametrize("backend", list(ExecutionBackend))
+def test_unary_operations_execute_with_finite_nonzero_inputs_across_native_backends(
+    definition_id: str,
+    parameters: dict[str, Any],
+    _symbols: dict[str, str],
+    backend: ExecutionBackend,
+) -> None:
+    pytest.importorskip(
+        {
+            ExecutionBackend.TENSORFLOW: "tensorflow",
+            ExecutionBackend.PYTORCH: "torch",
+            ExecutionBackend.JAX: "jax",
+        }[backend]
+    )
+
+    handle = build_native_model(
+        _operation_graph(definition_id, [[4]], parameters),
+        backend,
+        input_values=[_native_float_input(backend)],
+    )
+    outputs = forward_native(handle)
+    value = (
+        outputs[0].detach().cpu().numpy()
+        if backend is ExecutionBackend.PYTORCH
+        else np.asarray(outputs[0])
+    )
+    assert value.shape == (1, 4)
+    assert value.dtype == np.dtype("float32")
+    assert np.isfinite(value).all()
+
+
+@pytest.mark.parametrize("backend", list(ExecutionBackend))
+def test_native_log_functional_dummy_input_stays_in_a_finite_domain(backend: ExecutionBackend) -> None:
+    pytest.importorskip(
+        {
+            ExecutionBackend.TENSORFLOW: "tensorflow",
+            ExecutionBackend.PYTORCH: "torch",
+            ExecutionBackend.JAX: "jax",
+        }[backend]
+    )
+
+    handle = build_native_model(_operation_graph("math.log", [[4]]), backend)
+    outputs = forward_native(handle)
+    value = (
+        outputs[0].detach().cpu().numpy()
+        if backend is ExecutionBackend.PYTORCH
+        else np.asarray(outputs[0])
+    )
+    assert np.isfinite(value).all()
 
 ###############################################################################
 @pytest.mark.parametrize("backend", list(ExecutionBackend))

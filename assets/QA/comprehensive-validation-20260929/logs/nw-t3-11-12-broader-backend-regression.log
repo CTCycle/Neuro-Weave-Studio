@@ -1,0 +1,4 @@
+NW-T3-11/NW-T3-12 broader backend regression
+Date: 2026-09-29
+Command: cd app/server; uv run pytest ..\tests\test_native_parity.py ..\tests\test_node_execution_matrix.py
+Result: 298 passed, 1 warning in 42.55s

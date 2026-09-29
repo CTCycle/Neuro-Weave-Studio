@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-29
 
-Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-10`) are recorded below; full closure remains pending.
+Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-12`) are recorded below; full closure remains pending.
 
 ## Purpose
 
@@ -732,6 +732,46 @@ JSON parsing passed. Strict Pyright remains PARTIAL at 58 existing errors; the
 worker matrix, torch.compile, recurrent-wrapper count, standalone Transformer
 mask, all-six-profile/export, accessibility, and training limitations remain
 unchanged. NW-T3-10 is a bounded PASS, not full Model Builder certification.
+
+## Current bounded run: NW-T3-11/NW-T3-12 unary mathematical families
+
+Date: 2026-09-29
+Repository: `develop`; validation checkout before commit: `ef5c376626c8b64aeb3c0704d3ff452846561ecc`
+Run report: [NW-T3-11/NW-T3-12 unary mathematical validation](comprehensive-validation-20260929/NW-T3-11-12.md)
+Run manifest: [NW-T3-11/NW-T3-12 run manifest](comprehensive-validation-20260929/NW-T3-11-12-run-manifest.json)
+Catalog: 149 nodes; 73 Mathematical entries; live normalized fingerprint `acf538fb04f50552e1577299aa3f0cc09511d4e7d0937f73aa8418125a3a9ef8`
+Profiles: Keras API / PyTorch backend / CPU and native PyTorch / CPU browser lanes; native TensorFlow/PyTorch/JAX CPU operation matrix
+Evidence root: `assets/QA/comprehensive-validation-20260929/evidence/nw-t3-11-12-unary-mathematics/`
+
+The live crosswalk selected 17 unary shape-preserving definitions for NW-T3-11,
+including the additional live `math.clip` definition, and seven hyperbolic or
+activation/probability definitions for NW-T3-12. The 13 NW-T3-10 definitions
+remain carry-forward evidence and were not repeated as primary cases. The
+bounded run passed 48 positive browser cases, 72 native backend cases, exact
+save/reload and cleanup, and all selected L0-L6 rows below. The result is a
+bounded PASS, not full Mathematical catalog, six-profile, source/export,
+training, accessibility, worker-matrix, or later-slice closure.
+
+| Slice | Level | Result | Bounded evidence |
+| --- | --- | --- | --- |
+| NW-T3-11 | L0 catalog inventory | PASS | 17 live definitions, Mathematical Builder rendering, mappings, and fingerprint. |
+| NW-T3-11 | L1 node behavior | PASS | 17 unary nodes materialized and runtime-validated on the two exact browser lanes. |
+| NW-T3-11 | L2 parameter behavior | PASS | Unary contracts plus `math.clip` min/max parameters; exhaustive parameter/rank/edge coverage remains open. |
+| NW-T3-11 | L3 ports/edges | PASS | Single input/output ports and normal Builder connections for all selected definitions. |
+| NW-T3-11 | L4 composition | PASS | Input → operation → output graphs, static validation, revision-2 save/reload. |
+| NW-T3-11 | L5 runtime/profile | PASS | 34 browser cases plus 51 native TensorFlow/PyTorch/JAX CPU cases; two browser profiles only. |
+| NW-T3-11 | L6 persistence/recovery | PASS | Exact graph receipts, diagnostics, project deletion, process shutdown, and port release. |
+| NW-T3-12 | L0 catalog inventory | PASS | Seven live definitions, Mathematical Builder rendering, mappings, and fingerprint. |
+| NW-T3-12 | L1 node behavior | PASS | Seven unary nodes materialized and runtime-validated on the two exact browser lanes. |
+| NW-T3-12 | L2 parameter behavior | PASS | Selected hyperbolic/activation/probability contracts; exhaustive parameter/rank/edge coverage remains open. |
+| NW-T3-12 | L3 ports/edges | PASS | Single input/output ports and normal Builder connections for all selected definitions. |
+| NW-T3-12 | L4 composition | PASS | Input → operation → output graphs, static validation, revision-2 save/reload. |
+| NW-T3-12 | L5 runtime/profile | PASS | 14 browser cases plus 21 native TensorFlow/PyTorch/JAX CPU cases; two browser profiles only. |
+| NW-T3-12 | L6 persistence/recovery | PASS | Exact graph receipts, diagnostics, project deletion, process shutdown, and port release. |
+
+The new authoritative browser spec is [`mathematical-unary-families-slice.spec.ts`](../../app/client/e2e/mathematical-unary-families-slice.spec.ts). The graph-aware Functional Validation fixture uses deterministic ones only for `math.log`, `math.log1p`, `math.sqrt`, `math.rsqrt`, and `math.reciprocal`; unrelated graphs retain the historical zero fixture. Focused backend tests cover catalog metadata, implementation mappings, emitted symbols, static shape/dtype, and native forward execution across TensorFlow, PyTorch, and JAX. No catalog, emitter, shape-inference, or Builder defect was found.
+
+Campaign arithmetic was corrected during this run: 46 named strategy slices plus the separate recurrent-wrapper continuation make 47 actual slices. The final aggregate is 29 PASS, 4 PARTIAL, 0 FAIL, 0 BLOCKED, and 14 UNTESTED. The pre-run 49-slice aggregate and 48 displayed status sum were bookkeeping errors; the unrelated recurrent-wrapper, Pyright, worker, Inductor, standalone mask, accessibility, training, and startup limitations remain unchanged.
 
 ## Future session run template
 

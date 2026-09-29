@@ -1,0 +1,4 @@
+NW-T3-11/NW-T3-12 Ruff gate
+Date: 2026-09-29
+Command: cd app/server; uv run ruff check . ..\tests ..\scripts
+Result: All checks passed
