@@ -206,6 +206,18 @@ def _dtype_literal(value: Any, backend: str) -> str:
     return f"{prefix}.{dtype}"
 
 ###############################################################################
+def _output_dtype_source(value: str, output_dtype: str, backend: str) -> str:
+    if output_dtype != "int64":
+        return value
+    if backend == "keras":
+        return f"keras.ops.cast({value}, 'int64')"
+    if backend == "tensorflow":
+        return f"tf.cast({value}, tf.int64)"
+    if backend == "pytorch":
+        return f"{value}.to(dtype=torch.int64)"
+    return f"{value}.astype(jnp.int64)"
+
+###############################################################################
 def _binary_expression(symbol: str, inputs: Sequence[str]) -> str:
     if len(inputs) < 2:
         raise OperationEmissionError("Binary operations require at least two inputs")
@@ -250,7 +262,8 @@ def emit_operation_source(
         arguments = [inputs[0]]
         if backend == "pytorch" and symbol in {"torch.var", "torch.std"}:
             arguments.append("correction=0")
-        return f"{symbol}({', '.join([*arguments, *_keywords(manifest, mapping, parameters, backend)])})"
+        result = f"{symbol}({', '.join([*arguments, *_keywords(manifest, mapping, parameters, backend)])})"
+        return _output_dtype_source(result, operation.output_dtype, backend)
 
     behavior = operation.shape_behavior
     if behavior == "reshape":
@@ -490,9 +503,13 @@ def apply_runtime_operation(
             for parameter_id in operation.keywords
             if parameter_id in parameters
         }
-        if symbol in {"keras.ops.var", "keras.ops.std"}:
-            return function(inputs[0], **keywords)
-        return function(inputs[0], **keywords)
+        result = function(inputs[0], **keywords)
+        if operation.output_dtype == "int64":
+            cast_function = functions.get("keras.ops.cast")
+            if cast_function is None:
+                raise OperationEmissionError("Keras operation runtime does not expose keras.ops.cast")
+            return cast_function(result, "int64")
+        return result
     behavior = operation.shape_behavior
     if behavior in {"concatenate", "stack"}:
         return function(

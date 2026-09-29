@@ -1,0 +1,21 @@
+# NW-T3-10 official launcher record
+
+Date: 2026-09-29
+Command:
+
+```powershell
+$env:BACKEND_LOGS_VISIBLE='false'
+& 'G:\Projects\Repositories\Active projects\Neuro Weave Studio\start_on_windows.ps1' -Action Launch -NoBrowser -ResourcesDir 'assets/QA/comprehensive-validation-20260929/nw-t3-10-runtime'
+```
+
+The official launcher reported portable runtimes ready, reused the recorded
+backend setup, reused the current frontend build, and reached readiness for:
+
+- backend: `http://127.0.0.1:9750/health`
+- frontend: `http://127.0.0.1:6425/`
+
+The successful handoff reported backend root PID `27388` and frontend root PID
+`10688`. The isolated runtime logs are under
+`assets/QA/comprehensive-validation-20260929/nw-t3-10-runtime/runtime/logs/`.
+The live run used the exact Keras/PyTorch CPU and native PyTorch CPU profiles
+recorded in the run manifest.

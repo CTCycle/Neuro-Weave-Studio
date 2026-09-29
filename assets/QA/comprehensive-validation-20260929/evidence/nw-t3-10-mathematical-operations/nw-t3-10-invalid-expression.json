@@ -1,0 +1,44 @@
+{
+  "case": "nw-t3-10-invalid-expression",
+  "project_id": "c117587d-0ddf-4f47-9944-e3297b622e08",
+  "definition_id": "math.expression",
+  "validation": {
+    "valid": false,
+    "diagnostics": [
+      {
+        "code": "unsafe_expression",
+        "severity": "error",
+        "message": "Only whitelisted function calls are allowed",
+        "node_id": "operation",
+        "edge_id": null,
+        "parameter_id": "expression",
+        "execution_backend": "pytorch",
+        "keras_enabled": true,
+        "details": {}
+      }
+    ],
+    "shape_summaries": [],
+    "total_parameters": 0,
+    "effective_outputs": [
+      {
+        "node_id": "operation-output",
+        "port_id": "output",
+        "name": "Operation output",
+        "explicit": false,
+        "task_hint": "generic"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "generic",
+      "confidence": "low",
+      "evidence": [
+        "head=math.expression",
+        "graph does not uniquely identify a task"
+      ]
+    }
+  },
+  "browser_errors": [],
+  "failed_requests": [],
+  "execution_job_submissions": 0
+}

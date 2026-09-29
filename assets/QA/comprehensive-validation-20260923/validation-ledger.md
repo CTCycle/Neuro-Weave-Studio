@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-29
 
-Run ID: `NW-CV-20260929-T3-09-STRUCTURAL-MERGE`
+Run ID: `NW-CV-20260929-T3-10-MATHEMATICAL-OPERATIONS`
 
 Repository: `develop`; NW-T2-09 was validated against implementation revision `bb5f9e4f8dd2ed495676e88f8577ae13811369e3` and its authoritative browser spec is included in the resulting change. NW-T2-08 was validated at `6d05722d3e402fc8e77e78ff2737603bd992ce84`. NW-T2-06 and NW-T2-07 were validated at `0ab274d51ad511cbda3a55c5a4599aade28d5404` after the clean `5d14d3a9c8d7effaac4801dd272346552889c3aa` baseline. Earlier slices retain their recorded revisions: NW-T2-03/04 and prior positive JAX evidence at `6c1687457822380f471c7ce8129b93632af96972`; NW-T2-05 and the initial NW-T4-02 refresh at `75bfc73f34636ba735985e2f7e21d8fc3e27fbf5`; TensorFlow/XLA follow-up based on `937f980e3f1759863a44fc6b936e46107e62fa97`. See the [NW-T2-09 report](../comprehensive-validation-20260926/NW-T2-09.md), the [NW-T2-08 report](../comprehensive-validation-20260926/NW-T2-08.md), the [2026-09-25 dataset workspace report](../comprehensive-validation-20260925/NW-T2-06-07.md), and the [custom-node result payload](../comprehensive-validation-20260926/evidence/nw-t2-09/custom-node-template-results.json).
 
@@ -55,7 +55,15 @@ definitions, thirteen positive materializations, two invalid-graph rejection
 cases, fifteen serial browser tests, and cleanup. Both reports, manifests,
 receipts, screenshots, and logs are under `../comprehensive-validation-20260929/`.
 
-Campaign status: **PARTIAL**. NW-T2-03 through NW-T2-09 and the bounded NW-T3-01 through NW-T3-09 catalog slices PASS, except for the recurrent-wrapper continuation which remains PARTIAL because the live LSTM behavior produced standard Keras counts `256`/`272`, not the requested `64`/`68`. NW-T0-03 remains PARTIAL with 58 current strict Pyright errors across seven test modules; canonical Ruff passes on the current checkout. NW-T4-02 remains PARTIAL: TensorFlow/XLA and JAX JIT compile/forward checks pass on CPU; positive PyTorch Inductor compilation remains unavailable in the current launcher environment. NW-T5-02 is PARTIAL: the 1/2/4-worker matrix found no SQLite-lock signatures but was not clean at any worker count. Assistive-technology checks, full built-in catalog coverage, remaining Tier 3/4 slices, and the full profile/export matrix remain outstanding. This is not a full application certification.
+The bounded NW-T3-10 mathematical operation run then passed the live 149-node
+catalog/73-node Mathematical boundary, 13 selected definitions across Keras
+API/PyTorch CPU and native PyTorch CPU, 26 positive exact-profile runtime
+cases, the unsafe-expression no-job rejection, 28 serial browser tests,
+persistence, and cleanup. Its report, manifest, 54 JSON/54 PNG receipts,
+launcher record, and cleanup record are under
+`../comprehensive-validation-20260929/`.
+
+Campaign status: **PARTIAL**. NW-T2-03 through NW-T2-09 and the bounded NW-T3-01 through NW-T3-10 catalog slices PASS, except for the recurrent-wrapper continuation which remains PARTIAL because the live LSTM behavior produced standard Keras counts `256`/`272`, not the requested `64`/`68`. NW-T0-03 remains PARTIAL with 58 current strict Pyright errors across seven test modules; canonical Ruff passes on the current checkout. NW-T4-02 remains PARTIAL: TensorFlow/XLA and JAX JIT compile/forward checks pass on CPU; positive PyTorch Inductor compilation remains unavailable in the current launcher environment. NW-T5-02 is PARTIAL: the 1/2/4-worker matrix found no SQLite-lock signatures but was not clean at any worker count. Assistive-technology checks, full built-in catalog coverage, remaining Tier 3/4 slices, and the full profile/export matrix remain outstanding. This is not a full application certification.
 
 ## Aggregate status
 
@@ -64,10 +72,10 @@ Campaign status: **PARTIAL**. NW-T2-03 through NW-T2-09 and the bounded NW-T3-01
 | Tier 0 | Environment and startup | 3 | 1 | 0 | 0 | 0 |
 | Tier 1 | Application foundations | 5 | 0 | 0 | 0 | 0 |
 | Tier 2 | Core workflows | 9 | 0 | 0 | 0 | 0 |
-| Tier 3 | Model Builder catalog | 9 | 1 | 0 | 0 | 10 |
+| Tier 3 | Model Builder catalog | 10 | 1 | 0 | 0 | 9 |
 | Tier 4 | Runtime and integrations | 0 | 1 | 0 | 0 | 3 |
 | Tier 5 | Resilience, usability, closure | 0 | 1 | 0 | 0 | 5 |
-| Total | 49 slices | 26 | 4 | 0 | 0 | 18 |
+| Total | 49 slices | 27 | 4 | 0 | 0 | 17 |
 
 UNTESTED means that the slice remains in campaign scope but was not run in
 this revision-specific pass. It does not mean the feature is absent or broken.
@@ -104,6 +112,7 @@ this revision-specific pass. It does not mean the feature is absent or broken.
 | NW-T3-07 | Transformer block catalog, selected parameters, residual/mask edges, persistence, and CPU runtime | PASS | `f1e03831bdcf36037c3c194022981cd017264dd2` | [NW-T3-07 report](../comprehensive-validation-20260929/NW-T3-07.md), [run manifest](../comprehensive-validation-20260929/NW-T3-07-run-manifest.json), [serial Transformer evidence](../comprehensive-validation-20260929/evidence/nw-t3-07-transformer/), [spec](../../app/client/e2e/transformer-blocks-slice.spec.ts) | PASS is bounded to seven remaining Transformer definitions, selected Keras/PyTorch and native PyTorch CPU cases, typed mask rejection, and invalid-layer repair. Standalone mask runtime, full catalog/profile/export closure, and assistive technology remain open. |
 | NW-T3-08 | Arithmetic merge catalog, variadic fan-in, incompatible-shape rejection, persistence, and CPU runtime | PASS | `b9606f6c6a364c892c6b934be6c6aa6fba002646` | [NW-T3-08 report](../comprehensive-validation-20260929/NW-T3-08.md), [run manifest](../comprehensive-validation-20260929/NW-T3-08-run-manifest.json), [live catalog](../comprehensive-validation-20260929/evidence/nw-t3-08-merge/nw-t3-08-live-catalog.json), [serial browser evidence](../comprehensive-validation-20260929/evidence/nw-t3-08-merge/), [in-app Browser observation](../comprehensive-validation-20260929/evidence/nw-t3-08-merge/in-app-browser-builder-observation.md), [quality gates](../comprehensive-validation-20260929/logs/nw-t3-08-quality-gates.txt) | PASS is bounded to Add, Subtract, Multiply, Divide, Maximum, Minimum, and Average with three-input `[4]` fan-in on Keras/PyTorch CPU and native PyTorch CPU. The structural merge definitions are covered separately by NW-T3-09; the full merge parameter/edge matrix, profile/export matrix, strict Pyright, worker matrix, accessibility, and training remain open. |
 | NW-T3-09 | Structural merge catalog, axis/cardinality behavior, invalid-graph rejection, persistence, and CPU runtime | PASS | Current working tree before commit; implementation baseline `b9dfb7a4a9f16fda2f0e0e762e815a822c3db0b6` | [NW-T3-09 report](../comprehensive-validation-20260929/NW-T3-09.md), [run manifest](../comprehensive-validation-20260929/NW-T3-09-run-manifest.json), [live catalog and rendered evidence](../comprehensive-validation-20260929/evidence/nw-t3-09-structural-merge/), [in-app Browser observation](../comprehensive-validation-20260929/evidence/nw-t3-09-structural-merge/in-app-browser-observation.md), [quality gates](../comprehensive-validation-20260929/logs/nw-t3-09-quality-gates.txt), [launcher](../comprehensive-validation-20260929/logs/official-launcher-nw-t3-09-structural-merge.txt), [cleanup](../comprehensive-validation-20260929/logs/process-cleanup-nw-t3-09-final.md) | PASS is bounded to Concatenate, Stack, Split, Dot, MatMul, Residual, and Skip with selected Keras/PyTorch CPU and native PyTorch CPU cases, including Split output materialization, invalid MatMul/Split rejection, persistence, and fifteen serial browser tests. Broader axes/ranks/cardinalities, remaining catalog definitions, full profile/export matrix, strict Pyright, worker matrix, accessibility, and training remain open. |
+| NW-T3-10 | Mathematical operation catalog, typed parameters, safe expressions, persistence, and CPU runtime | PASS | Current working tree before commit; validation head `ff8ce1508e4d9bd0d5b0fa791398245375bad7ff` | [NW-T3-10 report](../comprehensive-validation-20260929/NW-T3-10.md), [run manifest](../comprehensive-validation-20260929/NW-T3-10-run-manifest.json), [live catalog and rendered evidence](../comprehensive-validation-20260929/evidence/nw-t3-10-mathematical-operations/), [in-app Browser observation](../comprehensive-validation-20260929/evidence/nw-t3-10-mathematical-operations/in-app-browser-observation.md), [launcher](../comprehensive-validation-20260929/logs/official-launcher-nw-t3-10-mathematical.txt), [cleanup](../comprehensive-validation-20260929/logs/process-cleanup-nw-t3-10-final.md) | PASS is bounded to 13 selected mathematical definitions across Keras/PyTorch CPU and native PyTorch CPU, including 26 positive exact-profile cases and one unsafe-expression no-job rejection. Remaining mathematical definitions, full parameter/edge/rank coverage, live TensorFlow/JAX Builder execution/export, all-six-profile closure, strict Pyright, worker matrix, accessibility, and training remain open. |
 | NW-T4-02 | TensorFlow XLA, JAX JIT, and PyTorch `torch.compile` capability gates without fallback | PARTIAL | `937f980e3f1759863a44fc6b936e46107e62fa97` plus the validated launcher/test worktree | [follow-up report](../comprehensive-validation-20260924/NW-T2-05-T4-02.md#tensorflowxla-follow-up--2026-09-24), [follow-up manifest](../comprehensive-validation-20260924/NW-T4-02-tensorflow-xla-followup-run-manifest.json), [native TensorFlow XLA smoke](../comprehensive-validation-20260924/logs/nw-t4-02-tensorflow-native-xla-smoke-20260924.log), [native JAX JIT smoke](../comprehensive-validation-20260924/logs/nw-t4-02-jax-native-jit-smoke-20260924.log), [compiler-gate browser run](../comprehensive-validation-20260924/logs/nw-t4-02-compiler-gates-e2e-final-20260924.log), [JAX browser run](../comprehensive-validation-20260924/logs/nw-t4-02-jax-live-gate-e2e-20260924.log), [unavailable compiler rejection tests](../comprehensive-validation-20260924/logs/nw-t4-02-pytorch-compiler-rejection-pytest-final-20260924.log), [live runtime summary](../comprehensive-validation-20260924/evidence/nw-t4-02-tensorflow-xla-followup/nw-t4-02-live-runtime-summary-20260924.json), [rendered TensorFlow control](../comprehensive-validation-20260924/evidence/nw-t4-02-tensorflow-xla-followup/nw-t4-02-tensorflow-xla-gate.png), [rendered PyTorch control](../comprehensive-validation-20260924/evidence/nw-t4-02-tensorflow-xla-followup/nw-t4-02-pytorch-compiler-gate.png) | TensorFlow XLA and JAX JIT are verified on CPU. PyTorch Inductor remains PARTIAL: the native control stays disabled and positive compilation is unavailable because the launcher has no `cl.exe` or Visual Studio/Windows SDK environment. |
 | NW-T5-02 | Disposable Playwright worker matrix at 1/2/4 workers | PARTIAL | `38c9ccc` | [worker matrix report](../comprehensive-validation-20260928/NW-T5-02-workers.md), [run manifest](../comprehensive-validation-20260928/NW-T5-02-run-manifest.json), [result summary](../comprehensive-validation-20260928/logs/nw-t5-02-results.log), [worker launch/workflow logs](../comprehensive-validation-20260928/logs/), [cleanup](../comprehensive-validation-20260928/logs/process-cleanup-nw-t3-t5.md) | The unchanged workflow was not clean: 19/20, 18/20, and 17/20 passed at workers 1, 2, and 4. No actual SQLite-lock signature was observed, but active CPU-job admission and parallel Builder/workflow failures remain; worker 4 required explicit fixture cleanup. `ISSUE-001` remains open. |
 
@@ -112,7 +121,7 @@ slices remain UNTESTED. NW-T0-03 and NW-T4-02 remain PARTIAL. The TensorFlow/XLA
 controller alias defect found during the earlier run is fixed and canonical
 Ruff is green; positive PyTorch Inductor execution remains the open NW-T4-02
 subpath. The worker-count matrix and assistive-technology checks remain open.
-NW-T3-05 through NW-T3-09 are complete as bounded PASS slices, with the
+NW-T3-05 through NW-T3-10 are complete as bounded PASS slices, with the
 recurrent-wrapper count, Transformer standalone mask runtime, broader merge
 axis/cardinality coverage, and remaining catalog families explicitly retained
 as limitations. The remaining Tier 3/Tier 4/Tier 5 slices, full profile and
@@ -159,6 +168,7 @@ export matrix, and assistive-technology checks remain open.
 - Detailed bounded NW-T3-07 Transformer report and manifest: [report](../comprehensive-validation-20260929/NW-T3-07.md), [manifest](../comprehensive-validation-20260929/NW-T3-07-run-manifest.json), `../comprehensive-validation-20260929/evidence/nw-t3-07-transformer/`, and `../comprehensive-validation-20260929/logs/`
 - Detailed bounded NW-T3-08 arithmetic merge report and manifest: [report](../comprehensive-validation-20260929/NW-T3-08.md), [manifest](../comprehensive-validation-20260929/NW-T3-08-run-manifest.json), `../comprehensive-validation-20260929/evidence/nw-t3-08-merge/`, and `../comprehensive-validation-20260929/logs/`
 - Detailed bounded NW-T3-09 structural merge report and manifest: [report](../comprehensive-validation-20260929/NW-T3-09.md), [manifest](../comprehensive-validation-20260929/NW-T3-09-run-manifest.json), `../comprehensive-validation-20260929/evidence/nw-t3-09-structural-merge/`, and `../comprehensive-validation-20260929/logs/`
+- Detailed bounded NW-T3-10 mathematical operation report and manifest: [report](../comprehensive-validation-20260929/NW-T3-10.md), [manifest](../comprehensive-validation-20260929/NW-T3-10-run-manifest.json), `../comprehensive-validation-20260929/evidence/nw-t3-10-mathematical-operations/`, and `../comprehensive-validation-20260929/logs/`
 - Detailed recurrent-wrapper continuation report and manifest: [report](../comprehensive-validation-20260928/NW-T3-recurrent-wrappers.md), [manifest](../comprehensive-validation-20260928/NW-T3-recurrent-wrappers-run-manifest.json), wrapper screenshots/payloads/browser diagnostics in `../comprehensive-validation-20260928/evidence/`, and focused gates in `../comprehensive-validation-20260928/logs/`
 - Detailed NW-T5-02 worker matrix report and manifest: [report](../comprehensive-validation-20260928/NW-T5-02-workers.md), [manifest](../comprehensive-validation-20260928/NW-T5-02-run-manifest.json), worker transcripts/results in `../comprehensive-validation-20260928/logs/`, and failure screenshots/observations in `../comprehensive-validation-20260928/evidence/`
 
@@ -187,9 +197,9 @@ seven test modules (`ISSUE-003`).
 ## Next action
 
 Continue with the prepared Model Builder validation ledger by selecting the
-next coherent remaining Tier 3 family after the bounded NW-T3-09 structural
-merge slice; the mathematical operation family is the next candidate when its
-shape and parameter behavior can be covered together.
+next coherent remaining Tier 3 family after the bounded NW-T3-10 mathematical
+operation slice; the remaining mathematical definitions or the next catalog
+family should be covered only with their relevant parameter/profile evidence.
 NW-T0-03 strict Pyright (58 current errors), the positive PyTorch Inductor
 compiler prerequisite, the not-clean `NW-T5-02` worker matrix, the all-six-
 profile live runtime/export matrix, and assistive-technology checks remain

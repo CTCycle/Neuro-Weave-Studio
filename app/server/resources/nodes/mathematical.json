@@ -733,7 +733,7 @@
         {
           "id": "axes",
           "display_name": "Axes",
-          "type": "shape",
+          "type": "axis",
           "default": [],
           "required": false,
           "options": [],

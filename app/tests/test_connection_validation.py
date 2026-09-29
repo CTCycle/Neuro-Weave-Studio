@@ -58,6 +58,20 @@ def test_connection_validation_allows_incomplete_draft_edges() -> None:
     assert not any(item.severity == DiagnosticSeverity.ERROR for item in result.diagnostics)
 
 ###############################################################################
+def test_connection_validation_allows_first_edge_to_typed_binary_operation() -> None:
+    graph = ModelGraph(
+        nodes=[
+            make_node("input", "input.tensor", {"shape": [4], "dtype": "float32"}),
+            make_node("add", "math.add"),
+        ]
+    )
+
+    result = validate_connection(graph, proposed_edge("input", "add", target_port_id="inputs"))
+
+    assert result.valid
+    assert not any(item.severity == DiagnosticSeverity.ERROR for item in result.diagnostics)
+
+###############################################################################
 def test_connection_validation_reports_expected_and_received_rank() -> None:
     graph = ModelGraph(
         nodes=[

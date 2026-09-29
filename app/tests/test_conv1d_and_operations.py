@@ -224,12 +224,22 @@ def test_native_conv1d_executes_with_exact_output_shape(backend: ExecutionBacken
     ("definition_id", "input_shapes", "parameters", "expected_shape"),
     [
         ("math.sin", [[4]], {}, (1, 4)),
+        ("math.abs", [[4]], {}, (1, 4)),
+        ("math.power", [[4]], {"exponent": 2}, (1, 4)),
+        ("math.softmax", [[2, 3]], {"axis": -1}, (1, 2, 3)),
         ("math.add", [[4], [4]], {}, (1, 4)),
+        ("math.argmin", [[2, 3]], {"axis": -1}, (1, 2)),
+        ("math.reduce", [[2, 3]], {"operation": "mean", "axis": 1, "keepdims": True}, (1, 1, 3)),
+        ("math.cast", [[4]], {"dtype": "int32"}, (1, 4)),
+        ("math.transpose", [[2, 3]], {"axes": [0, 2, 1]}, (1, 3, 2)),
+        ("math.expand_dims", [[2, 3]], {"axis": 1}, (1, 1, 2, 3)),
+        ("math.expression", [[4]], {"expression": "x * 2 + 1"}, (1, 4)),
         ("math.sum", [[4]], {"axis": -1}, (1,)),
         ("math.reshape", [[2, 2]], {"target_shape": [4]}, (1, 4)),
         ("math.concatenate", [[2], [2]], {"axis": -1}, (1, 4)),
         ("math.matmul", [[3, 4], [4, 2]], {}, (1, 3, 2)),
         ("math.slice", [[4, 3]], {"expression": "x[:, 1:3]"}, (1, 2, 3)),
+        ("math.index", [[4, 3]], {"expression": "x[:, 1:3]"}, (1, 2, 3)),
     ],
 )
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
@@ -256,6 +266,57 @@ def test_representative_operations_execute_across_native_backends(
         else np.asarray(outputs[0])
     )
     assert value.shape == expected_shape
+
+###############################################################################
+@pytest.mark.parametrize("backend", list(ExecutionBackend))
+def test_argmin_native_runtime_preserves_int64_output_dtype(backend: ExecutionBackend) -> None:
+    pytest.importorskip(
+        {
+            ExecutionBackend.TENSORFLOW: "tensorflow",
+            ExecutionBackend.PYTORCH: "torch",
+            ExecutionBackend.JAX: "jax",
+        }[backend]
+    )
+
+    handle = build_native_model(
+        _operation_graph("math.argmin", [[2, 3]], {"axis": -1}), backend
+    )
+    outputs = forward_native(handle)
+    value = (
+        outputs[0].detach().cpu().numpy()
+        if backend is ExecutionBackend.PYTORCH
+        else np.asarray(outputs[0])
+    )
+    assert value.dtype == np.dtype("int64")
+
+###############################################################################
+@pytest.mark.parametrize(
+    ("definition_id", "input_shapes", "parameters", "expected_shape", "expected_dtype"),
+    [
+        ("math.argmin", [[2, 3]], {"axis": -1}, [None, 2], "int64"),
+        ("math.reduce", [[2, 3]], {"operation": "mean", "axis": 1, "keepdims": True}, [None, 1, 3], "float32"),
+        ("math.cast", [[4]], {"dtype": "int32"}, [None, 4], "int32"),
+        ("math.transpose", [[2, 3]], {"axes": [0, 2, 1]}, [None, 3, 2], "float32"),
+        ("math.expand_dims", [[2, 3]], {"axis": 1}, [None, 1, 2, 3], "float32"),
+        ("math.index", [[4, 3]], {"expression": "x[:, 1:3]"}, [None, 2, 3], "float32"),
+    ],
+)
+def test_selected_math_operations_infer_static_contract(
+    definition_id: str,
+    input_shapes: list[list[Any]],
+    parameters: dict[str, Any],
+    expected_shape: list[int | None],
+    expected_dtype: str,
+) -> None:
+    summary = next(
+        item
+        for item in infer_shapes(_operation_graph(definition_id, input_shapes, parameters), get_node_catalog())
+        if item.node_id == "operation"
+    )
+
+    output = summary.outputs["output"]
+    assert output.shape == expected_shape
+    assert output.dtype.value == expected_dtype
 
 ###############################################################################
 def test_operation_catalog_covers_typed_families_and_all_backend_symbols() -> None:
@@ -292,6 +353,9 @@ def test_operation_emitter_uses_manifest_metadata_and_rejects_unsafe_expression(
     assert (
         emit_operation_source(catalog.get("math.add"), "tensorflow", ["left", "right"], {})
         == "tf.add(left, right)"
+    )
+    assert "keras.ops.cast(keras.ops.argmin" in emit_operation_source(
+        catalog.get("math.argmin"), "keras", ["value"], {"axis": -1}
     )
     assert "torch.logsumexp" in emit_operation_source(
         catalog.get("math.logsumexp"), "pytorch", ["value"], {"axis": -1, "keepdims": True}
