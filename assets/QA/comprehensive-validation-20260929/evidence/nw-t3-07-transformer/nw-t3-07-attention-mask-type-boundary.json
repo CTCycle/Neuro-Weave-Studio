@@ -1,0 +1,32 @@
+{
+  "case": "nw-t3-07-attention-mask-type-boundary",
+  "project_id": "8dda462e-b423-439d-8dff-0c58ddbcd8be",
+  "definition_id": "transformer.attention_mask",
+  "input_connection": "Mask Input → Attention Mask.Input accepted",
+  "rejected_connection": "Attention Mask → Custom Output.Input",
+  "validation": {
+    "valid": false,
+    "diagnostics": [
+      {
+        "code": "incompatible_port_kind",
+        "severity": "error",
+        "message": "Cannot connect Output (mask) to Input (tensor)",
+        "node_id": "custom-output",
+        "edge_id": "candidate-1790675690554",
+        "parameter_id": null,
+        "execution_backend": null,
+        "keras_enabled": null,
+        "details": {
+          "source_kind": "mask",
+          "target_kind": "tensor",
+          "source_port_id": "output",
+          "target_port_id": "input"
+        }
+      }
+    ]
+  },
+  "execution_job_submissions": 0,
+  "browser_errors": [],
+  "failed_requests": [],
+  "limitation": "The current catalog has no mask-capable terminal consumer, so standalone attention-mask runtime execution is not certified in this slice."
+}

@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-29
 
-Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-06`) are recorded below; full closure remains pending.
+Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-07`) are recorded below; full closure remains pending.
 
 ## Purpose
 
@@ -539,7 +539,7 @@ Evidence root: assets/QA/comprehensive-validation-20260928/
 | L5 runtime/profile | PASS for Keras/PyTorch CPU and native PyTorch CPU; browser matrix 11/11 | Other live profiles, source/export, training, and compiler-positive paths remain pending. |
 | L6 persistence/recovery | PASS for save/reload, browser errors, project deletion, process cleanup, and port release | Invalid repair, retained incompatible state, profile switching, export reload, and matrix-wide recovery remain pending. |
 
-The authoritative serial browser matrix passed 11/11 cases. The cases covered Max Pooling 1D, Average Pooling 2D, Max Pooling 3D, Depthwise, Separable, and Transposed Convolution, Upsampling, Padding, Cropping, and a native-PyTorch Depthwise neighbor. Every case produced the expected static shape and parameter count, saved with three nodes and two edges, reloaded with three nodes, completed with the exact selected worker, and emitted an empty browser error payload. The in-app Browser observation confirmed the rendered live convolutional catalog. Full Ruff is green after three narrow import-block repairs; strict Pyright remains PARTIAL at 58 existing errors. The existing recurrent-wrapper, torch.compile, and 1/2/4-worker matrix limitations remain unchanged. The next selected catalog slice was NW-T3-06 attention primitives; that bounded run is recorded below. This remains a bounded PASS, not full Model Builder certification.
+The authoritative serial browser matrix passed 11/11 cases. The cases covered Max Pooling 1D, Average Pooling 2D, Max Pooling 3D, Depthwise, Separable, and Transposed Convolution, Upsampling, Padding, Cropping, and a native-PyTorch Depthwise neighbor. Every case produced the expected static shape and parameter count, saved with three nodes and two edges, reloaded with three nodes, completed with the exact selected worker, and emitted an empty browser error payload. The in-app Browser observation confirmed the rendered live convolutional catalog. Full Ruff is green after three narrow import-block repairs; strict Pyright remains PARTIAL at 58 existing errors. The existing recurrent-wrapper, torch.compile, and 1/2/4-worker matrix limitations remain unchanged. The next selected catalog slice was NW-T3-07 Transformer blocks; that bounded run is recorded below. This remains a bounded PASS, not full Model Builder certification.
 
 ## Current bounded run: NW-T3-05
 
@@ -595,6 +595,37 @@ The serial dedicated attention browser slice passed 7/7; the repaired recovery
 case was rerun independently and passed 1/1. Full strict Pyright remains
 PARTIAL at 58 existing errors. This remains a bounded PASS, not full Model
 Builder certification.
+
+## Current bounded run: NW-T3-07 Transformer blocks
+
+Date: 2026-09-29
+Repository: develop at current checkout HEAD `f1e03831bdcf36037c3c194022981cd017264dd2`
+Run report: [NW-T3-07 Transformer blocks](comprehensive-validation-20260929/NW-T3-07.md)
+Run manifest: [NW-T3-07 run manifest](comprehensive-validation-20260929/NW-T3-07-run-manifest.json)
+Catalog: 149 nodes; Transformer category contains ten entries; seven remaining Transformer definitions were frozen with catalog fingerprint `306042a67a66852161de34e2c72c35bccb509a80b1245172af11f53180b500d1`
+Profile: selected Keras/PyTorch CPU and native PyTorch CPU browser lanes; focused validation/parity across the available TensorFlow, PyTorch, and JAX lanes
+Evidence root: assets/QA/comprehensive-validation-20260929/evidence/nw-t3-07-transformer/
+
+| Level | Bounded result | Closure boundary |
+| --- | --- | --- |
+| L0 catalog inventory | PASS | All seven remaining Transformer IDs, declared mappings, live count, category, and fingerprint were frozen; full catalog coverage remains open. |
+| L1 single-node behavior | PASS for encoder, decoder, feed-forward, stack, positional encoding, and residual; mask input materialization PASS | Exhaustive Transformer parameter states and standalone mask execution remain pending. |
+| L2 parameter behavior | PASS for selected head/key/layer/FFN/dropout/pre-normalization values and exact counts | Full conditional and profile-specific parameter coverage remains pending. |
+| L3 port/edge behavior | PASS for selected sequence, Query/Context, residual fan-in, and output edges; typed mask-to-tensor rejection PASS | No mask-capable terminal consumer is present, and exhaustive compatible/incompatible edge coverage remains pending. |
+| L4 graph composition | PASS for seven selected three- or four-node graphs | Larger cross-family and remaining graph families remain pending. |
+| L5 runtime/profile | PASS for six Keras/PyTorch CPU cases and one native PyTorch CPU encoder; focused parity passes | TensorFlow/JAX live Transformer execution, all-six profile/export closure, and standalone mask execution remain pending. |
+| L6 persistence/recovery | PASS for save/reload, fail-closed `layers=0` UI state, repair to `layers=1`, exact runtime, and cleanup | Matrix-wide recovery, retained incompatible-state coverage, export reload, and accessibility remain pending. |
+
+The serial Transformer browser run passed 9/9 catalog, positive, native, and
+mask-boundary cases; the repaired invalid-layer case passed 1/1 after the
+spec was corrected to assert the Builder's intended client-side invalid-value
+guard. Focused backend validation passed 11 selected tests, native parity
+passed 43 selected tests, and the two parameter-editor unit files passed 11
+tests. The mask boundary remains explicitly `UNTESTED/PARTIAL` for standalone
+runtime because the current catalog has no mask-capable terminal consumer.
+Strict Pyright remains PARTIAL at 58 existing errors, and the worker matrix,
+torch.compile, recurrent-wrapper count, and all-six-profile limitations remain
+unchanged. NW-T3-07 is a bounded PASS, not full Model Builder certification.
 
 ## Future session run template
 
