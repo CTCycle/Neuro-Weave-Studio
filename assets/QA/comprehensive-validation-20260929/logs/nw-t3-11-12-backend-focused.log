@@ -1,0 +1,8 @@
+NW-T3-11/NW-T3-12 focused backend gate
+Date: 2026-09-29
+Command: cd app/server; uv run pytest ..\tests\test_conv1d_and_operations.py
+Result: 176 passed in 15.27s
+
+The parameterized unary matrix covered all 24 selected definitions, four
+implementation symbol families, static shape/dtype contracts, and native
+TensorFlow/PyTorch/JAX forward execution.

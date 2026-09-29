@@ -1,0 +1,6 @@
+NW-T3-11/NW-T3-12 exact fixture-failure recheck
+Date: 2026-09-29
+Command: cd app/server; uv run pytest ..\tests\test_native_parity.py -k "multi_input_multi_output_signatures_match"
+Result: 3 passed
+Purpose: Recheck the TensorFlow/PyTorch/JAX cases that first exposed the
+over-broad non-zero dummy-input change.

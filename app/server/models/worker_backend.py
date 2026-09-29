@@ -154,7 +154,7 @@ def run_keras_smoke(
         model = build_model(graph, checkpoint=checkpoint)
         checkpoint()
         compile_model(model, graph, compilation_catalog=compilation_catalog)
-        input_values = _dummy_inputs(keras_module, model)
+        input_values = _dummy_inputs(keras_module, model, graph)
         model_input: Any = input_values[0] if len(input_values) == 1 else input_values
         output_values = model(model_input, training=False)
         checkpoint()
@@ -856,9 +856,25 @@ def run_model_export(
     )
 
 ###############################################################################
-def _dummy_inputs(keras_module: Any, model: Any) -> list[Any]:
+def _dummy_inputs(keras_module: Any, model: Any, graph: ModelGraph) -> list[Any]:
+    # Functional Validation is an execution smoke check. Keep the historical
+    # zero fixture for unrelated graphs, but use deterministic ones for
+    # domain-sensitive mathematical operations so log, sqrt, rsqrt, and
+    # reciprocal cases are exercised in their ordinary finite domain.
+    domain_sensitive = {
+        "math.log",
+        "math.log1p",
+        "math.sqrt",
+        "math.rsqrt",
+        "math.reciprocal",
+    }
+    fill = (
+        keras_module.ops.ones
+        if any(node.definition_id in domain_sensitive for node in graph.nodes)
+        else keras_module.ops.zeros
+    )
     return [
-        keras_module.ops.zeros(_concrete_shape(tensor), dtype=_dtype_name(tensor))
+        fill(_concrete_shape(tensor), dtype=_dtype_name(tensor))
         for tensor in model.inputs
     ]
 

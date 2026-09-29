@@ -1,0 +1,5 @@
+NW-T3-11/NW-T3-12 Pyright gate
+Date: 2026-09-29
+Command: cd app/server; uv run pyright
+Result: 58 errors across the existing test-module baseline; no new task-owned
+error was identified. NW-T0-03 remains PARTIAL.

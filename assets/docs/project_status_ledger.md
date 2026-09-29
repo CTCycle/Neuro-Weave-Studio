@@ -97,11 +97,23 @@ then passed 28/28 serial browser cases: 26 positive exact-profile cases across
 13 selected definitions, one live catalog/render case, and one unsafe-expression
 no-job rejection. It also fixed the typed reduction `int64` contract, the
 incomplete binary-draft arity diagnostic, and the transpose-axis editor
-contract. The aggregate campaign is now 27 PASS, 4 PARTIAL, and 17 UNTESTED
-slices; the [run manifest](../QA/comprehensive-validation-20260929/NW-T3-10-run-manifest.json),
+contract. The pre-reconciliation ledger recorded 27 PASS, 4 PARTIAL, and 17
+UNTESTED entries at that point; the later complete-inventory reconciliation
+corrected the current campaign total below. The [run manifest](../QA/comprehensive-validation-20260929/NW-T3-10-run-manifest.json),
 [serial evidence](../QA/comprehensive-validation-20260929/evidence/nw-t3-10-mathematical-operations/),
 [launcher](../QA/comprehensive-validation-20260929/logs/official-launcher-nw-t3-10-mathematical.txt),
 and [cleanup record](../QA/comprehensive-validation-20260929/logs/process-cleanup-nw-t3-10-final.md)
+preserve the bounded result and cleanup boundary.
+The bounded [NW-T3-11/NW-T3-12 unary mathematical run](../QA/comprehensive-validation-20260929/NW-T3-11-12.md)
+then reconciled the live 149-node/73-Mathematical catalog and fingerprint,
+validated 24 current shape-preserving unary definitions (including the extra
+live `math.clip` definition), and kept the 13 NW-T3-10 definitions as
+carry-forward evidence. It passed 50/50 serial browser tests, including 48
+positive exact-profile cases, and 72 native TensorFlow/PyTorch/JAX CPU cases.
+Its [run manifest](../QA/comprehensive-validation-20260929/NW-T3-11-12-run-manifest.json),
+[serial evidence](../QA/comprehensive-validation-20260929/evidence/nw-t3-11-12-unary-mathematics/),
+[launcher](../QA/comprehensive-validation-20260929/logs/official-launcher-nw-t3-11-12-unary-mathematics.txt),
+and [cleanup record](../QA/comprehensive-validation-20260929/logs/process-cleanup-nw-t3-11-12-final.md)
 preserve the bounded result and cleanup boundary.
 The [NW-T0-03 revalidation](../QA/comprehensive-validation-20260923/NW-T0-03-revalidation-20260923.md)
 on source revision `912181fa92b8a616fd1cc12665f2567c817c88dc` passed the full
@@ -150,11 +162,13 @@ no SQLite lock signatures were reproduced, but the workflow was not clean at
 any worker count. NW-T4-02 remains
 PARTIAL because positive PyTorch Inductor execution is unavailable in this
 launcher. The remaining Tier 3 and Tier 5 slices, and three Tier 4 slices,
-remain UNTESTED. The current aggregate campaign is now PARTIAL at 27 PASS,
-4 PARTIAL, and 17 UNTESTED slices. The separate
+remain UNTESTED. The current aggregate campaign is now PARTIAL at 29 PASS,
+4 PARTIAL, and 14 UNTESTED slices across 47 actual slices (46 named strategy
+slices plus the separately tracked recurrent-wrapper continuation). The separate
 [Model Builder validation ledger](../QA/model-builder-validation-ledger.md)
 now contains the bounded NW-T3-01, NW-T3-02, recurrent-wrapper, NW-T3-03,
-NW-T3-04, NW-T3-05, NW-T3-06, NW-T3-07, NW-T3-08, NW-T3-09, and NW-T3-10 runs while full
+NW-T3-04, NW-T3-05, NW-T3-06, NW-T3-07, NW-T3-08, NW-T3-09, NW-T3-10,
+NW-T3-11, and NW-T3-12 runs while full
 catalog/profile closure remains pending.
 
 ## Current component ledger
