@@ -1,0 +1,59 @@
+{
+  "case": "nw-t3-08-incompatible-fan-in",
+  "project_id": "cb0ce1ec-4721-4e44-80bf-4c99a4d96962",
+  "definition_id": "merge.add",
+  "authored_shapes": {
+    "left": [
+      4
+    ],
+    "middle": [
+      5
+    ],
+    "right": [
+      4
+    ]
+  },
+  "validation": {
+    "valid": false,
+    "diagnostics": [
+      {
+        "code": "shape_inference_failed",
+        "severity": "error",
+        "message": "Shape inference failed for 'Merge operation': Element-wise operation inputs must have compatible shapes",
+        "node_id": "merge",
+        "edge_id": null,
+        "parameter_id": null,
+        "execution_backend": null,
+        "keras_enabled": null,
+        "details": {
+          "reason": "Element-wise operation inputs must have compatible shapes",
+          "node_id": "merge",
+          "parameter_id": null
+        }
+      }
+    ],
+    "shape_summaries": [],
+    "total_parameters": 0,
+    "effective_outputs": [
+      {
+        "node_id": "merged-output",
+        "port_id": "output",
+        "name": "Merged output",
+        "explicit": false,
+        "task_hint": "generic"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "generic",
+      "confidence": "low",
+      "evidence": [
+        "head=merge.add",
+        "graph does not uniquely identify a task"
+      ]
+    }
+  },
+  "browser_errors": [],
+  "failed_requests": [],
+  "execution_job_submissions": 0
+}

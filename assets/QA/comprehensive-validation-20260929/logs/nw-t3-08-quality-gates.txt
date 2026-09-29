@@ -1,0 +1,19 @@
+NW-T3-08 quality-gate record
+Date: 2026-09-29
+Repository: develop
+Validation revision: b9606f6c6a364c892c6b934be6c6aa6fba002646
+
+Focused backend: app/tests/test_validation.py -k "merge or operation" -> 6 passed.
+Focused native parity: app/tests/test_native_parity.py -k "merge or operation" -> 15 passed, 223 deselected.
+Export regressions: app/tests/test_model_builder_export_regressions.py with isolated basetemp -> 5 passed.
+Frontend unit: npm test -> 20 files, 105 tests passed.
+Frontend lint: npm run lint -> passed.
+Frontend build: npm run build -> passed.
+Changed spec lint: ESLint arithmetic-merge-slice.spec.ts -> passed.
+Canonical Ruff: ruff check . ..\tests from app/server -> All checks passed.
+Strict Pyright: exit 1 -> 58 errors, 0 warnings, 0 informations across seven existing test modules.
+Serial browser: PLAYWRIGHT_WORKERS=1 arithmetic-merge-slice.spec.ts -> 11 passed.
+
+The prior disposable worker matrix remains partial at 19/20, 18/20, and
+17/20. The all-six live profile/export matrix, positive PyTorch Inductor, and
+assistive-technology checks remain outside this bounded run.

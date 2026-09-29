@@ -1,0 +1,242 @@
+{
+  "case": "nw-t3-08-average-keras-pytorch",
+  "project_id": "8d8a5457-0d12-4e04-9d83-9b481c1bafa6",
+  "definition_id": "merge.average",
+  "profile": {
+    "execution_backend": "pytorch",
+    "keras_enabled": true,
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    }
+  },
+  "saved_revision": 2,
+  "graph": {
+    "node_count": 5,
+    "edge_count": 4
+  },
+  "expected": {
+    "static_output_shape": [
+      null,
+      4
+    ],
+    "runtime_output_shape": [
+      1,
+      4
+    ],
+    "parameter_count": 0
+  },
+  "validation": {
+    "valid": true,
+    "diagnostics": [],
+    "shape_summaries": [
+      {
+        "node_id": "left-input",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "middle-input",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "right-input",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "merge-average-c35998a2-ebff-498c-a87b-613672fe2e5c",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "merged-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              4
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      }
+    ],
+    "total_parameters": 0,
+    "effective_outputs": [
+      {
+        "node_id": "merged-output",
+        "port_id": "output",
+        "name": "Merged output",
+        "explicit": false,
+        "task_hint": "generic"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "generic",
+      "confidence": "low",
+      "evidence": [
+        "head=merge.average",
+        "output_width=4",
+        "graph does not uniquely identify a task"
+      ]
+    }
+  },
+  "submitted_job_id": "b1d99e70caf44af197f4ae57352dfbb8",
+  "final_job": {
+    "id": "b1d99e70caf44af197f4ae57352dfbb8",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 4672,
+    "created_at": "2026-09-29T11:55:55.057594Z",
+    "started_at": "2026-09-29T11:55:55.081331Z",
+    "updated_at": "2026-09-29T11:56:12.476177Z",
+    "finished_at": "2026-09-29T11:56:12.476176Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {},
+        "metrics": {},
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 4800.8,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "left-input",
+          "shape": [
+            1,
+            4
+          ]
+        },
+        {
+          "dtype": "float32",
+          "node_id": "middle-input",
+          "shape": [
+            1,
+            4
+          ]
+        },
+        {
+          "dtype": "float32",
+          "node_id": "right-input",
+          "shape": [
+            1,
+            4
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Merged output",
+          "node_id": "merged-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            4
+          ]
+        }
+      ],
+      "parameter_count": 0,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  "browser_errors": [],
+  "failed_requests": [],
+  "cleanup": "project deleted in finally block"
+}
