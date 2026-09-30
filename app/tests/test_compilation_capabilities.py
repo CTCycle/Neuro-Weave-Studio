@@ -22,7 +22,9 @@ from domain.graph import (
 )
 from domain.metadata import ExecutionBackendStatus
 from models.native_runtime import build_native_model
-from models.worker_backend import _verify_native_compilation  # pyright: ignore[reportPrivateUsage]
+from models.worker_backend import (
+    _verify_native_compilation,  # pyright: ignore[reportPrivateUsage]
+)
 from services.compilation_service import CompilationService
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
@@ -189,7 +191,7 @@ def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
                 tensorflow=_tensorflow_native(
-                        compilation={
+                        compilation=cast(dict[str, object], {
                             "optimizer": {
                                 "id": "adamw",
                                 "parameters": {
@@ -200,7 +202,7 @@ def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
                                     "epsilon": 1e-6,
                                 },
                             }
-                        },
+                        }),
                         compiler={
                             "id": "tensorflow_function",
                             "parameters": {"jit_compile": False},
@@ -325,12 +327,12 @@ def test_native_tensorflow_optimizer_catalog_variants_update(
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
                 tensorflow=_tensorflow_native(
-                        compilation={
+                        compilation=cast(dict[str, object], {
                             "optimizer": {
                                 "id": optimizer_id,
                                 "parameters": parameters,
                             }
-                        },
+                        }),
                         compiler={
                             "id": "tensorflow_function",
                             "parameters": {"jit_compile": False},
@@ -370,7 +372,7 @@ def test_native_tensorflow_compilation_builds_raw_loss_and_metric_functions() ->
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
                     tensorflow=_tensorflow_native(
-                        compilation={
+                        compilation=cast(dict[str, object], {
                             "optimizer": {"id": "adam", "parameters": {"learning_rate": 0.002}},
                             "losses": {
                                 "__default__": {
@@ -394,7 +396,7 @@ def test_native_tensorflow_compilation_builds_raw_loss_and_metric_functions() ->
                                     },
                                 ]
                             },
-                        },
+                        }),
                         compiler={
                             "id": "tensorflow_function",
                             "parameters": {"jit_compile": False},
@@ -570,7 +572,7 @@ def test_native_jax_compilation_builds_raw_loss_and_metric_functions() -> None:
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
                 jax=_jax_native(
-                        compilation={
+                        compilation=cast(dict[str, object], {
                             "optimizer": {"id": "adam", "parameters": {"learning_rate": 0.002}},
                             "losses": {
                                 "__default__": {
@@ -591,7 +593,7 @@ def test_native_jax_compilation_builds_raw_loss_and_metric_functions() -> None:
                                     {"id": "prediction_mean", "parameters": {}},
                                 ]
                             },
-                        },
+                        }),
                         compiler={"id": "jax_jit", "parameters": {"enabled": False}},
                     )
                 )
@@ -644,6 +646,7 @@ def test_native_compilation_verifier_runs_raw_optimizer_update(
     assert result is not None and result["verified"] is True
     optimizer = result.get("optimizer")
     assert isinstance(optimizer, dict)
+    optimizer = cast(dict[str, object], optimizer)
     assert optimizer.get("instantiated") is True
     assert optimizer.get("updated") is True
 
@@ -707,7 +710,7 @@ def test_native_crossentropy_parameters_execute_without_keras_fallback(
     )
     assert finite
     losses = cast(dict[str, dict[str, object]], compilation_result["losses"])
-    parameters = losses["output"]["parameters"]
+    parameters = cast(dict[str, object], losses["output"]["parameters"])
     assert parameters["from_logits"] is True
     assert parameters["label_smoothing"] == _approx(0.1)
 

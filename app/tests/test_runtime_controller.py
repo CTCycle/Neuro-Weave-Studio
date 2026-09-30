@@ -303,7 +303,7 @@ def test_unavailable_native_compilers_are_rejected_before_worker_start(
         accelerator="cpu",
         supported_memory_policies=[MemoryPolicyKind.DEFAULT],
     )
-    runtime._backend_statuses[backend] = ExecutionBackendStatus(
+    runtime._backend_statuses[backend] = ExecutionBackendStatus(  # pyright: ignore[reportPrivateUsage]
         id=backend,
         installed=True,
         version="test",
@@ -312,7 +312,7 @@ def test_unavailable_native_compilers_are_rejected_before_worker_start(
         devices=[cpu],
         native_compilers={compiler_id: False},
     )
-    runtime._api_statuses[(backend, RuntimeApi.NATIVE)] = RuntimeApiStatus(
+    runtime._api_statuses[(backend, RuntimeApi.NATIVE)] = RuntimeApiStatus(  # pyright: ignore[reportPrivateUsage]
         id=RuntimeApi.NATIVE,
         available=True,
     )

@@ -1,0 +1,13 @@
+
+Running 6 tests using 1 worker
+
+(node:36704) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 e2e\catalog-risk-slice.spec.ts:240:3 › NW-T3-01 risk-based catalog slice › recurrent sequence/state ports build, persist, and execute from the catalog (19.3s)
+  ok 2 e2e\catalog-risk-slice.spec.ts:276:3 › NW-T3-01 risk-based catalog slice › GRU and LSTM sequence/state variants build, persist, and execute from the catalog (18.5s)
+  ok 3 e2e\catalog-risk-slice.spec.ts:350:3 › NW-T3-01 risk-based catalog slice › tensor-list merge fan-in and axis parameter build, persist, and execute from the catalog (18.1s)
+  ok 4 e2e\catalog-risk-slice.spec.ts:388:3 › NW-T3-01 risk-based catalog slice › bidirectional recurrent merge modes infer focused output shapes (4.7s)
+  ok 5 e2e\catalog-risk-slice.spec.ts:457:3 › NW-T3-01 risk-based catalog slice › bidirectional LSTM wrapper builds, persists, and executes on the selected CPU lane (16.2s)
+  ok 6 e2e\catalog-risk-slice.spec.ts:503:3 › NW-T3-01 risk-based catalog slice › recurrent stack repairs a blocked layer count, persists, and executes (16.9s)
+
+  6 passed (1.6m)

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 import numpy as np
@@ -102,7 +104,14 @@ def create_bundle(output_root: Path, *, trace: dict[str, dict[str, np.ndarray]] 
 
 
 def inspection_service(root: Path) -> TensorInspectionService:
-    return TensorInspectionService(Settings(_env_file=None, tensor_inspection_root=root))
+    return TensorInspectionService(
+        Settings(_env_file=None, tensor_inspection_root=root)  # pyright: ignore[reportCallIssue]
+    )
+
+
+def _approx(expected: object) -> object:
+    approx = cast(Callable[[object], object], pytest.approx)  # pyright: ignore[reportUnknownMemberType]
+    return approx(expected)
 
 
 def test_persists_inspection_ports_statistics_and_bounded_rank_three_views(tmp_path: Path) -> None:
@@ -139,9 +148,11 @@ def test_persists_inspection_ports_statistics_and_bounded_rank_three_views(tmp_p
     assert stats.infinite_count == 1
     assert stats.minimum == -1
     assert stats.maximum == 2
-    assert stats.mean == pytest.approx(0.5)
-    assert len(output.histogram.counts) == 64
-    assert sum(output.histogram.counts) == 4
+    assert stats.mean == _approx(0.5)
+    histogram = output.histogram
+    assert histogram is not None
+    assert len(histogram.counts) == 64
+    assert sum(histogram.counts) == 4
 
     view = service.view(
         session_id,

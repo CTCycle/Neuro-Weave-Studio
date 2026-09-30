@@ -1,0 +1,209 @@
+{
+  "case": "nw-t3-16-squeeze-native-pytorch",
+  "project_id": "460d126e-987d-4bf7-aa20-b058c69dafcd",
+  "definition_id": "math.squeeze",
+  "profile": {
+    "execution_backend": "pytorch",
+    "keras_enabled": false,
+    "worker": {
+      "api": "native",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    }
+  },
+  "saved_revision": 2,
+  "graph": {
+    "node_count": 3,
+    "edge_count": 2
+  },
+  "expected": {
+    "static_output_shape": [
+      null,
+      2,
+      3
+    ],
+    "runtime_output_shape": [
+      1,
+      2,
+      3
+    ],
+    "output_dtype": "float32",
+    "parameter_count": 0
+  },
+  "validation": {
+    "valid": true,
+    "diagnostics": [],
+    "shape_summaries": [
+      {
+        "node_id": "input-1",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              1,
+              2,
+              3
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "math-squeeze-0a9c0d6e-e1ec-4e24-abc5-e952fcfd040f",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              2,
+              3
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "operation-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              2,
+              3
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      }
+    ],
+    "total_parameters": 0,
+    "effective_outputs": [
+      {
+        "node_id": "operation-output",
+        "port_id": "output",
+        "name": "Operation output",
+        "explicit": false,
+        "task_hint": "generic"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "generic",
+      "confidence": "low",
+      "evidence": [
+        "head=math.squeeze",
+        "output_width=3",
+        "graph does not uniquely identify a task"
+      ]
+    }
+  },
+  "submitted_job_id": "a8ae6c2ab4a4445482d01e8d60c743a5",
+  "final_job": {
+    "id": "a8ae6c2ab4a4445482d01e8d60c743a5",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "native",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 8820,
+    "created_at": "2026-09-30T08:08:28.989256Z",
+    "started_at": "2026-09-30T08:08:29.017462Z",
+    "updated_at": "2026-09-30T08:08:35.415607Z",
+    "finished_at": "2026-09-30T08:08:35.415604Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "api_changed",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {},
+        "metrics": {},
+        "optimizer": {
+          "id": "adamw",
+          "instantiated": false
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 242.9,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "input-1",
+          "shape": [
+            1,
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Operation output",
+          "node_id": "operation-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "parameter_count": 0,
+      "status": "succeeded",
+      "training": "not_run"
+    },
+    "artifact": null,
+    "error": null
+  },
+  "browser_errors": [],
+  "failed_requests": [],
+  "cleanup": "project deleted in finally block"
+}

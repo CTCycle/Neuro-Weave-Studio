@@ -1,0 +1,4 @@
+command=../../runtimes/node/node.exe node_modules/eslint/bin/eslint.js . --max-warnings 0 --cache
+exit_code=
+0
+output:

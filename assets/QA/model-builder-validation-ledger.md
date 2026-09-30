@@ -1,8 +1,8 @@
 # Model Builder validation ledger
 
-Last updated: 2026-09-29
+Last updated: 2026-09-30
 
-Preparation status: ACTIVE. The bounded current-checkout runs (`NW-T3-01` through `NW-T3-12`) are recorded below; full closure remains pending.
+Preparation status: Tier 3 campaign closure recorded for the frozen 2026-09-30 catalog revision. NW-T3-01 through NW-T3-19 and the separately tracked recurrent-wrapper continuation are PASS within the exact evidence boundaries stated below. Tier 4, Tier 5, full six-profile/export coverage, worker concurrency, and accessibility remain separate.
 
 ## Purpose
 
@@ -458,39 +458,30 @@ Simple RNN `96`, and LSTM `384`. The final graph persisted at revision 2,
 returned five outputs, completed successfully on CPU, and emitted no browser
 errors. This is a bounded PASS, not full Model Builder certification.
 
-## Current bounded run: recurrent wrapper continuation
+## Current run: recurrent wrapper continuation
 
-Date: 2026-09-28
-Repository: `develop` at implementation commit `38c9ccc`
-Run report: [bounded recurrent wrapper continuation](comprehensive-validation-20260928/NW-T3-recurrent-wrappers.md)
-Run manifest: [recurrent wrapper manifest](comprehensive-validation-20260928/NW-T3-recurrent-wrappers-run-manifest.json)
-Worker matrix: [NW-T5-02 disposable worker matrix](comprehensive-validation-20260928/NW-T5-02-workers.md)
-Catalog: 149 nodes; fingerprint `e0ea2f09ef44a4b3fcb10988495fcdea578f6d504c9bc39915e224d50276f439`
+Date: 2026-09-30
+Repository: `develop`; source baseline `416c158c61349d7a1106e71e64fba4174d3178a5` before scoped campaign changes
+Run report: [recurrent wrapper continuation](comprehensive-validation-20260930/NW-T3-recurrent-wrapper-continuation.md)
+Catalog: 149 nodes; fingerprint `acf538fb04f50552e1577299aa3f0cc09511d4e7d0937f73aa8418125a3a9ef8`
 Profile: `execution_backend=pytorch`, `keras_enabled=true`, Keras API / PyTorch backend, CPU worker
-Evidence root: `assets/QA/comprehensive-validation-20260928/`
+Evidence root: `assets/QA/comprehensive-validation-20260930/`
 
 | Level | Bounded result | Closure boundary |
 | --- | --- | --- |
 | L0 catalog inventory | PASS | The live catalog count and fingerprint match the freeze; node-level coverage remains open. |
 | L1 single-node behavior | PASS for Bidirectional Recurrent Layer, Recurrent Stack, and retained Simple RNN/GRU/LSTM/Concatenate neighbors | The remaining definitions and profile-specific enable/disable behavior remain PENDING. |
-| L2 parameter behavior | PARTIAL | All bidirectional merge shapes, standard LSTM counts, stack layers, and invalid-layer diagnostics pass. The plan's requested LSTM counts `64`/`68` conflict with standard Keras LSTM semantics; observed static/runtime counts are `256`/`272`. |
+| L2 parameter behavior | PASS | All bidirectional merge shapes, standard LSTM counts, stack layers, and invalid-layer diagnostics pass. The acceptance criterion now uses standard LSTM semantics: observed static/runtime counts are `256`/`272`; the obsolete `64`/`68` expectation is removed. |
 | L3 port/edge behavior | PASS for the selected sequence input/wrapper/output graphs | Exhaustive catalog edge generation and incompatible-pair coverage remain PENDING. |
 | L4 graph composition | PASS for the selected bidirectional and two-layer stack graphs | Full graph-family and profile composition remain PENDING. |
 | L5 runtime/profile | PASS for the selected Keras/PyTorch CPU lane | Source/export, profile switching, the other five profiles, and positive PyTorch Inductor remain PENDING/PARTIAL at their existing boundaries. |
 | L6 persistence/recovery | PASS for blocked stack repair, save/reopen at revision 2, validation, runtime, and fixture cleanup | Matrix-wide recovery and failure cleanup remain PENDING. |
 
-The serial authoritative catalog run passed `6/6` cases and captured rendered
-Builder/runtime screenshots plus empty browser-error payloads. The focused
-backend/export/native-parity suite, changed-file Ruff, changed-spec ESLint,
-frontend unit/lint/build gates passed. Full strict Pyright remains PARTIAL at
-58 existing errors. The separate unchanged `workflows.spec.ts` worker matrix
-was not clean: `19/20`, `18/20`, and `17/20` passed at workers 1, 2, and 4;
-no SQLite lock signatures were found, but active-job and parallel Builder
-failures keep `NW-T5-02`/`ISSUE-001` open. The bounded basic-convolution
-`NW-T3-03` slice was subsequently selected and passed; the advanced/spatial
-convolution `NW-T3-04` slice has now also passed, and the bounded recurrent
-`NW-T3-05` slice is recorded below. The bounded `NW-T3-06` attention primitive
-slice is now recorded below.
+The corrected serial authoritative catalog run passed `6/6` cases and captured
+rendered Builder/runtime screenshots plus empty browser-error payloads. No
+implementation change was made to force the old counts. The historical
+2026-09-28 report remains retained for provenance; this 2026-09-30 run is the
+active acceptance evidence.
 
 ## Current bounded run: NW-T3-03 revalidation
 
@@ -812,12 +803,63 @@ locator mismatch; the repaired focused run and final full run passed. No
 product defect was found in the selected catalog, emitter, shape, Builder,
 persistence, or runtime paths.
 
-The campaign inventory is now 47 actual slices: 31 PASS, 4 PARTIAL, 0 FAIL,
-0 BLOCKED, and 12 UNTESTED. Full Mathematical catalog/profile/source/export
-closure, strict Pyright, the worker matrix, positive Inductor, accessibility,
-training, recurrent-wrapper count, and standalone Transformer mask limitations
-remain unchanged. NW-T3-13 and NW-T3-14 are bounded PASS slices, not full Model
-Builder certification.
+At the pre-2026-09-30 checkpoint, the campaign inventory was 47 actual slices:
+31 PASS, 4 PARTIAL, 0 FAIL, 0 BLOCKED, and 12 UNTESTED. The continuation
+below supersedes that checkpoint for the Tier 3 scope; the historical bounded
+run text is retained for provenance.
+
+## Current run: NW-T3-15 through NW-T3-17 mathematical operations
+
+Date: 2026-09-30
+Repository: `develop`; source baseline `416c158c61349d7a1106e71e64fba4174d3178a5` before scoped campaign changes
+Run report: [NW-T3-15 through NW-T3-17](comprehensive-validation-20260930/NW-T3-15-17-mathematical.md)
+Catalog crosswalk: [full 149-definition catalog crosswalk](comprehensive-validation-20260930/evidence/full-tier3-catalog-crosswalk.json); the Mathematical slice crosswalk remains [catalog-crosswalk.json](comprehensive-validation-20260930/evidence/catalog-crosswalk.json)
+Catalog: 149 nodes; 73 Mathematical entries; normalized fingerprint `acf538fb04f50552e1577299aa3f0cc09511d4e7d0937f73aa8418125a3a9ef8`
+Profiles: Keras API / PyTorch backend / CPU and native PyTorch / CPU browser lanes
+Evidence root: `assets/QA/comprehensive-validation-20260930/evidence/nw-t3-15-17-mathematical/`
+
+| Slice | Level | Result | Bounded evidence |
+| --- | --- | --- | --- |
+| NW-T3-15 | L0-L6 | PASS | Six live arithmetic/dot/matrix definitions; 12 exact serial Builder/runtime cases; parameters, shapes, invalid dimensions, persistence, and cleanup. |
+| NW-T3-16 | L0-L6 | PASS | Eight live cast/clip/concatenate/dimension/reshape/repetition/stack/transpose/tile definitions; 16 exact serial cases with axis, rank, dtype, repeat/tile, persistence, and cleanup evidence. |
+| NW-T3-17 | L0-L6 | PASS | Two remaining live Mathematical definitions; four exact serial cases covering `take`, `stop_gradient`, static/runtime shapes, persistence, and safe-expression carry-forward. |
+
+The final aggregate passed 32/32 serial cases. The crosswalk reports no missing
+or duplicate Mathematical definition IDs. Full six-profile/export, worker,
+accessibility, and Tier 4 capability coverage remain separate boundaries.
+
+## Current run: NW-T3-18 and NW-T3-19 output and graph integrity
+
+Date: 2026-09-30
+Repository: `develop`; source baseline `416c158c61349d7a1106e71e64fba4174d3178a5` before scoped campaign changes
+Run report: [NW-T3-18/NW-T3-19 output and graph integrity](comprehensive-validation-20260930/NW-T3-18-19-output-graph-integrity.md)
+Generated edge campaign: [nw-t3-19-generated-edge-campaign.json](comprehensive-validation-20260930/evidence/nw-t3-19-generated-edge-campaign.json)
+
+| Slice | Level | Result | Bounded evidence |
+| --- | --- | --- | --- |
+| NW-T3-18 | L0-L6 | PASS | Inferred terminal outputs, multiple explicit outputs, recurrent state outputs, incompatible task/output validation, persistence, repair, and explicit-output browser transitions. |
+| NW-T3-19 | L0-L6 | PASS | Exhaustive live port inventory; generated contract-class candidates; compatible edges, fan-in/fan-out, rank/dimension/dtype/cardinality negatives, cycles, dangling endpoints, unreachable components, deleted-node revalidation, and profile restrictions. |
+
+The generated inventory covers 149 definitions, 146 input ports, 155 output
+ports, and 22,630 output/input candidates. Dynamic shape, dtype, graph-state,
+and profile negatives are partitioned into focused backend/browser cases rather
+than falsely represented as a literal Cartesian execution.
+
+## Tier 3 reconciliation
+
+Date: 2026-09-30
+
+The full live catalog crosswalk contains all 149 definitions exactly once;
+its reconciliation reports no missing, duplicate, or stale-unclassified IDs.
+The Mathematical category contains all 73 definitions exactly once, with no
+missing, duplicate, or stale-unclassified IDs. The recurrent-wrapper continuation is PASS under
+the corrected standard-LSTM acceptance criterion. NW-T3-15 through NW-T3-19
+are PASS, and the formal Tier 3 set plus the separately tracked wrapper
+continuation is **20 PASS, 0 PARTIAL, 0 UNTESTED** within this campaign's
+documented profile and evidence boundaries.
+
+The campaign intentionally does not promote NW-T4-01/T4-02, PyTorch Inductor,
+export-matrix closure, worker concurrency, or accessibility into Tier 3.
 
 ## Future session run template
 
