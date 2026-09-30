@@ -213,6 +213,27 @@ export class AppResourcesService {
     return Boolean(status?.available && apiStatus?.available && apiStatus.state === 'verified' && this.validatedDiscoveries.has(key))
   }
 
+  async ensureBuilderRuntime(): Promise<void> {
+    await this.loadRuntimeMetadata()
+    if (this.preferredBackendForApi('keras') || this.preferredBackendForApi('native')) return
+
+    const candidates = this.backendStatuses()
+      .filter((status) => status.installed)
+      .sort((left, right) => Number(right.id === 'pytorch') - Number(left.id === 'pytorch'))
+      .flatMap((status) => (['keras', 'native'] as const).map((api) => ({ backend: status.id, api })))
+
+    for (const candidate of candidates) {
+      try {
+        const discovery = await this.discoverRuntime(candidate.backend, candidate.api, false)
+        if (discovery.available) return
+      } catch {
+        // Keep trying the next installed backend/API pair; the Builder can still
+        // open and report that no operational runtime is available.
+      }
+      if (this.preferredBackendForApi('keras') || this.preferredBackendForApi('native')) return
+    }
+  }
+
   private setDiscoveryPending(key: string, pending: boolean): void {
     this.discoveryPending.update((current) => {
       const next = { ...current }

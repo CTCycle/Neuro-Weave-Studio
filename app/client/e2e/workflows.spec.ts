@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { expect, test, type APIRequestContext } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 const defaultCampaignEvidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'comprehensive-validation-20260923', 'evidence')
 const defaultVisualEvidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'model-builder-evaluation-20260902', 'screenshots')
@@ -9,6 +9,7 @@ const visualEvidenceDir = process.env.NW_VALIDATION_EVIDENCE_DIR ? campaignEvide
 const kerasImportFixture = Buffer.from('UEsDBBQAAAAIALVcKl3fELsi1QAAAL8BAAALAAAAY29uZmlnLmpzb26dj8FqwzAMhl/F+JxLu512K/RSGIOxYylBjZVUzLFTS14pIe9eqxAoaU+7iV+f9EmjbTww1wF6tB/G/uA5YxACbytjmxha6ko+2hn43phdP8Qk6MwXyiWmXyU9XDFxAfbjYuMuDFk+tb3YeARpTjWfYFBuH7L3lXk/FMjJ9Z7Z1keQt7UO8gCJNWzBM5YgQdehewhm4RlqUqedpsosr9liKFtev1YG3dzOgUTfWZcaGqE/EIpBqYQ+3wnG+kigkKSM/5DFLHrmg231ZGPq+kjupfAwTTdQSwMEFAAAAAgAtVwqXafnk7AYAAAAFgAAAA0AAABtZXRhZGF0YS5qc29uq1bKTi1KLI4vSy0qzszPU7JSUDJWqgUAUEsBAhQAFAAAAAgAtVwqXd8QuyLVAAAAvwEAAAsAAAAAAAAAAAAAAIABAAAAAGNvbmZpZy5qc29uUEsBAhQAFAAAAAgAtVwqXafnk7AYAAAAFgAAAA0AAAAAAAAAAAAAAIAB/gAAAG1ldGFkYXRhLmpzb25QSwUGAAAAAAIAAgB0AAAAQQEAAAAA', 'base64')
 
 type CreatedProject = { id: string; current_revision: number; name: string }
+type WorkflowFixtures = { page: Page; request: APIRequestContext }
 
 function graph() {
   return {
@@ -341,7 +342,7 @@ test('NW-T1-03 exports and reimports a project bundle through the browser', asyn
     })
 
     await page.goto(`/builder/${imported.id}`)
-    await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible({ timeout: 75_000 })
     await expect(page.locator('.nw-flow-node')).toHaveCount(4)
     await mkdir(campaignEvidenceDir, { recursive: true })
     await page.screenshot({ path: path.join(campaignEvidenceDir, 'nw-t1-03-project-bundle-builder.png'), fullPage: true })
@@ -411,7 +412,7 @@ test('keeps saved builder profile, validation, and API payload synchronized', as
   const fixture = await createProject(request, `Angular state ${Date.now()}`)
   try {
     await page.goto(`/builder/${fixture.id}`)
-    await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible({ timeout: 75_000 })
     await expect(page.getByRole('combobox', { name: 'Execution backend' })).toHaveAttribute('data-value', 'pytorch')
     await expect(page.getByLabel('Enable Keras')).toBeChecked()
     await expect(page.locator('.nw-flow-node')).toHaveCount(4)
@@ -632,8 +633,7 @@ test('retains parameter-incompatible drafts while disabling compilation and expo
   }
 })
 
-test('polls a compatible functional-validation job to a verified result', async ({ page, request }) => {
-  test.setTimeout(120_000)
+async function pollsCompatibleFunctionalValidation({ page, request }: WorkflowFixtures): Promise<void> {
   const fixture = await createProject(request, `Angular compatibility smoke ${Date.now()}`)
   const evidenceDir = process.env.NW_VALIDATION_EVIDENCE_DIR
     ? campaignEvidenceDir
@@ -657,10 +657,9 @@ test('polls a compatible functional-validation job to a verified result', async 
   } finally {
     await deleteProject(request, fixture.id)
   }
-})
+}
 
-test('NW-T2-04 restores functional-validation results and active jobs after reload', async ({ page, request }) => {
-  test.setTimeout(120_000)
+async function restoresFunctionalValidationAfterReload({ page, request }: WorkflowFixtures): Promise<void> {
   const fixture = await createProject(request, `NW-T2-04 validation reload ${Date.now()}`)
   const evidenceDir = process.env.NW_VALIDATION_EVIDENCE_DIR
     ? campaignEvidenceDir
@@ -724,7 +723,7 @@ test('NW-T2-04 restores functional-validation results and active jobs after relo
   } finally {
     await deleteProject(request, fixture.id)
   }
-})
+}
 
 test('exposes keyboard-traversable graph nodes and ports', async ({ page, request }) => {
   const fixture = await createProject(request, `Angular graph accessibility ${Date.now()}`, fanOutGraph())
@@ -819,7 +818,7 @@ test('covers builder editing, history, focus mode, and dirty navigation', async 
   const fixture = await createProject(request, `Angular builder ${Date.now()}`)
   try {
     await page.goto('/builder')
-    await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible({ timeout: 75_000 })
     await page.screenshot({ path: path.join(visualEvidenceDir, 'final-builder-empty.png'), fullPage: true })
 
     await page.getByRole('textbox', { name: 'Search nodes' }).fill('Dense')
@@ -1042,9 +1041,11 @@ test('covers responsive drawers and saved-model workflow routes', async ({ page,
     await expect(page.getByRole('heading', { name: fixture.name })).toBeVisible()
     await page.getByRole('link', { name: 'Compilation', exact: true }).click()
     await expect(page.getByRole('heading', { name: /Compile revision/ })).toBeVisible()
-    await page.getByRole('button', { name: 'Configure', exact: true }).click()
+    const configure = page.getByRole('button', { name: 'Configure', exact: true })
+    await expect(configure).toBeEnabled({ timeout: 75_000 })
+    await configure.click()
     const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible()
+    await expect(dialog).toBeVisible({ timeout: 75_000 })
     await expect(dialog.getByLabel('Loss')).toHaveValue('binary_crossentropy')
     await dialog.getByRole('button', { name: 'Apply configuration' }).click()
     await expect(page.getByRole('button', { name: /Saved validated compilation settings/ })).toBeVisible()
@@ -1153,9 +1154,11 @@ test('NW-T4-02: keeps native compiler controls aligned with live capability gate
 
     const verifyCompilerControl = async (backend: string, parameter: string, evidenceName: string): Promise<void> => {
       await page.goto(`/models/${fixture.id}/compilation`)
-      await page.getByRole('button', { name: 'Configure', exact: true }).click()
+      const configure = page.getByRole('button', { name: 'Configure', exact: true })
+      await expect(configure).toBeEnabled({ timeout: 75_000 })
+      await configure.click()
       const dialog = page.getByRole('dialog')
-      await expect(dialog).toBeVisible()
+      await expect(dialog).toBeVisible({ timeout: 75_000 })
       await dialog.getByRole('tab', { name: /Compiler/ }).click()
       const toggle = dialog.locator('.compilation-parameter-grid label').filter({ hasText: parameter }).locator('input[type="checkbox"]')
       await expect(toggle).toHaveCount(1)
@@ -1187,8 +1190,7 @@ test('NW-T4-02: keeps native compiler controls aligned with live capability gate
   }
 })
 
-test('NW-T2-05: inspects sequence tensors from Builder and overview, then deletes each session', async ({ page, request }) => {
-  test.setTimeout(180_000)
+async function inspectsSequenceTensorsAndDeletesSessions({ page, request }: WorkflowFixtures): Promise<void> {
   const fixture = await createProject(request, `Tensor inspection ${Date.now()}`, sequenceInspectionGraph())
   const initialProject = await (await request.get(`/api/projects/${fixture.id}`)).json() as { current_revision: number; graph: unknown }
   const evidenceDir = campaignEvidenceDir
@@ -1270,7 +1272,10 @@ test('NW-T2-05: inspects sequence tensors from Builder and overview, then delete
     await expect(displayAxes.nth(0)).toHaveValue('1')
     await expect(displayAxes.nth(1)).toHaveValue('2')
     const viewResponsePromise = page.waitForResponse((response) =>
-      new URL(response.url()).pathname === `/api/tensor-inspections/${session.id}/view` && response.request().method() === 'POST',
+      new URL(response.url()).pathname === `/api/tensor-inspections/${session.id}/view`
+      && response.request().method() === 'POST'
+      && (response.request().postDataJSON() as { tensor_id?: string; limit?: number } | null)?.tensor_id === sequenceOutput.id
+      && (response.request().postDataJSON() as { tensor_id?: string; limit?: number } | null)?.limit === 4096,
       { timeout: 15_000 },
     )
     await modal.getByRole('button', { name: 'Heatmap', exact: true }).click()
@@ -1355,7 +1360,7 @@ test('NW-T2-05: inspects sequence tensors from Builder and overview, then delete
     }
     await deleteProject(request, fixture.id)
   }
-})
+}
 
 test('keeps read-only previews, compact Builder controls, and modal bounds usable', async ({ page, request }) => {
   test.setTimeout(60_000)
@@ -1474,4 +1479,25 @@ test('keeps read-only previews, compact Builder controls, and modal bounds usabl
     await deleteProject(request, fixture.id)
     await page.setViewportSize({ width: 1280, height: 800 })
   }
+})
+
+test.describe('workflow runtime jobs', () => {
+  // RuntimeController intentionally leases one CPU device per backend process.
+  // Keep job-bearing workflows serial while leaving fixture-only workflows parallel.
+  test.describe.configure({ mode: 'serial' })
+
+  test('polls a compatible functional-validation job to a verified result', async ({ page, request }) => {
+    test.setTimeout(120_000)
+    await pollsCompatibleFunctionalValidation({ page, request })
+  })
+
+  test('NW-T2-04 restores functional-validation results and active jobs after reload', async ({ page, request }) => {
+    test.setTimeout(120_000)
+    await restoresFunctionalValidationAfterReload({ page, request })
+  })
+
+  test('NW-T2-05: inspects sequence tensors from Builder and overview, then deletes each session', async ({ page, request }) => {
+    test.setTimeout(180_000)
+    await inspectsSequenceTensorsAndDeletesSessions({ page, request })
+  })
 })

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -121,6 +122,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     application.state.settings = settings
+    # SQLite readers can run concurrently, but shared-process mutations must
+    # not attempt to upgrade separate deferred transactions at the same time.
+    application.state.sqlite_write_lock = asyncio.Lock()
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
@@ -137,7 +141,11 @@ def create_app() -> FastAPI:
             return await call_next(request)
         started = time.perf_counter()
         try:
-            response = await call_next(request)
+            if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+                async with application.state.sqlite_write_lock:
+                    response = await call_next(request)
+            else:
+                response = await call_next(request)
         except Exception:
             LOGGER.exception(
                 "api_request method=%s path=%s status=exception duration_ms=%s",

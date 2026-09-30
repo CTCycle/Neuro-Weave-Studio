@@ -156,6 +156,13 @@ explicit fail-closed evidence.
 | `NW-T5-04` | Median cold-start, catalog, Builder, validation, discovery, Functional Validation, export, and dataset inspection timings. |
 | `NW-T5-05` | Final regression, live catalog reconciliation, evidence-link repair, documentation reconciliation, and temporary-artifact audit. |
 
+NW-T5-02 keeps the RuntimeController's process-scoped CPU lease explicit: the
+job-bearing workflow group runs serially so it does not compete for the one
+`cpu` device, while fixture-only workflows remain eligible for Playwright
+parallelism. The 1/2/4-worker matrix therefore still exercises concurrent
+shared SQLite fixture access without weakening device-lease assertions or
+silently substituting another backend.
+
 ## Failure and remediation policy
 
 Reproduce a failure twice interactively or consistently in automation before
