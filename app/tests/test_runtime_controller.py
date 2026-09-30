@@ -285,6 +285,11 @@ def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapsh
             "pytorch_compile",
             {"pytorch": {"compiler": {"id": "pytorch_compile", "parameters": {"enabled": True}}}},
         ),
+        (
+            ExecutionBackend.JAX,
+            "jax_jit",
+            {"jax": {"compiler": {"id": "jax_jit", "parameters": {"enabled": True}}}},
+        ),
     ],
 )
 def test_unavailable_native_compilers_are_rejected_before_worker_start(
