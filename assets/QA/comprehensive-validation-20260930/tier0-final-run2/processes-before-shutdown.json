@@ -1,0 +1,72 @@
+{
+  "captured_at": "2026-09-30T10:35:14.9486653Z",
+  "source_revision": "194c5134f2c9ebbe30d39f92c9e79a7673ff2eb1",
+  "ports": [
+    {
+      "LocalPort": 9750,
+      "OwningProcess": 25768
+    },
+    {
+      "LocalPort": 6425,
+      "OwningProcess": 23188
+    }
+  ],
+  "processes": [
+    {
+      "process_id": 25768,
+      "parent_process_id": 12840,
+      "name": "python.exe",
+      "executable_path": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\python\\cpython-3.13.14-windows-x86_64-none\\python.exe",
+      "command_line": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750",
+      "repo_reference": true
+    },
+    {
+      "process_id": 23188,
+      "parent_process_id": 8968,
+      "name": "node.exe",
+      "executable_path": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\node.exe",
+      "command_line": "node  tools/preview-server.mjs --host 127.0.0.1 --port 6425 --strictPort",
+      "repo_reference": true
+    },
+    {
+      "process_id": 12840,
+      "parent_process_id": 26560,
+      "name": "python.exe",
+      "executable_path": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe",
+      "command_line": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750",
+      "repo_reference": true
+    },
+    {
+      "process_id": 8968,
+      "parent_process_id": 9132,
+      "name": "cmd.exe",
+      "executable_path": "C:\\WINDOWS\\system32\\cmd.exe",
+      "command_line": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c node tools/preview-server.mjs --host 127.0.0.1 --port 6425 --strictPort",
+      "repo_reference": false
+    },
+    {
+      "process_id": 26560,
+      "parent_process_id": 27472,
+      "name": "cmd.exe",
+      "executable_path": "C:\\Windows\\system32\\cmd.exe",
+      "command_line": "\"C:\\Windows\\system32\\cmd.exe\" /d /c \"\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\" -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750\"",
+      "repo_reference": true
+    },
+    {
+      "process_id": 9132,
+      "parent_process_id": 2068,
+      "name": "node.exe",
+      "executable_path": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\node.exe",
+      "command_line": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\\\node.exe\"  \"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\node_modules\\npm\\bin\\npm-cli.js\" run preview -- --host 127.0.0.1 --port 6425 --strictPort",
+      "repo_reference": true
+    },
+    {
+      "process_id": 2068,
+      "parent_process_id": 27472,
+      "name": "cmd.exe",
+      "executable_path": "C:\\Windows\\system32\\cmd.exe",
+      "command_line": "\"C:\\Windows\\system32\\cmd.exe\" /d /c \"\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\npm.cmd\" run preview -- --host 127.0.0.1 --port 6425 --strictPort\"",
+      "repo_reference": true
+    }
+  ]
+}

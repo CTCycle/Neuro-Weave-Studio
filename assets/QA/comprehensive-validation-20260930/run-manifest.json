@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "run_id": "NW-CV-20260930-T0-FINAL-RUN2",
+  "captured_at": "2026-09-30T10:41:56.0892571Z",
+  "branch": "develop",
+  "source_revision": "194c5134f2c9ebbe30d39f92c9e79a7673ff2eb1",
+  "working_tree_status": "clean (tracked files)",
+  "catalog": {
+    "endpoint": "/api/nodes/catalog",
+    "snapshot": "tier0-final-run2/catalog-live.json",
+    "freeze": "tier0-final-run2/catalog-freeze.json",
+    "count": 149,
+    "normalized_fingerprint_sha256": "acf538fb04f50552e1577299aa3f0cc09511d4e7d0937f73aa8418125a3a9ef8",
+    "ids_match": true
+  },
+  "runtime": {
+    "root": "assets/QA/comprehensive-validation-20260930/nw-final-tier0-runtime-run2-final",
+    "health": "tier0-final-run2/health.json",
+    "metadata": "tier0-final-run2/metadata.json",
+    "database": "tier0-final-run2/database-identity.json",
+    "launcher_log": "logs-official-launcher-final-tier0-run2-final.txt",
+    "backend_port": 9750,
+    "frontend_port": 6425
+  },
+  "tier3": {
+    "status": "20 PASS, 0 PARTIAL, 0 UNTESTED",
+    "wrapper": "PASS; standard LSTM 256/272",
+    "crosswalk": "evidence/full-tier3-catalog-crosswalk.json"
+  },
+  "tier0": {
+    "NW-T0-01": {
+      "status": "PASS",
+      "evidence": [
+        "baseline/campaign-baseline-manifest.json",
+        "tier0-final-run2/catalog-freeze.json",
+        "tier0-final-run2/database-identity.json"
+      ]
+    },
+    "NW-T0-02": {
+      "status": "PASS",
+      "evidence": [
+        "logs-official-launcher-final-tier0-run2-final.txt",
+        "tier0-final-run2/health.json",
+        "tier0-final-run2/metadata.json",
+        "tier0-final-run2/processes-before-shutdown.json",
+        "tier0-final-run2/processes-after-shutdown.json",
+        "tier0-final-run2/process-cleanup.log"
+      ]
+    },
+    "NW-T0-03": {
+      "status": "PASS",
+      "evidence": [
+        "tier0-final-run2/quality/pyright.log",
+        "tier0-final-run2/quality/ruff.log",
+        "tier0-final-run2/quality/backend.log",
+        "tier0-final-run2/quality/frontend-unit.log",
+        "tier0-final-run2/quality/frontend-lint.log",
+        "tier0-final-run2/quality/frontend-build.log"
+      ]
+    },
+    "NW-T0-04": {
+      "status": "PASS",
+      "evidence": [
+        "logs-nw-t0-04-deep-links-final-run2.txt"
+      ],
+      "browser_visual_check": "In-app Browser rendered /builder after navigation and refresh with the 149-node catalog."
+    }
+  },
+  "cleanup": {
+    "status": "PASS",
+    "ports": "6425 and 9750 free",
+    "owned_runtime_processes": "none after shutdown",
+    "projects": "disposable runtime root isolated",
+    "evidence": "tier0-final-run2/process-cleanup.log"
+  }
+}
