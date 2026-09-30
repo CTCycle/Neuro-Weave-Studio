@@ -1,0 +1,87 @@
+**********************
+Avvio della trascrizione di PowerShell
+Ora di inizio: 20260930120014
+Nome utente: BLUEGENE\TV
+Utente RunAs: BLUEGENE\TV
+Nome configurazione:
+Computer: BLUEGENE (Microsoft Windows NT 10.0.26200.0)
+Applicazione host: C:\Program Files\PowerShell\7\pwsh.dll -Command try { [Console]::OutputEncoding=[System.Text.Encoding]::UTF8 } catch {}
+$log='G:\Projects\Repositories\Active projects\Neuro Weave Studio\assets\QA\comprehensive-validation-20260930\logs-official-launcher-final-tier0-run2.txt'; New-Item -ItemType File -Force -Path $log | Out-Null; Start-Transcript -Path $log -Force | Out-Null; $start=Get-Date; & .\start_on_windows.ps1 -Action Launch -Backends 'tensorflow,pytorch,jax' -Acceleration Auto -ExportTools -NoBrowser -ResourcesDir 'assets/QA/comprehensive-validation-20260930/nw-final-tier0-runtime-run2'; $code=$LASTEXITCODE; ('launcher_exit_code=' + $code); ('launcher_started_at=' + $start.ToUniversalTime().ToString('o')); Stop-Transcript | Out-Null; exit $code
+ID processo: 23416
+PSVersion: 7.6.6
+PSEdition: Core
+GitCommitId: 7.6.6
+OS: Microsoft Windows 10.0.26200
+Platform: Win32NT
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1, 6.0, 7.0
+PSRemotingProtocolVersion: 2.4
+SerializationVersion: 1.1.0.1
+WSManStackVersion: 3.0
+**********************
+[STEP] Starting action Launch
+[OK] Portable runtimes ready.
+[INFO] startup_stage=launcher.runtimes duration_ms=112,2
+[INFO] startup_stage=launcher.environment duration_ms=66,4
+[WARN] Required application port(s) are occupied: port 6425 -> PID 10496 (node); port 9750 -> PID 22912 (python)
+[INFO] Termination requested for PID 10496 (node).
+[INFO] Termination requested for PID 22912 (python).
+[INFO] startup_stage=launcher.port_checks duration_ms=16969,3
+[OK] Application environments are ready; skipped dependency installation.
+[INFO] startup_stage=launcher.dependencies duration_ms=188,7
+[STEP] Synchronizing the requested execution environment: tensorflow, pytorch, jax.
+[STEP] Synchronizing backend dependencies.
+Resolved 137 packages in 1ms
+Checked 114 packages in 6ms
+[OK] Dependencies are ready.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1790762434.353488    5620 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1790762436.196164    5620 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+WARNING:tensorflow:TensorFlow GPU support is not available on native Windows for TensorFlow >= 2.11. Even if CUDA/cuDNN are installed, GPU will not be used. Please use WSL2 or the TensorFlow-DirectML plugin.
+I0000 00:00:1790762436.562250    5620 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING:tensorflow:From G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+W0930 12:00:42.850000 27404 .venv\Lib\site-packages\torch\utils\flop_counter.py:29] triton not found; flop counting will not work for triton kernels
+[INFO] NVIDIA GPU detected: NVIDIA GeForce RTX 3060 Laptop GPU (CUDA driver 13.3).
+[INFO] Native Windows limitation: TensorFlow and JAX are CPU-only; JAX CPU support is experimental.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1790762448.023362   18424 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1790762449.788509   18424 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+WARNING:tensorflow:TensorFlow GPU support is not available on native Windows for TensorFlow >= 2.11. Even if CUDA/cuDNN are installed, GPU will not be used. Please use WSL2 or the TensorFlow-DirectML plugin.
+I0000 00:00:1790762450.153598   18424 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING:tensorflow:From G:\Projects\Repositories\Active projects\Neuro Weave Studio\app\server\.venv\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+W0930 12:00:56.633000 7704 .venv\Lib\site-packages\torch\utils\flop_counter.py:29] triton not found; flop counting will not work for triton kernels
+[OK] tensorflow v2.21.0: usable on cpu / CPU.
+[OK] pytorch v2.13.0+cu126: usable on cuda / NVIDIA GeForce RTX 3060 Laptop GPU.
+[OK] jax v0.11.0: usable on cpu / cpu:0.
+[INFO] startup_stage=launcher.backend_setup duration_ms=28859,9
+[OK] Frontend build output is current; reused the existing build.
+[INFO] startup_stage=launcher.frontend_artifact duration_ms=89,2
+[RUN] Launching backend at http://127.0.0.1:9750/health
+[RUN] Launching frontend preview at http://127.0.0.1:6425/
+[WAIT] Waiting for frontend readiness at http://127.0.0.1:6425/
+[INFO] startup_stage=launcher.frontend_readiness duration_ms=598,6
+[OK] Frontend is ready.
+[WAIT] Waiting for backend readiness at http://127.0.0.1:9750/health
+[INFO] startup_stage=launcher.backend_readiness duration_ms=1730,1
+[OK] Backend is healthy.
+[INFO] Browser launch skipped. Open http://127.0.0.1:6425/ manually.
+[SUCCESS] NeuroWeave Studio is running.
+  Backend:  http://127.0.0.1:9750/health (PID 18020)
+  Frontend: http://127.0.0.1:6425/ (PID 5088)
+  Logs:     G:\Projects\Repositories\Active projects\Neuro Weave Studio\assets\QA\comprehensive-validation-20260930\nw-final-tier0-runtime-run2\runtime\logs
+The launcher will now close; the application services remain running independently.
+[INFO] startup_stage=launcher.total duration_ms=48049
+[INFO] Launcher handoff complete; detached 2 application process root(s).
+[OK] action Launch completed
+[INFO] startup_stage=launcher.action_Launch duration_ms=48059,4
+launcher_exit_code=0
+launcher_started_at=2026-09-30T10:00:14.0389906Z
+**********************
+Fine della trascrizione di PowerShell
+Ora di fine: 20260930120102
+**********************

@@ -1,0 +1,33 @@
+{
+  "captured_at": "2026-09-30T10:03:06.8333998Z",
+  "ports": [
+    {
+      "LocalAddress": "127.0.0.1",
+      "LocalPort": 9750,
+      "OwningProcess": 8984,
+      "State": 2
+    },
+    {
+      "LocalAddress": "127.0.0.1",
+      "LocalPort": 6425,
+      "OwningProcess": 20276,
+      "State": 2
+    }
+  ],
+  "processes": [
+    {
+      "pid": 8984,
+      "name": "python.exe",
+      "executable_path": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\python\\cpython-3.13.14-windows-x86_64-none\\python.exe",
+      "command_line": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750",
+      "creation_date": "2026-09-30T12:01:00.678889+02:00"
+    },
+    {
+      "pid": 20276,
+      "name": "node.exe",
+      "executable_path": "G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\node.exe",
+      "command_line": "node  tools/preview-server.mjs --host 127.0.0.1 --port 6425 --strictPort",
+      "creation_date": "2026-09-30T12:01:00.941601+02:00"
+    }
+  ]
+}

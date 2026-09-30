@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-30
 
-Run ID: `NW-CV-20260930-T3-15-19-AND-WRAPPER-CLOSURE`
+Run ID: `NW-CV-20260930-T0-FINAL-CERTIFICATION`
 
 Repository: `develop`; NW-T2-09 was validated against implementation revision `bb5f9e4f8dd2ed495676e88f8577ae13811369e3` and its authoritative browser spec is included in the resulting change. NW-T2-08 was validated at `6d05722d3e402fc8e77e78ff2737603bd992ce84`. NW-T2-06 and NW-T2-07 were validated at `0ab274d51ad511cbda3a55c5a4599aade28d5404` after the clean `5d14d3a9c8d7effaac4801dd272346552889c3aa` baseline. Earlier slices retain their recorded revisions: NW-T2-03/04 and prior positive JAX evidence at `6c1687457822380f471c7ce8129b93632af96972`; NW-T2-05 and the initial NW-T4-02 refresh at `75bfc73f34636ba735985e2f7e21d8fc3e27fbf5`; TensorFlow/XLA follow-up based on `937f980e3f1759863a44fc6b936e46107e62fa97`. See the [NW-T2-09 report](../comprehensive-validation-20260926/NW-T2-09.md), the [NW-T2-08 report](../comprehensive-validation-20260926/NW-T2-08.md), the [2026-09-25 dataset workspace report](../comprehensive-validation-20260925/NW-T2-06-07.md), and the [custom-node result payload](../comprehensive-validation-20260926/evidence/nw-t2-09/custom-node-template-results.json).
 
@@ -83,19 +83,19 @@ quality gates. The report, manifest, live crosswalk, rendered Builder evidence,
 receipts, logs, and cleanup record are under
 `../comprehensive-validation-20260929/`.
 
-Campaign status: **TIER 3 CLOSED; TIER 0 FINAL CERTIFICATION PENDING**. NW-T3-01 through NW-T3-19 and the separately tracked recurrent-wrapper continuation are PASS within their recorded evidence boundaries. NW-T0-03 remains provisional until the complete repository quality-gate rerun is complete. NW-T4-02 remains PARTIAL because positive PyTorch Inductor compilation is unavailable in the current launcher environment. NW-T5-02 remains PARTIAL because its 1/2/4-worker workflow matrix was not clean. Accessibility, worker concurrency, export-matrix closure, and Tier 4 remain intentionally outside this campaign. Tier 0 will be rerun in full on the final Tier 3 revision before this ledger is closed.
+Campaign status: **TIER 0 AND TIER 3 CLOSED**. NW-T3-01 through NW-T3-19 and the separately tracked recurrent-wrapper continuation are PASS within their recorded evidence boundaries. All four Tier 0 slices also pass on final certification revision `ea66436df5c1eba07632459977309af5d2dd331d`. NW-T4-02 remains PARTIAL because positive PyTorch Inductor compilation is unavailable in the current launcher environment. NW-T5-02 remains PARTIAL because its 1/2/4-worker workflow matrix was not clean. Accessibility, worker concurrency, export-matrix closure, training, and the remaining Tier 4/5 work remain intentionally outside this campaign.
 
 ## Aggregate status
 
 | Tier | Scope | PASS | PARTIAL | FAIL | BLOCKED | UNTESTED |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Tier 0 | Environment and startup | 3 | 1 | 0 | 0 | 0 |
+| Tier 0 | Environment and startup | 4 | 0 | 0 | 0 | 0 |
 | Tier 1 | Application foundations | 5 | 0 | 0 | 0 | 0 |
 | Tier 2 | Core workflows | 9 | 0 | 0 | 0 | 0 |
 | Tier 3 | Model Builder catalog | 20 | 0 | 0 | 0 | 0 |
 | Tier 4 | Runtime and integrations | 0 | 1 | 0 | 0 | 3 |
 | Tier 5 | Resilience, usability, closure | 0 | 1 | 0 | 0 | 4 |
-| Total | 47 slices | 31 | 4 | 0 | 0 | 12 |
+| Total | 47 slices | 38 | 2 | 0 | 0 | 7 |
 
 UNTESTED means that the slice remains in campaign scope but was not run in
 this revision-specific pass. It does not mean the feature is absent or broken.
@@ -104,10 +104,10 @@ this revision-specific pass. It does not mean the feature is absent or broken.
 
 | Slice ID | Capability | Status | Revision | Evidence | Remaining gap |
 | --- | --- | --- | --- | --- | --- |
-| NW-T0-01 | Freeze validation baseline and live catalog | PASS | `752ab151978b56dd2c20568f63434e346dcf6ea8` | 2026-09-21 ledger | Repeat when branch, dependencies, catalog, or runtime identity changes. |
-| NW-T0-02 | Official launcher startup and owned-process shutdown | PASS | `38c9ccc` | [recurrent-wrapper launcher](../comprehensive-validation-20260928/logs/official-launcher-nw-t3-recurrent-wrappers.txt), [worker launchers](../comprehensive-validation-20260928/logs/official-launcher-nw-t5-02-workers-1.txt), [cleanup](../comprehensive-validation-20260928/logs/process-cleanup-nw-t3-t5.md) | The selected official launches reached frontend/backend readiness and released ports 9853/6429 after shutdown. The occupied-port/rebuild matrix remains separate. |
-| NW-T0-03 | Repository quality-gate baseline | IN PROGRESS | 2026-09-30 campaign baseline; final revision to be recorded after the complete rerun | [strict Pyright configured-root log](../comprehensive-validation-20260930/baseline/quality/pyright-strict-configured-root.log), [focused repaired test suite](../comprehensive-validation-20260930/baseline/quality/focused-pyright-test-suite.log) | The original 58 errors across seven test modules are remediated without changing Pyright configuration; full backend, Ruff, frontend test/lint/build, and final revision certification are still running. |
-| NW-T0-04 | Direct deep links and refresh | PASS | `752ab151978b56dd2c20568f63434e346dcf6ea8` | 2026-09-21 ledger | Preserve route coverage when the shell contract changes. |
+| NW-T0-01 | Freeze validation baseline and live catalog | PASS | `ea66436df5c1eba07632459977309af5d2dd331d` | [final run manifest](../comprehensive-validation-20260930/tier0-final-run1/run-manifest.json), [catalog freeze](../comprehensive-validation-20260930/tier0-final-run1/catalog-freeze.json), [database identity](../comprehensive-validation-20260930/tier0-final-run1/database-identity.json) | Repeat when branch, dependencies, catalog, or runtime identity changes. |
+| NW-T0-02 | Official launcher startup and owned-process shutdown | PASS | `ea66436df5c1eba07632459977309af5d2dd331d` | [official launcher](../comprehensive-validation-20260930/logs-official-launcher-final-tier0-run2.txt), [health](../comprehensive-validation-20260930/tier0-final-run1/health.json), [metadata](../comprehensive-validation-20260930/tier0-final-run1/metadata.json), [process cleanup](../comprehensive-validation-20260930/tier0-final-run1/process-cleanup.log) | The official launcher reached frontend/backend readiness and released ports 6425/9750 after the owned process trees were stopped. The occupied-port/rebuild matrix remains separate. |
+| NW-T0-03 | Repository quality-gate baseline | PASS | `ea66436df5c1eba07632459977309af5d2dd331d` | [final run manifest](../comprehensive-validation-20260930/tier0-final-run1/run-manifest.json), [strict Pyright](../comprehensive-validation-20260930/tier0-final-run1/quality/pyright.log), [Ruff](../comprehensive-validation-20260930/tier0-final-run1/quality/ruff.log), [backend](../comprehensive-validation-20260930/tier0-final-run1/quality/backend.log), [frontend unit/lint/build](../comprehensive-validation-20260930/tier0-final-run1/quality/) | Strict Pyright is zero-error; the 58 findings across seven test modules were fixed without weakening configuration or excluding tests. Worker concurrency and compiler capability limitations remain outside this gate. |
+| NW-T0-04 | Direct deep links and refresh | PASS | `ea66436df5c1eba07632459977309af5d2dd331d` | [deep-link/refresh Playwright log](../comprehensive-validation-20260930/logs-nw-t0-04-deep-links-final-run1.txt), [browser diagnostics and receipts](../comprehensive-validation-20260930/evidence/nw-t0-04-final-run1/) | Preserve route coverage when the shell contract changes. |
 | NW-T1-01 | Shell navigation and route boundaries | PASS | `50d54116c4a007d1342ff99dc7e11e9e6e2f41d8` | [NW-T1-01 report](../comprehensive-validation-20260922/NW-T1-01.md), browser diagnostics | Preserve route coverage when shell or route contracts change. |
 | NW-T1-02 | Database migrations and persistence | PASS | `a30eefc93658138400e4061f4af07eed4c021985` | [NW-T1-02 report](../comprehensive-validation-20260922/NW-T1-02.md), 10 focused tests | Repeat migration and persistence checks after schema or repository changes. |
 | NW-T1-03 | Project lifecycle, revisions, JSON bundles, stale writes, restart, and Keras import | PASS | `d42bda2330581461fff2e52663780d0ea3fa5e53` | [NW-T1-03 report](NW-T1-03.md), [run manifest](NW-T1-03-run-manifest.json), [backend log](logs/nw-t1-03-backend-pytest.log), [serial browser log](logs/nw-t1-03-playwright-cold.log), [Builder screenshot](evidence/nw-t1-03-project-bundle-builder.png) | Repeat after project-schema, bundle, runtime-discovery, or import changes. |
@@ -198,7 +198,7 @@ this closure. The final Tier 0 rerun must use the exact final Tier 3 revision.
 - Detailed bounded NW-T3-11/NW-T3-12 unary mathematical report and manifest: [report](../comprehensive-validation-20260929/NW-T3-11-12.md), [manifest](../comprehensive-validation-20260929/NW-T3-11-12-run-manifest.json), `../comprehensive-validation-20260929/evidence/nw-t3-11-12-unary-mathematics/`, and `../comprehensive-validation-20260929/logs/`
 - Detailed bounded NW-T3-13/NW-T3-14 comparison/logical/reduction report and manifest: [report](../comprehensive-validation-20260929/NW-T3-13-14.md), [manifest](../comprehensive-validation-20260929/NW-T3-13-14-run-manifest.json), `../comprehensive-validation-20260929/evidence/nw-t3-13-14-comparison-reduction/`, and `../comprehensive-validation-20260929/logs/`
 - Detailed recurrent-wrapper continuation report and evidence: [report](../comprehensive-validation-20260930/NW-T3-recurrent-wrapper-continuation.md), wrapper screenshots/payloads/browser diagnostics in `../comprehensive-validation-20260930/evidence/nw-t3-recurrent-wrapper/`, and the serial log in `../comprehensive-validation-20260930/logs-nw-t3-recurrent-wrapper-playwright.txt`
-- Detailed NW-T3-15/NW-T3-16/NW-T3-17 mathematical report and crosswalk: [report](../comprehensive-validation-20260930/NW-T3-15-17-mathematical.md), [crosswalk](../comprehensive-validation-20260930/evidence/catalog-crosswalk.json), [aggregate log](../comprehensive-validation-20260930/logs-nw-t3-15-17-mathematical-final-aggregate.txt), and rendered receipts in `../comprehensive-validation-20260930/evidence/nw-t3-15-17-mathematical/`
+- Detailed NW-T3-15/NW-T3-16/NW-T3-17 mathematical report and crosswalk: [report](../comprehensive-validation-20260930/NW-T3-15-17-mathematical.md), [full 149-definition crosswalk](../comprehensive-validation-20260930/evidence/full-tier3-catalog-crosswalk.json), [Mathematical crosswalk](../comprehensive-validation-20260930/evidence/catalog-crosswalk.json), [aggregate log](../comprehensive-validation-20260930/logs-nw-t3-15-17-mathematical-final-aggregate.txt), and rendered receipts in `../comprehensive-validation-20260930/evidence/nw-t3-15-17-mathematical/`
 - Detailed NW-T3-18/NW-T3-19 output and graph-integrity report: [report](../comprehensive-validation-20260930/NW-T3-18-19-output-graph-integrity.md), [generated edge campaign](../comprehensive-validation-20260930/evidence/nw-t3-19-generated-edge-campaign.json), focused backend/browser logs, and receipts in `../comprehensive-validation-20260930/`
 - Detailed NW-T5-02 worker matrix report and manifest: [report](../comprehensive-validation-20260928/NW-T5-02-workers.md), [manifest](../comprehensive-validation-20260928/NW-T5-02-run-manifest.json), worker transcripts/results in `../comprehensive-validation-20260928/logs/`, and failure screenshots/observations in `../comprehensive-validation-20260928/evidence/`
 
@@ -225,11 +225,11 @@ fixture. The 2026-09-30 strict Pyright configured-root rerun is clean after
 narrow test/helper/API typing repairs; the complete repository quality-gate
 result is recorded by NW-T0-03 below.
 
-## Next action
+## Closure
 
-Tier 3 reconciliation is complete. The only remaining campaign action is the
-full final Tier 0 certification on the exact final Tier 3 revision: rerun
-NW-T0-01 through NW-T0-04, then record the final revision, manifest, quality
-logs, launcher cleanup, and deep-link/refresh evidence. Positive PyTorch
-Inductor, the not-clean `NW-T5-02` worker matrix, the all-six-profile
-runtime/export matrix, and assistive-technology checks remain open separately.
+Tier 0 and Tier 3 reconciliation are complete at `ea66436df5c1eba07632459977309af5d2dd331d`.
+The final manifest, quality logs, official-launcher readiness/cleanup, and
+deep-link/refresh evidence are under `../comprehensive-validation-20260930/`.
+Positive PyTorch Inductor, the not-clean `NW-T5-02` worker matrix, the
+all-six-profile runtime/export matrix, training, and assistive-technology
+checks remain open separately.
