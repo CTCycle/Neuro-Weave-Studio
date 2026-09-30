@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+import sys
+from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,6 +37,25 @@ def pytest_configure(config: pytest.Config) -> None:
             raise pytest.UsageError(
                 f"pytest basetemp must be beneath the canonical cache root {cache_root}"
             ) from error
+
+###############################################################################
+def _reset_jax_x64() -> None:
+    jax_module = sys.modules.get("jax")
+    if jax_module is None:
+        return
+    jax_config = getattr(jax_module, "config", None)
+    updater = getattr(jax_config, "update", None)
+    if callable(updater):
+        cast(Callable[[str, bool], object], updater)("jax_enable_x64", False)
+
+###############################################################################
+@pytest.fixture(autouse=True)
+def reset_jax_precision_state() -> Iterator[None]:
+    """Prevent an int64 JAX source probe from leaking x64 into later tests."""
+
+    _reset_jax_x64()
+    yield
+    _reset_jax_x64()
 
 ###############################################################################
 @pytest.fixture()

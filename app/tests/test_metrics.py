@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any, cast
+
 import httpx
 import pytest
 
-from domain.metric_formula import MetricFormulaError, emit_metric_formula, parse_metric_formula
+from domain.metric_formula import (
+    MetricFormulaError,
+    emit_metric_formula,
+    parse_metric_formula,
+)
 
 
 ###############################################################################
@@ -18,8 +25,7 @@ def test_metric_formula_uses_only_the_bounded_expression_subset() -> None:
 
 ###############################################################################
 def test_prediction_aggregate_metrics_use_prediction_values() -> None:
-    pytest.importorskip("keras")
-    import keras
+    keras: Any = pytest.importorskip("keras")
 
     from models.keras_runtime import PredictionAggregateMetric
 
@@ -30,8 +36,9 @@ def test_prediction_aggregate_metrics_use_prediction_values() -> None:
     mean.update_state(target, prediction)
     total.update_state(target, prediction)
 
-    assert float(keras.ops.convert_to_numpy(mean.result())) == pytest.approx(2.0)
-    assert float(keras.ops.convert_to_numpy(total.result())) == pytest.approx(4.0)
+    approx = cast(Callable[[object], object], pytest.approx)  # pyright: ignore[reportUnknownMemberType]
+    assert float(keras.ops.convert_to_numpy(mean.result())) == approx(2.0)
+    assert float(keras.ops.convert_to_numpy(total.result())) == approx(4.0)
 
 ###############################################################################
 def test_custom_metric_lifecycle_and_builtin_locking(client: httpx.Client) -> None:

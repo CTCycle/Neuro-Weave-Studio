@@ -2,7 +2,10 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
-const evidenceDir = path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'ui-refinement-20260909')
+const evidenceDir = path.resolve(
+  process.env.NW_VALIDATION_EVIDENCE_DIR
+    ?? path.resolve(process.cwd(), '..', '..', 'assets', 'QA', 'ui-refinement-20260909'),
+)
 
 type CreatedProject = { id: string; name: string }
 

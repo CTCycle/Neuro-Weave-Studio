@@ -77,7 +77,11 @@ def worker_payload(
         json={"backend": backend, "api": api},
     )
     assert discovery.status_code == 202, discovery.text
-    for _ in range(200):
+    # A cold PyTorch/Keras probe can spend more than ten seconds importing
+    # torch and Keras. Keep the test bounded, but align the polling window
+    # with Settings.runtime_discovery_timeout_seconds (the service limit is
+    # 60 seconds) instead of racing the first cold import.
+    for _ in range(1_200):
         current = client.get(
             "/api/execution/discovery",
             params={"backend": backend, "api": api},

@@ -159,3 +159,27 @@ def test_connection_validation_rejects_incompatible_merge_shape() -> None:
     assert diagnostic.node_id == "merge"
     assert diagnostic.edge_id == "candidate"
     assert diagnostic.details["received_shape"] == [None, 6]
+
+###############################################################################
+def test_connection_validation_rejects_dangling_endpoints() -> None:
+    graph = ModelGraph(
+        nodes=[make_node("input", "input.tabular", {"shape": [8]})]
+    )
+
+    missing_source = validate_connection(
+        graph,
+        proposed_edge("deleted-source", "input"),
+    )
+    missing_target = validate_connection(
+        graph,
+        proposed_edge("input", "deleted-target"),
+    )
+
+    for result in (missing_source, missing_target):
+        assert not result.valid
+        assert any(
+            item.code == "dangling_connection"
+            and item.severity == DiagnosticSeverity.ERROR
+            and item.edge_id == "candidate"
+            for item in result.diagnostics
+        )

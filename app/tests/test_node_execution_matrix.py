@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -12,6 +12,13 @@ from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from models.native_runtime import build_native_model, forward_native
 from services.validation_service import ValidationService
+
+
+###############################################################################
+def _as_values(value: Any) -> list[Any]:
+    if isinstance(value, (list, tuple)):
+        return list(cast(list[Any] | tuple[Any, ...], value))
+    return [value]
 
 
 ###############################################################################
@@ -255,17 +262,17 @@ def test_universal_nodes_execute_through_keras_runtime_registry(
     inputs: dict[str, np.ndarray],
     expected_shapes: list[tuple[int, ...]],
 ) -> None:
-    keras = pytest.importorskip("keras")
+    keras: Any = pytest.importorskip("keras")
     if keras.backend.backend() not in {"tensorflow", "torch", "jax"}:
         pytest.skip("The selected Keras backend is not part of the supported profile set")
     from models.keras_worker import build_model
 
-    model = build_model(factory())
-    outputs = model(inputs, training=False)
-    values = outputs if isinstance(outputs, (list, tuple)) else [outputs]
+    model: Any = cast(Any, build_model(factory()))
+    outputs: Any = model(inputs, training=False)
+    values = _as_values(outputs)
     assert len(values) == len(expected_shapes), node_family
     for value, expected_shape in zip(values, expected_shapes, strict=True):
-        detached = value.detach().cpu().numpy() if callable(getattr(value, "detach", None)) else np.asarray(value)
+        detached: Any = value.detach().cpu().numpy() if callable(getattr(value, "detach", None)) else np.asarray(value)
         assert detached.shape == expected_shape, node_family
         assert np.isfinite(detached).all(), node_family
 
@@ -300,23 +307,23 @@ def test_keras_static_sources_have_no_public_inputs_and_reload(
     trainable_count: int,
     tmp_path: Path,
 ) -> None:
-    keras = pytest.importorskip("keras")
+    keras: Any = pytest.importorskip("keras")
     if keras.backend.backend() not in {"tensorflow", "torch", "jax"}:
         pytest.skip("The selected Keras backend is not part of the supported profile set")
     from models.keras_worker import build_model
 
-    model = build_model(factory())
+    model: Any = cast(Any, build_model(factory()))
     assert not getattr(model, "inputs", ())
     assert len(model.trainable_variables) == trainable_count, node_family
-    initial = model({}, training=False)
-    initial_values = initial if isinstance(initial, (list, tuple)) else [initial]
+    initial: Any = model({}, training=False)
+    initial_values = _as_values(initial)
     assert initial_values[0].shape == (2, 2), node_family
 
     path = tmp_path / f"{node_family}.keras"
     model.save(path)
-    restored = keras.models.load_model(path)
+    restored: Any = keras.models.load_model(path)
     assert not getattr(restored, "inputs", ())
     assert len(restored.trainable_variables) == trainable_count, node_family
-    output = restored({}, training=False)
-    values = output if isinstance(output, (list, tuple)) else [output]
+    output: Any = restored({}, training=False)
+    values = _as_values(output)
     assert values[0].shape == (2, 2), node_family

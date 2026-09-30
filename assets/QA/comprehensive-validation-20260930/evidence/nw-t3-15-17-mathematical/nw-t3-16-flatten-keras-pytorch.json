@@ -1,0 +1,201 @@
+{
+  "case": "nw-t3-16-flatten-keras-pytorch",
+  "project_id": "7b069c83-d13c-4aaf-a3ad-0e84eb74f500",
+  "definition_id": "math.flatten",
+  "profile": {
+    "execution_backend": "pytorch",
+    "keras_enabled": true,
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    }
+  },
+  "saved_revision": 2,
+  "graph": {
+    "node_count": 3,
+    "edge_count": 2
+  },
+  "expected": {
+    "static_output_shape": [
+      null,
+      6
+    ],
+    "runtime_output_shape": [
+      1,
+      6
+    ],
+    "output_dtype": "float32",
+    "parameter_count": 0
+  },
+  "validation": {
+    "valid": true,
+    "diagnostics": [],
+    "shape_summaries": [
+      {
+        "node_id": "input-1",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              2,
+              3
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "math-flatten-a392b216-b5a7-4608-a7a8-8fcafa04bd47",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              6
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      },
+      {
+        "node_id": "operation-output",
+        "outputs": {
+          "output": {
+            "shape": [
+              null,
+              6
+            ],
+            "dtype": "float32",
+            "name": null
+          }
+        },
+        "parameter_count": 0
+      }
+    ],
+    "total_parameters": 0,
+    "effective_outputs": [
+      {
+        "node_id": "operation-output",
+        "port_id": "output",
+        "name": "Operation output",
+        "explicit": false,
+        "task_hint": "generic"
+      }
+    ],
+    "output_mode": "inferred",
+    "model_type": {
+      "kind": "generic",
+      "confidence": "low",
+      "evidence": [
+        "head=math.flatten",
+        "output_width=6",
+        "graph does not uniquely identify a task"
+      ]
+    }
+  },
+  "submitted_job_id": "34291cdcca7842a9baef1ae79cefd18d",
+  "final_job": {
+    "id": "34291cdcca7842a9baef1ae79cefd18d",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 26172,
+    "created_at": "2026-09-30T08:06:14.996912Z",
+    "started_at": "2026-09-30T08:06:15.013245Z",
+    "updated_at": "2026-09-30T08:06:30.395625Z",
+    "finished_at": "2026-09-30T08:06:30.395624Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "api_changed",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {},
+        "metrics": {},
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 4000.5,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "input-1",
+          "shape": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Operation output",
+          "node_id": "operation-output",
+          "port_id": "output",
+          "shape": [
+            1,
+            6
+          ]
+        }
+      ],
+      "parameter_count": 0,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  "browser_errors": [],
+  "failed_requests": [],
+  "cleanup": "project deleted in finally block"
+}

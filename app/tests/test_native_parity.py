@@ -280,7 +280,7 @@ def attention_graph(
     nodes = [
         node("query", "input.sequence", {"shape": [5, 8], "dtype": "float32"}),
     ]
-    edges = []
+    edges: list[EdgeInstance] = []
     if context:
         nodes.append(node("context", "input.sequence", {"shape": [3, 8], "dtype": "float32"}))
     nodes.extend(

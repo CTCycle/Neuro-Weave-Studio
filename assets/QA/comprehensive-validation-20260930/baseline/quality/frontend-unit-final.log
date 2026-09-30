@@ -1,0 +1,8 @@
+
+ RUN  v4.1.11 G:/Projects/Repositories/Active projects/Neuro Weave Studio/app/client
+
+
+ Test Files  20 passed (20)
+      Tests  105 passed (105)
+   Start at  10:46:35
+   Duration  80.73s (transform 51.30s, setup 0ms, import 122.16s, tests 565ms, environment 158.50s)
