@@ -5,10 +5,6 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from sqlalchemy import create_engine, inspect, select, text
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-
 from configurations.settings import DatabaseSettings
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import ModelGraph, NodeInstance, Position
@@ -22,6 +18,9 @@ from repositories.models import (
     ProjectRevisionRecord,
 )
 from repositories.session import RepositoryContext
+from sqlalchemy import create_engine, inspect, select, text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 
 ###############################################################################
@@ -49,6 +48,7 @@ def test_sqlite_initialization_is_idempotent_and_enforces_foreign_keys(
             == HEAD_REVISION
         )
         assert connection.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
+        assert connection.execute(text("PRAGMA journal_mode")).scalar_one().lower() == "wal"
     first.engine.dispose()
 
     second = initialize_database(settings(path))

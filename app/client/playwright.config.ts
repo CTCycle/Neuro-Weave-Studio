@@ -17,8 +17,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCi,
   retries: isCi ? 2 : 0,
-  // E2E workers share one SQLite database, so serial execution avoids write-lock races by default.
-  // Set PLAYWRIGHT_WORKERS when the backend/storage is isolated for parallel execution.
+  // E2E workers share one SQLite database; fixture-only workflows can exercise
+  // concurrent access while the runtime-job group owns its CPU lease serially.
   workers,
   reporter: 'line',
   outputDir: join(playwrightCacheRoot, 'test-results'),

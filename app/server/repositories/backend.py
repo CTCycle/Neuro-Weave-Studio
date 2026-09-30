@@ -38,6 +38,8 @@ class SQLiteBackend:
         cursor = dbapi_connection.cursor()
         try:
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.execute(f"PRAGMA busy_timeout={self._busy_timeout_ms}")
         finally:
             cursor.close()
