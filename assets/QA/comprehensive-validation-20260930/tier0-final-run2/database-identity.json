@@ -1,0 +1,16 @@
+{
+  "path": "assets/QA/comprehensive-validation-20260930/nw-final-tier0-runtime-run2-final/database.db",
+  "sha256": "42a97a4af0a2a573fe1581540979bca7221bf9bc5d2215b1f655e3fbc4c6cf97",
+  "length": 172032,
+  "captured_at": "2026-09-30T10:36:42.2788114Z",
+  "source_revision": "194c5134f2c9ebbe30d39f92c9e79a7673ff2eb1",
+  "matches_baseline": false,
+  "baseline_sha256": "2787fa26e2ba23ef12975803b26caa895066843d366c5aabcf06b4d146681fa",
+  "integrity_check": "ok",
+  "schema_version": 54,
+  "table_count": 10,
+  "empty_user_tables": true,
+  "same_schema_version_and_row_counts_as_baseline": true,
+  "byte_hash_matches_baseline": false,
+  "byte_hash_note": "Fresh disposable launcher initialization has the same empty migration state and row counts; SQLite DDL constraint ordering differs, so the exact final runtime identity is recorded rather than substituted with the earlier baseline file."
+}

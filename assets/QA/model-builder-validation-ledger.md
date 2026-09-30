@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-30
 
-Preparation status: Tier 3 campaign closure and final Tier 0 certification are recorded for final revision `ea66436df5c1eba07632459977309af5d2dd331d`. NW-T3-01 through NW-T3-19 and the separately tracked recurrent-wrapper continuation are PASS within the exact evidence boundaries stated below; all four Tier 0 slices are also PASS. Tier 4, Tier 5, full six-profile/export coverage, worker concurrency, training, and accessibility remain separate.
+Preparation status: Tier 3 campaign closure and final Tier 0 certification are recorded for final revision `194c5134f2c9ebbe30d39f92c9e79a7673ff2eb1`. NW-T3-01 through NW-T3-19 and the separately tracked recurrent-wrapper continuation are PASS within the exact evidence boundaries stated below; all four Tier 0 slices are also PASS. Tier 4, Tier 5, full six-profile/export coverage, worker concurrency, training, and accessibility remain separate.
 
 ## Purpose
 
@@ -865,21 +865,21 @@ export-matrix closure, worker concurrency, or accessibility into Tier 3.
 
 Date: 2026-09-30
 
-Final certification revision: `ea66436df5c1eba07632459977309af5d2dd331d`.
+Final certification revision: `194c5134f2c9ebbe30d39f92c9e79a7673ff2eb1`.
 The official launcher reached frontend and backend readiness on the requested
 TensorFlow/PyTorch/JAX environment, the 149-definition catalog matched the
 frozen fingerprint, the complete quality gate passed including strict Pyright
 with zero errors, and the deep-link/refresh route campaign passed 1/1. The
 owned backend/frontend process trees were stopped and ports 9750/6425 were
-free afterward. The [final run manifest](comprehensive-validation-20260930/tier0-final-run1/run-manifest.json)
+free afterward. The [final run manifest](comprehensive-validation-20260930/run-manifest.json)
 contains the route, runtime, quality, and cleanup evidence.
 
 | Tier 0 slice | Result | Evidence |
 | --- | --- | --- |
-| NW-T0-01 | PASS | [catalog freeze](comprehensive-validation-20260930/tier0-final-run1/catalog-freeze.json), [database identity](comprehensive-validation-20260930/tier0-final-run1/database-identity.json) |
-| NW-T0-02 | PASS | [official launcher](comprehensive-validation-20260930/logs-official-launcher-final-tier0-run2.txt), [cleanup](comprehensive-validation-20260930/tier0-final-run1/process-cleanup.log) |
-| NW-T0-03 | PASS | [quality logs](comprehensive-validation-20260930/tier0-final-run1/quality/) |
-| NW-T0-04 | PASS | [deep-link/refresh log](comprehensive-validation-20260930/logs-nw-t0-04-deep-links-final-run1.txt), [browser evidence](comprehensive-validation-20260930/evidence/nw-t0-04-final-run1/) |
+| NW-T0-01 | PASS | [catalog freeze](comprehensive-validation-20260930/tier0-final-run2/catalog-freeze.json), [database identity](comprehensive-validation-20260930/tier0-final-run2/database-identity.json) |
+| NW-T0-02 | PASS | [official launcher](comprehensive-validation-20260930/logs-official-launcher-final-tier0-run2-final.txt), [cleanup](comprehensive-validation-20260930/tier0-final-run2/process-cleanup.log) |
+| NW-T0-03 | PASS | [quality logs](comprehensive-validation-20260930/tier0-final-run2/quality/) |
+| NW-T0-04 | PASS | [deep-link/refresh log](comprehensive-validation-20260930/logs-nw-t0-04-deep-links-final-run2.txt), [final run manifest](comprehensive-validation-20260930/run-manifest.json) |
 
 ## Future session run template
 

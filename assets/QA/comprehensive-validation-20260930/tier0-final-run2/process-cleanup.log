@@ -1,0 +1,28 @@
+captured_at=2026-09-30T10:35:59.7886029Z
+verified_backend_tree_root=26560 cmd.exe -> repository uvicorn 9750
+verified_frontend_tree_root=9132 node/npm -> repository preview 6425
+backend_taskkill:
+OPERAZIONE RIUSCITA: il processo con PID 25768 (processo figlio del
+
+PID 12840) è stato terminato.
+OPERAZIONE RIUSCITA: il processo con PID 19320 (processo figlio del
+
+PID 26560) è stato terminato.
+OPERAZIONE RIUSCITA: il processo con PID 12840 (processo figlio del
+
+PID 26560) è stato terminato.
+OPERAZIONE RIUSCITA: il processo con PID 26560 (processo figlio del
+
+PID 27472) è stato terminato.
+frontend_taskkill:
+OPERAZIONE RIUSCITA: il processo con PID 23188 (processo figlio del
+
+PID 8968) è stato terminato.
+OPERAZIONE RIUSCITA: il processo con PID 8968 (processo figlio del
+
+PID 9132) è stato terminato.
+OPERAZIONE RIUSCITA: il processo con PID 9132 (processo figlio del
+
+PID 2068) è stato terminato.
+ports_after_shutdown:
+6425=free;9750=free

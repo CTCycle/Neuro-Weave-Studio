@@ -1,0 +1,20 @@
+{
+  "endpoint": "/api/nodes/catalog",
+  "live_count": 149,
+  "baseline_count": 149,
+  "category_counts": {
+    "inputs": 8,
+    "core": 14,
+    "recurrent": 5,
+    "transformer": 10,
+    "merge": 14,
+    "convolutional": 18,
+    "outputs": 7,
+    "mathematical": 73
+  },
+  "normalized_catalog_fingerprint_sha256": "acf538fb04f50552e1577299aa3f0cc09511d4e7d0937f73aa8418125a3a9ef8",
+  "ids_match": true,
+  "baseline_fingerprint": "acf538fb04f50552e1577299aa3f0cc09511d4e7d0937f73aa8418125a3a9ef8",
+  "source_revision": "194c5134f2c9ebbe30d39f92c9e79a7673ff2eb1",
+  "captured_at": "2026-09-30T10:35:13.7456961Z"
+}
