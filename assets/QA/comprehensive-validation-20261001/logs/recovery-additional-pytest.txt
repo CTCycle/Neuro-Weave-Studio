@@ -1,0 +1,2 @@
+......                                                                   [100%]
+- generated xml file: G:\Projects\Repositories\Active projects\Neuro Weave Studio\assets\QA\comprehensive-validation-20261001\evidence\recovery-additional-junit.xml -

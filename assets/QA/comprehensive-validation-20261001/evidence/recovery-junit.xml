@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="32" time="73.047" timestamp="2026-10-01T16:35:25.610442+02:00" hostname="BlueGene"><testcase classname="test_database_contract" name="test_sqlite_initialization_is_idempotent_and_enforces_foreign_keys" time="0.305" /><testcase classname="test_database_contract" name="test_incompatible_unversioned_database_is_rejected_without_mutation" time="0.039" /><testcase classname="test_database_contract" name="test_unit_of_work_rolls_back_partial_project" time="0.157" /><testcase classname="test_database_contract" name="test_project_delete_cascades_revision_graph_and_generated_source" time="0.162" /><testcase classname="test_database_contract" name="test_cross_project_edge_reference_is_rejected" time="0.171" /><testcase classname="test_runtime_controller" name="test_device_leases_are_exclusive_but_distinct_devices_can_run_concurrently" time="1.089" /><testcase classname="test_runtime_controller" name="test_stop_is_idempotent_and_releases_lease_only_after_worker_exit" time="4.985" /><testcase classname="test_runtime_controller" name="test_terminal_history_is_bounded_and_job_workspaces_are_removed" time="3.241" /><testcase classname="test_runtime_controller" name="test_environment_discovery_skips_missing_backends_and_reuses_matching_snapshot" time="0.154" /><testcase classname="test_runtime_controller" name="test_unavailable_native_compilers_are_rejected_before_worker_start[tensorflow-tensorflow_function-compiler_configuration0]" time="0.022" /><testcase classname="test_runtime_controller" name="test_unavailable_native_compilers_are_rejected_before_worker_start[pytorch-pytorch_compile-compiler_configuration1]" time="0.020" /><testcase classname="test_runtime_controller" name="test_unavailable_native_compilers_are_rejected_before_worker_start[jax-jax_jit-compiler_configuration2]" time="0.018" /><testcase classname="test_project_route_errors" name="test_project_import_maps_persistence_conflict_to_409" time="0.587" /><testcase classname="test_project_route_errors" name="test_project_duplicate_maps_persistence_conflict_to_409" time="0.291" /><testcase classname="test_project_route_errors" name="test_keras_import_maps_persistence_conflict_to_409" time="0.329" /><testcase classname="test_project_route_errors" name="test_unknown_api_get_does_not_fall_through_to_the_spa" time="0.416" /><testcase classname="test_api_projects" name="test_project_revision_workflow_invalidates_generated_source_and_rejects_stale_save" time="1.205" /><testcase classname="test_api_projects" name="test_project_revision_survives_application_restart" time="0.806" /><testcase classname="test_api_projects" name="test_model_export_publishes_only_verified_artifact" time="30.922"><failure message="Failed: pytorch/keras discovery did not finish">client = &lt;starlette.testclient.TestClient object at 0x000001696B248C00&gt;
+
+    def test_model_export_publishes_only_verified_artifact(client: httpx.Client) -&gt; None:
+        project = client.post("/api/projects", json=project_payload()).json()
+        response = client.post(
+            "/api/execution/jobs",
+            json={
+                "operation": {"type": "model_export", "project_id": project["id"], "format": "keras"},
+&gt;               "worker": execution_worker(client),
+                          ^^^^^^^^^^^^^^^^^^^^^^^^
+            },
+        )
+
+test_api_projects.py:287:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+test_api_projects.py:115: in execution_worker
+    discovered = ensure_discovery(client, "pytorch", "keras")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+client = &lt;starlette.testclient.TestClient object at 0x000001696B248C00&gt;
+backend = 'pytorch', api = 'keras'
+
+    def ensure_discovery(client: httpx.Client, backend: str, api: str) -&gt; dict[str, object]:
+        response = client.post(
+            "/api/execution/discovery",
+            json={"backend": backend, "api": api},
+        )
+        assert response.status_code == 202, response.text
+        deadline = time.monotonic() + 30
+        while time.monotonic() &lt; deadline:
+            current = client.get(
+                "/api/execution/discovery",
+                params={"backend": backend, "api": api},
+            ).json()
+            if current["state"] != "checking":
+                return cast(dict[str, object], current)
+            time.sleep(0.05)
+&gt;       pytest.fail(f"{backend}/{api} discovery did not finish")
+E       Failed: pytorch/keras discovery did not finish
+
+test_api_projects.py:35: Failed</failure></testcase><testcase classname="test_api_projects" name="test_model_export_rejects_invalid_graph_before_worker_start" time="0.309" /><testcase classname="test_api_projects" name="test_model_export_rejects_worker_profile_mismatch_before_job_creation" time="0.471" /><testcase classname="test_api_projects" name="test_export_capabilities_expose_matrix_and_explicit_reasons" time="0.272" /><testcase classname="test_api_projects" name="test_unsupported_onnx_opset_is_rejected_at_request_boundary" time="0.233" /><testcase classname="test_api_projects" name="test_removed_keras_export_operation_is_rejected" time="12.115" /><testcase classname="test_api_projects" name="test_project_create_requires_current_backend_and_graph_contracts" time="0.537" /><testcase classname="test_api_projects" name="test_project_import_requires_current_bundle_format" time="0.206" /><testcase classname="test_api_projects" name="test_native_model_export_publishes_pt2_artifact" time="11.954" /><testcase classname="test_api_projects" name="test_project_json_export_import_preserves_editable_graph" time="0.293" /><testcase classname="test_api_projects" name="test_update_rolls_back_metadata_and_revision_when_graph_persistence_fails" time="0.293" /><testcase classname="test_tensor_inspection" name="test_persists_inspection_ports_statistics_and_bounded_rank_three_views" time="0.075" /><testcase classname="test_tensor_inspection" name="test_bounds_large_tensor_storage_to_sampled_or_summary_only" time="0.079" /><testcase classname="test_tensor_inspection" name="test_cleanup_expires_old_sessions_and_limits_retained_sessions" time="0.314" /></testsuite></testsuites>

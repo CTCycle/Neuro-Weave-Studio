@@ -1,0 +1,25 @@
+Resolved 137 packages in 1ms
+Installed 23 packages in 22.10s
+ + chex==0.1.92
+ + dataclasses-json==0.6.7
+ + dm-pix==0.4.5
+ + einops==0.8.2
+ + equinox==0.13.8
+ + hf-xet==1.6.0
+ + huggingface-hub==1.28.0
+ + jax2onnx==0.16.1
+ + jaxtyping==0.3.11
+ + marshmallow==3.26.2
+ + mypy-extensions==1.1.0
+ + netron==9.2.2
+ + onnx==1.22.0
+ + onnx-ir==1.0.0
+ + onnxruntime==1.29.0
+ + onnxscript==0.7.1
+ + orbax-export==0.0.8
+ + safetensors==0.8.0
+ + tf2onnx==1.17.0
+ + toolz==1.1.0
+ + tqdm==4.70.0
+ + typing-inspect==0.9.0
+ + wadler-lindig==0.1.7

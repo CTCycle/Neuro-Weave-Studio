@@ -1,0 +1,70 @@
+{
+  "before": [
+    {
+      "ProcessId": 35728,
+      "ParentProcessId": 5024,
+      "Name": "cmd.exe",
+      "CommandLine": "\"C:\\Windows\\system32\\cmd.exe\" /d /c \"\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\" -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750\""
+    },
+    {
+      "ProcessId": 14116,
+      "ParentProcessId": 35728,
+      "Name": "conhost.exe",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+    },
+    {
+      "ProcessId": 31672,
+      "ParentProcessId": 5024,
+      "Name": "cmd.exe",
+      "CommandLine": "\"C:\\Windows\\system32\\cmd.exe\" /d /c \"\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\npm.cmd\" run preview -- --host 127.0.0.1 --port 6425 --strictPort\""
+    },
+    {
+      "ProcessId": 27460,
+      "ParentProcessId": 31672,
+      "Name": "conhost.exe",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+    },
+    {
+      "ProcessId": 13344,
+      "ParentProcessId": 35728,
+      "Name": "python.exe",
+      "CommandLine": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750"
+    },
+    {
+      "ProcessId": 8368,
+      "ParentProcessId": 13344,
+      "Name": "python.exe",
+      "CommandLine": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\app\\server\\.venv\\Scripts\\python.exe\"  -m uvicorn app:create_app --factory --host 127.0.0.1 --port 9750"
+    },
+    {
+      "ProcessId": 28232,
+      "ParentProcessId": 31672,
+      "Name": "node.exe",
+      "CommandLine": "\"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\\\node.exe\"  \"G:\\Projects\\Repositories\\Active projects\\Neuro Weave Studio\\runtimes\\node\\node_modules\\npm\\bin\\npm-cli.js\" run preview -- --host 127.0.0.1 --port 6425 --strictPort"
+    },
+    {
+      "ProcessId": 29724,
+      "ParentProcessId": 28232,
+      "Name": "cmd.exe",
+      "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c node tools/preview-server.mjs --host 127.0.0.1 --port 6425 --strictPort"
+    },
+    {
+      "ProcessId": 14724,
+      "ParentProcessId": 29724,
+      "Name": "node.exe",
+      "CommandLine": "node  tools/preview-server.mjs --host 127.0.0.1 --port 6425 --strictPort"
+    }
+  ],
+  "remaining_ports": [],
+  "before_ports": [
+    {
+      "LocalPort": 9750,
+      "OwningProcess": 8368
+    },
+    {
+      "LocalPort": 6425,
+      "OwningProcess": 14724
+    }
+  ],
+  "remaining_processes": []
+}
