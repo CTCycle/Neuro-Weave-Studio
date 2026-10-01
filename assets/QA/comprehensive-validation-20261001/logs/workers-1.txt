@@ -1,0 +1,28 @@
+
+Running 20 tests using 1 worker
+
+
+
+(node:9552) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1/20] e2e\workflows.spec.ts:208:1 › imports a Keras architecture through the browser file input
+[2/20] e2e\workflows.spec.ts:256:1 › NW-T1-03 exports and reimports a project bundle through the browser
+[3/20] e2e\workflows.spec.ts:355:1 › deletes a model from its catalog card without navigating
+[4/20] e2e\workflows.spec.ts:381:1 › keeps catalog deletion cancellable and reports deletion errors
+[5/20] e2e\workflows.spec.ts:411:1 › keeps saved builder profile, validation, and API payload synchronized
+[6/20] e2e\workflows.spec.ts:453:1 › keeps Inspector controls contract-driven and Backend picker dark and keyboard accessible
+[7/20] e2e\workflows.spec.ts:486:1 › NW-T2-02: validates connection previews, cardinality, inferred shapes, and rejected graph edits
+[8/20] e2e\workflows.spec.ts:572:1 › retains parameter-incompatible drafts while disabling compilation and export actions
+[9/20] e2e\workflows.spec.ts:728:1 › exposes keyboard-traversable graph nodes and ports
+[10/20] e2e\workflows.spec.ts:757:1 › keeps edge selection, inspector details, deletion, and undo synchronized
+[11/20] e2e\workflows.spec.ts:783:1 › isolates builder tabs and exposes canvas and validation controls
+[12/20] e2e\workflows.spec.ts:817:1 › covers builder editing, history, focus mode, and dirty navigation
+[13/20] e2e\workflows.spec.ts:858:1 › NW-T2-01 verifies Builder selection, editing, history, save/reopen, and invalid-draft recovery
+[14/20] e2e\workflows.spec.ts:1007:1 › covers responsive drawers and saved-model workflow routes
+[15/20] e2e\workflows.spec.ts:1084:1 › NW-T2-03: rechecks compiler capability and invalidates source when the saved profile changes
+[16/20] e2e\workflows.spec.ts:1143:1 › NW-T4-02: keeps native compiler controls aligned with live capability gates
+[17/20] e2e\workflows.spec.ts:1365:1 › keeps read-only previews, compact Builder controls, and modal bounds usable
+[18/20] e2e\workflows.spec.ts:1489:3 › workflow runtime jobs › polls a compatible functional-validation job to a verified result
+[19/20] e2e\workflows.spec.ts:1494:3 › workflow runtime jobs › NW-T2-04 restores functional-validation results and active jobs after reload
+[20/20] e2e\workflows.spec.ts:1499:3 › workflow runtime jobs › NW-T2-05: inspects sequence tensors from Builder and overview, then deletes each session
+  20 passed (2.1m)

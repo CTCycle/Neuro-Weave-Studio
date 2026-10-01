@@ -1,0 +1,1298 @@
+[
+  {
+    "id": "f87602da0a13462d9db8f17273585080",
+    "operation": "tensor_inspection",
+    "state": "terminated",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 5336,
+    "created_at": "2026-10-01T14:45:59.991523Z",
+    "started_at": "2026-10-01T14:46:00.008276Z",
+    "updated_at": "2026-10-01T14:46:06.882502Z",
+    "finished_at": "2026-10-01T14:46:06.8825Z",
+    "exit_code": 20,
+    "cancellation_requested": true,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "cancelled",
+      "message": "Worker cancellation requested",
+      "percent": 0
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": null,
+    "artifact": null,
+    "error": {
+      "code": "cancelled",
+      "message": "Worker cancellation requested",
+      "details": {}
+    }
+  },
+  {
+    "id": "e795bc00183947dab9ea55c6334009c7",
+    "operation": "tensor_inspection",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 12708,
+    "created_at": "2026-10-01T14:45:46.125304Z",
+    "started_at": "2026-10-01T14:45:46.140544Z",
+    "updated_at": "2026-10-01T14:45:58.481328Z",
+    "finished_at": "2026-10-01T14:45:58.481327Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Tensor inspection session ready",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "expires_at": "2026-10-01T16:55:55.242679+02:00",
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "seed": 42,
+      "session_id": "2359f439eea94499907b2f4033ce56b7",
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "46bb4c065b53400a97b9448ac1b6f038",
+    "operation": "tensor_inspection",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 25400,
+    "created_at": "2026-10-01T14:45:33.380378Z",
+    "started_at": "2026-10-01T14:45:33.413155Z",
+    "updated_at": "2026-10-01T14:45:44.648319Z",
+    "finished_at": "2026-10-01T14:45:44.648318Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Tensor inspection session ready",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "expires_at": "2026-10-01T16:55:41.238869+02:00",
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "seed": 42,
+      "session_id": "b21f8eb5ef944af8b79e2b9069ed2cbd",
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "2ee0de5dd7704cad8ca14e3bbe585853",
+    "operation": "smoke_inference",
+    "state": "terminated",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 10996,
+    "created_at": "2026-10-01T14:45:27.869666Z",
+    "started_at": "2026-10-01T14:45:27.886157Z",
+    "updated_at": "2026-10-01T14:45:31.842753Z",
+    "finished_at": "2026-10-01T14:45:31.842752Z",
+    "exit_code": 20,
+    "cancellation_requested": true,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "cancelled",
+      "message": "Worker cancellation requested",
+      "percent": 0
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": null,
+    "artifact": null,
+    "error": {
+      "code": "cancelled",
+      "message": "Worker cancellation requested",
+      "details": {}
+    }
+  },
+  {
+    "id": "6b0e648975ff491495b18b23b19fc73d",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 12420,
+    "created_at": "2026-10-01T14:45:13.357037Z",
+    "started_at": "2026-10-01T14:45:13.376327Z",
+    "updated_at": "2026-10-01T14:45:27.193221Z",
+    "finished_at": "2026-10-01T14:45:27.193219Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {
+          "Prediction": {
+            "id": "binary_crossentropy",
+            "parameters": {}
+          }
+        },
+        "metrics": {
+          "Prediction": [
+            {
+              "id": "binary_accuracy",
+              "parameters": {}
+            },
+            {
+              "id": "auc",
+              "parameters": {}
+            }
+          ]
+        },
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 2959.3,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "input-tabular-e2e",
+          "shape": [
+            1,
+            8
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Prediction",
+          "node_id": "output-classification-e2e",
+          "port_id": "output",
+          "shape": [
+            1,
+            1
+          ]
+        }
+      ],
+      "parameter_count": 161,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "b13235a35a12415fb1978c42487712eb",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 16360,
+    "created_at": "2026-10-01T14:44:57.59146Z",
+    "started_at": "2026-10-01T14:44:57.618138Z",
+    "updated_at": "2026-10-01T14:45:12.301165Z",
+    "finished_at": "2026-10-01T14:45:12.301165Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {
+          "Prediction": {
+            "id": "binary_crossentropy",
+            "parameters": {}
+          }
+        },
+        "metrics": {
+          "Prediction": [
+            {
+              "id": "binary_accuracy",
+              "parameters": {}
+            },
+            {
+              "id": "auc",
+              "parameters": {}
+            }
+          ]
+        },
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 3374.9,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "input-tabular-e2e",
+          "shape": [
+            1,
+            8
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Prediction",
+          "node_id": "output-classification-e2e",
+          "port_id": "output",
+          "shape": [
+            1,
+            1
+          ]
+        }
+      ],
+      "parameter_count": 161,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "bf4305b5a6a3423b85578fa0f9bbcfb6",
+    "operation": "tensor_inspection",
+    "state": "terminated",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 9552,
+    "created_at": "2026-10-01T14:43:59.479632Z",
+    "started_at": "2026-10-01T14:43:59.516583Z",
+    "updated_at": "2026-10-01T14:44:03.059883Z",
+    "finished_at": "2026-10-01T14:44:03.059882Z",
+    "exit_code": 20,
+    "cancellation_requested": true,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "cancelled",
+      "message": "Worker cancellation requested",
+      "percent": 0
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": null,
+    "artifact": null,
+    "error": {
+      "code": "cancelled",
+      "message": "Worker cancellation requested",
+      "details": {}
+    }
+  },
+  {
+    "id": "299561c598f34dea9b1300adf0c7ec74",
+    "operation": "tensor_inspection",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 22064,
+    "created_at": "2026-10-01T14:43:44.291639Z",
+    "started_at": "2026-10-01T14:43:44.307757Z",
+    "updated_at": "2026-10-01T14:43:57.968226Z",
+    "finished_at": "2026-10-01T14:43:57.968225Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Tensor inspection session ready",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "expires_at": "2026-10-01T16:53:54.339733+02:00",
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "seed": 42,
+      "session_id": "1c9cef8fa61f4763ae77071fc192a376",
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "50e81c5fb041421a8cbba74bec3feb8a",
+    "operation": "tensor_inspection",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 18488,
+    "created_at": "2026-10-01T14:43:31.114821Z",
+    "started_at": "2026-10-01T14:43:31.127073Z",
+    "updated_at": "2026-10-01T14:43:42.841578Z",
+    "finished_at": "2026-10-01T14:43:42.841578Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Tensor inspection session ready",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "expires_at": "2026-10-01T16:53:39.499512+02:00",
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "seed": 42,
+      "session_id": "6f131bb7db0c484591873d4478e4e5dd",
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "2e741fa655ce4548bd417b817087561d",
+    "operation": "smoke_inference",
+    "state": "terminated",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 27936,
+    "created_at": "2026-10-01T14:43:25.559171Z",
+    "started_at": "2026-10-01T14:43:25.573754Z",
+    "updated_at": "2026-10-01T14:43:29.213712Z",
+    "finished_at": "2026-10-01T14:43:29.213711Z",
+    "exit_code": 20,
+    "cancellation_requested": true,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "cancelled",
+      "message": "Worker cancellation requested",
+      "percent": 0
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": null,
+    "artifact": null,
+    "error": {
+      "code": "cancelled",
+      "message": "Worker cancellation requested",
+      "details": {}
+    }
+  },
+  {
+    "id": "fb1e09295a6e4516a5fc546dac890648",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 30368,
+    "created_at": "2026-10-01T14:43:11.686602Z",
+    "started_at": "2026-10-01T14:43:11.70147Z",
+    "updated_at": "2026-10-01T14:43:24.733625Z",
+    "finished_at": "2026-10-01T14:43:24.733622Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {
+          "Prediction": {
+            "id": "binary_crossentropy",
+            "parameters": {}
+          }
+        },
+        "metrics": {
+          "Prediction": [
+            {
+              "id": "binary_accuracy",
+              "parameters": {}
+            },
+            {
+              "id": "auc",
+              "parameters": {}
+            }
+          ]
+        },
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 3258.7,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "input-tabular-e2e",
+          "shape": [
+            1,
+            8
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Prediction",
+          "node_id": "output-classification-e2e",
+          "port_id": "output",
+          "shape": [
+            1,
+            1
+          ]
+        }
+      ],
+      "parameter_count": 161,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "1d4bab0e459a4861992532c4314b628e",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 3736,
+    "created_at": "2026-10-01T14:42:56.87532Z",
+    "started_at": "2026-10-01T14:42:56.898637Z",
+    "updated_at": "2026-10-01T14:43:10.860631Z",
+    "finished_at": "2026-10-01T14:43:10.860631Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {
+          "Prediction": {
+            "id": "binary_crossentropy",
+            "parameters": {}
+          }
+        },
+        "metrics": {
+          "Prediction": [
+            {
+              "id": "binary_accuracy",
+              "parameters": {}
+            },
+            {
+              "id": "auc",
+              "parameters": {}
+            }
+          ]
+        },
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 3436.0,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "input-tabular-e2e",
+          "shape": [
+            1,
+            8
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Prediction",
+          "node_id": "output-classification-e2e",
+          "port_id": "output",
+          "shape": [
+            1,
+            1
+          ]
+        }
+      ],
+      "parameter_count": 161,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "fe5be2f4f13f431d83e71a157e033244",
+    "operation": "tensor_inspection",
+    "state": "terminated",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 12768,
+    "created_at": "2026-10-01T14:41:52.547673Z",
+    "started_at": "2026-10-01T14:41:52.564238Z",
+    "updated_at": "2026-10-01T14:41:56.712884Z",
+    "finished_at": "2026-10-01T14:41:56.712883Z",
+    "exit_code": 20,
+    "cancellation_requested": true,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "cancelled",
+      "message": "Worker cancellation requested",
+      "percent": 0
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": null,
+    "artifact": null,
+    "error": {
+      "code": "cancelled",
+      "message": "Worker cancellation requested",
+      "details": {}
+    }
+  },
+  {
+    "id": "bb0baa851d2440d5bf095652d1540b8e",
+    "operation": "tensor_inspection",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 10580,
+    "created_at": "2026-10-01T14:41:38.52143Z",
+    "started_at": "2026-10-01T14:41:38.538135Z",
+    "updated_at": "2026-10-01T14:41:51.27171Z",
+    "finished_at": "2026-10-01T14:41:51.27171Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Tensor inspection session ready",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "expires_at": "2026-10-01T16:51:48.160669+02:00",
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "seed": 42,
+      "session_id": "6d5a34078fd34fc2a9ae13a1d43a9ccc",
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "e2f844ae3ff6463f8a691a59c041e7a5",
+    "operation": "tensor_inspection",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 15372,
+    "created_at": "2026-10-01T14:41:24.025161Z",
+    "started_at": "2026-10-01T14:41:24.037816Z",
+    "updated_at": "2026-10-01T14:41:36.987001Z",
+    "finished_at": "2026-10-01T14:41:36.987Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Tensor inspection session ready",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "expires_at": "2026-10-01T16:51:33.464396+02:00",
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "seed": 42,
+      "session_id": "6269520de5094a1b820dd2ebc39ae110",
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "78299662d18246c8aee2d6333ec1423a",
+    "operation": "smoke_inference",
+    "state": "terminated",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 27672,
+    "created_at": "2026-10-01T14:41:18.236412Z",
+    "started_at": "2026-10-01T14:41:18.258401Z",
+    "updated_at": "2026-10-01T14:41:22.510093Z",
+    "finished_at": "2026-10-01T14:41:22.510091Z",
+    "exit_code": 20,
+    "cancellation_requested": true,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "cancelled",
+      "message": "Worker cancellation requested",
+      "percent": 0
+    },
+    "diagnostics": {
+      "process_rss_bytes": 28672,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": null,
+    "artifact": null,
+    "error": {
+      "code": "cancelled",
+      "message": "Worker cancellation requested",
+      "details": {}
+    }
+  },
+  {
+    "id": "554980c4cbb64f489141136f76cbf998",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 2500,
+    "created_at": "2026-10-01T14:41:05.365374Z",
+    "started_at": "2026-10-01T14:41:05.384508Z",
+    "updated_at": "2026-10-01T14:41:17.503794Z",
+    "finished_at": "2026-10-01T14:41:17.503793Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "replacement_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {
+          "Prediction": {
+            "id": "binary_crossentropy",
+            "parameters": {}
+          }
+        },
+        "metrics": {
+          "Prediction": [
+            {
+              "id": "binary_accuracy",
+              "parameters": {}
+            },
+            {
+              "id": "auc",
+              "parameters": {}
+            }
+          ]
+        },
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 3268.1,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "input-tabular-e2e",
+          "shape": [
+            1,
+            8
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Prediction",
+          "node_id": "output-classification-e2e",
+          "port_id": "output",
+          "shape": [
+            1,
+            1
+          ]
+        }
+      ],
+      "parameter_count": 161,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  },
+  {
+    "id": "cd189d13505f4b53bc203ac14e082142",
+    "operation": "smoke_inference",
+    "state": "succeeded",
+    "worker": {
+      "api": "keras",
+      "backend": "pytorch",
+      "device_id": "cpu",
+      "memory_policy": {
+        "kind": "default",
+        "limit_mb": null,
+        "fraction": null
+      },
+      "precision": "float32"
+    },
+    "device_lease": {
+      "device_id": "cpu",
+      "state": "idle",
+      "job_id": null,
+      "pid": null
+    },
+    "pid": 31392,
+    "created_at": "2026-10-01T14:40:48.417321Z",
+    "started_at": "2026-10-01T14:40:48.432862Z",
+    "updated_at": "2026-10-01T14:41:04.150681Z",
+    "finished_at": "2026-10-01T14:41:04.15068Z",
+    "exit_code": 0,
+    "cancellation_requested": false,
+    "forced_termination": false,
+    "restart_reason": "new_job",
+    "progress": {
+      "phase": "completed",
+      "message": "Worker completed successfully",
+      "percent": 100
+    },
+    "diagnostics": {
+      "process_rss_bytes": 32768,
+      "framework_allocated_bytes": null,
+      "framework_reserved_bytes": null,
+      "framework_peak_bytes": null,
+      "device_used_bytes": null,
+      "device_total_bytes": null
+    },
+    "result": {
+      "accelerator": "cpu",
+      "compilation": {
+        "losses": {
+          "Prediction": {
+            "id": "binary_crossentropy",
+            "parameters": {}
+          }
+        },
+        "metrics": {
+          "Prediction": [
+            {
+              "id": "binary_accuracy",
+              "parameters": {}
+            },
+            {
+              "id": "auc",
+              "parameters": {}
+            }
+          ]
+        },
+        "optimizer": {
+          "id": "adam",
+          "instantiated": true
+        },
+        "training": "not_run",
+        "verified": true
+      },
+      "device_name": "CPU",
+      "device_total_bytes": null,
+      "device_used_bytes": null,
+      "duration_ms": 4043.2,
+      "framework_allocated_bytes": null,
+      "framework_peak_bytes": null,
+      "framework_reserved_bytes": null,
+      "inputs": [
+        {
+          "dtype": "float32",
+          "node_id": "input-tabular-e2e",
+          "shape": [
+            1,
+            8
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "dtype": "float32",
+          "name": "Prediction",
+          "node_id": "output-classification-e2e",
+          "port_id": "output",
+          "shape": [
+            1,
+            1
+          ]
+        }
+      ],
+      "parameter_count": 161,
+      "status": "succeeded"
+    },
+    "artifact": null,
+    "error": null
+  }
+]

@@ -1,8 +1,8 @@
 # Model Builder validation ledger
 
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
-Preparation status: Tier 3 campaign closure and final Tier 0 certification are recorded for final revision `194c5134f2c9ebbe30d39f92c9e79a7673ff2eb1`. NW-T3-01 through NW-T3-19 and the separately tracked recurrent-wrapper continuation are PASS within the exact evidence boundaries stated below; all four Tier 0 slices are also PASS. Tier 4, Tier 5, full six-profile/export coverage, worker concurrency, training, and accessibility remain separate.
+Preparation status: Tier 3 campaign closure and final Tier 0 certification are recorded for final revision `194c5134f2c9ebbe30d39f92c9e79a7673ff2eb1`. NW-T3-01 through NW-T3-19 and the separately tracked recurrent-wrapper continuation are PASS within the exact evidence boundaries stated below; all four Tier 0 slices are also PASS. Subsequent NW-T4-01/02 execution/compiler gates and NW-T5-02 worker revalidation pass at their documented boundaries. Full exports, remaining resilience, training and accessibility remain separate; [current recovery/worker report](comprehensive-validation-20261001/NW-T5-01-02.md).
 
 ## Purpose
 
@@ -880,6 +880,19 @@ contains the route, runtime, quality, and cleanup evidence.
 | NW-T0-02 | PASS | [official launcher](comprehensive-validation-20260930/logs-official-launcher-final-tier0-run2-final.txt), [cleanup](comprehensive-validation-20260930/tier0-final-run2/process-cleanup.log) |
 | NW-T0-03 | PASS | [quality logs](comprehensive-validation-20260930/tier0-final-run2/quality/) |
 | NW-T0-04 | PASS | [deep-link/refresh log](comprehensive-validation-20260930/logs-nw-t0-04-deep-links-final-run2.txt), [final run manifest](comprehensive-validation-20260930/run-manifest.json) |
+
+## 2026-10-01 recovery and worker continuation
+
+Source revision: `9d1ab947a435d60ef2a957263f12a57b0f39f7e5` on `develop`.
+The unchanged 20-workflow suite passes at workers 1/2/4; 42 backend recovery
+checks pass without skips. The 149-definition live catalog retains fingerprint
+`acf538fb04f50552e1577299aa3f0cc09511d4e7d0937f73aa8418125a3a9ef8`.
+This supersedes earlier worker PARTIAL notes only, not the scope of historical
+node/profile receipts. NW-T5-01 remains PARTIAL for the full failure matrix;
+independent in-app bundle download proof timed out twice despite Chromium
+round-trip PASS. Fixtures, active jobs, task processes and service listeners are
+cleaned. See [report](comprehensive-validation-20261001/NW-T5-01-02.md) and
+[manifest](comprehensive-validation-20261001/run-manifest.json).
 
 ## Future session run template
 

@@ -1,0 +1,12 @@
+{
+  "ledger_rows": 47,
+  "aggregate": {
+    "PASS": 41,
+    "UNTESTED": 5,
+    "PARTIAL": 1
+  },
+  "local_links_checked": 547,
+  "missing_local_links": [],
+  "duplicate_gate_ids": [],
+  "utf8": "verified for all changed ledgers and report"
+}
