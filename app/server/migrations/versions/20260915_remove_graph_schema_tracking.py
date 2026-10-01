@@ -1,3 +1,6 @@
+# Copyright © 2026 Thomas Virdis
+# Licensed under the MIT License.
+
 """Remove redundant graph schema tracking columns from project metadata."""
 
 from __future__ import annotations

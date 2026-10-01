@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WorkerConfiguration } from '../../domain/types'
 import {

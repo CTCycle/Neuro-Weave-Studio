@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { CommonModule } from '@angular/common'
 import { Component, inject, signal } from '@angular/core'
 import { LucideAlertTriangle, LucideCheck, LucideRefreshCw } from '@lucide/angular'

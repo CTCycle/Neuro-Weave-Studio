@@ -1,3 +1,6 @@
+# Copyright © 2026 Thomas Virdis
+# Licensed under the MIT License.
+
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 """Persist Model Builder output bindings and node locking state."""
 

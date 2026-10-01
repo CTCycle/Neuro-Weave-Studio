@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, EventEmitter, Input, Output, inject, signal, viewChild } from '@angular/core'
 import type { ElementRef } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'

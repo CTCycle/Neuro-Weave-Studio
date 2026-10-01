@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, HostListener, computed, effect, inject, input, output, signal, viewChild, type ElementRef } from '@angular/core'
 import { ReactiveFormsModule, UntypedFormControl, UntypedFormGroup } from '@angular/forms'
 import { LucideTrash2, LucideX } from '@lucide/angular'

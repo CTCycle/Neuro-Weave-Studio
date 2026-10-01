@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import type { Routes } from '@angular/router'
 import { builderResourcesResolver } from './core/navigation/builder-resources.resolver'
 import { builderUnsavedGuard } from './core/navigation/builder-unsaved.guard'

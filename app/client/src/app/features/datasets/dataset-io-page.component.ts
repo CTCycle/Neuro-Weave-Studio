@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { CommonModule } from '@angular/common'
 import { Component, effect, inject, signal } from '@angular/core'
 import { LucideCheck, LucideSave } from '@lucide/angular'

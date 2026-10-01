@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, computed, input, output } from '@angular/core'
 import type { CompilationImplementation, CompilationObject, CompilationOption, ParameterDefinition } from '../../domain/types'
 import { ParameterEditorComponent, type ParameterEditorState } from '../builder/components/parameter-editor.component'

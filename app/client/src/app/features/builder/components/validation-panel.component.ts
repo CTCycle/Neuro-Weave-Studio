@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, inject, input, output } from '@angular/core'
 import { LucideCheckCircle2, LucideChevronDown, LucideXCircle } from '@lucide/angular'
 import type { ValidationDiagnostic, ValidationResult, ValidationState } from '../../../domain/types'

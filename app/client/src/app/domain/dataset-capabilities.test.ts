@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { describe, expect, it } from 'vitest'
 import { DATASET_CAPABILITIES, arrayFormatFromPath, datasetCapability, formatFromPath, sourceExtensions, sourceMode, tableFormatFromPath } from './dataset-capabilities'
 

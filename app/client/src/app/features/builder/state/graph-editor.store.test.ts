@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { afterEach, describe, expect, it } from 'vitest'
 import { emptyModelConfiguration } from '../../../domain/types'
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'

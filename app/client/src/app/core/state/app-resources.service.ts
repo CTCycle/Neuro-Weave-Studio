@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Injectable, computed, inject, signal } from '@angular/core'
 import { ApiService } from '../api/api.service'
 import type {

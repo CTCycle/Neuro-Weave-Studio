@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { describe, expect, it } from 'vitest'
 import { draftSnapshot } from './builder-draft-snapshot'
 

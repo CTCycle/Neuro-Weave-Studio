@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, computed, forwardRef, input, output, signal } from '@angular/core'
 import type { ParameterCapability, ParameterDefinition } from '../../../domain/types'
 import { displayParameterValue, isFiniteParameter, isSelectedParameterOption, parameterOptions, parseParameterValue, type ParameterDraftValue } from '../graph/parameter-value'

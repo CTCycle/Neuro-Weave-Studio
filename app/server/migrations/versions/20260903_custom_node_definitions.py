@@ -1,3 +1,6 @@
+# Copyright © 2026 Thomas Virdis
+# Licensed under the MIT License.
+
 """Persist installation-wide custom node definitions."""
 
 from __future__ import annotations

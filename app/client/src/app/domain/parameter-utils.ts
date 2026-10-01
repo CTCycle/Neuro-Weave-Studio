@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 export function isEffectivelyEmptyObject(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const entries = Object.entries(value as Record<string, unknown>)

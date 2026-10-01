@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, ElementRef, HostListener, computed, inject, input, output, signal, viewChild } from '@angular/core'
 import { LucideCheck, LucideChevronDown } from '@lucide/angular'
 

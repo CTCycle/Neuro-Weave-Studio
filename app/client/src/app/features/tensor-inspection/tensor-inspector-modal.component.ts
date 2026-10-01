@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { DecimalPipe } from '@angular/common'
 import { Component, inject, signal } from '@angular/core'
 import { LucideChevronLeft, LucideChevronRight, LucideX } from '@lucide/angular'

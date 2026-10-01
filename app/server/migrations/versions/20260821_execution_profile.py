@@ -1,3 +1,6 @@
+# Copyright © 2026 Thomas Virdis
+# Licensed under the MIT License.
+
 """Create the current execution-profile NeuroWeave schema."""
 
 import sqlalchemy as sa

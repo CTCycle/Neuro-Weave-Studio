@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, effect, inject, input } from '@angular/core'
 import type { ProjectDocument } from '../../domain/types'
 import { AppResourcesService } from '../../core/state/app-resources.service'

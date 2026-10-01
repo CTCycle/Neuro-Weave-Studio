@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, computed, effect, input, output, signal } from '@angular/core'
 import type {
   CompilationObject,

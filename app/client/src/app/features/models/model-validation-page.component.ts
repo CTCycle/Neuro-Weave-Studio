@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, DestroyRef, effect, inject, signal } from '@angular/core'
 import { RouterLink } from '@angular/router'
 import { LucideFlaskConical, LucideSquare } from '@lucide/angular'

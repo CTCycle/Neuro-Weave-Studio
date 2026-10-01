@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { parameterValueMatchesDefinition, type ParameterCapability, type ParameterDefinition } from '../../../domain/types'
 import { isEffectivelyEmptyObject } from '../../../domain/parameter-utils'
 

@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, HostListener, computed, effect, inject, input, output, signal, viewChild, type ElementRef } from '@angular/core'
 import { LucideSearch, LucideX } from '@lucide/angular'
 import { CustomNodeApiService } from '../../../core/api/custom-node-api.service'

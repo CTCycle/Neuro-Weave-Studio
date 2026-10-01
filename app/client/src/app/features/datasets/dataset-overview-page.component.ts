@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { CommonModule } from '@angular/common'
 import { Component, inject } from '@angular/core'
 import { RouterLink } from '@angular/router'

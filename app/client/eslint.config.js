@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import eslint from '@eslint/js'
 import angular from '@angular-eslint/eslint-plugin'
 import globals from 'globals'

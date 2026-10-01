@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import type { JobResponse } from '../../domain/types'
 
 export const terminalJobStates = new Set<JobResponse['state']>(['succeeded', 'terminated', 'failed'])

@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { expect, test } from '@playwright/test'
 
 test.skip(

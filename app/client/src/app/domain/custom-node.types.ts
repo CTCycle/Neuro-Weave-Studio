@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 export type CustomNodeKind = 'mathematical' | 'graph_template' | 'repository'
 
 export interface MathematicalNodeSpec {

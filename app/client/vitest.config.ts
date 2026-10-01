@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 

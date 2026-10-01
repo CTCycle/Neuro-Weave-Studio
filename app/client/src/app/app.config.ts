@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { provideHttpClient } from '@angular/common/http'
 import { provideZonelessChangeDetection } from '@angular/core'
 import type { ApplicationConfig } from '@angular/core'

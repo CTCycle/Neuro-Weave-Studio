@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, EventEmitter, HostListener, computed, effect, inject, Input, Output, signal, viewChild } from '@angular/core'
 import type { OnChanges, SimpleChanges } from '@angular/core'
 import { LucideLock, LucideMaximize2, LucideSave, LucideUnlock } from '@lucide/angular'

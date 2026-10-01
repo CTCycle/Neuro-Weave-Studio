@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'
 
 export interface LayoutPosition {

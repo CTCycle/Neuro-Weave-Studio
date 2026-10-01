@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, computed, inject, signal } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms'
 import { LucideBox, LucideFilePlus2, LucideInfo, LucideLockKeyhole, LucidePencil, LucideTrash2, LucideX } from '@lucide/angular'

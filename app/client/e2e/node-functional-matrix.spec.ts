@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { expect, test, type APIRequestContext, type Page, type TestInfo } from '@playwright/test'
 
 type CreatedProject = { id: string; current_revision: number; name: string }

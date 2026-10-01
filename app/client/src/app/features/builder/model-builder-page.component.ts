@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, HostListener, computed, effect, inject, input, signal, untracked, viewChild, type ElementRef } from '@angular/core'
 import { Router } from '@angular/router'
 import { LucideFileText, LucideHammer, LucideLayoutGrid, LucidePlay, LucidePlus, LucideRedo2, LucideSave, LucideUndo2, LucideX } from '@lucide/angular'

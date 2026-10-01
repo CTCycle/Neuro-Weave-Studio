@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { DOCUMENT } from '@angular/common'
 import { Directive, ElementRef, Injectable, booleanAttribute, effect, inject, input } from '@angular/core'
 

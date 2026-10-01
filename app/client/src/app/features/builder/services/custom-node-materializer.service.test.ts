@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { afterEach, describe, expect, it } from 'vitest'
 import type { CustomNodeDefinition } from '../../../domain/custom-node.types'
 import type { NodeManifest } from '../../../domain/types'
