@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core'
 import type { OnChanges, SimpleChanges } from '@angular/core'
 import { FormControl, ReactiveFormsModule } from '@angular/forms'

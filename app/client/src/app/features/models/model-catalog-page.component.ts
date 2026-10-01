@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, computed, inject, signal, ViewChild } from '@angular/core'
 import type { ElementRef } from '@angular/core'
 import { Router, RouterLink } from '@angular/router'

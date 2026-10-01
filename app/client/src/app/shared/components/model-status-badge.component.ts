@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, Input } from '@angular/core'
 import { LucideCheckCircle2, LucideCircleAlert, LucideCircleHelp, LucideClock3 } from '@lucide/angular'
 

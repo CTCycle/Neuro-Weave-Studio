@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import '@angular/compiler'
 import { HttpClient } from '@angular/common/http'
 import { Injector, runInInjectionContext } from '@angular/core'

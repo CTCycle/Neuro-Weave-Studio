@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { describe, expect, it } from 'vitest'
 import { materializePorts, materializedOutputs } from './ports'
 import type { NodeManifest, PortDefinition } from './types'

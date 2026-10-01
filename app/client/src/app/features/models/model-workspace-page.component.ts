@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, computed, effect, inject, input, signal } from '@angular/core'
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router'
 import { LucideArrowLeft, LucideBox, LucideCopy, LucideFileCode2, LucideGitBranch, LucideSettings2, LucideTrash2 } from '@lucide/angular'

@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import type { EditorEdge, EditorNode, EditorNodeData } from './editor.types'
 import type { GraphNodeInstance, ModelGraph, NodeManifest, OutputBinding, ProjectDocument } from './types'
 

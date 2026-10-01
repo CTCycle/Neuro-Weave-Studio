@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Injectable, computed, signal } from '@angular/core'
 import type { EditorEdge, EditorNode } from '../../../domain/editor.types'
 import { materializedInputs, materializedOutputs } from '../../../domain/ports'

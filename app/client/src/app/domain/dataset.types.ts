@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 export type DatasetType = 'tabular' | 'images' | 'text' | 'time_series' | 'array' | 'composed'
 export type DatasetValidationStatus = 'valid' | 'invalid'
 export type DatasetAvailabilityStatus = 'available' | 'unavailable'

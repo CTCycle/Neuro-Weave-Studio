@@ -1,3 +1,6 @@
+# Copyright © 2026 Thomas Virdis
+# Licensed under the MIT License.
+
 from common.catalogs.loader import get_node_catalog
 from domain.diagnostics import ConnectionValidationResult
 from domain.enums import DiagnosticSeverity, ExecutionBackend

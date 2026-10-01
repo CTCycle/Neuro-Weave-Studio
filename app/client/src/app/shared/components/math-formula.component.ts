@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, input, viewChild, type ElementRef } from '@angular/core'
 import katex from 'katex'
 

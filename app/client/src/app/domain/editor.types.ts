@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import type { NodeManifest, Position } from './types'
 
 export interface EditorNodeData extends Record<string, unknown> {

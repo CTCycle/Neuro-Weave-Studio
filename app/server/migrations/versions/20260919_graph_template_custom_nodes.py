@@ -1,3 +1,6 @@
+# Copyright © 2026 Thomas Virdis
+# Licensed under the MIT License.
+
 """Replace the sequential custom-node kind with graph templates."""
 
 from __future__ import annotations

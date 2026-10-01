@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { CommonModule } from '@angular/common'
 import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core'
 import type { OnChanges, SimpleChanges } from '@angular/core'

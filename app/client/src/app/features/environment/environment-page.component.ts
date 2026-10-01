@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, inject } from '@angular/core'
 import { LucideCpu } from '@lucide/angular'
 import { AppResourcesService } from '../../core/state/app-resources.service'

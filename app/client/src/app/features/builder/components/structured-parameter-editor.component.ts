@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, computed, forwardRef, input, output, signal } from '@angular/core'
 import type { ParameterCapability, ParameterDefinition, ParameterValueSchema } from '../../../domain/types'
 import { parameterValueMatchesDefinition } from '../../../domain/types'

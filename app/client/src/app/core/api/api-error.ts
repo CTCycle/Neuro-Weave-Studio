@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,

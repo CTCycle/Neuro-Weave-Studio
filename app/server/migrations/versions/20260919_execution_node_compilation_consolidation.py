@@ -1,3 +1,6 @@
+# Copyright © 2026 Thomas Virdis
+# Licensed under the MIT License.
+
 """Normalize execution contracts and remove obsolete persisted nodes.
 
 This migration intentionally performs the placeholder-node removal described in

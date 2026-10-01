@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { LucideAlertTriangle, LucideCheckCircle2, LucideCpu, LucidePackageX, LucideSquare, LucideTerminal } from '@lucide/angular'

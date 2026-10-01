@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core'
 import { LucideAlertTriangle, LucideCheckCircle2, LucideDownload, LucideRefreshCw, LucideSquare } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'

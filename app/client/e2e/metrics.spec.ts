@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'

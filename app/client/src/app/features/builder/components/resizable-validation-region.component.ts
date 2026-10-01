@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { Component, ElementRef, effect, inject, input, output, signal, type AfterViewInit, type OnDestroy } from '@angular/core'
 
 const MIN_HEIGHT = 76

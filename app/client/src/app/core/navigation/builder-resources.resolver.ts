@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { inject } from '@angular/core'
 import type { ResolveFn } from '@angular/router'
 import { AppResourcesService } from '../state/app-resources.service'

@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import { conditionMatches, type GraphNodeInstance, type ModelGraph, type NodeManifest, type OutputBinding, type PortDefinition } from './types'
 import { materializedOutputs } from './ports'
 

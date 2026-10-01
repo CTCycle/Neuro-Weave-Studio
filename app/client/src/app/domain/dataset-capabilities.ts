@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 import type { ArraySource, DatasetSource, DatasetType, TableSource, TextSource } from './dataset.types'
 
 export type DatasetTypeChoice = DatasetType | 'auto_detect'

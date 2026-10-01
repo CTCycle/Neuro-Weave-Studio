@@ -1,3 +1,6 @@
+// Copyright © 2026 Thomas Virdis
+// Licensed under the MIT License.
+
 export type ExecutionBackend = 'tensorflow' | 'pytorch' | 'jax'
 export type RuntimeApi = 'keras' | 'native'
 export type RuntimeDiscoveryState = 'unchecked' | 'checking' | 'verified' | 'unavailable' | 'failed'

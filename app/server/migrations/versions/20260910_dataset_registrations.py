@@ -1,3 +1,6 @@
+# Copyright © 2026 Thomas Virdis
+# Licensed under the MIT License.
+
 """Persist lightweight external dataset registrations."""
 
 from __future__ import annotations
