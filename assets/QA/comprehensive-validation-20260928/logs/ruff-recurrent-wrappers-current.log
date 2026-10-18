@@ -1,4 +1,0 @@
-2026-09-28 current validation
-Command:
-  app\server\.venv\Scripts\python.exe -m ruff check app/tests/test_validation.py
-Result: PASS - All checks passed.

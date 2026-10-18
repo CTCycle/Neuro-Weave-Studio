@@ -1,6 +1,0 @@
-Date: 2026-10-18
-Target: official launcher at http://127.0.0.1:6425
-Command: npm run e2e -- e2e/workflows.spec.ts -g "NW-T1-03 exports and reimports a project bundle through the browser" --workers=1
-Environment: NW_VALIDATION_EVIDENCE_DIR=assets/QA/comprehensive-validation-20261018/evidence
-Result: 1 passed (4.4s), exit code 0
-Evidence: ../evidence/nw-t4-03-export-page.png; ../evidence/nw-t4-03-browser-download-reimport.json

@@ -1,6 +1,0 @@
-Cleanup recorded: 2026-09-24T18:56:35Z
-Launcher-owned process trees stopped: backend root PID 23088 and frontend root PID 38516, including their verified descendants.
-Ports 6425, 6426, and 9750: free.
-The isolated API project collection returned an empty projects array after the E2E fixtures were deleted.
-The exact task runtime root under runtimes/cache was removed: G:\Projects\Repositories\Active projects\Neuro Weave Studio\runtimes\cache\comprehensive-validation-20260924-nw-tf-xla-followup.
-The exact failed Playwright attempt folder was not present at cleanup time. Shared runtimes/cache/playwright content was preserved.

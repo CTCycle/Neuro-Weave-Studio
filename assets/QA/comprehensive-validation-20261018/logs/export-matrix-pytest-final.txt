@@ -1,8 +1,0 @@
-Date: 2026-10-18
-Source revision: bcca2e63e05d692cd64031c1318518dbc7cbfa17
-Evidence sink: assets/QA/comprehensive-validation-20261018/evidence/export-matrix.jsonl
-Command: app/server/.venv/Scripts/python.exe -m pytest -c app/tests/pytest.ini --basetemp runtimes/cache/pytest-tmp/nw-cv-20261018-verified app/tests/test_export_artifacts.py app/tests/test_api_projects.py -k export -q
-Captured pytest progress: ................................ [100%]
-Result: exit code 0; 32 selected tests passed, with no skips or failures.
-Matrix evidence rows: 22 supported profile/format pairs; 37 exported-file hash/size records.
-Checks in each row: exact profile/project/revision and manifest identity, recomputed file hashes and sizes, exact archive member set, structural reload and inference verification.

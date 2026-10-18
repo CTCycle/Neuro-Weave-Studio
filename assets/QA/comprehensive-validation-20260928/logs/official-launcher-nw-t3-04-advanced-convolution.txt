@@ -1,2 +1,0 @@
-Resolved 137 packages in 2ms
-Checked 114 packages in 13ms

@@ -1,1 +1,0 @@
-No listeners remained on the isolated NeuroWeave ports 6426 and 9849 after verified launcher-owned process-tree shutdown.

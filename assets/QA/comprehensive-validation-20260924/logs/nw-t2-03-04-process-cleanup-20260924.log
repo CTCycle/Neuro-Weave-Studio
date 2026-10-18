@@ -1,9 +1,0 @@
-official_launcher_backend_and_preview=stopped
-owned_process_ids=38552,26612,16640,12468,26384,3208,14064,20016,11180
-ports_6425_6426_9750=listening none
-isolated_database_projects_remaining=0
-active_jobs=0
-all_test_fixtures_deleted=true
-isolated_run_cache=runtimes/cache/comprehensive-validation-20260924-nw-t2-03-04 removed
-playwright_test_results_metadata=removed
-obsolete_pre_final_launcher_log=removed

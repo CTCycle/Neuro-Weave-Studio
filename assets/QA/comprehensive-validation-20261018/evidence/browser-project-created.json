@@ -1,7 +1,0 @@
-{
-  "id": "7373332f-1850-4e1a-9506-deafb415ac3f",
-  "name": "NW-CV-20261018 Export Evidence",
-  "revision": 1,
-  "backend": "tensorflow",
-  "keras_enabled": true
-}

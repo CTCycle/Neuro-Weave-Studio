@@ -1,3 +1,0 @@
-
-> neuro-weave-frontend@1.0.0 lint
-> eslint . --max-warnings 0 --cache --cache-location ../../runtimes/cache/eslint/ --no-cache
