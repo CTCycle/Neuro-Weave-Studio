@@ -10,9 +10,10 @@ import time
 import zipfile
 from collections.abc import Iterator
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+
 import services.runtime_controller as runtime_controller_module
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
@@ -339,7 +340,7 @@ def _export_request(
     backend: ExecutionBackend,
     api: RuntimeApi,
     *,
-    project_id=None,
+    project_id: UUID | None = None,
 ) -> JobSubmitRequest:
     return JobSubmitRequest(
         operation=ModelExportOperation(
@@ -362,7 +363,7 @@ def verify_published_artifact(
     *,
     backend: ExecutionBackend,
     api: RuntimeApi,
-    project_id,
+    project_id: UUID,
     revision: int,
 ) -> list[dict[str, object]]:
     assert artifact.filename == destination.name
