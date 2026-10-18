@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
@@ -273,6 +274,8 @@ test('NW-T1-03 exports and reimports a project bundle through the browser', asyn
     await expect(page.getByRole('heading', { name: `Export ${source.name}` })).toBeVisible()
     const bundleOption = page.getByRole('button', { name: /Project bundle/ })
     await expect(bundleOption).toBeEnabled()
+    await mkdir(campaignEvidenceDir, { recursive: true })
+    await page.screenshot({ path: path.join(campaignEvidenceDir, 'nw-t4-03-export-page.png'), fullPage: true })
     await bundleOption.click()
 
     const downloadPromise = page.waitForEvent('download')
@@ -282,6 +285,7 @@ test('NW-T1-03 exports and reimports a project bundle through the browser', asyn
     const downloadPath = await download.path()
     expect(downloadPath).not.toBeNull()
     const bundleBytes = await readFile(downloadPath!)
+    const bundleSha256 = createHash('sha256').update(bundleBytes).digest('hex')
     const bundle = JSON.parse(bundleBytes.toString('utf8')) as {
       format: string
       format_version: number
@@ -332,6 +336,24 @@ test('NW-T1-03 exports and reimports a project bundle through the browser', asyn
     })
     await expect(page).toHaveURL(new RegExp(`/models/${imported.id}$`))
     await expect(page.getByRole('heading', { name: original.name })).toBeVisible()
+
+    await writeFile(path.join(campaignEvidenceDir, 'nw-t4-03-browser-download-reimport.json'), JSON.stringify({
+      source_project_id: source.id,
+      imported_project_id: imported.id,
+      revision: imported.current_revision,
+      download: {
+        filename: download.suggestedFilename(),
+        bytes: bundleBytes.length,
+        sha256: bundleSha256,
+        format: bundle.format,
+        format_version: bundle.format_version,
+      },
+      reimport: {
+        status: importResponse.status(),
+        persisted_profile: `${imported.execution_backend}/${imported.keras_enabled ? 'keras' : 'native'}`,
+        graph_matches_source: JSON.stringify(imported.graph) === JSON.stringify(original.graph),
+      },
+    }, null, 2) + '\n')
 
     const persistedResponse = await request.get(`/api/projects/${imported.id}`)
     expect(persistedResponse.ok()).toBeTruthy()

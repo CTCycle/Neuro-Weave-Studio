@@ -1,0 +1,10 @@
+{
+  "checked_at": "2026-10-18",
+  "projects": [
+    {"id": "7373332f-1850-4e1a-9506-deafb415ac3f", "cleanup": "DELETE 204", "final_get": 404},
+    {"id": "3a470be3-7dd8-4539-a873-7da7708094dc", "cleanup": "DELETE 204", "final_get": 404},
+    {"id": "c05255b3-6c6d-4a35-a3b0-2acc89266a6d", "cleanup": "Playwright finally block", "final_get": 404},
+    {"id": "bf3d9db0-30da-4614-a549-b9d7820ed47b", "cleanup": "Playwright finally block", "final_get": 404}
+  ],
+  "active_export_or_runtime_jobs": 0
+}

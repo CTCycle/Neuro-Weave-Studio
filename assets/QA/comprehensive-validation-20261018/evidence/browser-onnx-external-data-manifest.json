@@ -1,0 +1,346 @@
+{
+  "artifact": {
+    "compilation": {
+      "keras": {
+        "compilation": {
+          "default_constraint": null,
+          "default_initializer": {
+            "id": "glorot_uniform",
+            "parameters": {}
+          },
+          "default_regularizer": null,
+          "losses": {},
+          "metrics": {},
+          "optimizer": {
+            "id": "adam",
+            "parameters": {
+              "learning_rate": 0.001
+            }
+          }
+        },
+        "mixed_precision": false,
+        "random_seed": 42
+      },
+      "native": {
+        "jax": {
+          "compilation": {
+            "default_constraint": null,
+            "default_initializer": {
+              "id": "glorot_uniform",
+              "parameters": {}
+            },
+            "default_regularizer": null,
+            "losses": {},
+            "metrics": {},
+            "optimizer": {
+              "id": "adam",
+              "parameters": {
+                "learning_rate": 0.001,
+                "weight_decay": 0
+              }
+            }
+          },
+          "compiler": {
+            "id": "jax_jit",
+            "parameters": {
+              "enabled": false
+            }
+          },
+          "random_seed": 42
+        },
+        "pytorch": {
+          "compilation": {
+            "default_constraint": null,
+            "default_initializer": {
+              "id": "glorot_uniform",
+              "parameters": {}
+            },
+            "default_regularizer": null,
+            "losses": {},
+            "metrics": {},
+            "optimizer": {
+              "id": "adam",
+              "parameters": {
+                "learning_rate": 0.001,
+                "weight_decay": 0
+              }
+            }
+          },
+          "compiler": {
+            "id": "pytorch_compile",
+            "parameters": {
+              "dynamic": false,
+              "enabled": false,
+              "fullgraph": false,
+              "mode": "default"
+            }
+          },
+          "random_seed": 42
+        },
+        "tensorflow": {
+          "compilation": {
+            "default_constraint": null,
+            "default_initializer": {
+              "id": "glorot_uniform",
+              "parameters": {}
+            },
+            "default_regularizer": null,
+            "losses": {},
+            "metrics": {},
+            "optimizer": {
+              "id": "adam",
+              "parameters": {
+                "learning_rate": 0.001,
+                "weight_decay": 0
+              }
+            }
+          },
+          "compiler": {
+            "id": "tensorflow_function",
+            "parameters": {
+              "jit_compile": false
+            }
+          },
+          "random_seed": 42
+        }
+      }
+    },
+    "conversion": "keras",
+    "execution_backend": "tensorflow",
+    "filename": "NW-CV-20261018_Export_Evidence.onnx.zip",
+    "files": [
+      {
+        "media_type": "application/vnd.nvidia.onnx",
+        "path": "model.onnx",
+        "sha256": "e09e142866934c678b0a49d3966a2f95e4e4e4e4c01c73391d3cadd2b45da0a2",
+        "size_bytes": 811
+      },
+      {
+        "media_type": "application/octet-stream",
+        "path": "model.onnx.data",
+        "sha256": "a3009b88e1512c1e2167500183d574db784edf25fd2e195bf90c579753c99525",
+        "size_bytes": 72
+      }
+    ],
+    "format": "onnx",
+    "graph_sha256": "3534a61763b241840bec2e0e7e116130cae12a3fda9b1ae4e2d40db4e1293380",
+    "inputs": [
+      {
+        "dtype": "float32",
+        "node_id": "input",
+        "shape": [
+          1,
+          8
+        ]
+      }
+    ],
+    "layout": "archive",
+    "outputs": [
+      {
+        "dtype": "float32",
+        "node_id": "output",
+        "shape": [
+          1,
+          2
+        ]
+      }
+    ],
+    "payload": "full_model",
+    "project_id": "3a470be3-7dd8-4539-a873-7da7708094dc",
+    "project_revision": 1,
+    "runtime_api": "keras",
+    "tool_versions": {
+      "keras": "3.15.1",
+      "onnx": "1.22.0",
+      "onnxruntime": "1.29.0",
+      "tensorflow": "2.21.0",
+      "tf2onnx": "1.17.0"
+    },
+    "verification": {
+      "inference": true,
+      "notes": [],
+      "reload": true,
+      "semantic_equivalence": "verified",
+      "structural": true
+    }
+  },
+  "graph": {
+    "edges": [
+      {
+        "id": "e1",
+        "source_node_id": "input",
+        "source_port_id": "output",
+        "target_node_id": "dense",
+        "target_port_id": "input"
+      },
+      {
+        "id": "e2",
+        "source_node_id": "dense",
+        "source_port_id": "output",
+        "target_node_id": "output",
+        "target_port_id": "input"
+      }
+    ],
+    "export_settings": {
+      "include_comments": true,
+      "include_shape_assertions": true,
+      "preferred_binary_format": "keras"
+    },
+    "future_training_configuration": {},
+    "model_configuration": {
+      "keras": {
+        "compilation": {
+          "default_constraint": null,
+          "default_initializer": {
+            "id": "glorot_uniform",
+            "parameters": {}
+          },
+          "default_regularizer": null,
+          "losses": {},
+          "metrics": {},
+          "optimizer": {
+            "id": "adam",
+            "parameters": {
+              "learning_rate": 0.001
+            }
+          }
+        },
+        "mixed_precision": false,
+        "random_seed": 42
+      },
+      "native": {
+        "jax": {
+          "compilation": {
+            "default_constraint": null,
+            "default_initializer": {
+              "id": "glorot_uniform",
+              "parameters": {}
+            },
+            "default_regularizer": null,
+            "losses": {},
+            "metrics": {},
+            "optimizer": {
+              "id": "adam",
+              "parameters": {
+                "learning_rate": 0.001,
+                "weight_decay": 0
+              }
+            }
+          },
+          "compiler": {
+            "id": "jax_jit",
+            "parameters": {
+              "enabled": false
+            }
+          },
+          "random_seed": 42
+        },
+        "pytorch": {
+          "compilation": {
+            "default_constraint": null,
+            "default_initializer": {
+              "id": "glorot_uniform",
+              "parameters": {}
+            },
+            "default_regularizer": null,
+            "losses": {},
+            "metrics": {},
+            "optimizer": {
+              "id": "adam",
+              "parameters": {
+                "learning_rate": 0.001,
+                "weight_decay": 0
+              }
+            }
+          },
+          "compiler": {
+            "id": "pytorch_compile",
+            "parameters": {
+              "dynamic": false,
+              "enabled": false,
+              "fullgraph": false,
+              "mode": "default"
+            }
+          },
+          "random_seed": 42
+        },
+        "tensorflow": {
+          "compilation": {
+            "default_constraint": null,
+            "default_initializer": {
+              "id": "glorot_uniform",
+              "parameters": {}
+            },
+            "default_regularizer": null,
+            "losses": {},
+            "metrics": {},
+            "optimizer": {
+              "id": "adam",
+              "parameters": {
+                "learning_rate": 0.001,
+                "weight_decay": 0
+              }
+            }
+          },
+          "compiler": {
+            "id": "tensorflow_function",
+            "parameters": {
+              "jit_compile": false
+            }
+          },
+          "random_seed": 42
+        }
+      }
+    },
+    "nodes": [
+      {
+        "definition_id": "input.tabular",
+        "definition_version": 1,
+        "id": "input",
+        "label": null,
+        "locked": false,
+        "parameters": {
+          "dtype": "float32",
+          "shape": [
+            8
+          ]
+        },
+        "position": {
+          "x": 0.0,
+          "y": 0.0
+        }
+      },
+      {
+        "definition_id": "layer.dense",
+        "definition_version": 1,
+        "id": "dense",
+        "label": null,
+        "locked": false,
+        "parameters": {
+          "activation": "softmax",
+          "units": 2,
+          "use_bias": true
+        },
+        "position": {
+          "x": 300.0,
+          "y": 0.0
+        }
+      },
+      {
+        "definition_id": "output.classification",
+        "definition_version": 1,
+        "id": "output",
+        "label": null,
+        "locked": false,
+        "parameters": {},
+        "position": {
+          "x": 600.0,
+          "y": 0.0
+        }
+      }
+    ],
+    "output_bindings": [],
+    "schema_version": 6
+  },
+  "schema_version": 1
+}
