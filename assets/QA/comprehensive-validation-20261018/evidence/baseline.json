@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-18",
+  "timezone": "Europe/Rome",
+  "branch": "develop",
+  "revision": "bcca2e63e05d692cd64031c1318518dbc7cbfa17",
+  "upstream": "origin/develop",
+  "working_tree_before": "clean",
+  "selected_gates": {
+    "NW-T4-03": "UNTESTED",
+    "NW-T5-01": "PARTIAL",
+    "export.project-bundle.browser-download": "evidence incomplete"
+  }
+}

@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import time
 import zipfile
 from collections.abc import Iterator
@@ -11,10 +13,17 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-
+import services.runtime_controller as runtime_controller_module
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend
-from domain.exports import ExportFormat
+from domain.exports import (
+    ExportArtifactFile,
+    ExportArtifactManifest,
+    ExportConversion,
+    ExportFormat,
+    ExportLayout,
+    ExportPayload,
+)
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from domain.jobs import JobResponse, JobSubmitRequest, ModelExportOperation
 from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
@@ -29,6 +38,8 @@ def export_controller(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Runt
         Settings(
             ml_job_root=runtime_root / "jobs",
             export_root=runtime_root / "exports",
+            ml_cancel_grace_seconds=1,
+            ml_terminate_grace_seconds=1,
         )
     )
     controller.probe_statuses()
@@ -74,10 +85,11 @@ def test_export_artifact_matrix(
     if worker is None:
         pytest.skip(f"{api.value} {backend.value} runtime is unavailable")
     destination = tmp_path / f"artifact{extension_for(export_format)}"
+    project_id = uuid4()
     job = export_controller.submit(
         JobSubmitRequest(
             operation=ModelExportOperation(
-                project_id=uuid4(),
+                project_id=project_id,
                 format=export_format,
                 filename_stem="matrix-artifact",
             ),
@@ -93,22 +105,326 @@ def test_export_artifact_matrix(
     assert result.artifact is not None
     assert destination.is_file()
     assert result.artifact.format is export_format
+    assert result.artifact.execution_backend is backend
+    assert result.artifact.runtime_api is api
+    assert result.artifact.project_id == project_id
     assert result.artifact.project_revision == 1
     assert result.artifact.verification.structural
     assert result.artifact.verification.reload
     assert result.artifact.verification.inference
     assert result.artifact.compilation["native"]["pytorch"]["compilation"]["optimizer"]["id"] == "adam"
 
-    if result.artifact.layout.value == "archive":
+    file_hashes = verify_published_artifact(
+        destination,
+        result.artifact,
+        backend=backend,
+        api=api,
+        project_id=project_id,
+        revision=1,
+    )
+    record_matrix_evidence(
+        {
+            "backend": backend.value,
+            "api": api.value,
+            "device_id": worker.device_id,
+            "precision": worker.precision,
+            "format": export_format.value,
+            "project_id": str(project_id),
+            "project_revision": result.artifact.project_revision,
+            "filename": destination.name,
+            "published_size_bytes": destination.stat().st_size,
+            "published_sha256": sha256_bytes(destination.read_bytes()),
+            "files": file_hashes,
+            "manifest": result.artifact.model_dump(mode="json"),
+            "verification": result.artifact.verification.model_dump(mode="json"),
+        }
+    )
+
+###############################################################################
+def test_conversion_failure_preserves_published_artifact_and_cleans_job(
+    export_controller: RuntimeController,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = ExecutionBackend.TENSORFLOW
+    api = RuntimeApi.KERAS
+    worker = worker_for(export_controller, backend, api)
+    if worker is None:
+        pytest.skip(f"{api.value} {backend.value} runtime is unavailable")
+    destination = tmp_path / "existing.keras"
+    original = b"previously published artifact"
+    destination.write_bytes(original)
+    job_dirs: list[Path] = []
+
+    def start_failed_worker(job_dir: Path) -> _FinishedWorker:
+        job_dirs.append(job_dir)
+        (job_dir / "worker.log").write_text("simulated exporter conversion failure", encoding="utf-8")
+        (job_dir / "status.json").write_text(
+            json.dumps(
+                {
+                    "state": "failed",
+                    "phase": "conversion",
+                    "message": "Export conversion failed",
+                    "error": {"code": "export_conversion_failed", "message": "simulated exporter conversion failure"},
+                }
+            ),
+            encoding="utf-8",
+        )
+        return _FinishedWorker(returncode=1)
+
+    monkeypatch.setattr(export_controller, "_start_process", start_failed_worker)
+    job = export_controller.submit(
+        _export_request(backend, api),
+        graph=dense_graph(),
+        artifact_destination=destination,
+        artifact_filename=destination.name,
+        project_revision=1,
+    )
+    result = wait_for_job(export_controller, job.id)
+
+    assert result.state.value == "failed"
+    assert result.error is not None and result.error.code == "export_conversion_failed"
+    assert destination.read_bytes() == original
+    assert not list(tmp_path.glob(f".{destination.name}.*.tmp"))
+    assert job_dirs and not job_dirs[0].exists()
+    assert export_controller.list(active_only=True) == []
+
+###############################################################################
+def test_atomic_publication_failure_preserves_prior_artifact_and_cleans_temp(
+    export_controller: RuntimeController,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = ExecutionBackend.TENSORFLOW
+    api = RuntimeApi.KERAS
+    worker = worker_for(export_controller, backend, api)
+    if worker is None:
+        pytest.skip(f"{api.value} {backend.value} runtime is unavailable")
+    project_id = uuid4()
+    destination = tmp_path / "existing.keras"
+    original = b"previously published artifact"
+    destination.write_bytes(original)
+    job_dirs: list[Path] = []
+
+    def start_successful_worker(job_dir: Path) -> _FinishedWorker:
+        job_dirs.append(job_dir)
+        source = job_dir / "staged.keras"
+        payload = b"verified staged artifact bytes"
+        source.write_bytes(payload)
+        manifest = ExportArtifactManifest(
+            format=ExportFormat.KERAS,
+            filename=destination.name,
+            layout=ExportLayout.FILE,
+            payload=ExportPayload.FULL_MODEL,
+            conversion=ExportConversion.KERAS,
+            execution_backend=backend,
+            runtime_api=api,
+            project_id=project_id,
+            project_revision=1,
+            files=[
+                ExportArtifactFile(
+                    path=source.name,
+                    size_bytes=len(payload),
+                    sha256=sha256_bytes(payload),
+                )
+            ],
+        )
+        (job_dir / "status.json").write_text(
+            json.dumps(
+                {
+                    "state": "succeeded",
+                    "phase": "completed",
+                    "message": "Export conversion completed",
+                    "result": {
+                        "artifact_path": source.name,
+                        "artifact_manifest": manifest.model_dump(mode="json"),
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        return _FinishedWorker(returncode=0)
+
+    real_replace = os.replace
+
+    def fail_atomic_publish(source: str | os.PathLike[str], target: str | os.PathLike[str]) -> None:
+        if Path(target) == destination:
+            raise OSError("simulated atomic publication failure")
+        real_replace(source, target)
+
+    monkeypatch.setattr(export_controller, "_start_process", start_successful_worker)
+    monkeypatch.setattr(runtime_controller_module.os, "replace", fail_atomic_publish)
+    job = export_controller.submit(
+        _export_request(backend, api, project_id=project_id),
+        graph=dense_graph(),
+        artifact_destination=destination,
+        artifact_filename=destination.name,
+        project_revision=1,
+    )
+    result = wait_for_job(export_controller, job.id)
+
+    assert result.state.value == "failed"
+    assert result.error is not None and result.error.code == "artifact_publish_failed"
+    assert destination.read_bytes() == original
+    assert not list(tmp_path.glob(f".{destination.name}.*.tmp"))
+    assert job_dirs and not job_dirs[0].exists()
+    assert export_controller.list(active_only=True) == []
+
+###############################################################################
+def test_cancelled_export_preserves_published_artifact_and_cleans_worker(
+    export_controller: RuntimeController,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = ExecutionBackend.TENSORFLOW
+    api = RuntimeApi.KERAS
+    worker = worker_for(export_controller, backend, api)
+    if worker is None:
+        pytest.skip(f"{api.value} {backend.value} runtime is unavailable")
+    destination = tmp_path / "existing.keras"
+    original = b"previously published artifact"
+    destination.write_bytes(original)
+    job_dirs: list[Path] = []
+    running_worker = _FinishedWorker(returncode=None)
+
+    def start_running_worker(job_dir: Path) -> _FinishedWorker:
+        job_dirs.append(job_dir)
+        (job_dir / "status.json").write_text(
+            json.dumps({"state": "running", "phase": "conversion", "message": "Exporting"}),
+            encoding="utf-8",
+        )
+        return running_worker
+
+    def terminate_fake_worker(_pid: int, *, force: bool) -> None:
+        assert not force
+        running_worker.returncode = 20
+
+    monkeypatch.setattr(export_controller, "_start_process", start_running_worker)
+    monkeypatch.setattr(runtime_controller_module, "terminate_process_tree", terminate_fake_worker)
+    job = export_controller.submit(
+        _export_request(backend, api),
+        graph=dense_graph(),
+        artifact_destination=destination,
+        artifact_filename=destination.name,
+        project_revision=1,
+    )
+    export_controller.stop(job.id)
+    result = wait_for_job(export_controller, job.id)
+
+    assert result.state.value == "terminated"
+    assert result.error is not None and result.error.code == "cancelled"
+    wait_for_workspace_removed(job_dirs[0])
+    assert destination.read_bytes() == original
+    assert not list(tmp_path.glob(f".{destination.name}.*.tmp"))
+    assert job_dirs and not job_dirs[0].exists()
+    assert export_controller.list(active_only=True) == []
+
+###############################################################################
+class _FinishedWorker:
+    def __init__(self, *, returncode: int | None) -> None:
+        self.pid: int | None = None
+        self.returncode = returncode
+
+    def poll(self) -> int | None:
+        return self.returncode
+
+    def wait(self) -> int | None:
+        return self.returncode
+
+    def kill(self) -> None:
+        self.returncode = -9
+
+###############################################################################
+def _export_request(
+    backend: ExecutionBackend,
+    api: RuntimeApi,
+    *,
+    project_id=None,
+) -> JobSubmitRequest:
+    return JobSubmitRequest(
+        operation=ModelExportOperation(
+            project_id=project_id or uuid4(),
+            format=ExportFormat.KERAS,
+        ),
+        worker=WorkerConfiguration(
+            api=api,
+            backend=backend,
+            device_id="cpu",
+            memory_policy=MemoryPolicy(),
+            precision="float32",
+        ),
+    )
+
+###############################################################################
+def verify_published_artifact(
+    destination: Path,
+    artifact: ExportArtifactManifest,
+    *,
+    backend: ExecutionBackend,
+    api: RuntimeApi,
+    project_id,
+    revision: int,
+) -> list[dict[str, object]]:
+    assert artifact.filename == destination.name
+    assert artifact.execution_backend is backend
+    assert artifact.runtime_api is api
+    assert artifact.project_id == project_id
+    assert artifact.project_revision == revision
+    file_hashes: list[dict[str, object]] = []
+    if artifact.layout is ExportLayout.ARCHIVE:
         with zipfile.ZipFile(destination) as archive:
             names = set(archive.namelist())
-            assert "manifest.json" in names
-            manifest = json.loads(archive.read("manifest.json"))
-            assert manifest["artifact"]["format"] == export_format.value
-            assert all(item.path in names for item in result.artifact.files)
+            expected_names = {"manifest.json", *(item.path for item in artifact.files)}
+            assert names == expected_names
+            archive_manifest = json.loads(archive.read("manifest.json"))
+            packaged_artifact = archive_manifest["artifact"]
+            assert packaged_artifact == artifact.model_dump(mode="json")
+            assert packaged_artifact["format"] == artifact.format.value
+            assert packaged_artifact["execution_backend"] == backend.value
+            assert packaged_artifact["runtime_api"] == api.value
+            assert packaged_artifact["project_id"] == str(project_id)
+            assert packaged_artifact["project_revision"] == revision
+            for declared in artifact.files:
+                assert declared.path in names
+                payload = archive.read(declared.path)
+                digest = sha256_bytes(payload)
+                assert len(payload) == declared.size_bytes
+                assert digest == declared.sha256
+                file_hashes.append(
+                    {"path": declared.path, "size_bytes": len(payload), "sha256": digest}
+                )
     else:
-        assert len(result.artifact.files) == 1
-        assert result.artifact.files[0].path == destination.name
+        assert len(artifact.files) == 1
+        declared = artifact.files[0]
+        assert declared.path == destination.name
+        payload = destination.read_bytes()
+        digest = sha256_bytes(payload)
+        assert len(payload) == declared.size_bytes
+        assert digest == declared.sha256
+        file_hashes.append(
+            {"path": declared.path, "size_bytes": len(payload), "sha256": digest}
+        )
+    return file_hashes
+
+###############################################################################
+def sha256_bytes(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+###############################################################################
+def wait_for_workspace_removed(path: Path) -> None:
+    deadline = time.monotonic() + 5
+    while path.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not path.exists()
+
+###############################################################################
+def record_matrix_evidence(record: dict[str, object]) -> None:
+    evidence_file = os.environ.get("NW_EXPORT_MATRIX_EVIDENCE_PATH")
+    if evidence_file:
+        target = Path(evidence_file)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("a", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps(record, sort_keys=True) + "\n")
 
 ###############################################################################
 def worker_for(

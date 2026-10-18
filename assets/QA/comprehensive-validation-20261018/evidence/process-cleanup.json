@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-18",
+  "launcher_process_ids": [
+    21376,
+    18180,
+    36492,
+    39292,
+    12440,
+    28328,
+    35188,
+    25952
+  ],
+  "owned_processes_still_running": [],
+  "ports_checked": [
+    6425,
+    9750
+  ],
+  "listening_ports_remaining": [],
+  "task_pytest_temp_directories_remaining": 0,
+  "isolated_resource_root_removed": true,
+  "browser_test_process_exited": true,
+  "task_browser_projects_absent": true,
+  "active_jobs_before_shutdown": 0
+}

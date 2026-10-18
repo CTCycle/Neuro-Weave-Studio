@@ -1,0 +1,56 @@
+{
+  "download": "C:\\Users\\Thomas V\\Downloads\\NW-CV-20261018_Export_Evidence.onnx.zip",
+  "evidence_artifact": "assets\\QA\\comprehensive-validation-20261018\\evidence\\browser-onnx-external-data.zip",
+  "manifest": "assets\\QA\\comprehensive-validation-20261018\\evidence\\browser-onnx-external-data-manifest.json",
+  "download_size_bytes": 2066,
+  "download_sha256": "6ce52e3a8ec7be3c0cde9d6f16bb47cc3a3cfaad9dfd83b20049c69612936d4e",
+  "archive_members": [
+    "manifest.json",
+    "model.onnx",
+    "model.onnx.data"
+  ],
+  "profile": {
+    "backend": "tensorflow",
+    "api": "keras"
+  },
+  "project_id": "3a470be3-7dd8-4539-a873-7da7708094dc",
+  "project_revision": 1,
+  "format": "onnx",
+  "layout": "archive",
+  "external_data_files": [
+    {
+      "path": "model.onnx",
+      "size_bytes": 811,
+      "sha256": "e09e142866934c678b0a49d3966a2f95e4e4e4e4c01c73391d3cadd2b45da0a2"
+    },
+    {
+      "path": "model.onnx.data",
+      "size_bytes": 72,
+      "sha256": "a3009b88e1512c1e2167500183d574db784edf25fd2e195bf90c579753c99525"
+    }
+  ],
+  "verification": {
+    "inference": true,
+    "notes": [],
+    "reload": true,
+    "semantic_equivalence": "verified",
+    "structural": true
+  },
+  "onnx_checker": "passed",
+  "onnxruntime": "passed",
+  "providers": [
+    "CPUExecutionProvider"
+  ],
+  "input_shapes": {
+    "input": [
+      "batch",
+      8
+    ]
+  },
+  "output_shapes": [
+    [
+      1,
+      2
+    ]
+  ]
+}
