@@ -124,7 +124,7 @@ jobs:
   frontend:
     name: Angular quality, tests, build, and E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node
@@ -204,6 +204,7 @@ jobs:
         env:
           FASTAPI_HOST: 127.0.0.1
           FASTAPI_PORT: 8000
+          PLAYWRIGHT_WORKERS: 4
         run: |
           mkdir -p ../../.ci-logs
           set -o pipefail
