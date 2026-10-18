@@ -1,4 +1,0 @@
-NW-T3-11/NW-T3-12 adjacent finite-domain recheck
-Date: 2026-09-29
-Command: cd app/server; uv run pytest ..\tests\test_conv1d_and_operations.py -k "native_log_functional_dummy_input_stays_in_a_finite_domain"
-Result: 3 passed

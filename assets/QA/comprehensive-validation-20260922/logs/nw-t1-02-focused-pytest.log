@@ -1,8 +1,0 @@
-Run ID: NW-CV-20260922-T1-02
-Validated revision: a30eefc93658138400e4061f4af07eed4c021985
-Command (from app/server): & '.venv/Scripts/python.exe' -m pytest '../tests/test_migrations.py' '../tests/test_database_contract.py' '../tests/test_datasets.py::test_dataset_registration_survives_application_restart' -q --basetemp 'G:\Projects\Repositories\Active projects\Neuro Weave Studio\runtimes\cache\comprehensive-validation-20260922-t1-02\pytest-rerun'
-Exit code: 0
-
-..........                                                               [100%]
-
-Result: 10 selected tests passed.

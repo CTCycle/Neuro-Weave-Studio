@@ -1,8 +1,0 @@
-NW-T2-01 manual in-app Browser fixture cleanup
-
-Run-owned project id: c9d26528-1d02-4343-bcdd-1c41be7c1891
-DELETE /api/projects/{id}: HTTP 204
-Follow-up GET /api/projects/{id}: HTTP 404
-Projects remaining in isolated database before shutdown: 0
-
-Isolated database directory was removed after the application services stopped.

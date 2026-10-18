@@ -1,4 +1,0 @@
-2026-09-28 current validation
-Command: npm run lint
-Working directory: app/client
-Result: PASS (eslint . --max-warnings 0; exit code 0).

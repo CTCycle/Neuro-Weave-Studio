@@ -1,4 +1,0 @@
-Date: 2026-10-18
-Scope: experimental Pytest-worker probe of ONNX external_data=always; this probe was not part of the accepted matrix.
-Observed worker error: onnx.onnx_cpp2py_export.checker.ValidationError: Tensor neuro_weave_model_1/dense_1/Cast/ReadVariableOp:0 external data path could not be canonicalized: Access is denied.
-The same export setting succeeded in a direct standalone worker and through the official launched application's in-app export. The browser download archive then passed exact member/hash checks, ONNX checker, and ONNX Runtime CPU inference. No product defect was reproduced; record this as a test-harness path limitation rather than a passing standalone Pytest probe.

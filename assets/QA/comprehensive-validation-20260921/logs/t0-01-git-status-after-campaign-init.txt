@@ -1,1 +1,0 @@
-Tracked and staged changes were empty at baseline capture. The campaign directory was the only expected untracked path created by this validation run.

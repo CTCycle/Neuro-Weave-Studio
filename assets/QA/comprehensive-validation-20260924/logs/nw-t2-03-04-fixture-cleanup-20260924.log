@@ -1,9 +1,0 @@
-test_fixture_id=90d7216d-c5f2-4044-9b77-a3a1b8a298e6
-test_fixture_name=Untitled model
-delete_status=204
-fixture_absent_after_delete=True
-active_jobs_after_cleanup=0
-worker_process_for_cancelled_job=absent (recorded in evidence/nw-t2-04-cancel-cleanup.json)
-visual_copy_fixture_id=131c6261-d5b2-4aeb-bbc0-21e1290dd9d0
-visual_copy_fixture_deleted=true
-active_jobs_after_visual_check=0

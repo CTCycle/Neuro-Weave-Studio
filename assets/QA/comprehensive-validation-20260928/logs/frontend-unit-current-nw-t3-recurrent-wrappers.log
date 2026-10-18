@@ -1,5 +1,0 @@
-2026-09-28 current validation
-Command: npm run test
-Working directory: app/client
-Result: PASS (20 test files, 105 tests; exit code 0).
-Duration: 13.66s reported by Vitest.

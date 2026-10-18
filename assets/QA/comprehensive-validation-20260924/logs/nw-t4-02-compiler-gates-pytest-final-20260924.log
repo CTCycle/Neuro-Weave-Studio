@@ -1,8 +1,0 @@
-...ssssssssss........s.s........                                         [100%]
-=========================== short test summary info ===========================
-SKIPPED [1] test_compilation_capabilities.py:186: could not import 'tensorflow': No module named 'tensorflow'
-SKIPPED [8] test_compilation_capabilities.py:322: could not import 'tensorflow': No module named 'tensorflow'
-SKIPPED [1] test_compilation_capabilities.py:367: could not import 'tensorflow': No module named 'tensorflow'
-SKIPPED [1] test_compilation_capabilities.py:622: could not import 'tensorflow': No module named 'tensorflow'
-SKIPPED [1] test_compilation_capabilities.py:655: could not import 'tensorflow': No module named 'tensorflow'
-20 passed, 12 skipped in 12.85s
