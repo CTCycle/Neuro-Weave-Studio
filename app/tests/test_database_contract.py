@@ -8,6 +8,10 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from sqlalchemy import create_engine, inspect, select, text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
 from configurations.settings import DatabaseSettings
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import ModelGraph, NodeInstance, Position
@@ -21,9 +25,6 @@ from repositories.models import (
     ProjectRevisionRecord,
 )
 from repositories.session import RepositoryContext
-from sqlalchemy import create_engine, inspect, select, text
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
 
 ###############################################################################

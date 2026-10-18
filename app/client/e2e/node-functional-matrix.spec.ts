@@ -302,6 +302,8 @@ async function runActivationCase(
 
   try {
     await page.goto(`/builder/${fixture.id}`)
+    await expect(page.getByRole('heading', { name: 'Node catalog' })).toBeVisible()
+    await expect(page.locator('[data-node-id]')).toHaveCount(2)
     const activationNodeId = await addCatalogNode(page, 'Activation')
     await page.locator(`[data-node-id="${activationNodeId}"]`).click()
     const inspector = page.getByRole('complementary', { name: 'Properties inspector' })

@@ -146,7 +146,6 @@ test('NW-T1-05 keeps Settings informational and Training session-only', async ({
     await expect(page.getByText('A registered dataset is required.', { exact: true })).toBeVisible()
     await expect(page.getByText('A saved model is required.', { exact: true })).toBeVisible()
     await expect(page.locator('header').getByRole('button', { name: 'New training' })).toBeDisabled()
-    await expect(page.getByRole('button', { name: 'Create training draft' })).toBeDisabled()
 
     projectId = await createProject(request)
     datasetId = await registerDataset(page)

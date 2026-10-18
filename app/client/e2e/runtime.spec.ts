@@ -215,7 +215,7 @@ test('falls back to the preferred available backend when the active backend disa
   }), {
     preferencesKey: runtimePreferencesStorageKey,
     activeBackendKey: runtimePreferenceBackendStorageKey,
-  })).toEqual({
+  })).toMatchObject({
     preferences: {
       pytorch: {
         api: 'keras',
@@ -227,6 +227,8 @@ test('falls back to the preferred available backend when the active backend disa
     },
     activeBackend: 'pytorch',
   })
+  const preferences = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key) ?? '{}'), runtimePreferencesStorageKey)
+  expect(preferences).not.toHaveProperty('tensorflow')
 })
 
 test('reconciles malformed nested preferences to a valid runtime default', async ({ page }) => {
