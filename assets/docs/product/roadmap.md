@@ -1,11 +1,19 @@
 # Roadmap
 
-Last updated: 2026-09-17
+Last updated: 2026-10-18
 
-Phase 1 is the implemented architecture editor. The dataset metadata foundation is now implemented: typed external registrations, bounded inspection/validation, persisted definitions, catalog/workspace navigation, source availability reporting, and a durable Overview/Validation/I/O/Processing/Split workspace. Initial registration is intentionally minimal; Processing currently controls source interpretation, while Split stores declarative population and fractions without materializing partitions. Phase 2 extends that foundation with preprocessing, split materialization, training configuration, local training jobs, evaluation, and experiment tracking.
+## Phase 1: Architecture editor
 
-Phase 3 covers extensibility. The first safe custom-node authoring layer is now implemented as installation-wide templates that materialize into the existing canonical graph: mathematical templates map to the built-in safe-expression node, and sequential blocks expand into validated built-in manifests and connections. Public Hugging Face references can be verified and commit-pinned but remain non-executable metadata.
+Implemented: graph authoring and validation, versioned project persistence, profile-aware source generation, and capability-gated artifacts. The dataset metadata foundation includes external-source registration, bounded inspection and revalidation, persisted definitions, and Overview/Validation/I/O/Processing/Split workspaces. Processing currently configures source interpretation; split settings remain declarative. Safe mathematical and graph-template custom-node authoring is also implemented.
 
-The remaining Phase 3 work is the trusted executable plugin model for artifact classes that cannot be represented by existing built-in manifests. That work must define signed package identity, deterministic ports and shape behavior, framework adapter capability, dependency isolation, security permissions, compatibility/version rules, and migration behavior. Repository code and arbitrary user Python/JavaScript must never bypass the canonical graph and validation layers.
+## Phase 2: Data execution and training
 
-Phase 4 adds deployment and additional exporters such as ONNX, JAX or Flax, TensorFlow Lite, Core ML, and OpenVINO. Any future exporter must extend or materialize into the canonical graph rather than reintroduce a parallel executable representation.
+Add preprocessing, partition materialization, training jobs, optimizer steps, checkpoints, evaluation, and experiment tracking. These capabilities require explicit dataset and runtime contracts and are not implemented by the current draft Training workspace.
+
+## Phase 3: Extensibility
+
+Trusted executable plugins remain future work. Define signed package identity, deterministic ports and shape behavior, framework capabilities, dependency isolation, permissions, version compatibility, and migration before executing third-party code. Public Hugging Face references remain commit-pinned metadata and must never bypass the canonical graph or validation layers.
+
+## Phase 4: Deployment and additional targets
+
+Add deployment workflows and additional export targets such as TensorFlow Lite, Core ML, and OpenVINO. Existing ONNX and framework-native artifact formats belong to the current capability-gated export pipeline. Future exporters must preserve the canonical graph, selected profile, verification, and atomic publication contracts.
