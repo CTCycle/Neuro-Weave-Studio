@@ -27,13 +27,27 @@ async function customDefinitions(request: APIRequestContext): Promise<CustomNode
   return payload.definitions
 }
 
-async function ensureTensorFlowKeras(page: Page): Promise<void> {
+async function ensurePyTorchKeras(page: Page, request: APIRequestContext): Promise<void> {
   await page.goto('/environment')
-  const tensorflow = page.locator('.backend-status-card-container').filter({ hasText: 'TensorFlow' }).first()
-  if (!(await tensorflow.getByText('Usable', { exact: true }).count())) {
-    await tensorflow.getByRole('button', { name: 'Check Keras', exact: true }).click()
+  const pytorch = page.locator('.backend-status-card-container').filter({ hasText: 'PyTorch' }).first()
+  const kerasRuntimeReady = async () => {
+    const metadataResponse = await request.get('/api/metadata')
+    const metadata = await metadataResponse.json() as {
+      execution_backends: Array<{
+        id: string
+        runtime_apis?: Array<{ id: string; available: boolean; state?: string }>
+      }>
+    }
+    const keras = metadata.execution_backends.find((backend) => backend.id === 'pytorch')?.runtime_apis?.find((api) => api.id === 'keras')
+    return Boolean(keras?.available && keras.state === 'verified')
   }
-  await expect(tensorflow).toContainText('Usable', { timeout: 90_000 })
+  if (!(await kerasRuntimeReady())) {
+    const kerasCheck = pytorch.getByRole('button', { name: 'Check Keras', exact: true })
+    await expect(kerasCheck).toBeVisible({ timeout: 15_000 })
+    await kerasCheck.click()
+  }
+  await expect.poll(kerasRuntimeReady, { timeout: 90_000 }).toBeTruthy()
+  await expect(pytorch).toContainText('Usable')
 }
 
 test('authors, reloads, and materializes mathematical and graph templates', async ({ page, request }) => {
@@ -128,7 +142,7 @@ test('authors, reloads, and materializes mathematical and graph templates', asyn
   ]))
   await fs.writeFile(path.join(evidenceDir, 'custom-node-template-results.json'), JSON.stringify({ math: persistedMath, graph: persistedGraph }, null, 2), 'utf8')
 
-  await ensureTensorFlowKeras(page)
+  await ensurePyTorchKeras(page, request)
   await page.goto('/builder')
   await expect(page.getByRole('textbox', { name: 'Model name' })).toBeVisible()
   const catalogToggle = page.getByRole('button', { name: 'Catalog', exact: true })
