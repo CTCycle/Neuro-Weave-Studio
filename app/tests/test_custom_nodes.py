@@ -257,6 +257,10 @@ def test_repository_nodes_resolve_and_pin_public_hugging_face_reference(
         },
     )
     assert invalid.status_code == 422
+    assert all(
+        item["display_name"] != "Invalid repository reference"
+        for item in client.get("/api/nodes/custom").json()["definitions"]
+    )
 
 ###############################################################################
 def test_repository_resolution_outage_is_service_unavailable_and_recovers(
@@ -282,6 +286,10 @@ def test_repository_resolution_outage_is_service_unavailable_and_recovers(
         },
     )
     assert response.status_code == 503
+    assert all(
+        item["display_name"] != "Invalid resolved commit"
+        for item in client.get("/api/nodes/custom").json()["definitions"]
+    )
     assert client.get("/health").json() == {"status": "ok"}
     failed_catalog = client.get("/api/nodes/custom")
     assert failed_catalog.status_code == 200
@@ -383,5 +391,9 @@ def test_repository_node_live_round_trip_and_missing_reference(client: httpx.Cli
             },
         )
         assert missing.status_code == 422, missing.text
+        assert all(
+            item["display_name"] != "Missing public repository reference"
+            for item in client.get("/api/nodes/custom").json()["definitions"]
+        )
     finally:
         assert client.delete(f"/api/nodes/custom/{definition['id']}").status_code == 204
