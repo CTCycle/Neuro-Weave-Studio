@@ -602,6 +602,9 @@ function ConvertTo-BackendExtras {
 }
 
 function Read-BackendSelection {
+    if ([Console]::IsInputRedirected -or [Console]::IsOutputRedirected) {
+        throw 'Backend configuration is required for non-interactive launch. Pass -Backends none, tensorflow, pytorch, jax, or all.'
+    }
     Clear-LauncherProgress
     Write-Host 'Keras 3: core model API, installed with the base application (not an execution backend).' -ForegroundColor DarkGray
     Write-Host 'Select an execution backend configuration:' -ForegroundColor White
@@ -623,7 +626,9 @@ function Read-BackendSelection {
     } else {
         Write-Host 'No NVIDIA CUDA device detected. PyTorch Auto will use the CPU wheel.' -ForegroundColor DarkGray
     }
-    $selection = (Read-Host 'Select an execution backend option (1-7)').Trim()
+    $rawSelection = Read-Host 'Select an execution backend option (1-7)'
+    if ($null -eq $rawSelection) { throw 'No backend selection was received. Rerun the launcher and choose an option.' }
+    $selection = $rawSelection.Trim()
     switch ($selection) {
         '1' {
             $script:Acceleration = 'Auto'
@@ -805,6 +810,19 @@ function Get-Sha256Text {
     }
 }
 
+function Get-Sha256File {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        return ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $stream.Dispose()
+        $sha256.Dispose()
+    }
+}
+
 function Get-FrontendFingerprintForFiles {
     param([Parameter(Mandatory = $true)][string[]]$Paths)
 
@@ -816,7 +834,7 @@ function Get-FrontendFingerprintForFiles {
             throw "Missing frontend fingerprint input: $path"
         }
         $relativePath = (Get-RepositoryRelativePath -BasePath $script:RepoRoot -Path $path).Replace('\', '/')
-        $fileHash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+        $fileHash = Get-Sha256File -Path $path
         [void]$manifest.Append("path=$relativePath`n")
         [void]$manifest.Append("sha256=$fileHash`n")
     }
@@ -1229,7 +1247,12 @@ if missing:
     print('Missing packages: ' + ', '.join(missing))
     raise SystemExit(1)
 "@
-    & $venvPython -c $metadataProbe *> $null
+    # Windows PowerShell 5.1 strips embedded quotes when it marshals multiline
+    # source to a native process. Base64 keeps the metadata probe identical in
+    # Windows PowerShell 5.1 and PowerShell 7.
+    $encodedProbe = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($metadataProbe))
+    $bootstrap = "import base64; exec(base64.b64decode('$encodedProbe'))"
+    & $venvPython -c $bootstrap *> $null
     return $LASTEXITCODE -eq 0
 }
 

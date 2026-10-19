@@ -113,7 +113,22 @@ def test_environment_fast_path_and_lightweight_dependency_probe() -> None:
     assert "import alembic" not in dependencies
     assert "import keras" not in dependencies
     assert "metadata.version(name)" in dependencies
+    assert "ToBase64String([Text.Encoding]::UTF8.GetBytes($metadataProbe))" in dependencies
+    assert "exec(base64.b64decode('$encodedProbe'))" in dependencies
+    assert "& $venvPython -c $metadataProbe" not in dependencies
     assert "Test-FrontendDependencyCurrent" in dependencies
+
+
+###############################################################################
+def test_backend_selection_rejects_noninteractive_input_without_null_method_error() -> None:
+    launcher = launcher_source()
+    selection = function_body(launcher, "Read-BackendSelection", "Invoke-OptionalBackendSetup")
+
+    assert "[Console]::IsInputRedirected -or [Console]::IsOutputRedirected" in selection
+    assert "Backend configuration is required for non-interactive launch." in selection
+    assert "$null -eq $rawSelection" in selection
+    assert "$selection = (Read-Host" not in selection
+
 
 ###############################################################################
 def test_backend_probes_are_safe_for_windows_powershell_native_arguments() -> None:
@@ -147,6 +162,8 @@ def test_frontend_dependency_and_build_state_contracts_are_deterministic() -> No
     atomic_writer = function_body(launcher, "Write-JsonFileAtomically", "Read-FrontendBuildState")
     build_state_check = function_body(launcher, "Test-FrontendBuildCurrent", "Ensure-FrontendBuildCurrent")
     relative_path = function_body(launcher, "Get-RepositoryRelativePath", "Get-Sha256Text")
+    sha256_file = function_body(launcher, "Get-Sha256File", "Get-FrontendFingerprintForFiles")
+    fingerprint = function_body(launcher, "Get-FrontendFingerprintForFiles", "Get-FrontendBuildFingerprint")
 
     for required_input in ("angular.json", "tsconfig.json", "tsconfig.app.json", "package.json", "package-lock.json"):
         assert required_input in inputs
@@ -164,6 +181,10 @@ def test_frontend_dependency_and_build_state_contracts_are_deterministic() -> No
     assert "TryParse" in build_state_check
     assert "MakeRelativeUri" in relative_path
     assert "[System.IO.Path]::GetRelativePath" not in launcher
+    assert "[System.IO.File]::OpenRead($Path)" in sha256_file
+    assert "$sha256.ComputeHash($stream)" in sha256_file
+    assert "$stream.Dispose()" in sha256_file and "$sha256.Dispose()" in sha256_file
+    assert "Get-FileHash" not in fingerprint
 
 ###############################################################################
 def test_launcher_keeps_explicit_build_ownership_and_never_reintroduces_always_rebuild() -> None:
