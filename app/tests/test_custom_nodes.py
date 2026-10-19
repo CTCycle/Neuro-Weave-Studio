@@ -259,7 +259,7 @@ def test_repository_nodes_resolve_and_pin_public_hugging_face_reference(
     assert invalid.status_code == 422
 
 ###############################################################################
-def test_repository_resolution_outage_is_service_unavailable(
+def test_repository_resolution_outage_is_service_unavailable_and_recovers(
     client: httpx.Client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -282,6 +282,35 @@ def test_repository_resolution_outage_is_service_unavailable(
         },
     )
     assert response.status_code == 503
+    assert client.get("/health").json() == {"status": "ok"}
+    failed_catalog = client.get("/api/nodes/custom")
+    assert failed_catalog.status_code == 200
+    assert all(
+        item["display_name"] != "Unavailable public model"
+        for item in failed_catalog.json()["definitions"]
+    )
+
+    _stub_huggingface(monkeypatch)
+    recovered = client.post(
+        "/api/nodes/custom",
+        json={
+            "display_name": "Recovered public model",
+            "category": "repository",
+            "description": "A later resolution succeeds after the controlled outage.",
+            "spec": {
+                "type": "repository",
+                "repository_id": "openai-community/gpt2",
+                "revision": "main",
+                "artifact_type": "model",
+            },
+        },
+    )
+    assert recovered.status_code == 201, recovered.text
+    assert recovered.json()["spec"]["resolved_commit"] == "a" * 40
+    assert any(
+        item["id"] == recovered.json()["id"]
+        for item in client.get("/api/nodes/custom").json()["definitions"]
+    )
 
 ###############################################################################
 def test_repository_resolution_rejects_invalid_commit_response(

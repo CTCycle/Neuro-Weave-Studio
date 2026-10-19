@@ -3,11 +3,19 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import time
+from collections.abc import Callable
+from pathlib import Path
 from typing import Any, cast
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
+
+from common.process_control import process_start_options
+from services.runtime_controller import RuntimeController
 
 
 ###############################################################################
@@ -142,6 +150,21 @@ def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
     pytest.fail(f"job {job_id} did not reach a terminal state")
 
 ###############################################################################
+def fail_runtime_import(job_dir: Path) -> subprocess.Popen[bytes]:
+    log_handle = (job_dir / "worker.log").open("wb")
+    try:
+        process = subprocess.Popen(
+            [sys.executable, "-c", "import neuro_weave_missing_test_runtime"],
+            cwd=job_dir,
+            stdout=log_handle,
+            stderr=log_handle,
+            **process_start_options(),
+        )
+    finally:
+        log_handle.close()
+    return cast(subprocess.Popen[bytes], process)
+
+###############################################################################
 def test_smoke_job_returns_tensor_metadata_without_training(
     client: httpx.Client,
 ) -> None:
@@ -165,6 +188,65 @@ def test_smoke_job_returns_tensor_metadata_without_training(
     assert result["inputs"] == [{"node_id": "input", "shape": [1, 4], "dtype": "float32"}]
     assert result["outputs"] == [{"node_id": "output", "shape": [1, 1], "dtype": "float32"}]
     assert result["parameter_count"] == 5
+
+###############################################################################
+def test_controlled_worker_import_failure_preserves_health_and_recovers(
+    client: httpx.Client,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    test_app = cast(Any, cast(TestClient, client).app)
+    runtime = cast(RuntimeController, test_app.state.runtime_controller)
+    original_start = cast(
+        Callable[[Path], subprocess.Popen[bytes]],
+        runtime._start_process,  # pyright: ignore[reportPrivateUsage]
+    )
+    monkeypatch.setattr(runtime, "_start_process", fail_runtime_import)
+
+    project_id = create_project(client)
+    worker = worker_payload(client, require_operational=True)
+    assert worker["backend"] == "pytorch"
+    assert worker["api"] == "keras"
+    operation = {
+        "type": "smoke_inference",
+        "project_id": project_id,
+        "graph": smoke_graph(),
+    }
+
+    failed_response = client.post(
+        "/api/execution/jobs",
+        json={"operation": operation, "worker": worker},
+    )
+    assert failed_response.status_code == 202, failed_response.text
+    failed = wait_for_job(client, failed_response.json()["id"])
+    assert failed["state"] == "failed"
+    assert failed["worker"]["backend"] == "pytorch"
+    assert failed["worker"]["api"] == "keras"
+    assert failed["error"]["code"] == "worker_failed"
+    assert "neuro_weave_missing_test_runtime" in failed["error"]["message"]
+    assert failed["device_lease"]["state"] == "failed"
+    assert client.get("/health").json() == {"status": "ok"}
+
+    job_root = tmp_path / "jobs"
+    for _ in range(50):
+        if not job_root.exists() or not any(job_root.iterdir()):
+            break
+        time.sleep(0.02)
+    assert not job_root.exists() or not any(job_root.iterdir())
+
+    monkeypatch.setattr(runtime, "_start_process", original_start)
+    recovered_response = client.post(
+        "/api/execution/jobs",
+        json={"operation": operation, "worker": worker},
+    )
+    assert recovered_response.status_code == 202, recovered_response.text
+    recovered = wait_for_job(client, recovered_response.json()["id"])
+    assert recovered["state"] == "succeeded", recovered
+    assert recovered["worker"]["backend"] == "pytorch"
+    assert recovered["worker"]["api"] == "keras"
+    result = cast(dict[str, Any], recovered["result"])
+    assert result["outputs"] == [{"node_id": "output", "shape": [1, 1], "dtype": "float32"}]
+    assert client.get("/health").json() == {"status": "ok"}
 
 ###############################################################################
 def test_smoke_job_rejects_invalid_shape_before_worker_start(
