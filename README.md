@@ -1,4 +1,7 @@
-# NeuroWeave Studio
+<h1>
+  <img src="assets/brand/neuroweave-mark.svg" alt="" width="36" height="36" align="middle" />
+  NeuroWeave Studio
+</h1>
 
 **Design, validate, save, and export machine-learning model graphs in a local visual workspace.**
 
