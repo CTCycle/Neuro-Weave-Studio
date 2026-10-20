@@ -31,7 +31,7 @@ from repositories.migration_lock import database_migration_lock
 LOGGER = logging.getLogger(__name__)
 
 ALEMBIC_CONFIG_PATH = Path(__file__).resolve().parents[1] / "alembic.ini"
-HEAD_REVISION = "20260919_graph_template_custom_nodes"
+HEAD_REVISION = "20261020_database_application_settings"
 ALEMBIC_VERSION_TABLE = "alembic_version"
 
 ###############################################################################

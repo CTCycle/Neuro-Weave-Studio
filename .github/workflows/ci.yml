@@ -62,8 +62,6 @@ jobs:
           uv run pyright 2>&1 | tee ../../.ci-logs/pyright.log
       - name: Backend tests
         if: ${{ always() && !cancelled() }}
-        env:
-          NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-ml
         run: |
           mkdir -p .ci-logs
           set -o pipefail
@@ -159,11 +157,17 @@ jobs:
         run: uv sync --locked --project app/server --extra torch-cpu
       - name: Start backend for browser tests
         env:
-          DATABASE_SQLITE_PATH: ${{ runner.temp }}/neuro-weave-e2e.db
-          NEURO_WEAVE_EXPORT_ROOT: ${{ runner.temp }}/neuro-weave-e2e-exports
-          NEURO_WEAVE_ML_JOB_ROOT: ${{ runner.temp }}/neuro-weave-e2e-jobs
-          NEURO_WEAVE_RUNTIME_DISCOVERY_PATH: ${{ github.workspace }}/runtimes/cache/e2e-discovery.json
+          NEURO_WEAVE_RESOURCES_DIR: ${{ runner.temp }}/neuro-weave-resources
         run: |
+          mkdir -p "$NEURO_WEAVE_RESOURCES_DIR"
+          cat > "$NEURO_WEAVE_RESOURCES_DIR/database-config.json" <<EOF
+          {
+            "schema_version": 1,
+            "backend": "sqlite",
+            "sqlite_path": "${{ runner.temp }}/neuro-weave-e2e.db",
+            "connect_timeout_seconds": 30
+          }
+          EOF
           mkdir -p "${{ runner.temp }}/neuro-weave-e2e-logs"
           nohup uv run --project app/server uvicorn app:create_app --factory --host 127.0.0.1 --port 8000 > "${{ runner.temp }}/neuro-weave-e2e-logs/backend.log" 2>&1 &
           echo $! > "${{ runner.temp }}/neuro-weave-e2e-logs/backend.pid"

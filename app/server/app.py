@@ -12,8 +12,7 @@ from pathlib import Path
 from typing import cast
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.routes import (
@@ -31,11 +30,15 @@ from api.routes import (
     tensor_inspections,
     validation,
 )
+from api.routes import (
+    settings as settings_routes,
+)
 from common import path as common_path
 from common.catalogs.loader import get_node_catalog
 from common.logging_config import configure_logging
-from configurations.settings import Settings, get_database_settings, get_settings
-from repositories.session import create_repository_context
+from configurations.database_config import DATABASE_CONFIG_PATH
+from configurations.settings import Settings, get_settings
+from services.database_configuration_service import DatabaseConfigurationService
 from services.runtime_controller import RuntimeController
 
 LOGGER = logging.getLogger(__name__)
@@ -52,8 +55,15 @@ def _log_startup_stage(stage: str, started: float) -> None:
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     startup_started = time.perf_counter()
-    settings = cast(Settings, application.state.settings)
+    database_configuration: DatabaseConfigurationService = application.state.database_configuration
+    stage_started = time.perf_counter()
+    await asyncio.to_thread(database_configuration.start)
+    settings = database_configuration.settings
+    application.state.settings = settings
+    application.state.repository_context = database_configuration.repository_context
     configure_logging(settings.log_level, settings.log_file)
+    _log_startup_stage("database_configuration", stage_started)
+
     stage_started = time.perf_counter()
     settings.export_root.mkdir(parents=True, exist_ok=True)
     _log_startup_stage("export_root", stage_started)
@@ -63,14 +73,9 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     _log_startup_stage("node_catalog", stage_started)
 
     stage_started = time.perf_counter()
-    repository_context = create_repository_context(get_database_settings())
-    _log_startup_stage("database", stage_started)
-
-    stage_started = time.perf_counter()
     runtime_controller = RuntimeController(settings)
     _log_startup_stage("runtime_controller", stage_started)
     application.state.catalog = catalog
-    application.state.repository_context = repository_context
     application.state.runtime_controller = runtime_controller
     LOGGER.info("runtime_discovery deferred=on_demand")
     _log_startup_stage("lifespan", startup_started)
@@ -78,7 +83,7 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
         yield
     finally:
         runtime_controller.shutdown()
-        repository_context.dispose()
+        database_configuration.dispose()
 
 ###############################################################################
 def _client_build_available() -> bool:
@@ -116,7 +121,13 @@ def _redirect_root_to_docs() -> RedirectResponse:
     return RedirectResponse("/docs")
 
 ###############################################################################
-def create_app() -> FastAPI:
+def create_app(
+    *,
+    database_config_path: Path = DATABASE_CONFIG_PATH,
+    environment_file: Path | None = None,
+    sanitize_legacy: bool = True,
+    initial_settings: Settings | None = None,
+) -> FastAPI:
     settings = get_settings()
     application = FastAPI(
         title=settings.app_name,
@@ -125,45 +136,76 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     application.state.settings = settings
+    application.state.database_configuration = DatabaseConfigurationService(
+        database_config_path,
+        **({"environment_file": environment_file} if environment_file is not None else {}),
+        sanitize_legacy=sanitize_legacy,
+        initial_settings=initial_settings,
+    )
+    application.state.repository_context = None
     # SQLite readers can run concurrently, but shared-process mutations must
     # not attempt to upgrade separate deferred transactions at the same time.
     application.state.sqlite_write_lock = asyncio.Lock()
-    application.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origin_list,
-        allow_credentials=False,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
     async def log_api_request(
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        if not request.url.path.startswith("/api"):
+        origin = request.headers.get("origin")
+        current_settings = cast(Settings, request.app.state.settings)
+        allowed_origin = origin in current_settings.cors_origin_list if origin else False
+        preflight = (
+            request.method == "OPTIONS"
+            and request.headers.get("access-control-request-method") is not None
+        )
+        if preflight:
+            response = Response(status_code=200 if allowed_origin else 400)
+        elif not request.url.path.startswith("/api"):
             return await call_next(request)
-        started = time.perf_counter()
-        try:
-            if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-                async with application.state.sqlite_write_lock:
+        else:
+            started = time.perf_counter()
+            database_configuration: DatabaseConfigurationService = request.app.state.database_configuration
+            is_database_configuration_route = request.url.path.startswith("/api/settings/database")
+            request_entered = False
+            try:
+                if not is_database_configuration_route:
+                    await database_configuration.enter_request()
+                    request_entered = True
+                    if not database_configuration.available:
+                        response = JSONResponse(
+                            {"detail": "The configured database is unavailable. Check Database settings and try again."},
+                            status_code=503,
+                        )
+                    elif request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+                        async with request.app.state.sqlite_write_lock:
+                            response = await call_next(request)
+                    else:
+                        response = await call_next(request)
+                else:
                     response = await call_next(request)
-            else:
-                response = await call_next(request)
-        except Exception:
-            LOGGER.exception(
-                "api_request method=%s path=%s status=exception duration_ms=%s",
+            except Exception:
+                LOGGER.exception(
+                    "api_request method=%s path=%s status=exception duration_ms=%s",
+                    request.method,
+                    request.url.path,
+                    round((time.perf_counter() - started) * 1000, 1),
+                )
+                raise
+            finally:
+                if request_entered:
+                    await database_configuration.leave_request()
+            LOGGER.info(
+                "api_request method=%s path=%s status=%s duration_ms=%s",
                 request.method,
                 request.url.path,
+                response.status_code,
                 round((time.perf_counter() - started) * 1000, 1),
             )
-            raise
-        LOGGER.info(
-            "api_request method=%s path=%s status=%s duration_ms=%s",
-            request.method,
-            request.url.path,
-            response.status_code,
-            round((time.perf_counter() - started) * 1000, 1),
-        )
+        if allowed_origin and origin is not None:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            requested_headers = request.headers.get("access-control-request-headers")
+            response.headers["Access-Control-Allow-Headers"] = requested_headers or "*"
+            response.headers["Vary"] = "Origin"
         return response
 
     application.middleware("http")(log_api_request)
@@ -181,6 +223,7 @@ def create_app() -> FastAPI:
     application.include_router(exports.router)
     application.include_router(imports.router)
     application.include_router(filesystem.router)
+    application.include_router(settings_routes.router)
     application.add_api_route(
         "/api",
         _raise_unknown_api_root,

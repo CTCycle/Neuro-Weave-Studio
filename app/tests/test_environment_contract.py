@@ -6,6 +6,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from common.path import ENV_EXAMPLE_FILE
 from configurations.environment import ensure_environment_file
 
 
@@ -15,7 +16,7 @@ def test_concurrent_first_start_creates_one_exact_environment_file(
 ) -> None:
     template = tmp_path / ".env.example"
     environment_file = tmp_path / "settings" / ".env"
-    expected = b"DATABASE_SQLITE_PATH=runtime/concurrent.db\n"
+    expected = b"FASTAPI_HOST=127.0.0.1\n"
     template.write_bytes(expected)
 
     def ensure(_: int) -> Path:
@@ -32,12 +33,21 @@ def test_existing_environment_file_is_never_overwritten(tmp_path: Path) -> None:
     template = tmp_path / ".env.example"
     environment_file = tmp_path / ".env"
     template.write_text(
-        "DATABASE_SQLITE_PATH=runtime/default.db\n",
+        "FASTAPI_HOST=127.0.0.1\n",
         encoding="utf-8",
     )
-    original = b"DATABASE_SQLITE_PATH=local-only.db\n"
+    original = b"FASTAPI_HOST=127.0.0.1\n"
     environment_file.write_bytes(original)
 
     ensure_environment_file(environment_file, template)
 
     assert environment_file.read_bytes() == original
+
+
+###############################################################################
+def test_environment_template_contains_no_database_or_application_settings() -> None:
+    template = ENV_EXAMPLE_FILE.read_text(encoding="utf-8")
+
+    assert "DATABASE_" not in template
+    assert "NEURO_WEAVE_CORS_ORIGINS" not in template
+    assert "NEURO_WEAVE_LOG_LEVEL" not in template

@@ -6,8 +6,7 @@ from __future__ import annotations
 import argparse
 import logging
 
-from configurations.settings import get_database_settings
-from repositories.initializer import initialize_database
+from services.database_configuration_service import DatabaseConfigurationService
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,12 +17,14 @@ def main() -> int:
     )
     parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    try:
-        initialize_database(get_database_settings())
-    except Exception as exc:
-        LOGGER.error("Database initialization failed: %s", exc)
+    database_configuration = DatabaseConfigurationService()
+    database_configuration.start()
+    if not database_configuration.available:
+        LOGGER.error("Database initialization failed: %s", database_configuration.error)
+        database_configuration.dispose()
         return 1
     LOGGER.info("Database initialization completed")
+    database_configuration.dispose()
     return 0
 
 

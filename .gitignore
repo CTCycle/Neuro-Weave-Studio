@@ -14,6 +14,7 @@ node_modules/
 *.db-wal
 *.db-shm
 *.db-journal
+database-config.json
 *.sqlite-wal
 *.sqlite-shm
 *.sqlite-journal

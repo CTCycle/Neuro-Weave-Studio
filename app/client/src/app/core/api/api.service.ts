@@ -6,6 +6,7 @@ import { Injectable, inject } from '@angular/core'
 import { firstValueFrom } from 'rxjs'
 import { ApiError, apiErrorMessage } from './api-error'
 import type { FilesystemBrowseResponse } from '../../domain/filesystem.types'
+import type { ApplicationSettings, DatabaseSettings, DatabaseStatus, DatabaseSwitchResult, DatabaseTestResult } from '../../domain/settings.types'
 import type {
   DatasetDefinitionMutation,
   DatasetDocument,
@@ -95,6 +96,26 @@ export class ApiService {
   async catalog(): Promise<NodeManifest[]> {
     const response = await this.request<{ nodes: NodeManifest[] }>('/nodes/catalog')
     return response.nodes
+  }
+
+  getApplicationSettings(): Promise<ApplicationSettings> {
+    return this.request<ApplicationSettings>('/settings')
+  }
+
+  saveApplicationSettings(settings: ApplicationSettings): Promise<ApplicationSettings> {
+    return this.request<ApplicationSettings>('/settings', 'PUT', settings)
+  }
+
+  getDatabaseStatus(): Promise<DatabaseStatus> {
+    return this.request<DatabaseStatus>('/settings/database')
+  }
+
+  testDatabase(settings: DatabaseSettings): Promise<DatabaseTestResult> {
+    return this.request<DatabaseTestResult>('/settings/database/test', 'POST', settings, { timeoutMs: 120_000 })
+  }
+
+  switchDatabase(settings: DatabaseSettings): Promise<DatabaseSwitchResult> {
+    return this.request<DatabaseSwitchResult>('/settings/database', 'PUT', settings, { timeoutMs: 120_000 })
   }
 
   async listProjects(): Promise<ProjectSummary[]> {

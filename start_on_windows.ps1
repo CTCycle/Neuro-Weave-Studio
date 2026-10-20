@@ -1894,15 +1894,33 @@ function Initialize-ResourcePaths {
     }
     $script:ResourceDir = $configuredResourceDir
     $script:DefaultDatabasePath = Join-Path $script:ResourceDir 'database.db'
+    $script:DatabaseConfigPath = Join-Path $script:ResourceDir 'database-config.json'
     $script:UserDataRuntimeDir = Join-Path $script:ResourceDir 'runtime'
     $script:LogDir = Join-Path $script:UserDataRuntimeDir 'logs'
     $script:BackendInstallState = Join-Path $script:UserDataRuntimeDir 'backend-installation.json'
 }
 
+function Get-ConfiguredDatabasePath {
+    if (-not (Test-Path -LiteralPath $script:DatabaseConfigPath -PathType Leaf)) {
+        return $script:DefaultDatabasePath
+    }
+    try {
+        $configuration = Get-Content -LiteralPath $script:DatabaseConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+        if ($configuration.schema_version -ne 1 -or $configuration.backend -ne 'sqlite' -or [string]::IsNullOrWhiteSpace([string]$configuration.sqlite_path)) {
+            throw 'The database configuration schema is unsupported or incomplete.'
+        }
+        $configuredPath = [string]$configuration.sqlite_path
+        if ([IO.Path]::IsPathRooted($configuredPath)) { return [IO.Path]::GetFullPath($configuredPath) }
+        return [IO.Path]::GetFullPath((Join-Path $script:RepoRoot $configuredPath))
+    } catch {
+        throw "Could not read the configured database path from '$script:DatabaseConfigPath': $($_.Exception.Message)"
+    }
+}
+
 function Get-UserDataTargets {
     $targets = [System.Collections.Generic.List[string]]::new()
     $databasePaths = [System.Collections.Generic.List[string]]::new()
-    $configuredDatabase = Resolve-ConfiguredPath -Name 'DATABASE_SQLITE_PATH' -Default 'data/database.db'
+    $configuredDatabase = Get-ConfiguredDatabasePath
 
     foreach ($candidate in @($script:DefaultDatabasePath, $configuredDatabase)) {
         if ($null -eq $candidate) { continue }
@@ -1917,21 +1935,13 @@ function Get-UserDataTargets {
     }
 
     $targets.Add($script:UserDataRuntimeDir)
+    $targets.Add($script:DatabaseConfigPath)
     foreach ($databasePath in $databasePaths) {
         foreach ($suffix in @('', '-wal', '-shm', '-journal')) {
             $targets.Add("$databasePath$suffix")
         }
     }
 
-    foreach ($configuredPath in @(
-            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_EXPORT_ROOT' -Default 'data/runtime/exports'),
-            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_LOG_FILE' -Default 'data/runtime/logs/backend.log'),
-            (Resolve-ConfiguredPath -Name 'NEURO_WEAVE_ML_JOB_ROOT' -Default 'data/runtime/ml-jobs')
-        )) {
-        if ($null -ne $configuredPath -and -not (Test-PathWithin -Child $configuredPath -Parent $script:UserDataRuntimeDir)) {
-            $targets.Add($configuredPath)
-        }
-    }
     return @($targets | Select-Object -Unique)
 }
 

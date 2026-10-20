@@ -154,6 +154,53 @@ class RuntimeController:
             return dict(self._backend_statuses)
 
     # -------------------------------------------------------------------------
+    def apply_settings(self, settings: Settings) -> None:
+        """Apply settings, refusing changes that would alter an active worker."""
+
+        with self._lock:
+            previous = self._settings
+            active_jobs = any(
+                record.state not in {JobState.SUCCEEDED, JobState.TERMINATED, JobState.FAILED}
+                for record in self._jobs.values()
+            )
+            controller_fields = (
+                "ml_job_root",
+                "tensor_inspection_root",
+                "tensor_inspection_ttl_seconds",
+                "ml_worker_timeout_seconds",
+                "runtime_discovery_timeout_seconds",
+                "ml_cancel_grace_seconds",
+                "ml_terminate_grace_seconds",
+                "ml_job_history_limit",
+                "runtime_discovery_path",
+            )
+            if active_jobs and any(
+                getattr(previous, field) != getattr(settings, field)
+                for field in controller_fields
+            ):
+                raise RuntimeControllerError(
+                    "configuration_busy",
+                    "Runtime settings used by active jobs cannot change until those jobs finish.",
+                )
+        job_root = settings.ml_job_root
+        inspection_root = settings.tensor_inspection_root
+        job_root.mkdir(parents=True, exist_ok=True)
+        inspection_root.mkdir(parents=True, exist_ok=True)
+        with self._lock:
+            self._settings = settings
+            self._job_root = job_root
+            self._inspection_root = inspection_root
+            if previous.runtime_discovery_path != settings.runtime_discovery_path:
+                self._backend_statuses.clear()
+                self._api_statuses.clear()
+                self._validated_discovery_keys.clear()
+                reload_discovery = True
+            else:
+                reload_discovery = False
+        if reload_discovery:
+            self._load_cached_statuses()
+
+    # -------------------------------------------------------------------------
     def api_status(self, backend: ExecutionBackend, api: RuntimeApi) -> RuntimeApiStatus | None:
         with self._lock:
             return self._api_statuses.get((backend, api))

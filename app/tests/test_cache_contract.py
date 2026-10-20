@@ -63,9 +63,7 @@ def test_resource_root_override_uses_inherited_environment(
 
 
 ###############################################################################
-def test_runtime_discovery_defaults_to_the_canonical_cache_root(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NEURO_WEAVE_RUNTIME_DISCOVERY_PATH", raising=False)
-
+def test_runtime_discovery_defaults_to_the_canonical_cache_root() -> None:
     settings = Settings()
 
     assert settings.runtime_discovery_path == RUNTIME_DISCOVERY_CACHE_PATH.resolve()

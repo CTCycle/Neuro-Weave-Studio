@@ -4,14 +4,15 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
 import httpx
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app import create_app
 from repositories.graphs import GraphRepository
 
 
@@ -245,15 +246,11 @@ def test_project_revision_workflow_invalidates_generated_source_and_rejects_stal
 ###############################################################################
 def test_project_revision_survives_application_restart(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+    app_factory: Callable[..., FastAPI],
 ) -> None:
     database = tmp_path / "project-restart.db"
-    monkeypatch.setenv("DATABASE_SQLITE_PATH", str(database))
-    monkeypatch.setenv("NEURO_WEAVE_EXPORT_ROOT", str(tmp_path / "exports"))
-    monkeypatch.setenv("NEURO_WEAVE_ML_JOB_ROOT", str(tmp_path / "jobs"))
-    monkeypatch.setenv("NEURO_WEAVE_RUNTIME_DISCOVERY_PATH", str(tmp_path / "environment.json"))
 
-    with TestClient(create_app()) as first:
+    with TestClient(app_factory(database_path=database)) as first:
         created_response = first.post("/api/projects", json=project_payload())
         assert created_response.status_code == 201, created_response.text
         created = created_response.json()
@@ -266,7 +263,7 @@ def test_project_revision_survives_application_restart(
         saved = updated_response.json()
         assert saved["current_revision"] == 2
 
-    with TestClient(create_app()) as second:
+    with TestClient(app_factory(database_path=database)) as second:
         reopened_response = second.get(f"/api/projects/{created['id']}")
         assert reopened_response.status_code == 200
         reopened = reopened_response.json()
