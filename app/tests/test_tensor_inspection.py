@@ -108,7 +108,7 @@ def create_bundle(output_root: Path, *, trace: dict[str, dict[str, np.ndarray]] 
 
 def inspection_service(root: Path) -> TensorInspectionService:
     return TensorInspectionService(
-        Settings(_env_file=None, tensor_inspection_root=root)  # pyright: ignore[reportCallIssue]
+        Settings(tensor_inspection_root=root)
     )
 
 

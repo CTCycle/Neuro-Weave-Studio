@@ -9,6 +9,7 @@ from typing import Self
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from repositories.application_settings import ApplicationSettingsRepository
 from repositories.code_snapshots import CodeSnapshotRepository
 from repositories.contracts import RepositoryIntegrityError
 from repositories.custom_nodes import CustomNodeRepository
@@ -87,6 +88,11 @@ class UnitOfWork:
     @property
     def datasets(self) -> DatasetRepository:
         return DatasetRepository(self._require_session())
+
+    # -------------------------------------------------------------------------
+    @property
+    def application_settings(self) -> ApplicationSettingsRepository:
+        return ApplicationSettingsRepository(self._require_session())
 
     # -------------------------------------------------------------------------
     def commit(self) -> None:

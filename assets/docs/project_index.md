@@ -1,6 +1,6 @@
 # NeuroWeave Documentation Index
 
-Last updated: 2026-10-18
+Last updated: 2026-10-20
 
 ## Purpose
 

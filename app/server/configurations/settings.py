@@ -5,34 +5,28 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from common.path import (
     CACHE_ROOT,
-    DATABASE_PATH,
-    ENV_FILE,
     REPOSITORY_ROOT,
     RUNTIME_DISCOVERY_CACHE_PATH,
     RUNTIME_EXPORT_ROOT,
     RUNTIME_LOG_ROOT,
     RUNTIME_ROOT,
 )
-from configurations.environment import ensure_environment_file
 
 
 ###############################################################################
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=ENV_FILE,
-        env_prefix="NEURO_WEAVE_",
-        extra="ignore",
-    )
+class Settings(BaseModel):
+    """Validated application settings persisted by the selected database."""
+
+    model_config = ConfigDict(extra="forbid")
 
     app_name: str = "NeuroWeave Studio"
     app_version: str = "1.0.0"
     cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
-    log_level: str = "INFO"
+    log_level: str = Field(default="INFO", pattern=r"^(?i:DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     log_file: Path = RUNTIME_LOG_ROOT / "backend.log"
     export_root: Path = RUNTIME_EXPORT_ROOT
     ml_job_root: Path = RUNTIME_ROOT / "ml-jobs"
@@ -46,48 +40,19 @@ class Settings(BaseSettings):
     runtime_discovery_path: Path = RUNTIME_DISCOVERY_CACHE_PATH
 
     # -------------------------------------------------------------------------
-    @field_validator("export_root", mode="before")
+    @field_validator(
+        "log_file",
+        "export_root",
+        "ml_job_root",
+        "tensor_inspection_root",
+        "runtime_discovery_path",
+        mode="before",
+    )
     @classmethod
-    def resolve_relative_export_root(cls, value: object) -> object:
+    def resolve_relative_paths(cls, value: object) -> object:
         if value is None:
             return value
-        path = Path(str(value))
-        return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
-
-    # -------------------------------------------------------------------------
-    @field_validator("log_file", mode="before")
-    @classmethod
-    def resolve_relative_log_file(cls, value: object) -> object:
-        if value is None:
-            return value
-        path = Path(str(value))
-        return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
-
-    # -------------------------------------------------------------------------
-    @field_validator("ml_job_root", mode="before")
-    @classmethod
-    def resolve_relative_ml_job_root(cls, value: object) -> object:
-        if value is None:
-            return value
-        path = Path(str(value))
-        return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
-
-    # -------------------------------------------------------------------------
-    @field_validator("tensor_inspection_root", mode="before")
-    @classmethod
-    def resolve_relative_tensor_inspection_root(cls, value: object) -> object:
-        if value is None:
-            return value
-        path = Path(str(value))
-        return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
-
-    # -------------------------------------------------------------------------
-    @field_validator("runtime_discovery_path", mode="before")
-    @classmethod
-    def resolve_relative_runtime_discovery_path(cls, value: object) -> object:
-        if value is None:
-            return value
-        path = Path(str(value))
+        path = Path(str(value)).expanduser()
         return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
 
     # -------------------------------------------------------------------------
@@ -104,58 +69,41 @@ class Settings(BaseSettings):
         return path
 
     # -------------------------------------------------------------------------
+    @field_validator("cors_origins")
+    @classmethod
+    def validate_cors_origins(cls, value: str) -> str:
+        origins = [item.strip() for item in value.split(",") if item.strip()]
+        if not origins:
+            raise ValueError("At least one CORS origin is required")
+        return ",".join(origins)
+
+    # -------------------------------------------------------------------------
     @property
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
-###############################################################################
-def get_settings() -> Settings:
-    ensure_environment_file()
-    return Settings()
-
-###############################################################################
-class _DatabaseEnvironment(BaseSettings):
-    """Raw SQLite settings loaded from the process environment and `.env`."""
-
-    model_config = SettingsConfigDict(
-        env_file=ENV_FILE,
-        env_prefix="",
-        extra="ignore",
-        case_sensitive=False,
-    )
-
-    sqlite_path: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("DATABASE_SQLITE_PATH", "database_sqlite_path"),
-    )
-    connect_timeout: int = Field(
-        default=30,
-        ge=1,
-        validation_alias=AliasChoices("DATABASE_CONNECT_TIMEOUT", "database_connect_timeout"),
-    )
 
 ###############################################################################
 class DatabaseSettings(BaseModel):
-    """Validated, immutable SQLite configuration shared by repositories."""
+    """Validated SQLite connection parameters shared by repositories."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     sqlite_path: Path
-    connect_timeout: int = Field(default=30, ge=1)
+    connect_timeout: int = Field(default=30, ge=1, le=300)
+
 
 ###############################################################################
-def _resolve_path(value: str | None, default: Path) -> Path:
-    path = Path(value.strip()) if value and value.strip() else default
-    return path if path.is_absolute() else (REPOSITORY_ROOT / path).resolve()
+def get_settings() -> Settings:
+    """Return code defaults; runtime values are loaded from the active database."""
+
+    return Settings()
+
 
 ###############################################################################
 def get_database_settings() -> DatabaseSettings:
-    ensure_environment_file()
-    environment = _DatabaseEnvironment()
-    return DatabaseSettings(
-        sqlite_path=_resolve_path(
-            environment.sqlite_path,
-            DATABASE_PATH,
-        ),
-        connect_timeout=environment.connect_timeout,
-    )
+    """Read connection settings from the independent database configuration file."""
+
+    from configurations.database_config import load_effective_database_config
+
+    return load_effective_database_config().to_database_settings()

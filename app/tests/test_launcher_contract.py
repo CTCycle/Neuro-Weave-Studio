@@ -219,11 +219,18 @@ def test_launcher_routes_generated_data_to_the_canonical_cache_root() -> None:
 ###############################################################################
 def test_launcher_uses_configurable_repository_resource_root() -> None:
     launcher = launcher_source()
-    initialization = function_body(launcher, "Initialize-ResourcePaths", "Get-UserDataTargets")
+    initialization = function_body(launcher, "Initialize-ResourcePaths", "Get-ConfiguredDatabasePath")
+    database_configuration = function_body(launcher, "Get-ConfiguredDatabasePath", "Get-UserDataTargets")
 
     assert "$script:ResourceDir = Join-Path $script:RepoRoot 'data'" in launcher
     assert "[string]$ResourcesDir = ''" in launcher
     assert "$env:NEURO_WEAVE_RESOURCES_DIR = $ResourcesDir" in launcher
     assert "Resolve-ConfiguredPath -Name 'NEURO_WEAVE_RESOURCES_DIR' -Default 'data'" in initialization
     assert "$script:BackendInstallState = Join-Path $script:UserDataRuntimeDir 'backend-installation.json'" in initialization
+    assert "$script:DatabaseConfigPath = Join-Path $script:ResourceDir 'database-config.json'" in initialization
+    assert "ConvertFrom-Json" in database_configuration
+    assert "DATABASE_SQLITE_PATH" not in launcher
+    assert "NEURO_WEAVE_EXPORT_ROOT" not in launcher
+    assert "NEURO_WEAVE_LOG_FILE" not in launcher
+    assert "NEURO_WEAVE_ML_JOB_ROOT" not in launcher
     assert "app" + "/resources" not in launcher

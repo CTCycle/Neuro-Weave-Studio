@@ -7,13 +7,14 @@ from __future__ import annotations
 import socket
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app import create_app
 from configurations.settings import Settings
 from domain.enums import ExecutionBackend, keras_backend_value
 from domain.graph import ModelGraph
@@ -150,16 +151,15 @@ def test_force_refresh_bypasses_matching_snapshot(tmp_path: Path, monkeypatch: p
 
 ###############################################################################
 def test_health_and_metadata_do_not_probe_optional_frameworks(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    app_factory: Callable[..., FastAPI],
 ) -> None:
     def fail_probe(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("optional framework probe ran during a health or metadata read")
 
     monkeypatch.setattr(RuntimeController, "_run_probe", fail_probe)
-    monkeypatch.setenv("DATABASE_SQLITE_PATH", str(tmp_path / "database.db"))
-    monkeypatch.setenv("NEURO_WEAVE_ML_JOB_ROOT", str(tmp_path / "jobs"))
-    monkeypatch.setenv("NEURO_WEAVE_EXPORT_ROOT", str(tmp_path / "exports"))
-    with TestClient(create_app()) as client:
+    with TestClient(app_factory(database_path=tmp_path / "database.db")) as client:
         assert client.get("/health").json() == {"status": "ok"}
         metadata = client.get("/api/metadata")
         assert metadata.status_code == 200

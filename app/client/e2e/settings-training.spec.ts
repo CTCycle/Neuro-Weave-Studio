@@ -106,7 +106,7 @@ async function registerDataset(page: Page): Promise<string> {
   return ((await created.json()) as { id: string }).id
 }
 
-test('NW-T1-05 keeps Settings informational and Training session-only', async ({ page, request }) => {
+test('NW-T1-05 supports UI settings and keeps Training session-only', async ({ page, request }) => {
   test.setTimeout(120_000)
   const diagnostics = collectBrowserDiagnostics(page)
   let projectId: string | undefined
@@ -119,11 +119,12 @@ test('NW-T1-05 keeps Settings informational and Training session-only', async ({
   try {
     await page.goto('/settings')
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
-    await expect(page.getByText('There are no editable application-level settings defined yet.', { exact: true })).toBeVisible()
-    await expect(page.locator('.settings-content button, .settings-content input, .settings-content select, .settings-content textarea, .settings-content [contenteditable]:not([contenteditable="false"]), .settings-content [role="switch"], .settings-content [role="checkbox"]')).toHaveCount(0)
-    await expect(page.locator('.settings-content form')).toHaveCount(0)
-    await expect(page.locator('.settings-boundary')).toContainText('.env')
-    await expect(page.locator('.settings-boundary')).toContainText('database paths')
+    await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Database', exact: true })).toBeVisible()
+    await expect(page.getByLabel('Log level')).toHaveValue('INFO')
+    await expect(page.getByLabel('Database file path')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Test connection' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save and switch' })).toBeVisible()
     await page.screenshot({ path: path.join(evidenceRoot, 'nw-t1-05-settings-boundary.png'), fullPage: true })
 
     await page.getByRole('link', { name: /Node Library/ }).click()

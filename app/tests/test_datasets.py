@@ -5,15 +5,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Callable
 from importlib import import_module
 from pathlib import Path
 from typing import Protocol, cast
 
 import numpy as np
-import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from app import create_app
 
 
 ###############################################################################
@@ -566,21 +565,17 @@ def test_update_relink_refreshes_definition_and_inspection_snapshot(
 ###############################################################################
 def test_dataset_registration_survives_application_restart(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+    app_factory: Callable[..., FastAPI],
 ) -> None:
     database = tmp_path / "restart.db"
     source = tmp_path / "restart.csv"
     source.write_text("age,weight,diagnosis\n42,71,positive\n", encoding="utf-8")
-    monkeypatch.setenv("DATABASE_SQLITE_PATH", str(database))
-    monkeypatch.setenv("NEURO_WEAVE_EXPORT_ROOT", str(tmp_path / "exports"))
-    monkeypatch.setenv("NEURO_WEAVE_ML_JOB_ROOT", str(tmp_path / "jobs"))
-    monkeypatch.setenv("NEURO_WEAVE_RUNTIME_DISCOVERY_PATH", str(tmp_path / "environment.json"))
 
-    with TestClient(create_app()) as first:
+    with TestClient(app_factory(database_path=database)) as first:
         created = first.post("/api/datasets", json=_tabular_payload(source))
         assert created.status_code == 201
 
-    with TestClient(create_app()) as second:
+    with TestClient(app_factory(database_path=database)) as second:
         listed = second.get("/api/datasets")
         assert listed.status_code == 200
         assert listed.json()["datasets"][0]["name"] == "Patient outcomes"

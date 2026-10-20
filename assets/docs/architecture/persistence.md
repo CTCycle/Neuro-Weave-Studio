@@ -2,7 +2,11 @@
 
 Last updated: 2026-09-10
 
-NeuroWeave uses one SQLAlchemy schema backed exclusively by SQLite. Alembic is the authoritative schema lifecycle and `repositories.base.Base.metadata` is its autogeneration source of truth. A project is the model/workflow aggregate exposed by `/api/projects`; installation-wide reusable authoring definitions are persisted separately from project graphs.
+NeuroWeave currently uses one SQLAlchemy schema backed by SQLite. Alembic is the authoritative schema lifecycle and `repositories.base.Base.metadata` is its autogeneration source of truth. A project is the model/workflow aggregate exposed by `/api/projects`; installation-wide reusable authoring definitions are persisted separately from project graphs.
+
+The selected backend and SQLite connection parameters live only in `database-config.json` under the application resource directory. The file is validated against a versioned schema and replaced atomically. It is independent of the database so startup and database repair do not depend on a working connection. On first startup, legacy `DATABASE_SQLITE_PATH`, `DATABASE_CONNECT_TIMEOUT`, and `NEURO_WEAVE_*` settings are imported once; migrated keys are then removed from `.env` and the process environment. `.env.example` contains launch configuration only.
+
+All application preferences, including CORS origins, log level and file, runtime paths, and timeout values, live in the singleton `application_settings` row of the selected database. Each database has its own settings row. Switching databases waits for API requests to drain, refuses while runtime jobs are active, validates the target schema, activates its repository context, and loads its local settings. Switching never copies projects, datasets, or settings. The existing migration history is preserved and extended to add the settings table.
 
 The canonical project tables are `projects`, `project_graph_settings`, `project_nodes`, `project_edges`, `project_revisions`, and `generated_code_snapshots`, plus Alembic's `alembic_version` table. Projects own current graph settings, ordered nodes, and ordered edges. Composite project/node foreign keys prevent an edge from connecting nodes belonging to another project. Project revisions are immutable graph snapshots. Generated source is linked to a specific project revision and is returned only for the current revision.
 

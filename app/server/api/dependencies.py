@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 
 from common.catalogs.loader import NodeCatalog
 from configurations.settings import Settings
@@ -42,7 +42,13 @@ def get_settings(request: Request) -> Settings:
 
 ###############################################################################
 def get_repository_context(request: Request) -> RepositoryContext:
-    return cast(RepositoryContext, request.app.state.repository_context)
+    context = request.app.state.database_configuration.repository_context
+    if context is None:
+        raise HTTPException(
+            status_code=503,
+            detail="The configured database is unavailable. Check Database settings and try again.",
+        )
+    return cast(RepositoryContext, context)
 
 ###############################################################################
 def get_uow_factory(

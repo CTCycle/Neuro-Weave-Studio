@@ -40,6 +40,7 @@ class ProjectRecord(Base):
     execution_backend: Mapped[str] = mapped_column(
         String(32), nullable=False, default=ExecutionBackend.PYTORCH.value
     )
+
     keras_enabled: Mapped[bool] = mapped_column(
         Boolean(create_constraint=True, name="ck_projects_keras_enabled"),
         nullable=False,
@@ -89,6 +90,24 @@ class ProjectRecord(Base):
             name="ck_projects_validation_status",
         ),
         Index("ix_projects_updated_at", "updated_at"),
+    )
+
+###############################################################################
+class ApplicationSettingsRecord(Base):
+    """One validated runtime-settings document owned by this database."""
+
+    __tablename__ = "application_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    settings_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
+
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_application_settings_singleton"),
+        CheckConstraint("schema_version = 1", name="ck_application_settings_schema"),
+        CheckConstraint("revision >= 1", name="ck_application_settings_revision"),
     )
 
 ###############################################################################

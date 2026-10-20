@@ -9,10 +9,13 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app import create_app
 from common.path import CACHE_ROOT, PYTEST_BASETEMP_ROOT
+from configurations.database_config import DatabaseConfig
+from configurations.settings import Settings
 
 
 ###############################################################################
@@ -62,10 +65,40 @@ def reset_jax_precision_state() -> Iterator[None]:
 
 ###############################################################################
 @pytest.fixture()
-def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("DATABASE_SQLITE_PATH", str(tmp_path / "test.db"))
-    monkeypatch.setenv("NEURO_WEAVE_EXPORT_ROOT", str(tmp_path / "exports"))
-    monkeypatch.setenv("NEURO_WEAVE_ML_JOB_ROOT", str(tmp_path / "jobs"))
-    monkeypatch.setenv("NEURO_WEAVE_RUNTIME_DISCOVERY_PATH", str(tmp_path / "environment-discovery.json"))
-    with TestClient(create_app()) as test_client:
+def app_factory(tmp_path: Path) -> Callable[..., FastAPI]:
+    def build_app(
+        *,
+        database_path: Path | None = None,
+        config_path: Path | None = None,
+        settings: Settings | None = None,
+    ) -> FastAPI:
+        selected_database = database_path or (tmp_path / "test.db")
+        selected_config = config_path or (tmp_path / "database-config.json")
+        if not selected_config.exists():
+            selected_config.parent.mkdir(parents=True, exist_ok=True)
+            selected_config.write_text(
+                DatabaseConfig(sqlite_path=selected_database).model_dump_json(indent=2),
+                encoding="utf-8",
+            )
+        default_settings = Settings(
+            log_file=tmp_path / "logs" / "backend.log",
+            export_root=tmp_path / "exports",
+            ml_job_root=tmp_path / "jobs",
+            tensor_inspection_root=tmp_path / "inspections",
+            runtime_discovery_path=CACHE_ROOT / "pytest-database-settings" / f"{tmp_path.name}-{selected_database.stem}.json",
+        )
+        return create_app(
+            database_config_path=selected_config,
+            environment_file=tmp_path / ".env",
+            sanitize_legacy=False,
+            initial_settings=settings or default_settings,
+        )
+
+    return build_app
+
+
+###############################################################################
+@pytest.fixture()
+def client(app_factory: Callable[..., FastAPI]) -> Iterator[TestClient]:
+    with TestClient(app_factory()) as test_client:
         yield test_client
