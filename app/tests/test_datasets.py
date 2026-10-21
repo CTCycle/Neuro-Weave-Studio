@@ -14,13 +14,11 @@ import numpy as np
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-
 ###############################################################################
 class _PyArrowModule(Protocol):
 
     # -------------------------------------------------------------------------
     def table(self, data: object) -> object: ...
-
 
 ###############################################################################
 class _ParquetModule(Protocol):

@@ -30,7 +30,6 @@ from domain.jobs import JobResponse, JobSubmitRequest, ModelExportOperation
 from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
 from services.runtime_controller import RuntimeController
 
-
 ###############################################################################
 @pytest.fixture(scope="module")
 def export_controller(tmp_path_factory: pytest.TempPathFactory) -> Iterator[RuntimeController]:
@@ -322,16 +321,21 @@ def test_cancelled_export_preserves_published_artifact_and_cleans_worker(
 
 ###############################################################################
 class _FinishedWorker:
+
+    # -------------------------------------------------------------------------
     def __init__(self, *, returncode: int | None) -> None:
         self.pid: int | None = None
         self.returncode = returncode
 
+    # -------------------------------------------------------------------------
     def poll(self) -> int | None:
         return self.returncode
 
+    # -------------------------------------------------------------------------
     def wait(self) -> int | None:
         return self.returncode
 
+    # -------------------------------------------------------------------------
     def kill(self) -> None:
         self.returncode = -9
 

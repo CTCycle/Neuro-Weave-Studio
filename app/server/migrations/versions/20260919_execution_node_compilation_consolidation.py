@@ -34,7 +34,6 @@ JsonObject = dict[str, object]
 def _object_mapping(value: object) -> JsonObject:
     return cast(JsonObject, value) if isinstance(value, dict) else {}
 
-
 ###############################################################################
 def _object_items(value: object) -> list[object]:
     return cast(list[object], value) if isinstance(value, list) else []
@@ -56,7 +55,6 @@ def _object(value: object, default_id: str | None = None) -> JsonObject | None:
             "parameters": _object_mapping(parameters),
         }
     return {"id": default_id or "adam", "parameters": {}}
-
 
 ###############################################################################
 def _plan(value: object, *, native_backend: str | None = None) -> JsonObject:
@@ -101,7 +99,6 @@ def _plan(value: object, *, native_backend: str | None = None) -> JsonObject:
         else _object(raw.get("default_constraint")),
     }
 
-
 ###############################################################################
 def _compiler(value: object, backend: str) -> JsonObject:
     raw = dict(_object_mapping(value))
@@ -136,7 +133,6 @@ def _compiler(value: object, backend: str) -> JsonObject:
         identifier = "jax_jit"
     return {"id": identifier, "parameters": parameters}
 
-
 ###############################################################################
 def _native_configuration(native_raw: JsonObject, backend: str) -> JsonObject:
     branch = _object_mapping(native_raw.get(backend, {}))
@@ -145,7 +141,6 @@ def _native_configuration(native_raw: JsonObject, backend: str) -> JsonObject:
         "compiler": _compiler(branch, backend),
         "random_seed": branch.get("random_seed", 42),
     }
-
 
 ###############################################################################
 def _configuration(value: object) -> JsonObject:
@@ -165,7 +160,6 @@ def _configuration(value: object) -> JsonObject:
         },
     }
 
-
 ###############################################################################
 def _json(value: object, default: object) -> object:
     if isinstance(value, str):
@@ -174,7 +168,6 @@ def _json(value: object, default: object) -> object:
         except json.JSONDecodeError:
             return default
     return value if value is not None else default
-
 
 ###############################################################################
 def _without_placeholder(value: object) -> JsonObject:
@@ -212,7 +205,6 @@ def _without_placeholder(value: object) -> JsonObject:
     raw["model_configuration"] = _configuration(raw.get("model_configuration", {}))
     return raw
 
-
 ###############################################################################
 def _formula_capabilities(expression: Any) -> dict[str, bool]:
     try:
@@ -230,7 +222,6 @@ def _formula_capabilities(expression: Any) -> dict[str, bool]:
         return result
     except Exception:
         return {backend: False for backend in ("keras", "tensorflow", "pytorch", "jax")}
-
 
 ###############################################################################
 def _graph_template(spec: object) -> JsonObject:

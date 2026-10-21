@@ -14,12 +14,10 @@ from .contracts import (
     safe_index_expression,
 )
 
-
 ###############################################################################
 def _identity(context: NodeEmitterContext) -> EmissionResult:
     expression = next(iter(context.input_expressions_by_target_port.values()), "")
     return EmissionResult(output_expressions=emit_multi_output_assignment(expression, context.materialized_output_ports))
-
 
 ###############################################################################
 def _constant(context: NodeEmitterContext) -> EmissionResult:
@@ -32,7 +30,6 @@ def _constant(context: NodeEmitterContext) -> EmissionResult:
         f"name={context.canonical_ir_node.variable_name!r}){anchor}"
     )
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
-
 
 ###############################################################################
 def _parameter(context: NodeEmitterContext) -> EmissionResult:
@@ -47,20 +44,17 @@ def _parameter(context: NodeEmitterContext) -> EmissionResult:
     )
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
-
 ###############################################################################
 def _index(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     expression = safe_index_expression(context.normalized_parameters.get("expression", ":"))
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression.replace("x", source, 1)})
 
-
 ###############################################################################
 def _average(context: NodeEmitterContext) -> EmissionResult:
     inputs = list(context.input_expressions_by_target_port.values())
     expression = f"keras.ops.sum(keras.ops.stack([{', '.join(inputs)}], axis=0), axis=0) / {len(inputs)}"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
-
 
 ###############################################################################
 def _split(context: NodeEmitterContext) -> EmissionResult:
@@ -69,12 +63,10 @@ def _split(context: NodeEmitterContext) -> EmissionResult:
     expression = f"keras.ops.split({source}, {int(parameters.get('sections', 2))}, axis={int(parameters.get('axis', -1))})"
     return EmissionResult(output_expressions=emit_multi_output_assignment(expression, context.materialized_output_ports))
 
-
 ###############################################################################
 def _detection(context: NodeEmitterContext) -> EmissionResult:
     expression = "[" + ", ".join(context.input_expressions_by_target_port.values()) + "]"
     return EmissionResult(output_expressions=emit_multi_output_assignment(expression, context.materialized_output_ports))
-
 
 ###############################################################################
 def _runtime_constant(context: NodeRuntimeContext) -> Any:
@@ -87,7 +79,6 @@ def _runtime_constant(context: NodeRuntimeContext) -> Any:
     )
     anchor = context.runtime_services.get("anchor")
     return layer(anchor) if anchor is not None else layer()
-
 
 ###############################################################################
 def _runtime_parameter(context: NodeRuntimeContext) -> Any:
@@ -102,7 +93,6 @@ def _runtime_parameter(context: NodeRuntimeContext) -> Any:
     anchor = context.runtime_services.get("anchor")
     return layer(anchor) if anchor is not None else layer()
 
-
 ###############################################################################
 def _runtime_index(context: NodeRuntimeContext) -> Any:
     expression = str(context.normalized_parameters.get("expression", ":"))
@@ -110,12 +100,10 @@ def _runtime_index(context: NodeRuntimeContext) -> Any:
         expression, context.source
     )
 
-
 ###############################################################################
 def _runtime_average(context: NodeRuntimeContext) -> Any:
     ops = context.runtime_services["keras_ops"]
     return ops.sum(ops.stack(list(context.inputs), axis=0), axis=0) / len(context.inputs)
-
 
 ###############################################################################
 def _runtime_split(context: NodeRuntimeContext) -> Any:
@@ -126,11 +114,9 @@ def _runtime_split(context: NodeRuntimeContext) -> Any:
         axis=int(parameters.get("axis", -1)),
     )
 
-
 ###############################################################################
 def _runtime_detection(context: NodeRuntimeContext) -> Any:
     return list(context.inputs)
-
 
 ###############################################################################
 def _reshape(context: NodeEmitterContext) -> EmissionResult:
@@ -146,7 +132,6 @@ def _reshape(context: NodeEmitterContext) -> EmissionResult:
     )
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
-
 ###############################################################################
 def _permute(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
@@ -160,7 +145,6 @@ def _permute(context: NodeEmitterContext) -> EmissionResult:
         f"name={context.canonical_ir_node.variable_name!r})({source})"
     )
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
-
 
 ###############################################################################
 def _repeat(context: NodeEmitterContext) -> EmissionResult:
@@ -181,7 +165,6 @@ def _repeat(context: NodeEmitterContext) -> EmissionResult:
         if parameters.get("dtype") is not None:
             expression = f"keras.ops.cast({expression}, {parameters['dtype']!r})"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
-
 
 ###############################################################################
 def build_registry() -> NodeEmitterRegistry:

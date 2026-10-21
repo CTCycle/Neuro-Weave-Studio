@@ -31,15 +31,14 @@ from domain.jobs import (
 from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
 from services.runtime_controller import RuntimeController
 
-
 ###############################################################################
 def _tensorflow_native(**payload: object) -> TensorFlowNativeConfiguration:
     return TensorFlowNativeConfiguration.model_validate(payload)
 
 
+###############################################################################
 def _jax_native(**payload: object) -> JaxNativeConfiguration:
     return JaxNativeConfiguration.model_validate(payload)
-
 
 ###############################################################################
 def _node(node_id: str, definition_id: str, parameters: dict[str, object]) -> NodeInstance:

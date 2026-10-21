@@ -13,7 +13,6 @@ down_revision = "20260919_graph_template_custom_nodes"
 branch_labels = None
 depends_on = None
 
-
 ###############################################################################
 def upgrade() -> None:
     op.create_table(
@@ -28,7 +27,6 @@ def upgrade() -> None:
         sa.CheckConstraint("revision >= 1", name="ck_application_settings_revision"),
         sa.PrimaryKeyConstraint("id"),
     )
-
 
 ###############################################################################
 def downgrade() -> None:

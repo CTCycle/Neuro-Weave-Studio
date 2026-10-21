@@ -30,7 +30,6 @@ APPLICATION_ENV_KEYS = {
 } | {"NEURO_WEAVE_APP_NAME", "NEURO_WEAVE_APP_VERSION"}
 LEGACY_ENV_KEYS = DATABASE_ENV_KEYS | APPLICATION_ENV_KEYS
 
-
 ###############################################################################
 class DatabaseConfig(BaseModel):
     """The database-only file contract. No application settings or credentials belong here."""
@@ -56,14 +55,12 @@ class DatabaseConfig(BaseModel):
             connect_timeout=self.connect_timeout_seconds,
         )
 
-
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class DatabaseBootstrap:
     config: DatabaseConfig
     legacy_settings: Settings | None
     config_was_missing: bool
-
 
 ###############################################################################
 def _legacy_environment_values(environment_file: Path = ENV_FILE) -> dict[str, str]:
@@ -86,7 +83,6 @@ def _legacy_environment_values(environment_file: Path = ENV_FILE) -> dict[str, s
         if name in LEGACY_ENV_KEYS and name not in values:
             values[name] = raw_value.strip().strip('"').strip("'")
     return values
-
 
 ###############################################################################
 def bootstrap_database_config(
@@ -115,7 +111,6 @@ def bootstrap_database_config(
     legacy_settings = Settings.model_validate(legacy_settings_payload) if legacy_settings_payload else None
     return DatabaseBootstrap(config, legacy_settings, True)
 
-
 ###############################################################################
 def load_effective_database_config(config_path: Path = DATABASE_CONFIG_PATH) -> DatabaseConfig:
     target = Path(config_path)
@@ -125,7 +120,6 @@ def load_effective_database_config(config_path: Path = DATABASE_CONFIG_PATH) -> 
         )
     payload = json.loads(target.read_text(encoding="utf-8"))
     return DatabaseConfig.model_validate(payload)
-
 
 ###############################################################################
 def write_database_config(
@@ -154,7 +148,6 @@ def write_database_config(
     finally:
         if temporary_path is not None and temporary_path.exists():
             temporary_path.unlink()
-
 
 ###############################################################################
 def remove_legacy_environment_values(environment_file: Path = ENV_FILE) -> None:
@@ -197,7 +190,6 @@ def remove_legacy_environment_values(environment_file: Path = ENV_FILE) -> None:
     finally:
         if temporary_path is not None and temporary_path.exists():
             temporary_path.unlink()
-
 
 ###############################################################################
 def clear_legacy_process_environment() -> None:

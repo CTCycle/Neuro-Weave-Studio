@@ -13,7 +13,6 @@ RESOURCE_ROOT = Path(__file__).resolve().parents[2] / "resources" / "nodes"
 CATALOG_EXTENSION_PATH = RESOURCE_ROOT.parent / "catalog_extensions.json"
 PARAMETER_SURFACE_PATH = RESOURCE_ROOT.parent / "parameter_surfaces.json"
 
-
 ###############################################################################
 def _expand_parameter_groups(
     raw: dict[str, Any], parameter_groups: dict[str, list[dict[str, Any]]]

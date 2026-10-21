@@ -15,7 +15,6 @@ from domain.compilation_catalog import (
 from domain.enums import ExecutionBackend
 from domain.manifests import ParameterDefinition
 
-
 ###############################################################################
 class NativeCompilationCapability(BaseModel):
     backend: ExecutionBackend

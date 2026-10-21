@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 
 from services.filesystem_service import MAX_DIRECTORY_ENTRIES, FilesystemService
 
-
 ###############################################################################
 def test_browse_lists_directories_before_files_and_filters_extensions(tmp_path: Path) -> None:
     (tmp_path / "images").mkdir()

@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from configurations.settings import DatabaseSettings
 
-
 ###############################################################################
 class SQLiteBackend:
 

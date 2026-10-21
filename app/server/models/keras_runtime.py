@@ -19,7 +19,6 @@ from domain.graph import ModelGraph
 from domain.metric_formula import MetricFormulaError, evaluate_metric_formula, parse_metric_formula
 from validation.output_resolution import output_selectors, resolved_outputs
 
-
 ###############################################################################
 def option(value: Any) -> Any:
     """Convert the catalog's explicit ``none`` option into Keras ``None``."""
@@ -61,7 +60,6 @@ def prepare_runtime(graph: ModelGraph) -> None:
     keras.mixed_precision.set_global_policy(
         "mixed_float16" if graph.model_configuration.keras.mixed_precision else "float32"
     )
-
 
 ###############################################################################
 class PredictionAggregateMetric(keras.metrics.Metric):

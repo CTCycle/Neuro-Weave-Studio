@@ -10,7 +10,6 @@ from typing import Any, cast
 from domain.manifests import ImplementationMapping, NodeManifest
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
-
 ###############################################################################
 class OperationEmissionError(ValueError):
     """Raised when a catalog operation cannot be emitted for a target."""

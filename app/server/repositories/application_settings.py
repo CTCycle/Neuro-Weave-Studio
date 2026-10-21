@@ -9,11 +9,11 @@ from common.timestamps import utc_now
 from configurations.settings import Settings
 from repositories.models import ApplicationSettingsRecord
 
-
 ###############################################################################
 class ApplicationSettingsRepository:
     """Read and write the database-local application settings singleton."""
 
+    # -------------------------------------------------------------------------
     def __init__(self, session: Session) -> None:
         self._session = session
 

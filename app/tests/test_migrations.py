@@ -20,7 +20,6 @@ from configurations.settings import DatabaseSettings
 from repositories import initializer
 from repositories.initializer import HEAD_REVISION, initialize_database
 
-
 ###############################################################################
 def _settings(path: Path) -> DatabaseSettings:
     return DatabaseSettings(sqlite_path=path, connect_timeout=10)

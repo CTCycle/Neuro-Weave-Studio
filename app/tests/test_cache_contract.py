@@ -24,7 +24,6 @@ from common.path import (
 )
 from configurations.settings import Settings
 
-
 ###############################################################################
 def test_repository_cache_paths_share_one_canonical_root() -> None:
     assert CACHE_ROOT == REPOSITORY_ROOT / "runtimes" / "cache"
@@ -32,7 +31,6 @@ def test_repository_cache_paths_share_one_canonical_root() -> None:
     assert Path(sys.pycache_prefix).resolve() == PYTHON_BYTECODE_CACHE_ROOT.resolve()
     assert FRONTEND_DIST_ROOT.parent == CACHE_ROOT
     assert RUNTIME_DISCOVERY_CACHE_PATH.parent == CACHE_ROOT
-
 
 ###############################################################################
 def test_resource_root_defaults_to_repository_data() -> None:
@@ -43,14 +41,12 @@ def test_resource_root_defaults_to_repository_data() -> None:
     assert expected / "database.db" == DATABASE_PATH
     assert expected / "runtime" == RUNTIME_ROOT
 
-
 ###############################################################################
 def test_resource_root_accepts_repository_relative_and_absolute_paths(tmp_path: Path) -> None:
     assert resolve_resource_root("alternate-resources") == REPOSITORY_ROOT / "alternate-resources"
     assert resolve_resource_root(str(tmp_path / "external-resources")) == (
         tmp_path / "external-resources"
     ).resolve()
-
 
 ###############################################################################
 def test_resource_root_override_uses_inherited_environment(
@@ -60,7 +56,6 @@ def test_resource_root_override_uses_inherited_environment(
     monkeypatch.setenv(RESOURCE_ROOT_ENV, str(override))
 
     assert resolve_resource_root() == override.resolve()
-
 
 ###############################################################################
 def test_runtime_discovery_defaults_to_the_canonical_cache_root() -> None:

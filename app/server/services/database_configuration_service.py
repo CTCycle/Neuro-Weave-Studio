@@ -25,7 +25,6 @@ from repositories.session import RepositoryContext, create_repository_context
 
 LOGGER = logging.getLogger(__name__)
 
-
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class DatabaseStatus:
@@ -36,11 +35,9 @@ class DatabaseStatus:
     switching: bool
     message: str | None
 
-
 ###############################################################################
 class DatabaseSwitchBusyError(RuntimeError):
     pass
-
 
 ###############################################################################
 class DatabaseConfigurationService:
@@ -48,6 +45,7 @@ class DatabaseConfigurationService:
 
     _REQUEST_DRAIN_TIMEOUT_SECONDS = 30
 
+    # -------------------------------------------------------------------------
     def __init__(
         self,
         config_path: Path = DATABASE_CONFIG_PATH,

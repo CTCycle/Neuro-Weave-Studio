@@ -25,7 +25,6 @@ from domain.tensor_inspection import (
 
 MAX_VIEW_PAYLOAD_BYTES = 256 * 1024
 
-
 ###############################################################################
 def _json_safe(value: Any) -> Any:
     """Keep NaN/Infinity values valid for strict JSON responses."""
@@ -42,7 +41,6 @@ def _json_safe(value: Any) -> Any:
         return [_json_safe(item) for item in cast(tuple[Any, ...], value)]
     return value
 
-
 ###############################################################################
 class TensorInspectionError(RuntimeError):
 
@@ -51,7 +49,6 @@ class TensorInspectionError(RuntimeError):
         self.code = code
         self.status_code = status_code
         super().__init__(message)
-
 
 ###############################################################################
 class TensorInspectionService:

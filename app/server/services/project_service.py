@@ -31,7 +31,6 @@ from services.errors import (
 from services.validation_service import ValidationService
 from validation.output_resolution import input_nodes, is_effective_output, resolved_outputs
 
-
 ###############################################################################
 class ProjectService:
 

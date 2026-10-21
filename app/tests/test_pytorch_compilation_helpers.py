@@ -30,15 +30,14 @@ from models.worker_backend import run_keras_smoke, run_native_smoke
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
 
-
 ###############################################################################
 def _keras_configuration(**payload: object) -> KerasCompilationConfiguration:
     return KerasCompilationConfiguration.model_validate(payload)
 
 
+###############################################################################
 def _pytorch_native(**payload: object) -> PyTorchNativeConfiguration:
     return PyTorchNativeConfiguration.model_validate(payload)
-
 
 ###############################################################################
 def _node(

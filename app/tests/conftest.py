@@ -17,7 +17,6 @@ from common.path import CACHE_ROOT, PYTEST_BASETEMP_ROOT, REPOSITORY_ROOT
 from configurations.database_config import DatabaseConfig
 from configurations.settings import Settings
 
-
 ###############################################################################
 def pytest_configure(config: pytest.Config) -> None:
     cache_root = CACHE_ROOT.resolve()
@@ -92,7 +91,6 @@ def app_factory(tmp_path: Path) -> Callable[..., FastAPI]:
         )
 
     return build_app
-
 
 ###############################################################################
 @pytest.fixture()

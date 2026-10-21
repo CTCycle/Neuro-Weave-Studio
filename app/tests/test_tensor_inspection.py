@@ -26,6 +26,7 @@ from services.tensor_inspection_service import (
 )
 
 
+###############################################################################
 def inspection_graph() -> ModelGraph:
     return ModelGraph.model_validate(
         {
@@ -70,6 +71,7 @@ def inspection_graph() -> ModelGraph:
     )
 
 
+###############################################################################
 def trace_values() -> tuple[dict[str, dict[str, np.ndarray]], np.ndarray]:
     inputs = np.arange(6, dtype=np.float32).reshape(1, 2, 3)
     sequence = np.array(
@@ -87,6 +89,7 @@ def trace_values() -> tuple[dict[str, dict[str, np.ndarray]], np.ndarray]:
     )
 
 
+###############################################################################
 def create_bundle(output_root: Path, *, trace: dict[str, dict[str, np.ndarray]] | None = None) -> str:
     graph = inspection_graph()
     default_trace, inputs = trace_values()
@@ -106,17 +109,20 @@ def create_bundle(output_root: Path, *, trace: dict[str, dict[str, np.ndarray]] 
     return str(result["session_id"])
 
 
+###############################################################################
 def inspection_service(root: Path) -> TensorInspectionService:
     return TensorInspectionService(
         Settings(tensor_inspection_root=root)
     )
 
 
+###############################################################################
 def _approx(expected: object) -> object:
     approx = cast(Callable[[object], object], pytest.approx)  # pyright: ignore[reportUnknownMemberType]
     return approx(expected)
 
 
+###############################################################################
 def test_persists_inspection_ports_statistics_and_bounded_rank_three_views(tmp_path: Path) -> None:
     root = tmp_path / "inspections"
     session_id = create_bundle(root)
@@ -191,6 +197,7 @@ def test_persists_inspection_ports_statistics_and_bounded_rank_three_views(tmp_p
     assert deleted.value.code == "session_expired"
 
 
+###############################################################################
 def test_bounds_large_tensor_storage_to_sampled_or_summary_only(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -237,6 +244,7 @@ def test_bounds_large_tensor_storage_to_sampled_or_summary_only(
     assert payload_error.value.status_code == 413
 
 
+###############################################################################
 def test_cleanup_expires_old_sessions_and_limits_retained_sessions(tmp_path: Path) -> None:
     root = tmp_path / "inspections"
     session_ids = [create_bundle(root) for _ in range(4)]

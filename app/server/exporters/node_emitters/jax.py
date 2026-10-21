@@ -11,19 +11,16 @@ from .contracts import (
     safe_index_expression,
 )
 
-
 ###############################################################################
 def _simple(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()), "")
     return EmissionResult(output_expressions=emit_multi_output_assignment(source, context.materialized_output_ports))
-
 
 ###############################################################################
 def _constant(context: NodeEmitterContext) -> EmissionResult:
     parameters = context.normalized_parameters
     expression = f"jnp.broadcast_to(jnp.asarray({parameters.get('value', 0)!r}, dtype=jnp.dtype({parameters.get('dtype', 'float32')!r})), {tuple(parameters.get('shape', [1]))!r})"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
-
 
 ###############################################################################
 def _parameter(context: NodeEmitterContext) -> EmissionResult:
@@ -53,19 +50,16 @@ def _parameter(context: NodeEmitterContext) -> EmissionResult:
         output_expressions={context.materialized_output_ports[0].id: expression}
     )
 
-
 ###############################################################################
 def _index(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
     expression = safe_index_expression(context.normalized_parameters.get("expression", ":"))
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression.replace("x", source, 1)})
 
-
 ###############################################################################
 def _average(context: NodeEmitterContext) -> EmissionResult:
     inputs = list(context.input_expressions_by_target_port.values())
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: f"jnp.stack([{', '.join(inputs)}], axis=0).sum(axis=0) / {len(inputs)}"})
-
 
 ###############################################################################
 def _split(context: NodeEmitterContext) -> EmissionResult:
@@ -74,12 +68,10 @@ def _split(context: NodeEmitterContext) -> EmissionResult:
     expression = f"jnp.split({source}, {int(parameters.get('sections', 2))}, axis={int(parameters.get('axis', -1))})"
     return EmissionResult(output_expressions=emit_multi_output_assignment(expression, context.materialized_output_ports))
 
-
 ###############################################################################
 def _detection(context: NodeEmitterContext) -> EmissionResult:
     expression = "(" + ", ".join(context.input_expressions_by_target_port.values()) + ")"
     return EmissionResult(output_expressions=emit_multi_output_assignment(expression, context.materialized_output_ports))
-
 
 ###############################################################################
 def _activation(context: NodeEmitterContext) -> EmissionResult:
@@ -101,7 +93,6 @@ def _activation(context: NodeEmitterContext) -> EmissionResult:
         expression = f"jnp.asarray({expression}, dtype=jnp.dtype({dtype!r}))"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
-
 ###############################################################################
 def _dropout(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
@@ -115,7 +106,6 @@ def _dropout(context: NodeEmitterContext) -> EmissionResult:
         expression = f"jnp.asarray({expression}, dtype=jnp.dtype({dtype!r}))"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
-
 ###############################################################################
 def _flatten(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
@@ -124,7 +114,6 @@ def _flatten(context: NodeEmitterContext) -> EmissionResult:
     if dtype is not None:
         expression = f"jnp.asarray({expression}, dtype=jnp.dtype({dtype!r}))"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
-
 
 ###############################################################################
 def _conv1d(context: NodeEmitterContext) -> EmissionResult:
@@ -170,7 +159,6 @@ def _conv1d(context: NodeEmitterContext) -> EmissionResult:
         setup_statements=tuple(setup),
         output_expressions={context.materialized_output_ports[0].id: expression},
     )
-
 
 ###############################################################################
 def _conv2d(context: NodeEmitterContext) -> EmissionResult:
@@ -218,7 +206,6 @@ def _conv2d(context: NodeEmitterContext) -> EmissionResult:
         output_expressions={context.materialized_output_ports[0].id: expression},
     )
 
-
 ###############################################################################
 def _conv3d(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
@@ -264,7 +251,6 @@ def _conv3d(context: NodeEmitterContext) -> EmissionResult:
         output_expressions={context.materialized_output_ports[0].id: expression},
     )
 
-
 ###############################################################################
 def _dense(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
@@ -290,7 +276,6 @@ def _dense(context: NodeEmitterContext) -> EmissionResult:
         expression = f"jnp.asarray({expression}, dtype=jnp.dtype({parameters['dtype']!r}))"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
-
 ###############################################################################
 def _reshape(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
@@ -300,7 +285,6 @@ def _reshape(context: NodeEmitterContext) -> EmissionResult:
         expression = f"jnp.asarray({expression}, dtype=jnp.dtype({context.normalized_parameters['dtype']!r}))"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
 
-
 ###############################################################################
 def _permute(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()))
@@ -309,7 +293,6 @@ def _permute(context: NodeEmitterContext) -> EmissionResult:
     if context.normalized_parameters.get("dtype") is not None:
         expression = f"jnp.asarray({expression}, dtype=jnp.dtype({context.normalized_parameters['dtype']!r}))"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
-
 
 ###############################################################################
 def _repeat(context: NodeEmitterContext) -> EmissionResult:
@@ -325,7 +308,6 @@ def _repeat(context: NodeEmitterContext) -> EmissionResult:
     if parameters.get("dtype") is not None:
         expression = f"jnp.asarray({expression}, dtype=jnp.dtype({parameters['dtype']!r}))"
     return EmissionResult(output_expressions={context.materialized_output_ports[0].id: expression})
-
 
 ###############################################################################
 def build_registry() -> NodeEmitterRegistry:

@@ -20,7 +20,6 @@ from domain.metrics import (
 from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
 from repositories.models import CustomMetricDefinitionRecord
 
-
 ###############################################################################
 class MetricDefinitionConflictError(ValueError):
 
@@ -193,14 +192,12 @@ def _parse(formula: str):
     except MetricFormulaError:
         raise
 
-
 ###############################################################################
 def _capabilities(parsed: object) -> dict[str, bool]:
     return {
         backend: _can_emit(parsed, backend)
         for backend in ("keras", "pytorch")
     }
-
 
 ###############################################################################
 def _can_emit(parsed: object, backend: str) -> bool:

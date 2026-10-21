@@ -34,11 +34,9 @@ MAX_EXACT_ELEMENTS = 1_000_000
 MAX_SAMPLE_ELEMENTS = 65_536
 HISTOGRAM_BINS = 64
 
-
 ###############################################################################
 def _utc_now() -> datetime:
     return datetime.now(UTC)
-
 
 ###############################################################################
 def _as_numpy(value: Any) -> np.ndarray:
@@ -56,14 +54,12 @@ def _as_numpy(value: Any) -> np.ndarray:
         on_cpu = on_cpu.numpy()
     return np.asarray(on_cpu)
 
-
 ###############################################################################
 def _safe_array(value: Any) -> np.ndarray:
     array = _as_numpy(value)
     if array.dtype.kind in {"O", "U", "S", "V", "c"}:
         raise ValueError(f"unsupported_dtype: tensor datatype '{array.dtype}' is not supported")
     return array
-
 
 ###############################################################################
 def _sample(array: np.ndarray) -> tuple[np.ndarray, DataMode]:
@@ -74,7 +70,6 @@ def _sample(array: np.ndarray) -> tuple[np.ndarray, DataMode]:
         return flat, "sampled"
     indexes = np.linspace(0, flat.size - 1, MAX_SAMPLE_ELEMENTS, dtype=np.int64)
     return flat[indexes], "sampled"
-
 
 ###############################################################################
 def _statistics(array: np.ndarray) -> tuple[TensorStatistics, TensorHistogram]:
@@ -123,13 +118,11 @@ def _statistics(array: np.ndarray) -> tuple[TensorStatistics, TensorHistogram]:
         TensorHistogram(mode=mode, bins=bins, counts=counts),
     )
 
-
 ###############################################################################
 def _port_items(value: Any) -> list[Any]:
     if isinstance(value, (list, tuple)):
         return list(cast(list[Any] | tuple[Any, ...], value))
     return [value]
-
 
 ###############################################################################
 def _trace_values(trace: Mapping[str, Any], node_id: str) -> dict[str, Any]:
@@ -139,7 +132,6 @@ def _trace_values(trace: Mapping[str, Any], node_id: str) -> dict[str, Any]:
         return {str(key): value for key, value in typed_raw.items()}
     return {"output": raw}
 
-
 ###############################################################################
 def _depths(graph: ModelGraph, ordered: list[str]) -> dict[str, int]:
     depths = {node_id: 0 for node_id in ordered}
@@ -147,7 +139,6 @@ def _depths(graph: ModelGraph, ordered: list[str]) -> dict[str, int]:
         for target in adjacency(graph).get(node_id, []):
             depths[target] = max(depths.get(target, 0), depths[node_id] + 1)
     return depths
-
 
 ###############################################################################
 def persist_inspection(

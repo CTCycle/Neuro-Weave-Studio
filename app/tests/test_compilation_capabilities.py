@@ -32,24 +32,25 @@ from services.compilation_service import CompilationService
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
 
-
 ###############################################################################
 def _tensorflow_native(**payload: object) -> TensorFlowNativeConfiguration:
     return TensorFlowNativeConfiguration.model_validate(payload)
 
 
+###############################################################################
 def _pytorch_native(**payload: object) -> PyTorchNativeConfiguration:
     return PyTorchNativeConfiguration.model_validate(payload)
 
 
+###############################################################################
 def _jax_native(**payload: object) -> JaxNativeConfiguration:
     return JaxNativeConfiguration.model_validate(payload)
 
 
+###############################################################################
 def _approx(expected: object) -> object:
     approx = cast(Callable[..., object], pytest.approx)  # pyright: ignore[reportUnknownMemberType]
     return approx(expected)
-
 
 ###############################################################################
 def _native_graph() -> ModelGraph:
@@ -234,7 +235,6 @@ def test_native_tensorflow_optimizer_uses_normalized_plan_parameters() -> None:
     optimizer.apply_gradients([(gradient, parameter)])
     assert float(parameter.numpy()) != _approx(1.0)
     assert bool(tensorflow.math.is_finite(parameter))
-
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -465,7 +465,6 @@ def test_native_jax_optimizer_uses_optax_and_updates_finite_values() -> None:
     updated = optax.apply_updates(parameter, updates)
     assert float(updated) != _approx(1.0)
     assert bool(jax.numpy.isfinite(updated))
-
 
 ###############################################################################
 @pytest.mark.parametrize(

@@ -13,7 +13,6 @@ from common.timestamps import utc_now
 from repositories.base import Base
 from repositories.types import UTCDateTime
 
-
 ###############################################################################
 class DatasetRecord(Base):
     """A lightweight external dataset registration; source bytes are never stored here."""

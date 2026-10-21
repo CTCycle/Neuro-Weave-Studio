@@ -21,7 +21,6 @@ MAX_SAMPLE_VALUE_ELEMENTS = 512
 MAX_SESSION_VALUE_ELEMENTS = 100_000
 HISTOGRAM_BINS = 24
 
-
 ###############################################################################
 def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) -> bool:
     for parameter_id, expected in condition.items():
@@ -42,11 +41,9 @@ def _condition_matches(condition: dict[str, Any], parameters: dict[str, Any]) ->
             return False
     return True
 
-
 ###############################################################################
 def _enabled_output_ports(manifest: Any, parameters: dict[str, Any]) -> list[Any]:
     return [port for port in cast(list[Any], manifest.outputs) if _condition_matches(port.enabled_when, parameters)]
-
 
 ###############################################################################
 def _flatten_symbolic(value: Any) -> list[Any]:
@@ -56,7 +53,6 @@ def _flatten_symbolic(value: Any) -> list[Any]:
             flattened.extend(_flatten_symbolic(item))
         return flattened
     return [value]
-
 
 ###############################################################################
 def _concrete_shape(value: Any) -> list[int]:
@@ -70,11 +66,9 @@ def _concrete_shape(value: Any) -> list[int]:
         result.append(concrete if concrete > 0 else 1)
     return result
 
-
 ###############################################################################
 def _element_count(shape: list[int]) -> int:
     return math.prod(shape) if shape else 1
-
 
 ###############################################################################
 def _json_value(value: Any) -> int | float | bool | str | None:
@@ -92,7 +86,6 @@ def _json_value(value: Any) -> int | float | bool | str | None:
     if value is None:
         return None
     return str(value)
-
 
 ###############################################################################
 def _numeric_statistics(values: np.ndarray, *, total_elements: int, sampled: bool) -> dict[str, object] | None:
@@ -137,7 +130,6 @@ def _numeric_statistics(values: np.ndarray, *, total_elements: int, sampled: boo
         )
     return statistics
 
-
 ###############################################################################
 def _histogram(values: np.ndarray) -> dict[str, object] | None:
     if values.dtype.kind not in "biuf":
@@ -158,7 +150,6 @@ def _histogram(values: np.ndarray) -> dict[str, object] | None:
         "edges": [float(item) for item in edges],
         "sampled": True,
     }
-
 
 ###############################################################################
 def summarize_array(
@@ -202,7 +193,6 @@ def summarize_array(
         used,
     )
 
-
 ###############################################################################
 def _sample_tensor_for_host(keras_module: Any, tensor: Any) -> tuple[np.ndarray, bool]:
     shape = _concrete_shape(tensor)
@@ -214,7 +204,6 @@ def _sample_tensor_for_host(keras_module: Any, tensor: Any) -> tuple[np.ndarray,
     else:
         sampled = False
     return np.asarray(keras_module.ops.convert_to_numpy(flattened)), sampled
-
 
 ###############################################################################
 def _tensor_summary(
@@ -237,7 +226,6 @@ def _tensor_summary(
     summary["port_id"] = port_id
     return summary, used
 
-
 ###############################################################################
 def _unavailable_node(node: Any, manifest: Any, index: int, reason: str) -> dict[str, object]:
     return {
@@ -252,7 +240,6 @@ def _unavailable_node(node: Any, manifest: Any, index: int, reason: str) -> dict
         "predecessor_node_ids": [],
         "successor_node_ids": [],
     }
-
 
 ###############################################################################
 def run_keras_tensor_inspection(
@@ -413,7 +400,6 @@ def run_keras_tensor_inspection(
             "max_host_stat_elements": MAX_HOST_STAT_ELEMENTS,
         },
     }
-
 
 ###############################################################################
 def native_tensor_inspection_unavailable() -> dict[str, object]:
