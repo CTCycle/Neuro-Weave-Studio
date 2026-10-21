@@ -121,7 +121,6 @@ def test_parameter_group_expansion_preserves_declarative_metadata() -> None:
         "display_name": "Scale",
         "type": "number",
         "scope": "runtime",
-        "aliases": ["gain"],
         "enabled_when": {"enabled": True},
         "value_schema": {"type": "number", "nullable": True},
     }
@@ -146,17 +145,5 @@ def test_parameter_group_expansion_rejects_group_and_surface_collisions() -> Non
                 "shared": [
                     {"id": "scale", "type": "number"},
                 ]
-            },
-        )
-
-
-###############################################################################
-def test_parameter_group_expansion_rejects_alias_collisions() -> None:
-    with pytest.raises(RuntimeError, match="alias collision"):
-        loader._expand_parameter_groups(  # pyright: ignore[reportPrivateUsage]
-            {"id": "example.node", "parameter_groups": ["shared", "other"]},
-            {
-                "shared": [{"id": "scale", "aliases": ["gain"]}],
-                "other": [{"id": "gain"}],
             },
         )

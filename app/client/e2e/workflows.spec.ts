@@ -17,7 +17,7 @@ type WorkflowFixtures = { page: Page; request: APIRequestContext }
 
 function graph() {
   return {
-    schema_version: 5,
+    schema_version: 6,
     nodes: [
       {
         id: 'input-tabular-e2e',
@@ -79,33 +79,7 @@ function graph() {
       { id: 'edge-e2e-2', source_node_id: 'layer-dense-e2e-1', source_port_id: 'output', target_node_id: 'layer-dense-e2e-2', target_port_id: 'input' },
       { id: 'edge-e2e-3', source_node_id: 'layer-dense-e2e-2', source_port_id: 'output', target_node_id: 'output-classification-e2e', target_port_id: 'input' },
     ],
-    model_configuration: {
-      keras: {
-        optimizer: 'adam',
-        optimizer_parameters: { learning_rate: 0.001 },
-        losses: { __default__: 'binary_crossentropy' },
-        metrics: { __default__: ['binary_accuracy', 'auc'] },
-        default_initializer: 'glorot_uniform',
-        default_regularizer: 'none',
-        default_constraint: 'none',
-        mixed_precision: false,
-        random_seed: 42,
-      },
-      native: {
-        tensorflow: { jit_compile: false },
-        pytorch: {
-          optimizer: 'adamw',
-          optimizer_parameters: { learning_rate: 0.0005, weight_decay: 0.004, beta_1: 0.9, beta_2: 0.999, epsilon: 1e-7 },
-          losses: { __default__: 'binary_crossentropy' },
-          metrics: { __default__: ['binary_accuracy', 'auc'] },
-          compile_enabled: false,
-          mode: 'default',
-          fullgraph: false,
-          dynamic: false,
-        },
-        jax: { jit_enabled: false },
-      },
-    },
+    model_configuration: {},
     export_settings: { include_comments: true, include_shape_assertions: true, preferred_binary_format: 'keras' },
     future_training_configuration: {},
   }

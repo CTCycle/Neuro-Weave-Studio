@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 
 from configurations.settings import Settings
+from domain.compilation_plan import CompilerObject
 from domain.enums import ExecutionBackend
 from domain.exports import ExportConversion, ExportFormat, ExportOptions
 from domain.graph import (
@@ -30,6 +31,7 @@ from domain.jobs import (
 )
 from domain.runtime import MemoryPolicy, RuntimeApi, WorkerConfiguration
 from services.runtime_controller import RuntimeController
+
 
 ###############################################################################
 def _tensorflow_native(**payload: object) -> TensorFlowNativeConfiguration:
@@ -70,7 +72,11 @@ def _dense_graph(*, jit_compile: bool = False) -> ModelGraph:
         edges=[_edge("input-dense", "input", "dense"), _edge("dense-output", "dense", "output")],
         model_configuration=ModelConfiguration(
             native=NativeCompilationConfiguration(
-                tensorflow=_tensorflow_native(jit_compile=jit_compile),
+                tensorflow=_tensorflow_native(
+                    compiler=CompilerObject(
+                        id="tensorflow_function", parameters={"jit_compile": jit_compile}
+                    )
+                ),
             ),
         ),
     )
@@ -141,7 +147,9 @@ def _native_jax_multi_input_graph() -> ModelGraph:
         ],
         model_configuration=ModelConfiguration(
             native=NativeCompilationConfiguration(
-                jax=_jax_native(jit_enabled=True),
+                jax=_jax_native(
+                    compiler=CompilerObject(id="jax_jit", parameters={"enabled": True})
+                ),
             ),
         ),
     )
@@ -302,5 +310,5 @@ def test_pytorch_compile_capability_requires_msvc_on_windows(monkeypatch: pytest
     monkeypatch.setattr(pytorch_worker_module.shutil, "which", _missing_executable)
 
     assert pytorch_worker_module.PyTorchWorker().native_compilation_capabilities() == {
-        "torch_compile": False
+        "pytorch_compile": False
     }

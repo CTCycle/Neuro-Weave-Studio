@@ -157,8 +157,7 @@ test('exposes node library and global settings navigation', async ({ page }) => 
   await page.getByRole('link', { name: 'Settings', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Settings sections' })).toBeVisible()
-  await expect(page.getByText('There are no editable application-level settings defined yet.', { exact: true })).toBeVisible()
-  await expect(page.locator('.settings-content input, .settings-content select')).toHaveCount(0)
+  await expect(page.getByLabel('Log level')).toBeVisible()
   await expect(page.getByRole('link', { name: /Node Library/ })).toBeVisible()
   await expect(page.getByRole('link', { name: /Runtime Environment/ })).toBeVisible()
 

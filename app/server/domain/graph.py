@@ -18,16 +18,6 @@ GRAPH_SCHEMA_VERSION = 6
 PROJECT_BUNDLE_FORMAT_VERSION = 7
 
 ###############################################################################
-def _mapping_value(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return dict(cast(dict[str, Any], value))
-    keyword_values = getattr(value, "kwargs", None)
-    return (
-        dict(cast(dict[str, Any], keyword_values))
-        if isinstance(keyword_values, dict)
-        else {}
-    )
-
 ###############################################################################
 class Position(BaseModel):
     x: float = Field(allow_inf_nan=False)
@@ -134,7 +124,7 @@ class ModelConfiguration(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def normalize_configuration(cls, value: Any) -> Any:
-        raw = _mapping_value(value)
+        raw = dict(cast(dict[str, Any], value)) if isinstance(value, dict) else {}
         raw.setdefault("keras", {})
         raw.setdefault("native", {})
         return raw

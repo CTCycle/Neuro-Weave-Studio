@@ -140,7 +140,6 @@ class ParameterDefinition(BaseModel):
     framework_default: Any = None
     editor_default: Any = None
     scope: Literal["authoring", "runtime", "internal"] = "authoring"
-    aliases: list[str] = Field(default_factory=list)
 
 ###############################################################################
 class ParameterCapability(BaseModel):

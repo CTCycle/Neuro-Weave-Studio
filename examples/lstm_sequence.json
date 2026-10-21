@@ -4,7 +4,7 @@
   "execution_backend": "pytorch",
   "keras_enabled": true,
   "graph": {
-    "schema_version": 5,
+    "schema_version": 6,
     "nodes": [
       {
         "id": "sequence",
@@ -89,19 +89,19 @@
     ],
     "model_configuration": {
       "keras": {
-        "optimizer": "adam",
-        "optimizer_parameters": {
-          "learning_rate": 0.001
+        "compilation": {
+          "optimizer": {
+            "id": "adam",
+            "parameters": {
+              "learning_rate": 0.001
+            }
+          },
+          "losses": {},
+          "metrics": {}
         },
-        "losses": {},
-        "metrics": {},
-        "default_initializer": "glorot_uniform",
-        "default_regularizer": "none",
-        "default_constraint": "none",
         "mixed_precision": false,
         "random_seed": 42
-      },
-      "native": {}
+      }
     },
     "export_settings": {
       "include_comments": true,

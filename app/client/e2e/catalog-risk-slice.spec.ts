@@ -29,42 +29,10 @@ const evidenceDir = path.resolve(
 
 function graphShell(nodes: GraphNode[], edges: GraphEdge[] = []) {
   return {
-    schema_version: 5,
+    schema_version: 6,
     nodes,
     edges,
-    model_configuration: {
-      keras: {
-        optimizer: 'adam',
-        optimizer_parameters: { learning_rate: 0.001 },
-        losses: {},
-        metrics: {},
-        default_initializer: 'glorot_uniform',
-        default_regularizer: 'none',
-        default_constraint: 'none',
-        mixed_precision: false,
-        random_seed: 42,
-      },
-      native: {
-        tensorflow: { jit_compile: false },
-        pytorch: {
-          optimizer: 'adamw',
-          optimizer_parameters: {
-            learning_rate: 0.0005,
-            weight_decay: 0.004,
-            beta_1: 0.9,
-            beta_2: 0.999,
-            epsilon: 1e-7,
-          },
-          losses: {},
-          metrics: {},
-          compile_enabled: false,
-          mode: 'default',
-          fullgraph: false,
-          dynamic: false,
-        },
-        jax: { jit_enabled: false },
-      },
-    },
+    model_configuration: {},
     export_settings: {
       include_comments: true,
       include_shape_assertions: true,

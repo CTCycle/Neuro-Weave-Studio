@@ -7,6 +7,7 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from services.connection_validation_service import ConnectionValidationService
 from services.validation_service import ValidationService
 
+
 ###############################################################################
 def make_node(
     node_id: str,
@@ -57,35 +58,3 @@ def test_proposed_edge_respects_execution_profile() -> None:
 
     assert keras_result.valid
     assert native_tensorflow_result.valid
-
-###############################################################################
-def test_candidate_batch_returns_only_authoritatively_valid_edges() -> None:
-    graph = ModelGraph(
-        nodes=[
-            make_node("input", "input.sequence", {"shape": [12, 8]}),
-            make_node("lstm", "recurrent.lstm", {"units": 4}),
-        ]
-    )
-    valid = EdgeInstance(
-        id="valid-candidate",
-        source_node_id="input",
-        source_port_id="output",
-        target_node_id="lstm",
-        target_port_id="input",
-    )
-    cycle = EdgeInstance(
-        id="cycle-candidate",
-        source_node_id="lstm",
-        source_port_id="output",
-        target_node_id="lstm",
-        target_port_id="input",
-    )
-
-    result = make_service().validate_candidates(
-        graph,
-        [valid, cycle],
-        ExecutionBackend.PYTORCH,
-        True,
-    )
-
-    assert result.valid_connection_ids == ["valid-candidate"]

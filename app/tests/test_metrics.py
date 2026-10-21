@@ -15,6 +15,7 @@ from domain.metric_formula import (
     parse_metric_formula,
 )
 
+
 ###############################################################################
 def test_metric_formula_uses_only_the_bounded_expression_subset() -> None:
     formula = r"\frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2"
@@ -195,13 +196,13 @@ def test_custom_metric_delete_reports_saved_model_references(client: httpx.Clien
     assert created.status_code == 201, created.text
     metric_id = created.json()["id"]
 
-    project = {
+    project: dict[str, Any] = {
         "name": "Metric reference model",
         "description": "Metric reference test",
         "execution_backend": "pytorch",
         "keras_enabled": True,
         "graph": {
-            "schema_version": 5,
+            "schema_version": 6,
             "nodes": [
                 {"id": "input", "definition_id": "input.tabular", "position": {"x": 0, "y": 0}, "parameters": {"shape": [4], "dtype": "float32"}},
                 {"id": "dense", "definition_id": "layer.dense", "position": {"x": 300, "y": 0}, "parameters": {"units": 1, "activation": "linear", "use_bias": True}},
@@ -213,14 +214,24 @@ def test_custom_metric_delete_reports_saved_model_references(client: httpx.Clien
             ],
             "model_configuration": {
                 "keras": {
-                    "optimizer": "adam",
-                    "optimizer_parameters": {"learning_rate": 0.001},
-                    "losses": {"__default__": "mean_squared_error"},
-                    "metrics": {"__default__": [metric_id]},
+                    "compilation": {
+                        "optimizer": {
+                            "id": "adam",
+                            "parameters": {"learning_rate": 0.001},
+                        },
+                        "losses": {
+                            "__default__": {
+                                "id": "mean_squared_error",
+                                "parameters": {},
+                            }
+                        },
+                        "metrics": {
+                            "__default__": [{"id": metric_id, "parameters": {}}]
+                        },
+                    },
                     "mixed_precision": False,
                     "random_seed": 42,
-                },
-                "native": {},
+                }
             },
             "export_settings": {"include_comments": True, "include_shape_assertions": True, "preferred_binary_format": "keras"},
             "future_training_configuration": {},

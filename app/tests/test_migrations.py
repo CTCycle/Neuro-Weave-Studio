@@ -3,33 +3,76 @@
 
 from __future__ import annotations
 
-import json
 from concurrent.futures import ThreadPoolExecutor
-from importlib import import_module
 from pathlib import Path
 from threading import Barrier
-from typing import Any, cast
+from typing import cast
 
 import pytest
-from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Connection
 
 from configurations.settings import DatabaseSettings
 from repositories import initializer
+from repositories.base import Base
 from repositories.initializer import HEAD_REVISION, initialize_database
+
+OLD_HEAD_REVISION = "20261021_drop_write_only_persistence_columns"
 
 ###############################################################################
 def _settings(path: Path) -> DatabaseSettings:
     return DatabaseSettings(sqlite_path=path, connect_timeout=10)
 
 ###############################################################################
-def _migration_config(connection: Connection) -> Config:
-    config = Config(str(initializer.ALEMBIC_CONFIG_PATH))
-    config.attributes["connection"] = connection
-    config.attributes["skip_logging_config"] = True
-    return config
+def test_fresh_baseline_matches_metadata_and_reinitializes_idempotently(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "baseline.db"
+
+    backend = initialize_database(_settings(path))
+    backend.engine.dispose()
+    backend = initialize_database(_settings(path))
+    try:
+        with backend.engine.connect() as connection:
+            inspector = inspect(connection)
+            assert set(inspector.get_table_names()) == set(Base.metadata.tables) | {
+                "alembic_version"
+            }
+            assert (
+                connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+                == HEAD_REVISION
+            )
+            assert connection.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
+
+            for table in Base.metadata.sorted_tables:
+                assert {column["name"] for column in inspector.get_columns(table.name)} == {
+                    column.name for column in table.columns
+                }
+                assert {index["name"] for index in inspector.get_indexes(table.name)} == {
+                    index.name for index in table.indexes
+                }
+                expected_foreign_keys = {
+                    (
+                        tuple(element.parent.name for element in constraint.elements),
+                        constraint.elements[0].column.table.name,
+                        tuple(element.column.name for element in constraint.elements),
+                        constraint.ondelete,
+                    )
+                    for constraint in table.foreign_key_constraints
+                }
+                actual_foreign_keys = {
+                    (
+                        tuple(foreign_key["constrained_columns"]),
+                        foreign_key["referred_table"],
+                        tuple(foreign_key["referred_columns"]),
+                        (foreign_key.get("options") or {}).get("ondelete"),
+                    )
+                    for foreign_key in inspector.get_foreign_keys(table.name)
+                }
+                assert actual_foreign_keys == expected_foreign_keys
+    finally:
+        backend.engine.dispose()
 
 ###############################################################################
 def test_concurrent_initializers_serialize_on_one_database(tmp_path: Path) -> None:
@@ -92,310 +135,54 @@ def test_failed_migration_rolls_back_and_releases_lock(
         backend.engine.dispose()
 
 ###############################################################################
-def test_runtime_batch_shape_migration_preserves_nonbatched_parameter_nodes() -> None:
-    migration = cast(Any, import_module("migrations.versions.20260902_runtime_batch_shapes"))
-
-    assert migration._migrate_parameters(
-        "input.tensor", {"shape": [None, 4]}, downgrade=False
-    ) == {"shape": [4]}
-    assert migration._migrate_parameters(
-        "input.tensor", {"shape": [4]}, downgrade=True
-    ) == {"shape": [None, 4]}
-    assert migration._migrate_parameters(
-        "input.parameter", {"shape": [1]}, downgrade=True
-    ) == {"shape": [1]}
-    assert migration._migrate_parameters(
-        "layer.dense", {"quantization_config": {"class_name": "", "config": {}}}, downgrade=False
-    ) == {}
-
-###############################################################################
-def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
-    tmp_path: Path,
-) -> None:
-    path = tmp_path / "configuration-migration.db"
+def test_old_revision_is_rejected_without_mutating_database(tmp_path: Path) -> None:
+    path = tmp_path / "old-revision.db"
     engine = create_engine(f"sqlite:///{path}")
-    project_id = "migration-project"
-    snapshot: dict[str, Any] = {
-        "schema_version": 2,
-        "nodes": [
-            {
-                "id": "input",
-                "definition_id": "input.tabular",
-                "definition_version": 1,
-                "position": {"x": 0, "y": 0},
-                "parameters": {
-                    "shape": [None, 8],
-                    "dtype": "float32",
-                    "quantization_config": {},
-                },
-            }
-        ],
-        "edges": [],
-        "model_configuration": {
-            "optimizer": "adam",
-            "optimizer_parameters": {"learning_rate": 0.002},
-            "losses": {"__default__": "mean_squared_error"},
-            "metrics": {"__default__": ["mean_absolute_error"]},
-            "default_initializer": "he_normal",
-            "default_regularizer": "l2",
-            "default_constraint": "none",
-            "mixed_precision": True,
-            "random_seed": 7,
-        },
-    }
     try:
         with engine.begin() as connection:
-            config = _migration_config(connection)
-            command.upgrade(config, "20260821_execution_profile")
             connection.execute(
-                text(
-                    "INSERT INTO projects (id, name, description, graph_schema_version, "
-                    "execution_backend, keras_enabled, current_revision, validation_status, "
-                    "created_at, updated_at) VALUES (:id, 'Migration model', '', 2, "
-                    "'pytorch', 1, 1, 'unknown', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
-                ),
-                {"id": project_id},
+                text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)")
             )
             connection.execute(
-                text(
-                    "INSERT INTO project_graph_settings (project_id, optimizer, "
-                    "optimizer_parameters_json, losses_json, metrics_json, default_initializer, "
-                    "default_regularizer, default_constraint, mixed_precision, random_seed, "
-                    "include_comments, include_shape_assertions, preferred_binary_format, "
-                    "future_training_configuration_json) VALUES (:project_id, 'adam', "
-                    ":optimizer_parameters, :losses, :metrics, 'he_normal', 'l2', 'none', "
-                    "1, 7, 1, 1, 'keras', '{}')"
-                ),
-                {
-                    "project_id": project_id,
-                    "optimizer_parameters": json.dumps({"learning_rate": 0.002}),
-                    "losses": json.dumps({"__default__": "mean_squared_error"}),
-                    "metrics": json.dumps({"__default__": ["mean_absolute_error"]}),
-                },
+                text("INSERT INTO alembic_version (version_num) VALUES (:revision)"),
+                {"revision": OLD_HEAD_REVISION},
             )
+            connection.execute(text("CREATE TABLE old_project_data (value TEXT NOT NULL)"))
             connection.execute(
-                text(
-                    "INSERT INTO project_nodes (project_id, node_id, ordinal, definition_id, "
-                    "definition_version, label, position_x, position_y, parameters_json) "
-                    "VALUES (:project_id, 'input', 0, 'input.tabular', 1, 'Input', 0, 0, :parameters)"
-                ),
-                {
-                    "project_id": project_id,
-                    "parameters": json.dumps(
-                        {
-                            "shape": [None, 8],
-                            "dtype": "float32",
-                            "quantization_config": {"class_name": "", "config": {}},
-                        }
-                    ),
-                },
+                text("INSERT INTO old_project_data (value) VALUES ('preserve')")
             )
-            connection.execute(
-                text(
-                    "INSERT INTO project_revisions (project_id, revision, graph_schema_version, "
-                    "execution_backend, keras_enabled, created_at, graph_snapshot_json) "
-                    "VALUES (:project_id, 1, 2, 'pytorch', 1, CURRENT_TIMESTAMP, :snapshot)"
-                ),
-                {"project_id": project_id, "snapshot": json.dumps(snapshot)},
-            )
-            command.upgrade(config, "20261020_database_application_settings")
 
-            settings_columns = {
-                item["name"] for item in inspect(connection).get_columns("project_graph_settings")
-            }
-            assert "model_configuration_json" in settings_columns
-            assert "optimizer" not in settings_columns
-            project_columns = {
-                item["name"] for item in inspect(connection).get_columns("projects")
-            }
-            revision_columns = {
-                item["name"] for item in inspect(connection).get_columns("project_revisions")
-            }
-            assert "graph_schema_version" not in project_columns
-            assert "graph_schema_version" not in revision_columns
-            migrated = connection.execute(
-                text(
-                    "SELECT model_configuration_json FROM project_graph_settings WHERE project_id = :id"
-                ),
-                {"id": project_id},
-            ).scalar_one()
-            migrated = json.loads(migrated) if isinstance(migrated, str) else migrated
-            assert migrated["keras"]["compilation"]["optimizer"] == {
-                "id": "adam",
-                "parameters": {"learning_rate": 0.002},
-            }
-            assert migrated["native"]["pytorch"]["compiler"] == {
-                "id": "pytorch_compile",
-                "parameters": {
-                    "enabled": False,
-                    "mode": "default",
-                    "fullgraph": False,
-                    "dynamic": False,
-                },
-            }
-            migrated_snapshot = connection.execute(
-                text("SELECT graph_snapshot_json FROM project_revisions WHERE project_id = :id"),
-                {"id": project_id},
-            ).scalar_one()
-            migrated_snapshot = (
-                json.loads(migrated_snapshot)
-                if isinstance(migrated_snapshot, str)
-                else migrated_snapshot
-            )
-            assert migrated_snapshot["schema_version"] == 6
-            assert migrated_snapshot["output_bindings"] == []
-            assert migrated_snapshot["model_configuration"]["native"]["jax"]["compiler"] == {
-                "id": "jax_jit",
-                "parameters": {"enabled": False},
-            }
-            migrated_input = migrated_snapshot["nodes"][0]
-            assert migrated_input["parameters"]["shape"] == [8]
-            assert "quantization_config" not in migrated_input["parameters"]
-            migrated_project_node = connection.execute(
-                text(
-                    "SELECT parameters_json FROM project_nodes "
-                    "WHERE project_id = :id AND node_id = 'input'"
-                ),
-                {"id": project_id},
-            ).scalar_one()
-            migrated_project_node = (
-                json.loads(migrated_project_node)
-                if isinstance(migrated_project_node, str)
-                else migrated_project_node
-            )
-            assert migrated_project_node["shape"] == [8]
-            assert "quantization_config" not in migrated_project_node
+        with pytest.raises(RuntimeError, match="unknown Alembic revision"):
+            initialize_database(_settings(path))
 
-            command.downgrade(config, "20260821_execution_profile")
-            downgraded_columns = {
-                item["name"] for item in inspect(connection).get_columns("project_graph_settings")
+        with engine.connect() as connection:
+            assert set(inspect(connection).get_table_names()) == {
+                "alembic_version",
+                "old_project_data",
             }
-            assert "model_configuration_json" not in downgraded_columns
-            assert "optimizer" in downgraded_columns
-            assert (
-                connection.execute(
-                    text("SELECT graph_schema_version FROM projects WHERE id = :id"),
-                    {"id": project_id},
-                ).scalar_one()
-                == 2
-            )
-            downgraded_project_node = connection.execute(
-                text(
-                    "SELECT parameters_json FROM project_nodes "
-                    "WHERE project_id = :id AND node_id = 'input'"
-                ),
-                {"id": project_id},
-            ).scalar_one()
-            downgraded_project_node = (
-                json.loads(downgraded_project_node)
-                if isinstance(downgraded_project_node, str)
-                else downgraded_project_node
-            )
-            assert downgraded_project_node["shape"] == [None, 8]
-            restored_optimizer = connection.execute(
-                text("SELECT optimizer FROM project_graph_settings WHERE project_id = :id"),
-                {"id": project_id},
-            ).scalar_one()
-            assert restored_optimizer == "adam"
+            assert connection.execute(
+                text("SELECT version_num FROM alembic_version")
+            ).scalar_one() == OLD_HEAD_REVISION
+            assert connection.execute(
+                text("SELECT value FROM old_project_data")
+            ).scalar_one() == "preserve"
     finally:
         engine.dispose()
 
 ###############################################################################
-def test_write_only_persistence_columns_are_dropped_and_restored(tmp_path: Path) -> None:
-    path = tmp_path / "write-only-columns.db"
+def test_unversioned_database_is_rejected_without_mutating_database(tmp_path: Path) -> None:
+    path = tmp_path / "unversioned.db"
     engine = create_engine(f"sqlite:///{path}")
-    project_id = "write-only-project"
     try:
         with engine.begin() as connection:
-            config = _migration_config(connection)
-            command.upgrade(config, "20261020_database_application_settings")
-            connection.execute(
-                text(
-                    "INSERT INTO projects (id, name, description, execution_backend, "
-                    "keras_enabled, current_revision, validation_status, created_at, "
-                    "updated_at) VALUES (:id, 'Columns model', '', 'pytorch', 1, 1, "
-                    "'valid', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
-                ),
-                {"id": project_id},
-            )
-            connection.execute(
-                text(
-                    "INSERT INTO project_revisions (project_id, revision, execution_backend, "
-                    "keras_enabled, created_at, graph_snapshot_json) VALUES "
-                    "(:project_id, 1, 'tensorflow', 0, CURRENT_TIMESTAMP, '{}')"
-                ),
-                {"project_id": project_id},
-            )
-            connection.execute(
-                text(
-                    "INSERT INTO generated_code_snapshots (project_id, revision, "
-                    "execution_backend, keras_enabled, source_code, created_at, updated_at) "
-                    "VALUES (:project_id, 1, 'jax', 1, 'code', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
-                ),
-                {"project_id": project_id},
-            )
-            connection.execute(
-                text(
-                    "INSERT INTO application_settings (id, schema_version, revision, "
-                    "settings_json, updated_at) VALUES (1, 1, 4, '{}', CURRENT_TIMESTAMP)"
-                )
-            )
-            command.upgrade(config, "head")
+            connection.execute(text("CREATE TABLE projects (id TEXT PRIMARY KEY)"))
+            connection.execute(text("INSERT INTO projects (id) VALUES ('preserve')"))
 
-            revision_columns = {
-                item["name"] for item in inspect(connection).get_columns("project_revisions")
-            }
-            assert revision_columns == {"id", "project_id", "revision", "created_at"}
-            snapshot_columns = {
-                item["name"]
-                for item in inspect(connection).get_columns("generated_code_snapshots")
-            }
-            assert snapshot_columns == {
-                "project_id",
-                "revision",
-                "source_code",
-                "created_at",
-                "updated_at",
-            }
-            settings_columns = {
-                item["name"] for item in inspect(connection).get_columns("application_settings")
-            }
-            assert "revision" not in settings_columns
+        with pytest.raises(RuntimeError, match="no current Alembic revision"):
+            initialize_database(_settings(path))
 
-            revision_row = connection.execute(
-                text(
-                    "SELECT project_id, revision, created_at FROM project_revisions "
-                    "WHERE project_id = :id"
-                ),
-                {"id": project_id},
-            ).fetchone()
-            assert revision_row is not None
-            snapshot_row = connection.execute(
-                text(
-                    "SELECT source_code FROM generated_code_snapshots WHERE project_id = :id"
-                ),
-                {"id": project_id},
-            ).scalar_one()
-            assert snapshot_row == "code"
-            assert connection.execute(
-                text("SELECT schema_version FROM application_settings WHERE id = 1")
-            ).scalar_one() == 1
-
-        with engine.begin() as connection:
-            config = _migration_config(connection)
-            command.downgrade(config, "20261020_database_application_settings")
-            revision_columns = {
-                item["name"] for item in inspect(connection).get_columns("project_revisions")
-            }
-            assert {"execution_backend", "keras_enabled", "graph_snapshot_json"} <= revision_columns
-            snapshot_columns = {
-                item["name"]
-                for item in inspect(connection).get_columns("generated_code_snapshots")
-            }
-            assert {"execution_backend", "keras_enabled"} <= snapshot_columns
-            assert (
-                "revision"
-                in {item["name"] for item in inspect(connection).get_columns("application_settings")}
-            )
+        with engine.connect() as connection:
+            assert inspect(connection).get_table_names() == ["projects"]
+            assert connection.execute(text("SELECT id FROM projects")).scalar_one() == "preserve"
     finally:
         engine.dispose()

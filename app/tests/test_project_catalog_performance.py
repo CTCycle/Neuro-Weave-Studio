@@ -11,6 +11,7 @@ from sqlalchemy import event
 
 from repositories.session import RepositoryContext
 
+
 ###############################################################################
 def project_payload(name: str, *, extra_dense: bool = False) -> dict[str, object]:
     payload: dict[str, object] = {
@@ -19,7 +20,7 @@ def project_payload(name: str, *, extra_dense: bool = False) -> dict[str, object
         "execution_backend": "pytorch",
         "keras_enabled": True,
         "graph": {
-            "schema_version": 5,
+            "schema_version": 6,
             "nodes": [
                 {
                     "id": "input",
@@ -61,14 +62,17 @@ def project_payload(name: str, *, extra_dense: bool = False) -> dict[str, object
             ],
             "model_configuration": {
                 "keras": {
-                    "optimizer": "adam",
-                    "optimizer_parameters": {"learning_rate": 0.001},
-                    "losses": {},
-                    "metrics": {},
+                    "compilation": {
+                        "optimizer": {
+                            "id": "adam",
+                            "parameters": {"learning_rate": 0.001},
+                        },
+                        "losses": {},
+                        "metrics": {},
+                    },
                     "mixed_precision": False,
                     "random_seed": 42,
                 },
-                "native": {},
             },
             "export_settings": {
                 "include_comments": True,

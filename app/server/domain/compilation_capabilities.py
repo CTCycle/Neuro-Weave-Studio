@@ -15,6 +15,7 @@ from domain.compilation_catalog import (
 from domain.enums import ExecutionBackend
 from domain.manifests import ParameterDefinition
 
+
 ###############################################################################
 class NativeCompilationCapability(BaseModel):
     backend: ExecutionBackend
@@ -118,12 +119,7 @@ def get_native_compilation_capabilities(
     for backend, capability in definitions.items():
         status = statuses.get(backend)
         native_compilers = getattr(status, "native_compilers", {})
-        aliases = {
-            "tensorflow_function": ("tensorflow_function", "tensorflow_jit"),
-            "pytorch_compile": ("pytorch_compile", "torch_compile"),
-            "jax_jit": ("jax_jit",),
-        }[capability.compiler_id]
-        available = any(bool(native_compilers.get(identifier, False)) for identifier in aliases)
+        available = bool(native_compilers.get(capability.compiler_id, False))
         reason_code = None if available else "compiler_unavailable"
         reason = (
             None if available else f"{capability.compiler} is not operational for this backend."

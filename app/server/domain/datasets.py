@@ -10,6 +10,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+
 ###############################################################################
 class DatasetType(StrEnum):
     TABULAR = "tabular"
@@ -171,7 +172,7 @@ class DatasetDefinitionMutation(DatasetModel):
     relationships: list[DatasetRelationship] = Field(default_factory=list, max_length=1)  # pyright: ignore[reportUnknownVariableType]
     sequence_definition: TimeSeriesStructure | None = None
     subset_definition: DatasetSubsetDefinition = Field(default_factory=AllSamplesSubset)
-    split_definition: DatasetSplitDefinition | None = None
+    split_definition: DatasetSplitDefinition | None
 
     # -------------------------------------------------------------------------
     @field_validator("name")

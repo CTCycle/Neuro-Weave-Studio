@@ -14,6 +14,7 @@ from services.errors import GraphPersistenceError
 from services.keras_import_service import KerasImportService
 from services.project_service import ProjectService
 
+
 ###############################################################################
 def raise_create_conflict(
     _service: ProjectService,
@@ -45,7 +46,7 @@ def test_project_import_maps_persistence_conflict_to_409(
                 "name": "Imported model",
                 "execution_backend": "pytorch",
                 "keras_enabled": True,
-                "graph": {"schema_version": 5},
+                "graph": {"schema_version": 6},
             }
         }
     )

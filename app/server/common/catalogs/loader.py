@@ -31,7 +31,6 @@ def _expand_parameter_groups(
         references = cast(list[str], raw_references)
     expanded: list[dict[str, Any]] = []
     seen_parameters: set[str] = set()
-    seen_aliases: set[str] = set()
     for reference in references:
         group = parameter_groups.get(reference)
         if group is None:
@@ -45,29 +44,11 @@ def _expand_parameter_groups(
                     f"Parameter group '{reference}' contains an empty identifier for "
                     f"{item.get('id', '<unknown>')}"
                 )
-            if identifier in seen_aliases:
-                raise RuntimeError(
-                    f"Parameter alias collision for {item.get('id', '<unknown>')}: {identifier}"
-                )
             if identifier in seen_parameters:
                 raise RuntimeError(
                     f"Parameter group collision for {item.get('id', '<unknown>')}: {identifier}"
                 )
-            raw_aliases = parameter.get("aliases", [])
-            if not isinstance(raw_aliases, list) or any(
-                not isinstance(alias, str) for alias in cast(list[object], raw_aliases)
-            ):
-                raise RuntimeError(
-                    f"Aliases for {item.get('id', '<unknown>')}:{identifier} must be a list"
-                )
-            aliases = cast(list[str], raw_aliases)
-            if seen_parameters.intersection(aliases):
-                raise RuntimeError(
-                    f"Parameter alias collision for {item.get('id', '<unknown>')}: {identifier}"
-                )
             seen_parameters.add(identifier)
-            seen_parameters.update(aliases)
-            seen_aliases.update(aliases)
             expanded.append(dict(parameter))
     explicit = item.get("parameters", [])
     if explicit is None:
@@ -79,24 +60,11 @@ def _expand_parameter_groups(
         identifier = str(parameter.get("id", ""))
         if not identifier:
             raise RuntimeError(f"Parameter for {item.get('id', '<unknown>')} must have an id")
-        raw_aliases = parameter.get("aliases", [])
-        if not isinstance(raw_aliases, list) or any(
-            not isinstance(alias, str) for alias in cast(list[object], raw_aliases)
-        ):
-            raise RuntimeError(
-                f"Aliases for {item.get('id', '<unknown>')}:{identifier} must be a list"
-            )
-        aliases = cast(list[str], raw_aliases)
-        if seen_aliases.intersection({identifier, *aliases}):
-            raise RuntimeError(
-                f"Parameter alias collision for {item.get('id', '<unknown>')}: {identifier}"
-            )
-        if seen_parameters.intersection({identifier, *aliases}):
+        if identifier in seen_parameters:
             raise RuntimeError(
                 f"Parameter surface collision for {item.get('id', '<unknown>')}: {identifier}"
             )
         seen_parameters.add(identifier)
-        seen_parameters.update(aliases)
     item["parameters"] = [*expanded, *explicit_parameters]
     return item
 
