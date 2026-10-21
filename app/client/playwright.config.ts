@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, devices } from '@playwright/test'
 
 const playwrightCacheRoot = fileURLToPath(new URL('../../runtimes/cache/playwright/', import.meta.url))
+const playwrightOutputRoot = fileURLToPath(new URL('../../assets/QA/playwright/test-results/', import.meta.url))
 process.env['PLAYWRIGHT_BROWSERS_PATH'] = join(playwrightCacheRoot, 'browsers')
 
 const configuredWorkers = process.env['PLAYWRIGHT_WORKERS']
@@ -24,7 +25,7 @@ export default defineConfig({
   // concurrent access while the runtime-job group owns its CPU lease serially.
   workers,
   reporter: 'line',
-  outputDir: join(playwrightCacheRoot, 'test-results'),
+  outputDir: playwrightOutputRoot,
   use: {
     baseURL,
     trace: 'retain-on-failure',

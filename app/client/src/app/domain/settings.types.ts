@@ -1,6 +1,8 @@
 // Copyright © 2026 Thomas Virdis
 // Licensed under the MIT License.
 
+import type { ExecutionBackend, WorkerConfiguration } from './types'
+
 export interface ApplicationSettings {
   app_name: string
   app_version: string
@@ -17,6 +19,8 @@ export interface ApplicationSettings {
   ml_terminate_grace_seconds: number
   ml_job_history_limit: number
   runtime_discovery_path: string
+  runtime_preferences: Partial<Record<ExecutionBackend, WorkerConfiguration>>
+  runtime_preference_backend: ExecutionBackend | null
 }
 
 export interface DatabaseSettings {

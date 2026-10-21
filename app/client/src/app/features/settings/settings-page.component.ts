@@ -1,11 +1,12 @@
 // Copyright © 2026 Thomas Virdis
 // Licensed under the MIT License.
 
-import { Component, inject, signal, type OnInit } from '@angular/core'
+import { Component, inject, signal, type OnDestroy, type OnInit } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { RouterLink } from '@angular/router'
 import { LucideBox, LucideCpu } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
+import { AppResourcesService } from '../../core/state/app-resources.service'
 import type { ApplicationSettings, DatabaseSettings, DatabaseStatus } from '../../domain/settings.types'
 
 const DEFAULT_SETTINGS: ApplicationSettings = {
@@ -24,6 +25,8 @@ const DEFAULT_SETTINGS: ApplicationSettings = {
   ml_terminate_grace_seconds: 5,
   ml_job_history_limit: 100,
   runtime_discovery_path: 'runtimes/cache/environment-discovery.json',
+  runtime_preferences: {},
+  runtime_preference_backend: null,
 }
 
 @Component({
@@ -43,20 +46,16 @@ const DEFAULT_SETTINGS: ApplicationSettings = {
         <div class="settings-content">
           <section id="application-general" class="settings-section">
             <div class="section-heading"><h2>General</h2><p>Application preferences are stored in the currently selected database.</p></div>
-            @if (settingsError()) {
-              <div class="notice error" role="alert">{{ settingsError() }}</div>
-            } @else if (settingsNotice()) {
-              <div class="notice success" role="status">{{ settingsNotice() }}</div>
-            }
-            <form class="settings-form" (ngSubmit)="saveSettings()">
-              <fieldset [disabled]="!settingsAvailable() || settingsBusy()">
+            @if (settingsError()) { <div class="notice error" role="alert">Application settings could not be saved: {{ settingsError() }}</div> }
+            <div class="settings-form">
+              <fieldset [disabled]="!settingsAvailable() || switchingDatabase()">
                 <div class="field-grid">
                   <label class="setting-field wide">Allowed browser origins
                     <input name="cors_origins" type="text" [ngModel]="settings().cors_origins" (ngModelChange)="updateSetting('cors_origins', $event)" required>
                     <small>Comma-separated origins allowed to call the API.</small>
                   </label>
                   <label class="setting-field">Log level
-                    <select name="log_level" [ngModel]="settings().log_level" (ngModelChange)="updateSetting('log_level', $event)">
+                    <select name="log_level" [ngModel]="settings().log_level" (ngModelChange)="updateSetting('log_level', $event, 0)">
                       <option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option><option>CRITICAL</option>
                     </select>
                   </label>
@@ -90,9 +89,10 @@ const DEFAULT_SETTINGS: ApplicationSettings = {
                   </div>
                 </details>
               </fieldset>
-              <div class="form-actions"><button class="primary" type="submit" [disabled]="!settingsAvailable() || settingsBusy()">{{ settingsBusy() ? 'Saving…' : 'Save application settings' }}</button></div>
               @if (!settingsAvailable() && !settingsError()) { <p class="field-help">Application settings will be available after connecting to a database.</p> }
-            </form>
+              @if (settingsBusy()) { <p class="save-status" role="status">Saving changes…</p> }
+              @else if (settingsNotice()) { <p class="save-status" role="status">{{ settingsNotice() }}</p> }
+            </div>
           </section>
 
           <section id="database" class="settings-section">
@@ -110,16 +110,16 @@ const DEFAULT_SETTINGS: ApplicationSettings = {
                   <small>SQLite is the database backend currently supported by this installation.</small>
                 </label>
                 <label class="setting-field">Connection timeout (seconds)
-                  <input name="database_timeout" type="number" min="1" max="300" [ngModel]="databaseSettings().connect_timeout_seconds" (ngModelChange)="updateDatabaseSetting('connect_timeout_seconds', $event)" required>
+                  <input name="database_timeout" type="number" min="1" max="300" [ngModel]="databaseSettings().connect_timeout_seconds" (ngModelChange)="updateDatabaseSetting('connect_timeout_seconds', $event)" [disabled]="databaseBusy()" required>
                 </label>
                 <label class="setting-field wide">Database file path
-                  <input name="sqlite_path" type="text" [ngModel]="databaseSettings().sqlite_path" (ngModelChange)="updateDatabaseSetting('sqlite_path', $event)" required>
+                  <input name="sqlite_path" type="text" [ngModel]="databaseSettings().sqlite_path" (ngModelChange)="updateDatabaseSetting('sqlite_path', $event)" [disabled]="databaseBusy()" required>
                   <small>Each database is independent. Switching does not copy projects or settings.</small>
                 </label>
               </div>
               <div class="form-actions database-actions">
                 <button class="secondary" type="button" [disabled]="databaseBusy()" (click)="testDatabase()">{{ databaseBusy() ? 'Checking…' : 'Test connection' }}</button>
-                <button class="primary" type="submit" [disabled]="databaseBusy() || !databaseSettings().sqlite_path.trim()">{{ switchingDatabase() ? 'Switching…' : 'Save and switch' }}</button>
+                <button class="primary" type="submit" [disabled]="databaseBusy() || !databaseSettings().sqlite_path.trim()">{{ switchingDatabase() ? 'Switching…' : 'Confirm and switch' }}</button>
               </div>
               <p class="field-help">Switching waits for active API requests to finish and is blocked while runtime jobs are active. The selected database’s own settings load as soon as it becomes active.</p>
             </form>
@@ -137,12 +137,13 @@ const DEFAULT_SETTINGS: ApplicationSettings = {
     </div>
   `,
   styles: [`
-    :host{display:block}.settings-page{display:grid;gap:24px;max-width:1180px}.settings-header h1{margin:0}.settings-layout{display:grid;grid-template-columns:190px minmax(0,760px);gap:48px;align-items:start}.settings-nav{position:sticky;top:18px;display:grid;gap:2px;border-left:1px solid var(--border)}.settings-nav a{display:grid;gap:4px;padding:10px 12px;border-left:2px solid transparent;color:var(--muted);text-decoration:none;font-size:10px}.settings-nav a:hover,.settings-nav a.active{border-left-color:var(--cyan);color:var(--text);background:rgba(101,201,212,.06)}.settings-nav a span{color:var(--muted);font-size:8px}.settings-content{display:grid;gap:34px;min-width:0}.settings-section{display:grid;gap:16px;scroll-margin-top:20px}.section-heading{display:grid;gap:5px;padding-bottom:14px;border-bottom:1px solid var(--border)}.section-heading h2{margin:0;font-size:16px}.section-heading p{margin:0;color:var(--muted);font-size:10px;line-height:1.45}.section-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-title-row>div{display:grid;gap:4px}.eyebrow{color:var(--cyan);font:500 8px 'IBM Plex Mono',Consolas,monospace;letter-spacing:.08em}.status-chip{padding:4px 8px;border:1px solid var(--border);border-radius:999px;color:var(--error);font-size:9px}.status-chip.is-online{border-color:rgba(101,201,212,.35);color:var(--cyan)}.active-database-path{display:grid;gap:5px;margin:0;color:var(--muted);font-size:9px}.active-database-path code{overflow-wrap:anywhere;color:var(--text);font-size:9px}.active-database-path strong{color:var(--muted);font-size:8px;text-transform:uppercase}.settings-form{display:grid;gap:16px}.settings-form fieldset{min-width:0;margin:0;padding:0;border:0}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}.setting-field{display:grid;gap:6px;min-width:0;color:var(--muted);font-size:9px}.setting-field.wide{grid-column:1/-1}.setting-field input,.setting-field select{width:100%;min-width:0;height:34px;padding:0 9px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);font:400 11px 'IBM Plex Mono',Consolas,monospace}.setting-field select{font-family:inherit}.setting-field input:focus,.setting-field select:focus{outline:1px solid var(--cyan);border-color:var(--cyan)}.setting-field small,.field-help{color:var(--muted);font-size:9px;line-height:1.5}.form-actions{display:flex;justify-content:flex-end;gap:8px}.form-actions button{font-size:10px}.advanced-settings{padding-top:12px;border-top:1px solid var(--border)}.advanced-settings summary{color:var(--muted);font-size:10px;cursor:pointer}.path-grid{padding-top:14px}.database-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.database-actions{justify-content:space-between}.field-help{margin:0}.database-message{margin:0;padding:9px 11px;border:1px solid rgba(239,106,114,.25);border-radius:5px;color:var(--muted);font-size:10px;line-height:1.5}.notice{padding:9px 11px;border:1px solid var(--border);border-radius:5px;font-size:10px;line-height:1.5}.notice.error{border-color:rgba(239,106,114,.4);color:var(--error)}.notice.success{border-color:rgba(101,201,212,.35);color:var(--cyan)}.related-section{padding-top:2px}.management-links{display:grid}.management-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px 0;border-block-end:1px solid var(--border);color:var(--text);text-decoration:none}.management-row:first-child{border-top:1px solid var(--border)}.management-row:hover .management-icon{border-color:var(--cyan);color:var(--cyan)}.management-row>span:nth-child(2){display:grid;gap:4px}.management-row strong{font-size:11px}.management-row small{color:var(--muted);font-size:9px;line-height:1.45}.management-icon{display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--border);border-radius:5px;color:var(--muted)}.management-meta{color:var(--muted);font:500 8px 'IBM Plex Mono',Consolas,monospace;text-transform:uppercase}
+    :host{display:block}.settings-page{display:grid;gap:24px;max-width:1180px}.settings-header h1{margin:0}.settings-layout{display:grid;grid-template-columns:190px minmax(0,760px);gap:48px;align-items:start}.settings-nav{position:sticky;top:18px;display:grid;gap:2px;border-left:1px solid var(--border)}.settings-nav a{display:grid;gap:4px;padding:10px 12px;border-left:2px solid transparent;color:var(--muted);text-decoration:none;font-size:10px}.settings-nav a:hover,.settings-nav a.active{border-left-color:var(--cyan);color:var(--text);background:rgba(101,201,212,.06)}.settings-nav a span{color:var(--muted);font-size:8px}.settings-content{display:grid;gap:34px;min-width:0}.settings-section{display:grid;gap:16px;scroll-margin-top:20px}.section-heading{display:grid;gap:5px;padding-bottom:14px;border-bottom:1px solid var(--border)}.section-heading h2{margin:0;font-size:16px}.section-heading p{margin:0;color:var(--muted);font-size:10px;line-height:1.45}.section-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.section-title-row>div{display:grid;gap:4px}.eyebrow{color:var(--cyan);font:500 8px 'IBM Plex Mono',Consolas,monospace;letter-spacing:.08em}.status-chip{padding:4px 8px;border:1px solid var(--border);border-radius:999px;color:var(--error);font-size:9px}.status-chip.is-online{border-color:rgba(101,201,212,.35);color:var(--cyan)}.active-database-path{display:grid;gap:5px;margin:0;color:var(--muted);font-size:9px}.active-database-path code{overflow-wrap:anywhere;color:var(--text);font-size:9px}.active-database-path strong{color:var(--muted);font-size:8px;text-transform:uppercase}.settings-form{display:grid;gap:16px}.settings-form fieldset{min-width:0;margin:0;padding:0;border:0}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}.setting-field{display:grid;gap:6px;min-width:0;color:var(--muted);font-size:9px}.setting-field.wide{grid-column:1/-1}.setting-field input,.setting-field select{width:100%;min-width:0;height:34px;padding:0 9px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);font:400 11px 'IBM Plex Mono',Consolas,monospace}.setting-field select{font-family:inherit}.setting-field input:focus,.setting-field select:focus{outline:1px solid var(--cyan);border-color:var(--cyan)}.setting-field small,.field-help{color:var(--muted);font-size:9px;line-height:1.5}.form-actions{display:flex;justify-content:flex-end;gap:8px}.form-actions button{font-size:10px}.advanced-settings{padding-top:12px;border-top:1px solid var(--border)}.advanced-settings summary{color:var(--muted);font-size:10px;cursor:pointer}.path-grid{padding-top:14px}.database-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.database-actions{justify-content:space-between}.field-help{margin:0}.save-status{margin:0;color:var(--muted);font-size:9px;line-height:1.5}.database-message{margin:0;padding:9px 11px;border:1px solid rgba(239,106,114,.25);border-radius:5px;color:var(--muted);font-size:10px;line-height:1.5}.notice{padding:9px 11px;border:1px solid var(--border);border-radius:5px;font-size:10px;line-height:1.5}.notice.error{border-color:rgba(239,106,114,.4);color:var(--error)}.notice.success{border-color:rgba(101,201,212,.35);color:var(--cyan)}.related-section{padding-top:2px}.management-links{display:grid}.management-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px 0;border-block-end:1px solid var(--border);color:var(--text);text-decoration:none}.management-row:first-child{border-top:1px solid var(--border)}.management-row:hover .management-icon{border-color:var(--cyan);color:var(--cyan)}.management-row>span:nth-child(2){display:grid;gap:4px}.management-row strong{font-size:11px}.management-row small{color:var(--muted);font-size:9px;line-height:1.45}.management-icon{display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--border);border-radius:5px;color:var(--muted)}.management-meta{color:var(--muted);font:500 8px 'IBM Plex Mono',Consolas,monospace;text-transform:uppercase}
     @media(max-width:800px){.settings-layout{grid-template-columns:1fr;gap:22px}.settings-nav{position:static;display:flex;overflow:auto;border-left:0;border-bottom:1px solid var(--border)}.settings-nav a{min-width:max-content;border-left:0;border-bottom:2px solid transparent}.settings-nav a:hover,.settings-nav a.active{border-left:0;border-bottom-color:var(--cyan)}}@media(max-width:520px){.settings-page{gap:18px}.settings-content{gap:25px}.field-grid{grid-template-columns:1fr}.setting-field.wide{grid-column:auto}.database-actions{flex-wrap:wrap;justify-content:flex-end}.management-row{grid-template-columns:auto minmax(0,1fr)}.management-meta{grid-column:2}}
   `],
 })
-export class SettingsPageComponent implements OnInit {
+export class SettingsPageComponent implements OnInit, OnDestroy {
   private readonly api = inject(ApiService)
+  private readonly resources = inject(AppResourcesService)
 
   readonly activeSection = signal('application-general')
   readonly settings = signal<ApplicationSettings>(structuredClone(DEFAULT_SETTINGS))
@@ -161,15 +162,53 @@ export class SettingsPageComponent implements OnInit {
   readonly settingsError = signal('')
   readonly databaseNotice = signal('')
   readonly databaseError = signal('')
+  private lastSavedSettings: ApplicationSettings = structuredClone(DEFAULT_SETTINGS)
+  private pendingSettingsPatch: Partial<ApplicationSettings> = {}
+  private readonly fieldRevisions = new Map<keyof ApplicationSettings, number>()
+  private editRevision = 0
+  private saveTimer: ReturnType<typeof setTimeout> | null = null
+  private settingsWriteChain: Promise<void> = Promise.resolve()
+  private pendingSettingsWrites = 0
 
   ngOnInit(): void {
     void this.loadSettings()
     void this.loadDatabaseStatus()
   }
 
-  updateSetting<K extends keyof ApplicationSettings>(field: K, value: ApplicationSettings[K] | string | number): void {
-    this.settings.update((current) => ({ ...current, [field]: this.coerceSettingValue(field, value) }))
+  ngOnDestroy(): void {
+    void this.flushSettings().catch(() => undefined)
+  }
+
+  updateSetting<K extends keyof ApplicationSettings>(field: K, value: ApplicationSettings[K] | string | number, debounceMs = 350): void {
+    const nextValue = this.coerceSettingValue(field, value)
+    this.settings.update((current) => ({ ...current, [field]: nextValue }))
+    this.pendingSettingsPatch[field] = nextValue as ApplicationSettings[K]
+    this.fieldRevisions.set(field, ++this.editRevision)
     this.settingsNotice.set('')
+    this.settingsError.set('')
+    if (this.saveTimer) clearTimeout(this.saveTimer)
+    if (debounceMs === 0) void this.flushSettings().catch(() => undefined)
+    else this.saveTimer = setTimeout(() => void this.flushSettings().catch(() => undefined), debounceMs)
+  }
+
+  async flushSettings(): Promise<void> {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer)
+      this.saveTimer = null
+    }
+    const fields = Object.keys(this.pendingSettingsPatch) as Array<keyof ApplicationSettings>
+    if (!fields.length) return this.settingsWriteChain
+    const patch = this.pendingSettingsPatch
+    this.pendingSettingsPatch = {}
+    const revisions = new Map(fields.map((field) => [field, this.fieldRevisions.get(field) ?? 0]))
+    this.pendingSettingsWrites += 1
+    this.settingsBusy.set(true)
+    const write = this.settingsWriteChain.then(() => this.persistSettingsPatch(patch, revisions))
+    this.settingsWriteChain = write.catch(() => undefined).finally(() => {
+      this.pendingSettingsWrites = Math.max(0, this.pendingSettingsWrites - 1)
+      this.settingsBusy.set(this.pendingSettingsWrites > 0)
+    })
+    return write
   }
 
   updateDatabaseSetting(field: 'sqlite_path' | 'connect_timeout_seconds', value: string | number): void {
@@ -180,27 +219,46 @@ export class SettingsPageComponent implements OnInit {
     this.databaseNotice.set('')
   }
 
-  async saveSettings(): Promise<void> {
-    this.settingsBusy.set(true)
-    this.settingsError.set('')
-    this.settingsNotice.set('')
+  private async persistSettingsPatch(
+    patch: Partial<ApplicationSettings>,
+    revisions: Map<keyof ApplicationSettings, number>,
+  ): Promise<void> {
     try {
-      const saved = await this.api.saveApplicationSettings(this.settings())
-      this.settings.set(saved)
-      this.settingsNotice.set('Application settings saved to the active database.')
+      const saved = await this.api.patchApplicationSettings(patch)
+      this.lastSavedSettings = saved
+      this.settings.update((current) => {
+        const next = { ...current }
+        for (const [field, revision] of revisions) {
+          if (this.fieldRevisions.get(field) === revision) {
+            ;(next as Record<keyof ApplicationSettings, unknown>)[field] = saved[field]
+          }
+        }
+        return next
+      })
+      this.settingsError.set('')
+      if (Object.keys(this.pendingSettingsPatch).length === 0) this.settingsNotice.set('Changes saved automatically.')
     } catch (error) {
       this.settingsError.set(this.message(error))
-    } finally {
-      this.settingsBusy.set(false)
+      this.settings.update((current) => {
+        const next = { ...current }
+        for (const [field, revision] of revisions) {
+          if (this.fieldRevisions.get(field) === revision) {
+            ;(next as Record<keyof ApplicationSettings, unknown>)[field] = this.lastSavedSettings[field]
+          }
+        }
+        return next
+      })
+      throw error
     }
   }
 
   async testDatabase(): Promise<void> {
+    const candidate = { ...this.databaseSettings() }
     this.databaseBusy.set(true)
     this.databaseError.set('')
     this.databaseNotice.set('')
     try {
-      const result = await this.api.testDatabase(this.databaseSettings())
+      const result = await this.api.testDatabase(candidate)
       this.databaseNotice.set(result.message)
     } catch (error) {
       this.databaseError.set(this.message(error))
@@ -210,21 +268,26 @@ export class SettingsPageComponent implements OnInit {
   }
 
   async switchDatabase(): Promise<void> {
+    const candidate = { ...this.databaseSettings() }
     this.databaseBusy.set(true)
     this.switchingDatabase.set(true)
     this.databaseError.set('')
     this.databaseNotice.set('')
     try {
-      const result = await this.api.switchDatabase(this.databaseSettings())
+      await this.flushSettings()
+      await this.resources.flushRuntimePreferences()
+      const result = await this.api.switchDatabase(candidate)
       this.settings.set(result.settings)
+      this.lastSavedSettings = result.settings
       this.settingsAvailable.set(true)
+      this.resources.restoreRuntimePreferences(result.settings)
       this.databaseStatus.set(result.status)
-      this.databaseSettings.update((current) => ({
-        ...current,
-        sqlite_path: result.status.sqlite_path ?? current.sqlite_path,
-        connect_timeout_seconds: result.status.connect_timeout_seconds ?? current.connect_timeout_seconds,
-      }))
-      this.databaseNotice.set('Database switched. Application settings now reflect the selected database.')
+      this.databaseSettings.set({
+        ...candidate,
+        sqlite_path: result.status.sqlite_path ?? candidate.sqlite_path,
+        connect_timeout_seconds: result.status.connect_timeout_seconds ?? candidate.connect_timeout_seconds,
+      })
+      this.databaseNotice.set('Database switched. Preferences now come from the selected database.')
       this.settingsNotice.set('Settings loaded from the selected database.')
     } catch (error) {
       this.databaseError.set(this.message(error))
@@ -237,7 +300,9 @@ export class SettingsPageComponent implements OnInit {
 
   private async loadSettings(): Promise<void> {
     try {
-      this.settings.set(await this.api.getApplicationSettings())
+      const settings = await this.api.getApplicationSettings()
+      this.settings.set(settings)
+      this.lastSavedSettings = settings
       this.settingsAvailable.set(true)
     } catch (error) {
       this.settingsAvailable.set(false)

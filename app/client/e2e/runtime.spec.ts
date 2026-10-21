@@ -35,8 +35,38 @@ type MetadataResponse = {
   runtime_apis: RuntimeApiStatus[]
 }
 
-const runtimePreferencesStorageKey = 'neuroweave.runtime-preferences.v1'
-const runtimePreferenceBackendStorageKey = 'neuroweave.runtime-preference-backend.v1'
+type RuntimePreference = {
+  api: 'keras' | 'native'
+  backend: 'tensorflow' | 'pytorch' | 'jax'
+  device_id: string
+  memory_policy: { kind: string; fraction?: number | null; limit_mb?: number | null }
+  precision: 'float32' | 'mixed_float16' | 'mixed_bfloat16'
+}
+
+type RuntimeSettings = {
+  runtime_preferences: Partial<Record<RuntimePreference['backend'], RuntimePreference>>
+  runtime_preference_backend: RuntimePreference['backend'] | null
+}
+
+async function readRuntimeSettings(page: import('@playwright/test').Page): Promise<RuntimeSettings> {
+  return page.evaluate(async () => {
+    const response = await fetch('/api/settings')
+    if (!response.ok) throw new Error(`Settings request failed: ${response.status}`)
+    return response.json() as Promise<RuntimeSettings>
+  })
+}
+
+async function saveRuntimePreference(page: import('@playwright/test').Page, preference: RuntimePreference): Promise<void> {
+  const response = await page.evaluate(async ({ preference: next }) => fetch('/api/settings', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      runtime_preferences: { [next.backend]: next },
+      runtime_preference_backend: next.backend,
+    }),
+  }).then((result) => ({ ok: result.ok, status: result.status })), { preference })
+  expect(response.ok, `settings write returned ${response.status}`).toBeTruthy()
+}
 
 async function saveEvidenceScreenshot(page: import('@playwright/test').Page, name: string): Promise<void> {
   const evidenceDirectory = process.env['NW_T1_04_EVIDENCE_DIR']
@@ -101,14 +131,11 @@ test('persists the exact runtime device and memory policy after reload', async (
   await expect(card.getByLabel('Device')).toHaveValue('cuda:0')
   await expect(card.getByLabel('Memory policy')).toHaveValue('pytorch_fraction')
   await expect(card.getByRole('spinbutton', { name: 'Fraction' })).toHaveValue('0.25')
-  await expect.poll(async () => page.evaluate((key) => {
-    const value = window.localStorage.getItem(key)
-    return value ? JSON.parse(value).pytorch : null
-  }, runtimePreferencesStorageKey)).toEqual({
+  await expect.poll(async () => (await readRuntimeSettings(page)).runtime_preferences.pytorch).toEqual({
     api: 'keras',
     backend: 'pytorch',
     device_id: 'cuda:0',
-    memory_policy: { kind: 'pytorch_fraction', fraction: 0.25 },
+    memory_policy: { kind: 'pytorch_fraction', fraction: 0.25, limit_mb: null },
     precision: 'float32',
   })
 
@@ -138,16 +165,16 @@ test('restores the last active backend and API with its device and memory policy
     api: 'native',
     backend: 'tensorflow',
     device_id: 'gpu:0',
-    memory_policy: { kind: 'tensorflow_limit_mb', limit_mb: 2048 },
+    memory_policy: { kind: 'tensorflow_limit_mb', limit_mb: 2048, fraction: null },
     precision: 'float32',
   }
-  await expect.poll(async () => page.evaluate(({ preferencesKey, activeBackendKey }) => ({
-    preference: JSON.parse(window.localStorage.getItem(preferencesKey) ?? '{}').tensorflow ?? null,
-    activeBackend: window.localStorage.getItem(activeBackendKey),
-  }), {
-    preferencesKey: runtimePreferencesStorageKey,
-    activeBackendKey: runtimePreferenceBackendStorageKey,
-  })).toEqual({ preference: expectedPreference, activeBackend: 'tensorflow' })
+  await expect.poll(async () => {
+    const settings = await readRuntimeSettings(page)
+    return {
+      preference: settings.runtime_preferences.tensorflow ?? null,
+      activeBackend: settings.runtime_preference_backend,
+    }
+  }).toEqual({ preference: expectedPreference, activeBackend: 'tensorflow' })
 
   await page.reload()
   const reloadedCard = page.locator('.backend-status-card-container').filter({ hasText: 'TensorFlow' })
@@ -160,134 +187,89 @@ test('restores the last active backend and API with its device and memory policy
   await saveEvidenceScreenshot(page, 'nw-t1-04-active-preference-reload.png')
 })
 
-test('reconciles a stored device that is no longer available', async ({ page }) => {
-  await page.addInitScript(({ preferencesKey, activeBackendKey }) => {
-    window.localStorage.setItem(preferencesKey, JSON.stringify({
-      tensorflow: {
-        api: 'native',
-        backend: 'tensorflow',
-        device_id: 'retired-gpu',
-        memory_policy: { kind: 'tensorflow_limit_mb', limit_mb: 2048 },
-        precision: 'float32',
-      },
-    }))
-    window.localStorage.setItem(activeBackendKey, 'tensorflow')
-  }, { preferencesKey: runtimePreferencesStorageKey, activeBackendKey: runtimePreferenceBackendStorageKey })
-
+test('reconciles a database preference for a device that is no longer available', async ({ page }) => {
   await page.goto('/environment')
+  const stalePreference: RuntimePreference = {
+    api: 'native',
+    backend: 'tensorflow',
+    device_id: 'retired-gpu',
+    memory_policy: { kind: 'tensorflow_limit_mb', limit_mb: 2048, fraction: null },
+    precision: 'float32',
+  }
+  await saveRuntimePreference(page, stalePreference)
+
+  await page.reload()
   const card = page.locator('.backend-status-card-container').filter({ hasText: 'TensorFlow' })
   await expect(card.locator('.backend-status-card')).toHaveAttribute('aria-pressed', 'true')
   await expect(card.getByLabel('Device')).toHaveValue('cpu')
   await expect(card.getByLabel('Memory policy')).toHaveValue('default')
-  await expect.poll(() => page.evaluate((key) => {
-    const value = window.localStorage.getItem(key)
-    return value ? JSON.parse(value).tensorflow : null
-  }, runtimePreferencesStorageKey)).toEqual({
-    api: 'keras',
+  await expect.poll(async () => (await readRuntimeSettings(page)).runtime_preferences.tensorflow).toEqual(stalePreference)
+})
+
+test('falls back to the preferred available backend when the active backend disappears', async ({ page }) => {
+  await page.goto('/environment')
+  const tensorflowPreference: RuntimePreference = {
+    api: 'native',
     backend: 'tensorflow',
+    device_id: 'gpu:0',
+    memory_policy: { kind: 'tensorflow_limit_mb', limit_mb: 2048, fraction: null },
+    precision: 'float32',
+  }
+  await saveRuntimePreference(page, tensorflowPreference)
+  await saveRuntimePreference(page, {
+    api: 'keras',
+    backend: 'pytorch',
     device_id: 'cpu',
     memory_policy: { kind: 'default' },
     precision: 'float32',
   })
-})
-
-test('falls back to the preferred available backend when the active backend disappears', async ({ page }) => {
-  await page.addInitScript(({ preferencesKey, activeBackendKey }) => {
-    window.localStorage.setItem(preferencesKey, JSON.stringify({
-      tensorflow: {
-        api: 'native',
-        backend: 'tensorflow',
-        device_id: 'gpu:0',
-        memory_policy: { kind: 'tensorflow_limit_mb', limit_mb: 2048 },
-        precision: 'float32',
-      },
-    }))
-    window.localStorage.setItem(activeBackendKey, 'tensorflow')
-  }, { preferencesKey: runtimePreferencesStorageKey, activeBackendKey: runtimePreferenceBackendStorageKey })
 
   await page.goto('/environment?unavailable_backend=tensorflow')
   const pytorchCard = page.locator('.backend-status-card-container').filter({ hasText: 'PyTorch' })
   await expect(pytorchCard.locator('.backend-status-card')).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.runtime-api-option').filter({ hasText: 'Keras' })).toHaveClass(/selected/)
-  await expect.poll(() => page.evaluate(({ preferencesKey, activeBackendKey }) => ({
-    preferences: JSON.parse(window.localStorage.getItem(preferencesKey) ?? '{}'),
-    activeBackend: window.localStorage.getItem(activeBackendKey),
-  }), {
-    preferencesKey: runtimePreferencesStorageKey,
-    activeBackendKey: runtimePreferenceBackendStorageKey,
-  })).toMatchObject({
-    preferences: {
-      pytorch: {
-        api: 'keras',
-        backend: 'pytorch',
-        device_id: 'cpu',
-        memory_policy: { kind: 'default' },
-        precision: 'float32',
-      },
-    },
-    activeBackend: 'pytorch',
-  })
-  const preferences = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key) ?? '{}'), runtimePreferencesStorageKey)
-  expect(preferences).not.toHaveProperty('tensorflow')
+  const settings = await readRuntimeSettings(page)
+  expect(settings.runtime_preference_backend).toBe('pytorch')
+  expect(settings.runtime_preferences).toHaveProperty('tensorflow', tensorflowPreference)
 })
 
-test('reconciles malformed nested preferences to a valid runtime default', async ({ page }) => {
-  const pageErrors: string[] = []
-  page.on('pageerror', (error) => pageErrors.push(error.message))
-  await page.addInitScript(({ preferencesKey, activeBackendKey }) => {
-    window.localStorage.setItem(preferencesKey, JSON.stringify({
-      tensorflow: {
-        api: 'native',
-        backend: 'tensorflow',
-        device_id: 'gpu:0',
-        memory_policy: null,
-        precision: 'float32',
-      },
-    }))
-    window.localStorage.setItem(activeBackendKey, 'tensorflow')
-  }, { preferencesKey: runtimePreferencesStorageKey, activeBackendKey: runtimePreferenceBackendStorageKey })
-
+test('rejects malformed runtime preference changes without modifying database settings', async ({ page }) => {
   await page.goto('/environment')
+  const before = await readRuntimeSettings(page)
+  const response = await page.evaluate(async () => fetch('/api/settings', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      runtime_preferences: {
+        tensorflow: {
+          api: 'native',
+          backend: 'tensorflow',
+          device_id: 'gpu:0',
+          memory_policy: null,
+          precision: 'float32',
+        },
+      },
+      runtime_preference_backend: 'tensorflow',
+    }),
+  }).then((result) => result.status))
+  expect(response).toBe(422)
+  expect(await readRuntimeSettings(page)).toEqual(before)
+})
+
+test('flags a failed runtime preference write and keeps the stored value', async ({ page }) => {
+  await page.goto('/environment')
+  const before = await readRuntimeSettings(page)
+  await page.route('**/api/settings', async (route) => {
+    if (route.request().method() === 'PATCH') {
+      await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ detail: 'injected settings write failure' }) })
+      return
+    }
+    await route.continue()
+  })
+  const selectedBefore = await page.locator('.backend-status-card-container.selected .backend-status-name').innerText()
   const card = page.locator('.backend-status-card-container').filter({ hasText: 'TensorFlow' })
-  await expect(card.locator('.backend-status-card')).toHaveAttribute('aria-pressed', 'true')
-  await expect(card.getByLabel('Device')).toHaveValue('cpu')
-  await expect(card.getByLabel('Memory policy')).toHaveValue('default')
-  await expect.poll(() => page.evaluate((key) => {
-    const value = window.localStorage.getItem(key)
-    return value ? JSON.parse(value).tensorflow : null
-  }, runtimePreferencesStorageKey)).toEqual({
-    api: 'keras',
-    backend: 'tensorflow',
-    device_id: 'cpu',
-    memory_policy: { kind: 'default' },
-    precision: 'float32',
-  })
-  expect(pageErrors).toEqual([])
-})
-
-test('keeps runtime controls usable when browser storage reads and writes fail', async ({ page }) => {
-  await page.addInitScript((keys) => {
-    const blocked = new Set(keys)
-    const getItem = Storage.prototype.getItem
-    const setItem = Storage.prototype.setItem
-    Storage.prototype.getItem = function (key: string): string | null {
-      if (blocked.has(key)) throw new DOMException('Storage is disabled.', 'SecurityError')
-      return getItem.call(this, key)
-    }
-    Storage.prototype.setItem = function (key: string, value: string): void {
-      if (blocked.has(key)) throw new DOMException('Storage is disabled.', 'SecurityError')
-      setItem.call(this, key, value)
-    }
-  }, [runtimePreferencesStorageKey, runtimePreferenceBackendStorageKey])
-  const pageErrors: string[] = []
-  page.on('pageerror', (error) => pageErrors.push(error.message))
-  await page.goto('/environment')
-  const usableCard = page.locator('.backend-status-card-container').filter({ hasText: 'TensorFlow' })
-  await expect(usableCard).toContainText('Usable')
-  await usableCard.locator('.backend-status-card').click()
-  await page.locator('.runtime-api-option').filter({ hasText: 'Native framework' }).click()
-  await expect(usableCard.locator('.backend-status-card')).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('.runtime-api-option').filter({ hasText: 'Native framework' })).toHaveClass(/selected/)
-  await expect(usableCard.getByLabel('Device')).toHaveValue('cpu')
-  expect(pageErrors).toEqual([])
+  await card.locator('.backend-status-card').click()
+  await expect(page.getByRole('alert')).toContainText('Runtime preferences could not be saved.')
+  await expect(page.locator('.backend-status-card-container.selected .backend-status-name')).toHaveText(selectedBefore)
+  expect(await readRuntimeSettings(page)).toEqual(before)
 })

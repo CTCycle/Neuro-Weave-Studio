@@ -20,6 +20,7 @@ from configurations.database_config import (
     DATABASE_ENV_KEYS,
     DatabaseConfig,
 )
+from repositories.application_settings import ApplicationSettingsRepository
 from services.database_configuration_service import DatabaseConfigurationService
 from services.runtime_controller import RuntimeController
 
@@ -36,10 +37,30 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
     with TestClient(app_factory(database_path=primary_database)) as primary:
         current = primary.get("/api/settings")
         assert current.status_code == 200
-        primary_settings = current.json()
-        primary_settings["log_level"] = "DEBUG"
-        saved = primary.put("/api/settings", json=primary_settings)
+        saved = primary.patch("/api/settings", json={"log_level": "DEBUG"})
         assert saved.status_code == 200, saved.text
+        preference = {
+            "api": "keras",
+            "backend": "pytorch",
+            "device_id": "cpu",
+            "memory_policy": {"kind": "default"},
+            "precision": "float32",
+        }
+        selected = primary.patch(
+            "/api/settings",
+            json={
+                "runtime_preferences": {"pytorch": preference},
+                "runtime_preference_backend": "pytorch",
+            },
+        )
+        assert selected.status_code == 200, selected.text
+        partial = primary.patch("/api/settings", json={"ml_job_history_limit": 101})
+        assert partial.status_code == 200, partial.text
+        assert partial.json()["runtime_preferences"]["pytorch"] == {
+            **preference,
+            "memory_policy": {"kind": "default", "limit_mb": None, "fraction": None},
+        }
+        assert partial.json()["runtime_preference_backend"] == "pytorch"
 
         connection_test = primary.post(
             "/api/settings/database/test",
@@ -54,9 +75,7 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
                 config_path=secondary_config,
             )
         ) as secondary:
-            secondary_settings = secondary.get("/api/settings").json()
-            secondary_settings["log_level"] = "ERROR"
-            changed = secondary.put("/api/settings", json=secondary_settings)
+            changed = secondary.patch("/api/settings", json={"log_level": "ERROR"})
             assert changed.status_code == 200, changed.text
 
         switched = primary.put(
@@ -65,6 +84,7 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
         )
         assert switched.status_code == 200, switched.text
         assert switched.json()["settings"]["log_level"] == "ERROR"
+        assert switched.json()["settings"]["runtime_preferences"] == {}
         assert primary.get("/api/settings").json()["log_level"] == "ERROR"
         assert primary.get("/api/projects").json()["projects"] == []
 
@@ -75,6 +95,12 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
         assert switched_back.status_code == 200, switched_back.text
         assert switched_back.json()["settings"]["log_level"] == "DEBUG"
         assert primary.get("/api/settings").json()["log_level"] == "DEBUG"
+        assert primary.get("/api/settings").json()["runtime_preferences"]["pytorch"] == preference
+
+    with TestClient(app_factory(database_path=primary_database)) as restarted:
+        restored_settings = restarted.get("/api/settings").json()
+        assert restored_settings["runtime_preferences"]["pytorch"] == preference
+        assert restored_settings["runtime_preference_backend"] == "pytorch"
 
     persisted_configuration = json.loads(primary_config.read_text(encoding="utf-8"))
     assert persisted_configuration == {
@@ -83,6 +109,58 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
         "schema_version": 1,
         "sqlite_path": str(primary_database.resolve()),
     }
+
+
+###############################################################################
+def test_invalid_runtime_preferences_do_not_change_persisted_settings(
+    client: TestClient,
+) -> None:
+    initial = client.get("/api/settings").json()
+    invalid = client.patch(
+        "/api/settings",
+        json={
+            "runtime_preferences": {
+                "tensorflow": {
+                    "api": "keras",
+                    "backend": "pytorch",
+                    "device_id": "cpu",
+                    "memory_policy": {"kind": "default"},
+                    "precision": "float32",
+                }
+            },
+            "runtime_preference_backend": "tensorflow",
+        },
+    )
+    assert invalid.status_code == 422
+    assert client.get("/api/settings").json() == initial
+
+
+###############################################################################
+def test_settings_write_failure_restores_runtime_configuration(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    application = cast(FastAPI, client.app)
+    controller = cast(RuntimeController, application.state.runtime_controller)
+    original_apply = controller.apply_settings
+    applied_log_levels: list[str] = []
+
+    def record_application(settings: Any) -> None:
+        applied_log_levels.append(settings.log_level)
+        original_apply(settings)
+
+    def fail_save(_repository: ApplicationSettingsRepository, _settings: Any) -> None:
+        raise RuntimeError("injected settings write failure")
+
+    monkeypatch.setattr(controller, "apply_settings", record_application)
+    monkeypatch.setattr(ApplicationSettingsRepository, "save", fail_save)
+
+    response = client.patch("/api/settings", json={"log_level": "DEBUG"})
+
+    assert response.status_code == 500
+    assert applied_log_levels == ["DEBUG", "INFO"]
+    assert application.state.settings.log_level == "INFO"
+    assert client.get("/api/settings").json()["log_level"] == "INFO"
 
 
 ###############################################################################
@@ -286,3 +364,9 @@ def test_legacy_environment_settings_migrate_once_into_file_and_database(
     assert "NEURO_WEAVE_LOG_LEVEL" not in migrated_environment
     assert "FASTAPI_PORT=9850" in migrated_environment
     assert discovery_path.is_relative_to(CACHE_ROOT)
+
+
+###############################################################################
+def test_runtime_preferences_are_database_only_not_environment_migration_keys() -> None:
+    assert "NEURO_WEAVE_RUNTIME_PREFERENCES" not in APPLICATION_ENV_KEYS
+    assert "NEURO_WEAVE_RUNTIME_PREFERENCE_BACKEND" not in APPLICATION_ENV_KEYS
