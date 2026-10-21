@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import zipfile
 from collections.abc import Iterable
 from pathlib import Path
@@ -88,13 +87,6 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-###############################################################################
-def remove_path(path: Path) -> None:
-    if path.is_dir():
-        shutil.rmtree(path, ignore_errors=True)
-    else:
-        path.unlink(missing_ok=True)
 
 ###############################################################################
 def _relative_files(directory: Path) -> list[Path]:
