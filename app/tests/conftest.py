@@ -85,8 +85,6 @@ def app_factory(tmp_path: Path) -> Callable[..., FastAPI]:
         )
         return create_app(
             database_config_path=selected_config,
-            environment_file=tmp_path / ".env",
-            sanitize_legacy=False,
             initial_settings=settings or default_settings,
         )
 

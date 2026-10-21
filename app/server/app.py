@@ -124,8 +124,6 @@ def _redirect_root_to_docs() -> RedirectResponse:
 def create_app(
     *,
     database_config_path: Path = DATABASE_CONFIG_PATH,
-    environment_file: Path | None = None,
-    sanitize_legacy: bool = True,
     initial_settings: Settings | None = None,
 ) -> FastAPI:
     settings = get_settings()
@@ -138,8 +136,6 @@ def create_app(
     application.state.settings = settings
     application.state.database_configuration = DatabaseConfigurationService(
         database_config_path,
-        **({"environment_file": environment_file} if environment_file is not None else {}),
-        sanitize_legacy=sanitize_legacy,
         initial_settings=initial_settings,
     )
     application.state.repository_context = None
