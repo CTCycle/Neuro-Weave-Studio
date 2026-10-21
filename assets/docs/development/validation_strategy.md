@@ -1,6 +1,6 @@
 # Validation Strategy
 
-Last updated: 2026-10-18
+Last updated: 2026-10-21
 
 ## Purpose
 
@@ -36,4 +36,4 @@ This document defines how to make bounded validation claims. The [status ledger]
 
 ## Result vocabulary
 
-Use VALIDATED only for the named passed scope. Use PARTIAL when a meaningful subset passes and important scenarios remain. Use UNVALIDATED when implementation exists without enough evidence. Use NOT_IMPLEMENTED when the product capability is absent. Record the next useful check in the ledger; do not maintain a separate gate history there.
+Product components and areas use VALIDATED only for the named passed scope. Use PARTIAL when a meaningful subset passes and important scenarios remain. Use UNVALIDATED when implementation exists without enough evidence. Use NOT_IMPLEMENTED when the product capability is absent. Bounded campaign gates use the gate vocabulary PASS, PARTIAL, FAIL, UNTESTED, and BLOCKED, defined in the [status ledger](../project_status_ledger.md). Record the next useful check in the ledger; do not maintain a separate gate history there.
