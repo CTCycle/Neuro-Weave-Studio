@@ -10,14 +10,10 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from common.path import ENV_FILE
 from configurations.database_config import (
     DATABASE_CONFIG_PATH,
-    DatabaseBootstrap,
     DatabaseConfig,
     bootstrap_database_config,
-    clear_legacy_process_environment,
-    remove_legacy_environment_values,
     write_database_config,
 )
 from configurations.settings import Settings
@@ -50,13 +46,9 @@ class DatabaseConfigurationService:
         self,
         config_path: Path = DATABASE_CONFIG_PATH,
         *,
-        environment_file: Path = ENV_FILE,
-        sanitize_legacy: bool = True,
         initial_settings: Settings | None = None,
     ) -> None:
         self.config_path = Path(config_path)
-        self.environment_file = Path(environment_file)
-        self.sanitize_legacy = sanitize_legacy
         self.initial_settings = initial_settings
         self.config: DatabaseConfig | None = None
         self.repository_context: RepositoryContext | None = None
@@ -79,24 +71,17 @@ class DatabaseConfigurationService:
 
     # -------------------------------------------------------------------------
     def start(self) -> None:
-        bootstrap: DatabaseBootstrap | None = None
         context: RepositoryContext | None = None
         try:
-            bootstrap = bootstrap_database_config(self.config_path, self.environment_file)
-            self.config = bootstrap.config
-            context = create_repository_context(bootstrap.config.to_database_settings())
-            settings = self._load_or_seed_settings(
-                context,
-                (bootstrap.legacy_settings or self.initial_settings)
-                if bootstrap.config_was_missing
-                else self.initial_settings,
-            )
-            if bootstrap.config_was_missing:
-                write_database_config(bootstrap.config, self.config_path)
+            config, config_was_missing = bootstrap_database_config(self.config_path)
+            self.config = config
+            context = create_repository_context(config.to_database_settings())
+            settings = self._load_or_seed_settings(context, self.initial_settings)
+            if config_was_missing:
+                write_database_config(config, self.config_path)
             self.repository_context = context
             self.settings = settings
             self.error = None
-            self._sanitize_legacy_environment()
         except Exception as error:  # startup remains available for database repair
             if context is not None and context is not self.repository_context:
                 context.dispose()
@@ -198,7 +183,6 @@ class DatabaseConfigurationService:
             self.repository_context = context
             self.settings = settings
             self.error = None
-            self._sanitize_legacy_environment()
             if previous_context is not None:
                 try:
                     previous_context.dispose()
@@ -236,13 +220,3 @@ class DatabaseConfigurationService:
                 uow.application_settings.save(settings)
                 uow.commit()
             return settings
-
-    # -------------------------------------------------------------------------
-    def _sanitize_legacy_environment(self) -> None:
-        if not self.sanitize_legacy:
-            return
-        try:
-            remove_legacy_environment_values(self.environment_file)
-        except OSError:
-            LOGGER.warning("Could not remove migrated settings from the local environment file")
-        clear_legacy_process_environment()

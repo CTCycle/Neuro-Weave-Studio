@@ -1,4 +1,4 @@
-# Copyright © 2026 Thomas Virdis
+# Copyright Â© 2026 Thomas Virdis
 # Licensed under the MIT License.
 
 from __future__ import annotations
@@ -14,12 +14,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app import create_app
-from common.path import CACHE_ROOT
-from configurations.database_config import (
-    APPLICATION_ENV_KEYS,
-    DATABASE_ENV_KEYS,
-    DatabaseConfig,
-)
+from configurations.database_config import DatabaseConfig
 from repositories.application_settings import ApplicationSettingsRepository
 from services.database_configuration_service import DatabaseConfigurationService
 from services.runtime_controller import RuntimeController
@@ -272,7 +267,6 @@ def test_switch_gate_drains_requests_and_holds_new_requests_until_activation(
     async def exercise_gate() -> None:
         manager = DatabaseConfigurationService(
             tmp_path / "database-config.json",
-            sanitize_legacy=False,
         )
         await manager.enter_request()
         activation_entered = asyncio.Event()
@@ -302,62 +296,3 @@ def test_switch_gate_drains_requests_and_holds_new_requests_until_activation(
 
     asyncio.run(exercise_gate())
 
-###############################################################################
-def test_legacy_environment_settings_migrate_once_into_file_and_database(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    database = tmp_path / "legacy.db"
-    config_path = tmp_path / "resources" / "database-config.json"
-    environment_file = tmp_path / ".env"
-    discovery_path = CACHE_ROOT / "pytest-database-settings" / f"{tmp_path.name}-legacy.json"
-    environment_file.write_text(
-        "\n".join(
-            (
-                f"DATABASE_SQLITE_PATH={database}",
-                "DATABASE_CONNECT_TIMEOUT=45",
-                "NEURO_WEAVE_LOG_LEVEL=DEBUG",
-                f"NEURO_WEAVE_LOG_FILE={tmp_path / 'logs' / 'backend.log'}",
-                f"NEURO_WEAVE_EXPORT_ROOT={tmp_path / 'exports'}",
-                f"NEURO_WEAVE_ML_JOB_ROOT={tmp_path / 'jobs'}",
-                f"NEURO_WEAVE_TENSOR_INSPECTION_ROOT={tmp_path / 'inspections'}",
-                f"NEURO_WEAVE_RUNTIME_DISCOVERY_PATH={discovery_path}",
-                "FASTAPI_PORT=9850",
-            )
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    for key in DATABASE_ENV_KEYS | APPLICATION_ENV_KEYS:
-        monkeypatch.delenv(key, raising=False)
-
-    with TestClient(
-        create_app(
-            database_config_path=config_path,
-            environment_file=environment_file,
-        )
-    ) as client:
-        settings = client.get("/api/settings").json()
-        assert settings["log_level"] == "DEBUG"
-        assert settings["export_root"] == str((tmp_path / "exports").resolve())
-        status = client.get("/api/settings/database").json()
-        assert status["connect_timeout_seconds"] == 45
-
-    configuration = json.loads(config_path.read_text(encoding="utf-8"))
-    assert set(configuration) == {
-        "backend",
-        "connect_timeout_seconds",
-        "schema_version",
-        "sqlite_path",
-    }
-    assert configuration["sqlite_path"] == str(database.resolve())
-    migrated_environment = environment_file.read_text(encoding="utf-8")
-    assert "DATABASE_" not in migrated_environment
-    assert "NEURO_WEAVE_LOG_LEVEL" not in migrated_environment
-    assert "FASTAPI_PORT=9850" in migrated_environment
-    assert discovery_path.is_relative_to(CACHE_ROOT)
-
-###############################################################################
-def test_runtime_preferences_are_database_only_not_environment_migration_keys() -> None:
-    assert "NEURO_WEAVE_RUNTIME_PREFERENCES" not in APPLICATION_ENV_KEYS
-    assert "NEURO_WEAVE_RUNTIME_PREFERENCE_BACKEND" not in APPLICATION_ENV_KEYS
