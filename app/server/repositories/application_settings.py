@@ -9,6 +9,7 @@ from common.timestamps import utc_now
 from configurations.settings import Settings
 from repositories.models import ApplicationSettingsRecord
 
+
 ###############################################################################
 class ApplicationSettingsRepository:
     """Read and write the database-local application settings singleton."""
@@ -26,7 +27,9 @@ class ApplicationSettingsRepository:
             raise ValueError(
                 f"Unsupported application settings schema version {record.schema_version}."
             )
-        return Settings.model_validate(record.settings_json)
+        settings_payload = dict(record.settings_json)
+        settings_payload.pop("cors_origins", None)
+        return Settings.model_validate(settings_payload)
 
     # -------------------------------------------------------------------------
     def save(self, settings: Settings) -> None:

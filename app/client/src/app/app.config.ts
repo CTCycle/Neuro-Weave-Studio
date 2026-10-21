@@ -2,9 +2,10 @@
 // Licensed under the MIT License.
 
 import { provideHttpClient } from '@angular/common/http'
-import { provideZonelessChangeDetection } from '@angular/core'
+import { inject, provideAppInitializer, provideZonelessChangeDetection } from '@angular/core'
 import type { ApplicationConfig } from '@angular/core'
 import { provideRouter, withComponentInputBinding } from '@angular/router'
+import { RuntimeApiConfigService } from './core/api/runtime-api-config.service'
 import { routes } from './app.routes'
 
 export const appConfig: ApplicationConfig = {
@@ -12,5 +13,6 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(),
+    provideAppInitializer(() => inject(RuntimeApiConfigService).load()),
   ],
 }

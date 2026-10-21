@@ -31,7 +31,6 @@ class Settings(BaseModel):
 
     app_name: str = "NeuroWeave Studio"
     app_version: str = "1.0.0"
-    cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
     log_level: str = Field(default="INFO", pattern=r"^(?i:DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     log_file: Path = RUNTIME_LOG_ROOT / "backend.log"
     export_root: Path = RUNTIME_EXPORT_ROOT
@@ -90,20 +89,6 @@ class Settings(BaseModel):
                 f"runtime_discovery_path must be beneath the canonical cache root {CACHE_ROOT}"
             ) from error
         return path
-
-    # -------------------------------------------------------------------------
-    @field_validator("cors_origins")
-    @classmethod
-    def validate_cors_origins(cls, value: str) -> str:
-        origins = [item.strip() for item in value.split(",") if item.strip()]
-        if not origins:
-            raise ValueError("At least one CORS origin is required")
-        return ",".join(origins)
-
-    # -------------------------------------------------------------------------
-    @property
-    def cors_origin_list(self) -> list[str]:
-        return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
 ###############################################################################
 class DatabaseSettings(BaseModel):

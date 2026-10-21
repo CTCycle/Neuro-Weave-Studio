@@ -9,7 +9,6 @@ import time
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import cast
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
@@ -37,6 +36,7 @@ from common import path as common_path
 from common.catalogs.loader import get_node_catalog
 from common.logging_config import configure_logging
 from configurations.database_config import DATABASE_CONFIG_PATH
+from configurations.runtime_config import RuntimeConfiguration, load_runtime_configuration
 from configurations.settings import Settings, get_settings
 from services.database_configuration_service import DatabaseConfigurationService
 from services.runtime_controller import RuntimeController
@@ -121,12 +121,21 @@ def _redirect_root_to_docs() -> RedirectResponse:
     return RedirectResponse("/docs")
 
 ###############################################################################
+def _serve_runtime_configuration(request: Request) -> JSONResponse:
+    runtime_configuration: RuntimeConfiguration = request.app.state.runtime_configuration
+    return JSONResponse(
+        {"api_base_url": runtime_configuration.api_base_url},
+        headers={"Cache-Control": "no-store"},
+    )
+
+###############################################################################
 def create_app(
     *,
     database_config_path: Path = DATABASE_CONFIG_PATH,
     initial_settings: Settings | None = None,
 ) -> FastAPI:
     settings = get_settings()
+    runtime_configuration = load_runtime_configuration()
     application = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
@@ -134,6 +143,7 @@ def create_app(
         lifespan=lifespan,
     )
     application.state.settings = settings
+    application.state.runtime_configuration = runtime_configuration
     application.state.database_configuration = DatabaseConfigurationService(
         database_config_path,
         initial_settings=initial_settings,
@@ -147,8 +157,8 @@ def create_app(
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         origin = request.headers.get("origin")
-        current_settings = cast(Settings, request.app.state.settings)
-        allowed_origin = origin in current_settings.cors_origin_list if origin else False
+        runtime_configuration: RuntimeConfiguration = request.app.state.runtime_configuration
+        allowed_origin = origin in runtime_configuration.cors_origin_list if origin else False
         preflight = (
             request.method == "OPTIONS"
             and request.headers.get("access-control-request-method") is not None
@@ -230,6 +240,12 @@ def create_app(
         "/api/{_full_path:path}",
         _raise_unknown_api_route,
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+        include_in_schema=False,
+    )
+    application.add_api_route(
+        "/runtime-config.json",
+        _serve_runtime_configuration,
+        methods=["GET"],
         include_in_schema=False,
     )
 

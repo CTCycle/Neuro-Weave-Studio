@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from configurations.database_config import DatabaseConfig
 from repositories.application_settings import ApplicationSettingsRepository
+from repositories.models import ApplicationSettingsRecord
 from services.database_configuration_service import DatabaseConfigurationService
 from services.runtime_controller import RuntimeController
 
@@ -127,6 +128,38 @@ def test_invalid_runtime_preferences_do_not_change_persisted_settings(
     )
     assert invalid.status_code == 422
     assert client.get("/api/settings").json() == initial
+
+###############################################################################
+def test_settings_api_retires_database_cors_value_and_rejects_cors_patches(
+    client: TestClient,
+) -> None:
+    application = cast(FastAPI, client.app)
+    context = application.state.repository_context
+    with context.new_unit_of_work() as uow:
+        assert uow.session is not None
+        record = uow.session.get(ApplicationSettingsRecord, 1)
+        assert record is not None
+        record.settings_json = {
+            **record.settings_json,
+            "cors_origins": "https://old-database-value.example",
+        }
+        uow.commit()
+
+    current = client.get("/api/settings")
+    assert current.status_code == 200
+    assert "cors_origins" not in current.json()
+    assert current.json()["log_level"] == "INFO"
+
+    rejected = client.patch("/api/settings", json={"cors_origins": "https://ui.example"})
+    assert rejected.status_code == 422
+
+    saved = client.patch("/api/settings", json={"log_level": "DEBUG"})
+    assert saved.status_code == 200
+    with context.new_unit_of_work() as uow:
+        assert uow.session is not None
+        record = uow.session.get(ApplicationSettingsRecord, 1)
+        assert record is not None
+        assert "cors_origins" not in record.settings_json
 
 ###############################################################################
 def test_settings_write_failure_restores_runtime_configuration(

@@ -21,7 +21,7 @@ const mimeTypes = { '.css': 'text/css; charset=utf-8', '.html': 'text/html; char
 const server = createServer(async (request, response) => {
   try {
     const requestUrl = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`)
-    if (requestUrl.pathname === '/health' || requestUrl.pathname === '/api' || requestUrl.pathname.startsWith('/api/')) {
+    if (requestUrl.pathname === '/runtime-config.json' || requestUrl.pathname === '/health' || requestUrl.pathname === '/api' || requestUrl.pathname.startsWith('/api/')) {
       proxyRequest(request, response, requestUrl.pathname + requestUrl.search)
       return
     }
