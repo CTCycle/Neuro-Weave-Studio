@@ -77,8 +77,6 @@ class ExportService:
             uow.code_snapshots.upsert(
                 project_id,
                 revision=current.current_revision,
-                execution_backend=current.execution_backend,
-                keras_enabled=current.keras_enabled,
                 source_code=result.code,
                 timestamp=utc_now(),
             )

@@ -128,16 +128,11 @@ def test_project_delete_cascades_revision_graph_and_generated_source(
             uow.revisions.append(
                 project.id,
                 revision=1,
-                graph=graph,
-                execution_backend=ExecutionBackend.PYTORCH,
-                keras_enabled=True,
                 timestamp=now,
             )
             uow.code_snapshots.upsert(
                 project.id,
                 revision=1,
-                execution_backend=ExecutionBackend.PYTORCH,
-                keras_enabled=True,
                 source_code="code",
                 timestamp=now,
             )
@@ -200,17 +195,11 @@ def test_cross_project_edge_reference_is_rejected(tmp_path: Path) -> None:
             uow.revisions.append(
                 first.id,
                 revision=1,
-                graph=first_graph,
-                execution_backend=ExecutionBackend.PYTORCH,
-                keras_enabled=True,
                 timestamp=now,
             )
             uow.revisions.append(
                 second.id,
                 revision=1,
-                graph=second_graph,
-                execution_backend=ExecutionBackend.PYTORCH,
-                keras_enabled=True,
                 timestamp=now,
             )
             uow.commit()
