@@ -16,15 +16,6 @@ StorageMode = Literal["full", "sampled", "summary_only"]
 DataMode = Literal["exact", "sampled", "downsampled"]
 
 ###############################################################################
-class TensorInspectionSubmit(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    project_id: UUID
-    project_revision: int = Field(ge=1)
-    seed: int = Field(default=42, ge=0, le=2_147_483_647)
-    worker: WorkerConfiguration
-
-###############################################################################
 class TensorStatistics(BaseModel):
     mode: DataMode
     count: int = Field(ge=0)
