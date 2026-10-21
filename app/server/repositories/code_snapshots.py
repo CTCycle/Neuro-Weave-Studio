@@ -12,7 +12,6 @@ from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
-from domain.enums import ExecutionBackend
 from repositories.models import GeneratedCodeSnapshotRecord
 
 ###############################################################################
@@ -58,8 +57,6 @@ class CodeSnapshotRepository:
         project_id: UUID,
         *,
         revision: int,
-        execution_backend: ExecutionBackend,
-        keras_enabled: bool,
         source_code: str,
         timestamp: datetime,
     ) -> None:
@@ -72,8 +69,6 @@ class CodeSnapshotRepository:
             self._session.add(
                 GeneratedCodeSnapshotRecord(
                     **key,
-                    execution_backend=execution_backend.value,
-                    keras_enabled=keras_enabled,
                     source_code=source_code,
                     created_at=timestamp,
                     updated_at=timestamp,

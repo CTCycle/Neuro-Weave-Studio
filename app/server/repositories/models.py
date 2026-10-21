@@ -100,14 +100,12 @@ class ApplicationSettingsRecord(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     settings_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
 
     __table_args__ = (
         CheckConstraint("id = 1", name="ck_application_settings_singleton"),
         CheckConstraint("schema_version = 1", name="ck_application_settings_schema"),
-        CheckConstraint("revision >= 1", name="ck_application_settings_revision"),
     )
 
 ###############################################################################
@@ -232,23 +230,13 @@ class ProjectRevisionRecord(Base):
         ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    execution_backend: Mapped[str] = mapped_column(String(32), nullable=False)
-    keras_enabled: Mapped[bool] = mapped_column(
-        Boolean(create_constraint=True, name="ck_project_revisions_keras_enabled"),
-        nullable=False,
-    )
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
-    graph_snapshot_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
 
     project: Mapped[ProjectRecord] = relationship(back_populates="revisions")
 
     __table_args__ = (
         UniqueConstraint("project_id", "revision", name="uq_project_revisions_revision"),
         CheckConstraint("revision >= 1", name="ck_project_revisions_revision"),
-        CheckConstraint(
-            f"execution_backend IN ({_EXECUTION_BACKEND_SQL_VALUES})",
-            name="ck_project_revisions_execution_backend",
-        ),
         Index("ix_project_revisions_project_created", "project_id", "created_at"),
     )
 
@@ -258,11 +246,6 @@ class GeneratedCodeSnapshotRecord(Base):
 
     project_id: Mapped[str] = mapped_column(String(36), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    execution_backend: Mapped[str] = mapped_column(String(32), nullable=False)
-    keras_enabled: Mapped[bool] = mapped_column(
-        Boolean(create_constraint=True, name="ck_generated_code_snapshots_keras_enabled"),
-        nullable=False,
-    )
     source_code: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
@@ -276,10 +259,6 @@ class GeneratedCodeSnapshotRecord(Base):
             ondelete="CASCADE",
         ),
         CheckConstraint("revision >= 1", name="ck_generated_code_snapshots_revision"),
-        CheckConstraint(
-            f"execution_backend IN ({_EXECUTION_BACKEND_SQL_VALUES})",
-            name="ck_generated_code_snapshots_execution_backend",
-        ),
         Index("ix_generated_code_snapshots_project", "project_id", "revision"),
     )
 

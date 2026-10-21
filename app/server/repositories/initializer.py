@@ -31,7 +31,7 @@ from repositories.migration_lock import database_migration_lock
 LOGGER = logging.getLogger(__name__)
 
 ALEMBIC_CONFIG_PATH = Path(__file__).resolve().parents[1] / "alembic.ini"
-HEAD_REVISION = "20261020_database_application_settings"
+HEAD_REVISION = "20261021_drop_write_only_persistence_columns"
 ALEMBIC_VERSION_TABLE = "alembic_version"
 
 ###############################################################################

@@ -198,7 +198,7 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
                 ),
                 {"project_id": project_id, "snapshot": json.dumps(snapshot)},
             )
-            command.upgrade(config, "head")
+            command.upgrade(config, "20261020_database_application_settings")
 
             settings_columns = {
                 item["name"] for item in inspect(connection).get_columns("project_graph_settings")
@@ -297,5 +297,105 @@ def test_canonical_model_configuration_migrates_v2_data_and_downgrades(
                 {"id": project_id},
             ).scalar_one()
             assert restored_optimizer == "adam"
+    finally:
+        engine.dispose()
+
+###############################################################################
+def test_write_only_persistence_columns_are_dropped_and_restored(tmp_path: Path) -> None:
+    path = tmp_path / "write-only-columns.db"
+    engine = create_engine(f"sqlite:///{path}")
+    project_id = "write-only-project"
+    try:
+        with engine.begin() as connection:
+            config = _migration_config(connection)
+            command.upgrade(config, "20261020_database_application_settings")
+            connection.execute(
+                text(
+                    "INSERT INTO projects (id, name, description, execution_backend, "
+                    "keras_enabled, current_revision, validation_status, created_at, "
+                    "updated_at) VALUES (:id, 'Columns model', '', 'pytorch', 1, 1, "
+                    "'valid', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                ),
+                {"id": project_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO project_revisions (project_id, revision, execution_backend, "
+                    "keras_enabled, created_at, graph_snapshot_json) VALUES "
+                    "(:project_id, 1, 'tensorflow', 0, CURRENT_TIMESTAMP, '{}')"
+                ),
+                {"project_id": project_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO generated_code_snapshots (project_id, revision, "
+                    "execution_backend, keras_enabled, source_code, created_at, updated_at) "
+                    "VALUES (:project_id, 1, 'jax', 1, 'code', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                ),
+                {"project_id": project_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO application_settings (id, schema_version, revision, "
+                    "settings_json, updated_at) VALUES (1, 1, 4, '{}', CURRENT_TIMESTAMP)"
+                )
+            )
+            command.upgrade(config, "head")
+
+            revision_columns = {
+                item["name"] for item in inspect(connection).get_columns("project_revisions")
+            }
+            assert revision_columns == {"id", "project_id", "revision", "created_at"}
+            snapshot_columns = {
+                item["name"]
+                for item in inspect(connection).get_columns("generated_code_snapshots")
+            }
+            assert snapshot_columns == {
+                "project_id",
+                "revision",
+                "source_code",
+                "created_at",
+                "updated_at",
+            }
+            settings_columns = {
+                item["name"] for item in inspect(connection).get_columns("application_settings")
+            }
+            assert "revision" not in settings_columns
+
+            revision_row = connection.execute(
+                text(
+                    "SELECT project_id, revision, created_at FROM project_revisions "
+                    "WHERE project_id = :id"
+                ),
+                {"id": project_id},
+            ).fetchone()
+            assert revision_row is not None
+            snapshot_row = connection.execute(
+                text(
+                    "SELECT source_code FROM generated_code_snapshots WHERE project_id = :id"
+                ),
+                {"id": project_id},
+            ).scalar_one()
+            assert snapshot_row == "code"
+            assert connection.execute(
+                text("SELECT schema_version FROM application_settings WHERE id = 1")
+            ).scalar_one() == 1
+
+        with engine.begin() as connection:
+            config = _migration_config(connection)
+            command.downgrade(config, "20261020_database_application_settings")
+            revision_columns = {
+                item["name"] for item in inspect(connection).get_columns("project_revisions")
+            }
+            assert {"execution_backend", "keras_enabled", "graph_snapshot_json"} <= revision_columns
+            snapshot_columns = {
+                item["name"]
+                for item in inspect(connection).get_columns("generated_code_snapshots")
+            }
+            assert {"execution_backend", "keras_enabled"} <= snapshot_columns
+            assert (
+                "revision"
+                in {item["name"] for item in inspect(connection).get_columns("application_settings")}
+            )
     finally:
         engine.dispose()

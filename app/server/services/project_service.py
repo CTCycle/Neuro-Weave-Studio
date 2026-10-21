@@ -109,9 +109,6 @@ class ProjectService:
                 uow.revisions.append(
                     metadata.id,
                     revision=1,
-                    graph=payload.graph,
-                    execution_backend=payload.execution_backend,
-                    keras_enabled=payload.keras_enabled,
                     timestamp=timestamp,
                 )
                 document = self._document(uow, metadata)
@@ -148,9 +145,6 @@ class ProjectService:
                 uow.revisions.append(
                     metadata.id,
                     revision=metadata.current_revision,
-                    graph=payload.graph,
-                    execution_backend=payload.execution_backend,
-                    keras_enabled=payload.keras_enabled,
                     timestamp=timestamp,
                 )
                 document = self._document(uow, metadata)

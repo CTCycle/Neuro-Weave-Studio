@@ -35,12 +35,10 @@ class ApplicationSettingsRepository:
             record = ApplicationSettingsRecord(
                 id=1,
                 schema_version=1,
-                revision=1,
                 settings_json=settings.model_dump(mode="json"),
                 updated_at=utc_now(),
             )
             self._session.add(record)
             return
         record.settings_json = settings.model_dump(mode="json")
-        record.revision += 1
         record.updated_at = utc_now()
