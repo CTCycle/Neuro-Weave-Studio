@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from common.catalogs.loader import NodeCatalog
 from domain.diagnostics import (
-    ConnectionCandidatesValidationResult,
     ConnectionValidationResult,
     ValidationDiagnostic,
 )
@@ -59,28 +58,6 @@ class ConnectionValidationService:
         if diagnostics:
             return ConnectionValidationResult(valid=False, diagnostics=diagnostics)
         return result
-
-    # -------------------------------------------------------------------------
-    def validate_candidates(
-        self,
-        graph: ModelGraph,
-        connections: list[EdgeInstance],
-        execution_backend: ExecutionBackend,
-        keras_enabled: bool,
-    ) -> ConnectionCandidatesValidationResult:
-        valid_connection_ids = [
-            connection.id
-            for connection in connections
-            if self.validate_connection(
-                graph,
-                connection,
-                execution_backend,
-                keras_enabled,
-            ).valid
-        ]
-        return ConnectionCandidatesValidationResult(
-            valid_connection_ids=valid_connection_ids,
-        )
 
     # -------------------------------------------------------------------------
     def _profile_diagnostic(
