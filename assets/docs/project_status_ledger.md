@@ -1,6 +1,6 @@
 # Project Status and Validation Record
 
-Last updated: 2026-10-20
+Last updated: 2026-10-21
 
 This ledger records the latest meaningful validation by product area and the boundaries of each claim. Architecture and ontology documents remain the source of behavior contracts; this file does not replace them.
 
@@ -8,10 +8,22 @@ The current 47-gate campaign snapshot is 44 PASS, 1 PARTIAL, and 2 UNTESTED. The
 
 ## Status meanings
 
-- VALIDATED: the named scope passed at the stated revision and date.
+- VALIDATED: implemented and confirmed through meaningful testing or manual validation at the stated revision and date.
+- WORKING: believed to work from limited or indirect evidence, but the stated scope is not fully validated.
 - PARTIAL: some tested behavior passed; material scenarios remain open.
+- BROKEN: known not to work correctly.
+- BLOCKED: validation depends on unavailable access, hardware, service, or another external condition.
 - UNVALIDATED: implementation exists, but evidence is not sufficient for the named scope.
 - NOT_IMPLEMENTED: the capability is outside the current implementation.
+- DEPRECATED: retained for compatibility or scheduled for removal.
+
+The campaign snapshot line uses a separate gate vocabulary for bounded slices.
+
+- PASS: the bounded gate slice passed at its stated scope.
+- PARTIAL: the slice passed only for part of its expected behavior or environment.
+- FAIL: a bounded run failed; the failure is historical once a later run revalidates it.
+- UNTESTED: no bounded campaign run is recorded for the slice.
+- BLOCKED: validation is prevented by an external dependency, missing approval, or unavailable service.
 
 ## Current evidence
 
@@ -31,7 +43,7 @@ The latest broad application-behavior evidence is from source revision bcca2e63e
 - Training execution, optimizer steps, weight updates, checkpoints, and persistent training jobs are NOT_IMPLEMENTED. The Training page remains a session-only draft.
 - Dataset split materialization and preprocessing are NOT_IMPLEMENTED. Dataset definitions and source metadata do not contain external data bytes.
 - Custom public repository entries are references, not executable code. Trusted plugins and the live external-reference outage matrix remain outside the validated scope.
-- The NW-T5-03 browser-only PASS and responsive checks do not establish WCAG conformance or screen-reader acceptance; manual assistive-technology coverage remains UNVALIDATED. NW-T5-04 timing evidence and NW-T5-05 closure evidence also remain UNVALIDATED.
+- The NW-T5-03 browser-only PASS and responsive checks do not establish WCAG conformance or screen-reader acceptance; manual assistive-technology coverage remains UNVALIDATED. NW-T5-04 timing evidence and NW-T5-05 closure evidence also remain UNTESTED.
 - The 2026-10-18 export matrix used CPU. CUDA availability was observed, but GPU export was not tested.
 
 ## Maintenance
