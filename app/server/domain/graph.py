@@ -10,11 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from common.timestamps import utc_now
-from domain.compilation_plan import (
-    CompilationPlan,
-    CompilerObject,
-    normalize_compilation_plan,
-)
+from domain.compilation_plan import CompilationPlan, CompilerObject
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.tensor import TensorSpec
 
@@ -84,67 +80,6 @@ class KerasProfileConfiguration(BaseModel):
     mixed_precision: bool = False
     random_seed: int | None = 42
 
-    # -------------------------------------------------------------------------
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_legacy_fields(cls, value: Any) -> Any:
-        raw = _mapping_value(value)
-        if "compilation" not in raw:
-            raw["compilation"] = normalize_compilation_plan(raw)
-        for key in (
-            "optimizer",
-            "optimizer_parameters",
-            "losses",
-            "metrics",
-            "default_initializer",
-            "default_regularizer",
-            "default_constraint",
-        ):
-            raw.pop(key, None)
-        return raw
-
-    # Read-only compatibility accessors keep older callers source-compatible
-    # while all serialized and validated state is the normalized plan.
-
-    # -------------------------------------------------------------------------
-    @property
-    def optimizer(self) -> str:
-        return self.compilation.optimizer.id
-
-    # -------------------------------------------------------------------------
-    @property
-    def optimizer_parameters(self) -> dict[str, Any]:
-        return self.compilation.optimizer.parameters
-
-    # -------------------------------------------------------------------------
-    @property
-    def losses(self) -> dict[str, str]:
-        return {key: value.id for key, value in self.compilation.losses.items()}
-
-    # -------------------------------------------------------------------------
-    @property
-    def metrics(self) -> dict[str, list[str]]:
-        return {key: [value.id for value in values] for key, values in self.compilation.metrics.items()}
-
-    # -------------------------------------------------------------------------
-    @property
-    def default_initializer(self) -> str:
-        return self.compilation.default_initializer.id
-
-    # -------------------------------------------------------------------------
-    @property
-    def default_regularizer(self) -> str:
-        return self.compilation.default_regularizer.id if self.compilation.default_regularizer else "none"
-
-    # -------------------------------------------------------------------------
-    @property
-    def default_constraint(self) -> str:
-        return self.compilation.default_constraint.id if self.compilation.default_constraint else "none"
-
-
-# The former name remains an import alias, not an independent model.
-KerasCompilationConfiguration = KerasProfileConfiguration
-
 ###############################################################################
 class TensorFlowNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -156,27 +91,6 @@ class TensorFlowNativeConfiguration(BaseModel):
         )
     )
     random_seed: int | None = 42
-
-    # -------------------------------------------------------------------------
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_legacy_fields(cls, value: Any) -> Any:
-        raw = _mapping_value(value)
-        raw.setdefault("compilation", normalize_compilation_plan(raw))
-        for key in ("optimizer", "optimizer_parameters", "losses", "metrics"):
-            raw.pop(key, None)
-        jit_compile = raw.pop("jit_compile", None)
-        if "compiler" not in raw:
-            raw["compiler"] = CompilerObject(
-                id="tensorflow_function",
-                parameters={"jit_compile": bool(jit_compile) if jit_compile is not None else False},
-            )
-        return raw
-
-    # -------------------------------------------------------------------------
-    @property
-    def jit_compile(self) -> bool:
-        return bool(self.compiler.parameters.get("jit_compile", False))
 
 ###############################################################################
 class PyTorchNativeConfiguration(BaseModel):
@@ -191,66 +105,6 @@ class PyTorchNativeConfiguration(BaseModel):
     )
     random_seed: int | None = 42
 
-    # -------------------------------------------------------------------------
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_legacy_fields(cls, value: Any) -> Any:
-        raw = _mapping_value(value)
-        raw.setdefault("compilation", normalize_compilation_plan(raw))
-        for key in ("optimizer", "optimizer_parameters", "losses", "metrics"):
-            raw.pop(key, None)
-        if "compiler" not in raw:
-            raw["compiler"] = CompilerObject(
-                id="pytorch_compile",
-                parameters={
-                    "enabled": bool(raw.pop("compile_enabled", False)),
-                    "mode": raw.pop("mode", "default"),
-                    "fullgraph": bool(raw.pop("fullgraph", False)),
-                    "dynamic": bool(raw.pop("dynamic", False)),
-                },
-            )
-        return raw
-
-    # -------------------------------------------------------------------------
-    @property
-    def optimizer(self) -> str:
-        return self.compilation.optimizer.id
-
-    # -------------------------------------------------------------------------
-    @property
-    def optimizer_parameters(self) -> dict[str, Any]:
-        return self.compilation.optimizer.parameters
-
-    # -------------------------------------------------------------------------
-    @property
-    def losses(self) -> dict[str, str]:
-        return {key: value.id for key, value in self.compilation.losses.items()}
-
-    # -------------------------------------------------------------------------
-    @property
-    def metrics(self) -> dict[str, list[str]]:
-        return {key: [value.id for value in values] for key, values in self.compilation.metrics.items()}
-
-    # -------------------------------------------------------------------------
-    @property
-    def compile_enabled(self) -> bool:
-        return bool(self.compiler.parameters.get("enabled", False))
-
-    # -------------------------------------------------------------------------
-    @property
-    def mode(self) -> str:
-        return str(self.compiler.parameters.get("mode", "default"))
-
-    # -------------------------------------------------------------------------
-    @property
-    def fullgraph(self) -> bool:
-        return bool(self.compiler.parameters.get("fullgraph", False))
-
-    # -------------------------------------------------------------------------
-    @property
-    def dynamic(self) -> bool:
-        return bool(self.compiler.parameters.get("dynamic", False))
-
 ###############################################################################
 class JaxNativeConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -260,25 +114,6 @@ class JaxNativeConfiguration(BaseModel):
         default_factory=lambda: CompilerObject(id="jax_jit", parameters={"enabled": False})
     )
     random_seed: int | None = 42
-
-    # -------------------------------------------------------------------------
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_legacy_fields(cls, value: Any) -> Any:
-        raw = _mapping_value(value)
-        raw.setdefault("compilation", normalize_compilation_plan(raw))
-        for key in ("optimizer", "optimizer_parameters", "losses", "metrics"):
-            raw.pop(key, None)
-        if "compiler" not in raw:
-            raw["compiler"] = CompilerObject(
-                id="jax_jit", parameters={"enabled": bool(raw.pop("jit_enabled", False))}
-            )
-        return raw
-
-    # -------------------------------------------------------------------------
-    @property
-    def jit_enabled(self) -> bool:
-        return bool(self.compiler.parameters.get("enabled", False))
 
 ###############################################################################
 class NativeCompilationConfiguration(BaseModel):
@@ -292,7 +127,7 @@ class NativeCompilationConfiguration(BaseModel):
 class ModelConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    keras: KerasCompilationConfiguration = Field(default_factory=KerasCompilationConfiguration)
+    keras: KerasProfileConfiguration = Field(default_factory=KerasProfileConfiguration)
     native: NativeCompilationConfiguration = Field(default_factory=NativeCompilationConfiguration)
 
     # -------------------------------------------------------------------------
@@ -319,14 +154,6 @@ class ModelGraph(BaseModel):
     model_configuration: ModelConfiguration = Field(default_factory=ModelConfiguration)
     export_settings: ExportSettings = Field(default_factory=ExportSettings)
     future_training_configuration: dict[str, Any] = Field(default_factory=dict)
-
-    # -------------------------------------------------------------------------
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_import_payload(cls, value: Any) -> Any:
-        from domain.serialization import normalize_graph_payload
-
-        return normalize_graph_payload(value)
 
     # -------------------------------------------------------------------------
     @model_validator(mode="after")
@@ -402,14 +229,6 @@ class ProjectExportBundle(BaseModel):
     format_version: Literal[7] = PROJECT_BUNDLE_FORMAT_VERSION
     exported_at: datetime = Field(default_factory=utc_now)
     project: ProjectCreate
-
-    # -------------------------------------------------------------------------
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_import_payload(cls, value: Any) -> Any:
-        from domain.serialization import normalize_bundle_payload
-
-        return normalize_bundle_payload(value)
 
 ###############################################################################
 class ShapeSummary(BaseModel):
