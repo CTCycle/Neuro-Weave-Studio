@@ -29,14 +29,12 @@ REGISTRIES = {
     "jax": build_jax_registry(),
 }
 
-
 ###############################################################################
 def registry_for_backend(backend_key: str) -> NodeEmitterRegistry:
     try:
         return REGISTRIES[backend_key]
     except KeyError as exc:
         raise KeyError(f"Unknown node emitter backend: {backend_key}") from exc
-
 
 ###############################################################################
 def validate_emitter_coverage(catalog: NodeCatalog) -> None:

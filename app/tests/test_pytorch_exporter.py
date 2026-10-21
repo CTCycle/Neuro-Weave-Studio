@@ -14,7 +14,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.pytorch_exporter import PyTorchSourceExporter
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def node(
     node_id: str,

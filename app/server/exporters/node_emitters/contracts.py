@@ -14,15 +14,14 @@ from domain.compilation import CompiledNode
 from domain.graph import ModelGraph
 from domain.manifests import ImplementationMapping, NodeManifest, PortDefinition
 
-
 ###############################################################################
 def _empty_any_mapping() -> dict[str, Any]:
     return {}
 
 
+###############################################################################
 def _empty_string_mapping() -> dict[str, str]:
     return {}
-
 
 ###############################################################################
 @dataclass(frozen=True)
@@ -39,6 +38,7 @@ class NodeEmitterContext:
     anchor_expression: str | None = None
 
 
+###############################################################################
 @dataclass(frozen=True)
 class NodeRuntimeContext:
     """Normalized runtime inputs and backend services for one adapter call."""
@@ -48,7 +48,6 @@ class NodeRuntimeContext:
     source: Any | None
     normalized_parameters: Mapping[str, Any]
     runtime_services: Mapping[str, Any] = field(default_factory=_empty_any_mapping)
-
 
 ###############################################################################
 @dataclass(frozen=True)
@@ -61,13 +60,13 @@ Emitter = Callable[[NodeEmitterContext], EmissionResult]
 RuntimeEmitter = Callable[[NodeRuntimeContext], Any]
 
 
+###############################################################################
 @dataclass
 class _EmitterRegistration:
     emitter: Emitter
     runtime: RuntimeEmitter | None = None
     authoritative: bool = False
     parameter_ids: frozenset[str] = frozenset()
-
 
 ###############################################################################
 class NodeEmitterRegistry:
@@ -211,14 +210,12 @@ class NodeEmitterRegistry:
         if errors:
             raise ValueError("\n".join(errors))
 
-
 ###############################################################################
 def safe_identifier(value: str, fallback: str = "value") -> str:
     candidate = re.sub(r"[^A-Za-z0-9_]", "_", value)
     if not candidate or candidate[0].isdigit() or keyword.iskeyword(candidate):
         candidate = f"{fallback}_{candidate}"
     return candidate
-
 
 ###############################################################################
 def render_structured_value(value: Any) -> str:
@@ -227,6 +224,7 @@ def render_structured_value(value: Any) -> str:
     return repr(value)
 
 
+###############################################################################
 def safe_index_expression(value: Any) -> str:
     """Normalize and validate an index expression before source emission."""
 
@@ -236,7 +234,6 @@ def safe_index_expression(value: Any) -> str:
     validate_safe_expression(expression)
     return expression
 
-
 ###############################################################################
 def layout_permutation(rank: int, *, to_channels_first: bool) -> tuple[int, ...]:
     if rank < 3:
@@ -244,7 +241,6 @@ def layout_permutation(rank: int, *, to_channels_first: bool) -> tuple[int, ...]
     if to_channels_first:
         return (0, rank - 1, *range(1, rank - 1))
     return (0, *range(2, rank), 1)
-
 
 ###############################################################################
 def emit_multi_output_assignment(

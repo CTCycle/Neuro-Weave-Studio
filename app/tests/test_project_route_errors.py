@@ -14,7 +14,6 @@ from services.errors import GraphPersistenceError
 from services.keras_import_service import KerasImportService
 from services.project_service import ProjectService
 
-
 ###############################################################################
 def raise_create_conflict(
     _service: ProjectService,

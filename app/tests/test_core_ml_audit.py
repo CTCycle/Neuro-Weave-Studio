@@ -37,11 +37,9 @@ from exporters.keras_exporter import KerasSourceExporter
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def _keras_configuration(**payload: object) -> KerasCompilationConfiguration:
     return KerasCompilationConfiguration.model_validate(payload)
-
 
 ###############################################################################
 def node(

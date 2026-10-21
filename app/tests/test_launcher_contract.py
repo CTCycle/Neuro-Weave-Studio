@@ -5,12 +5,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 ###############################################################################
 def launcher_source() -> str:
     repository_root = Path(__file__).resolve().parents[2]
     return (repository_root / "start_on_windows.ps1").read_text(encoding="utf-8")
-
 
 ###############################################################################
 def function_body(source: str, function_name: str, next_function: str) -> str:
@@ -118,7 +116,6 @@ def test_environment_fast_path_and_lightweight_dependency_probe() -> None:
     assert "& $venvPython -c $metadataProbe" not in dependencies
     assert "Test-FrontendDependencyCurrent" in dependencies
 
-
 ###############################################################################
 def test_backend_selection_rejects_noninteractive_input_without_null_method_error() -> None:
     launcher = launcher_source()
@@ -128,7 +125,6 @@ def test_backend_selection_rejects_noninteractive_input_without_null_method_erro
     assert "Backend configuration is required for non-interactive launch." in selection
     assert "$null -eq $rawSelection" in selection
     assert "$selection = (Read-Host" not in selection
-
 
 ###############################################################################
 def test_backend_probes_are_safe_for_windows_powershell_native_arguments() -> None:
@@ -214,7 +210,6 @@ def test_launcher_routes_generated_data_to_the_canonical_cache_root() -> None:
     assert "Set-LauncherEnvironment" in clear_cache
     assert "Ensure-PlaywrightBrowser" in test_suite
     assert "playwright install chromium" in launcher
-
 
 ###############################################################################
 def test_launcher_uses_configurable_repository_resource_root() -> None:

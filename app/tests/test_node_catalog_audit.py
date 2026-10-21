@@ -13,7 +13,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.keras_exporter import KerasSourceExporter
 from exporters.node_emitters import registry_for_backend
 
-
 ###############################################################################
 def test_catalog_contract_is_unique_and_round_trips() -> None:
     catalog = get_node_catalog()
@@ -26,7 +25,6 @@ def test_catalog_contract_is_unique_and_round_trips() -> None:
             manifest.parameters
         )
         assert manifest.__class__.model_validate(manifest.model_dump()) == manifest
-
 
 ###############################################################################
 def test_declarative_parameter_groups_expand_and_reject_group_collisions() -> None:

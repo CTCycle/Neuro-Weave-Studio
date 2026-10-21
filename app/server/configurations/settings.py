@@ -19,9 +19,9 @@ from domain.enums import ExecutionBackend
 from domain.runtime import WorkerConfiguration
 
 
+###############################################################################
 def _empty_runtime_preferences() -> dict[ExecutionBackend, WorkerConfiguration]:
     return {}
-
 
 ###############################################################################
 class Settings(BaseModel):
@@ -105,7 +105,6 @@ class Settings(BaseModel):
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
-
 ###############################################################################
 class DatabaseSettings(BaseModel):
     """Validated SQLite connection parameters shared by repositories."""
@@ -115,13 +114,11 @@ class DatabaseSettings(BaseModel):
     sqlite_path: Path
     connect_timeout: int = Field(default=30, ge=1, le=300)
 
-
 ###############################################################################
 def get_settings() -> Settings:
     """Return code defaults; runtime values are loaded from the active database."""
 
     return Settings()
-
 
 ###############################################################################
 def get_database_settings() -> DatabaseSettings:

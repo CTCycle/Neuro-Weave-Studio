@@ -7,7 +7,6 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from services.connection_validation_service import ConnectionValidationService
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def make_node(
     node_id: str,

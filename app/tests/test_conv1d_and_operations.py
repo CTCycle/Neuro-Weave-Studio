@@ -32,7 +32,6 @@ from services.validation_service import ValidationService
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import infer_shapes
 
-
 ###############################################################################
 def _node(
     node_id: str,
@@ -140,6 +139,7 @@ _UNARY_OPERATION_CASES: list[tuple[str, dict[str, int], dict[str, str]]] = [
 ]
 
 
+###############################################################################
 def _native_float_input(backend: ExecutionBackend) -> Any:
     values = np.asarray([[0.25, 0.5, 1.25, 2.0]], dtype=np.float32)
     if backend is ExecutionBackend.TENSORFLOW:
@@ -157,6 +157,7 @@ def _native_float_input(backend: ExecutionBackend) -> Any:
     return jnp_module.asarray(values)
 
 
+###############################################################################
 def _native_values(backend: ExecutionBackend, values: Any, dtype: str) -> Any:
     array = np.asarray(values, dtype=np.bool_ if dtype == "bool" else np.float32)
     if backend is ExecutionBackend.TENSORFLOW:
@@ -296,6 +297,7 @@ def test_keras_slice_executes_without_dynamic_code() -> None:
     assert detached.shape == (1, 2, 3)
 
 
+###############################################################################
 @pytest.mark.parametrize(("definition_id", "parameters", "symbols"), _UNARY_OPERATION_CASES)
 def test_unary_operation_catalog_source_and_static_contract(
     definition_id: str,
@@ -327,6 +329,7 @@ def test_unary_operation_catalog_source_and_static_contract(
     assert summary.outputs["output"].dtype.value == "float32"
 
 
+###############################################################################
 @pytest.mark.parametrize(("definition_id", "parameters", "_symbols"), _UNARY_OPERATION_CASES)
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
 def test_unary_operations_execute_with_finite_nonzero_inputs_across_native_backends(
@@ -359,6 +362,7 @@ def test_unary_operations_execute_with_finite_nonzero_inputs_across_native_backe
     assert np.isfinite(value).all()
 
 
+###############################################################################
 @pytest.mark.parametrize(("definition_id", "symbols"), _ELEMENTWISE_BOOLEAN_CASES)
 def test_boolean_elementwise_catalog_and_static_contract(
     definition_id: str,
@@ -395,6 +399,7 @@ def test_boolean_elementwise_catalog_and_static_contract(
     assert summary.outputs["output"].dtype.value == "bool"
 
 
+###############################################################################
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
 @pytest.mark.parametrize(("definition_id", "_symbols"), _ELEMENTWISE_BOOLEAN_CASES)
 def test_boolean_elementwise_operations_execute_across_native_backends(
@@ -454,6 +459,7 @@ def test_boolean_elementwise_operations_execute_across_native_backends(
     np.testing.assert_array_equal(value, np.asarray([expected_by_id[definition_id]], dtype=bool))
 
 
+###############################################################################
 @pytest.mark.parametrize(
     ("definition_id", "parameters", "symbols", "input_dtype", "expected_shape", "expected_dtype"),
     _REDUCTION_CASES,
@@ -491,6 +497,7 @@ def test_reduction_catalog_source_and_static_contract(
     assert summary.outputs["output"].dtype.value == expected_dtype
 
 
+###############################################################################
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
 @pytest.mark.parametrize(
     ("definition_id", "parameters", "input_dtype"),
@@ -558,6 +565,7 @@ def test_reductions_execute_with_expected_values_across_native_backends(
         np.testing.assert_allclose(value, expected, rtol=1e-5, atol=1e-5)
 
 
+###############################################################################
 @pytest.mark.parametrize("backend", list(ExecutionBackend))
 def test_native_log_functional_dummy_input_stays_in_a_finite_domain(backend: ExecutionBackend) -> None:
     pytest.importorskip(

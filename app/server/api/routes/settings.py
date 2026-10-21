@@ -21,7 +21,6 @@ from services.runtime_controller import RuntimeController, RuntimeControllerErro
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 LOGGER = logging.getLogger(__name__)
 
-
 ###############################################################################
 class DatabaseSettingsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -35,7 +34,6 @@ class DatabaseSettingsRequest(BaseModel):
     def to_config(self) -> DatabaseConfig:
         return DatabaseConfig.model_validate(self.model_dump())
 
-
 ###############################################################################
 class DatabaseStatusResponse(BaseModel):
     backend: str
@@ -45,7 +43,6 @@ class DatabaseStatusResponse(BaseModel):
     switching: bool
     message: str | None
 
-
 ###############################################################################
 class DatabaseTestResponse(BaseModel):
     success: bool
@@ -53,12 +50,10 @@ class DatabaseTestResponse(BaseModel):
     sqlite_path: str
     message: str
 
-
 ###############################################################################
 class DatabaseSwitchResponse(BaseModel):
     status: DatabaseStatusResponse
     settings: Settings
-
 
 ###############################################################################
 def _status_response(database_configuration: DatabaseConfigurationService) -> DatabaseStatusResponse:
@@ -72,7 +67,6 @@ def _status_response(database_configuration: DatabaseConfigurationService) -> Da
         message=status.message,
     )
 
-
 ###############################################################################
 @router.get("", response_model=Settings)
 def read_settings(request: Request) -> Settings:
@@ -81,6 +75,7 @@ def read_settings(request: Request) -> Settings:
         return uow.application_settings.get() or request.app.state.settings
 
 
+###############################################################################
 @router.patch("", response_model=Settings)
 def patch_settings(
     payload: dict[str, object],
@@ -103,7 +98,6 @@ def patch_settings(
         except ValidationError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
     return _save_application_settings(updated, request)
-
 
 ###############################################################################
 def _save_application_settings(payload: Settings, request: Request) -> Settings:
@@ -128,13 +122,11 @@ def _save_application_settings(payload: Settings, request: Request) -> Settings:
     request.app.state.settings = payload
     return payload
 
-
 ###############################################################################
 @router.get("/database", response_model=DatabaseStatusResponse)
 def read_database_status(request: Request) -> DatabaseStatusResponse:
     database_configuration: DatabaseConfigurationService = request.app.state.database_configuration
     return _status_response(database_configuration)
-
 
 ###############################################################################
 @router.post("/database/test", response_model=DatabaseTestResponse)
@@ -154,7 +146,6 @@ async def test_database_connection(
         sqlite_path=str(candidate.sqlite_path),
         message="SQLite connection and required schema are ready.",
     )
-
 
 ###############################################################################
 @router.put("/database", response_model=DatabaseSwitchResponse)

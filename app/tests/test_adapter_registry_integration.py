@@ -12,6 +12,7 @@ from exporters.node_emitters.contracts import EmissionResult, NodeEmitterRegistr
 MANAGED_ADAPTERS = {"constant", "parameter", "average", "split", "detection"}
 
 
+###############################################################################
 @pytest.mark.parametrize("backend", ["keras", "tensorflow", "pytorch", "jax"])
 def test_registered_universal_adapters_cover_all_editable_parameters(backend: str) -> None:
     registry_for_backend(backend).validate_catalog(
@@ -19,6 +20,7 @@ def test_registered_universal_adapters_cover_all_editable_parameters(backend: st
     )
 
 
+###############################################################################
 def test_keras_runtime_registry_covers_universal_runtime_adapters() -> None:
     registry = registry_for_backend("keras")
 
@@ -35,6 +37,7 @@ def test_keras_runtime_registry_covers_universal_runtime_adapters() -> None:
     )
 
 
+###############################################################################
 @pytest.mark.parametrize("backend", ["keras", "tensorflow", "pytorch", "jax"])
 def test_source_exporters_use_authoritative_manifest_adapters(backend: str) -> None:
     registry = registry_for_backend(backend)
@@ -45,6 +48,7 @@ def test_source_exporters_use_authoritative_manifest_adapters(backend: str) -> N
     )
 
 
+###############################################################################
 def test_source_exporters_no_longer_use_universal_node_id_allow_lists() -> None:
     exporter_root = __import__("pathlib").Path(__file__).parents[1] / "server" / "exporters"
     for filename in (
@@ -56,6 +60,7 @@ def test_source_exporters_no_longer_use_universal_node_id_allow_lists() -> None:
         assert "registry_managed" not in (exporter_root / filename).read_text(encoding="utf-8")
 
 
+###############################################################################
 def test_registry_rejects_duplicate_adapter_ids() -> None:
     registry = NodeEmitterRegistry("test")
 
@@ -64,6 +69,7 @@ def test_registry_rejects_duplicate_adapter_ids() -> None:
         registry.register("known", lambda _context: EmissionResult())
 
 
+###############################################################################
 def test_registry_reports_unresolved_verified_mapping() -> None:
     registry = NodeEmitterRegistry("keras")
 
@@ -71,6 +77,7 @@ def test_registry_reports_unresolved_verified_mapping() -> None:
         registry.validate_catalog(get_node_catalog(), adapter_ids={"constant"})
 
 
+###############################################################################
 def test_registry_reports_ignored_editable_parameters() -> None:
     registry = NodeEmitterRegistry("keras")
     registry.register("constant", lambda _context: EmissionResult(), authoritative=True)
@@ -79,6 +86,7 @@ def test_registry_reports_ignored_editable_parameters() -> None:
         registry.validate_catalog(get_node_catalog(), adapter_ids={"constant"})
 
 
+###############################################################################
 def test_catalog_adapter_audit_keeps_mapping_counts_separate_from_execution_proof() -> None:
     report = build_catalog_adapter_audit(
         get_node_catalog(),

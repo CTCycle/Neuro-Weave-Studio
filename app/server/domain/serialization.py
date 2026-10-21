@@ -7,7 +7,6 @@ from typing import Any, cast
 
 from domain.compilation_plan import normalize_compilation_plan
 
-
 ###############################################################################
 def _remove_detection_placeholder(raw: dict[str, object]) -> None:
     nodes = cast(list[object], raw.get("nodes", [])) if isinstance(raw.get("nodes", []), list) else []

@@ -11,7 +11,6 @@ from urllib.error import URLError
 import httpx
 import pytest
 
-
 ###############################################################################
 class _FakeResponse:
 

@@ -14,6 +14,7 @@ BACKENDS = ("keras", "tensorflow", "pytorch", "jax")
 NATIVE_BACKENDS = ("tensorflow", "pytorch", "jax")
 
 
+###############################################################################
 def _mapping_counts(catalog: NodeCatalog, backend: str) -> dict[str, int]:
     counts = {
         "verified": 0,
@@ -36,6 +37,7 @@ def _mapping_counts(catalog: NodeCatalog, backend: str) -> dict[str, int]:
     return counts
 
 
+###############################################################################
 def _adapter_records(
     catalog: NodeCatalog,
     backend: str,
@@ -84,6 +86,7 @@ def _adapter_records(
     return unresolved, ignored
 
 
+###############################################################################
 def _catalog_fallbacks(catalog: NodeCatalog) -> list[dict[str, str]]:
     fallbacks: list[dict[str, str]] = []
     for backend in NATIVE_BACKENDS:
@@ -103,6 +106,7 @@ def _catalog_fallbacks(catalog: NodeCatalog) -> list[dict[str, str]]:
     return fallbacks
 
 
+###############################################################################
 def _source_fallbacks() -> list[dict[str, str]]:
     exporter_root = Path(__file__).resolve().parents[1]
     fallbacks: list[dict[str, str]] = []
@@ -123,6 +127,7 @@ def _source_fallbacks() -> list[dict[str, str]]:
     return fallbacks
 
 
+###############################################################################
 def build_catalog_adapter_audit(
     catalog: NodeCatalog,
     registries: dict[str, NodeEmitterRegistry],

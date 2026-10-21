@@ -99,7 +99,6 @@ def _number(
         constraints=constraints,
     )
 
-
 ###############################################################################
 def _boolean(
     identifier: str,
@@ -114,7 +113,6 @@ def _boolean(
         default=default,
         description=description,
     )
-
 
 ###############################################################################
 def _integer(
@@ -142,7 +140,6 @@ def _integer(
         constraints=constraints,
     )
 
-
 ###############################################################################
 def _enum(
     identifier: str,
@@ -159,7 +156,6 @@ def _enum(
         options=options,
         description=description,
     )
-
 
 ###############################################################################
 def _number_list(

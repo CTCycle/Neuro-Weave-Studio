@@ -9,7 +9,6 @@ from sqlalchemy import DateTime
 from sqlalchemy.engine import Dialect
 from sqlalchemy.types import TypeDecorator
 
-
 ###############################################################################
 class UTCDateTime(TypeDecorator[datetime]):
     """Store UTC consistently in SQLite."""

@@ -20,6 +20,7 @@ RESOURCE_ROOT_ENV = "NEURO_WEAVE_RESOURCES_DIR"
 DEFAULT_RESOURCE_ROOT = REPOSITORY_ROOT / "data"
 
 
+###############################################################################
 def _read_dotenv_value(name: str) -> str | None:
     inherited = os.environ.get(name)
     if inherited is not None and inherited.strip():
@@ -42,6 +43,7 @@ def _read_dotenv_value(name: str) -> str | None:
     return None
 
 
+###############################################################################
 def resolve_resource_root(value: str | None = None) -> Path:
     raw_value = value if value is not None else _read_dotenv_value(RESOURCE_ROOT_ENV)
     if raw_value is None or not raw_value.strip():

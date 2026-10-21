@@ -15,7 +15,6 @@ from domain.runtime import RuntimeApi, WorkerConfiguration
 StorageMode = Literal["full", "sampled", "summary_only"]
 DataMode = Literal["exact", "sampled", "downsampled"]
 
-
 ###############################################################################
 class TensorInspectionSubmit(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -24,7 +23,6 @@ class TensorInspectionSubmit(BaseModel):
     project_revision: int = Field(ge=1)
     seed: int = Field(default=42, ge=0, le=2_147_483_647)
     worker: WorkerConfiguration
-
 
 ###############################################################################
 class TensorStatistics(BaseModel):
@@ -39,13 +37,11 @@ class TensorStatistics(BaseModel):
     nan_count: int = Field(default=0, ge=0)
     infinite_count: int = Field(default=0, ge=0)
 
-
 ###############################################################################
 class TensorHistogram(BaseModel):
     mode: DataMode
     bins: list[float] = Field(default_factory=lambda: list[float]())
     counts: list[int] = Field(default_factory=lambda: list[int]())
-
 
 ###############################################################################
 class TensorDescriptor(BaseModel):
@@ -63,7 +59,6 @@ class TensorDescriptor(BaseModel):
     statistics: TensorStatistics | None = None
     histogram: TensorHistogram | None = None
 
-
 ###############################################################################
 class TensorInspectionNode(BaseModel):
     node_id: str
@@ -77,7 +72,6 @@ class TensorInspectionNode(BaseModel):
     unavailable_reason: str | None = None
     inputs: list[TensorDescriptor] = Field(default_factory=lambda: list[TensorDescriptor]())
     outputs: list[TensorDescriptor] = Field(default_factory=lambda: list[TensorDescriptor]())
-
 
 ###############################################################################
 class TensorInspectionSession(BaseModel):
@@ -95,7 +89,6 @@ class TensorInspectionSession(BaseModel):
     expires_at: datetime
     nodes: list[TensorInspectionNode]
 
-
 ###############################################################################
 class TensorInspectionViewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -105,7 +98,6 @@ class TensorInspectionViewRequest(BaseModel):
     display_axes: list[int] = Field(default_factory=lambda: list[int](), max_length=2)
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=256, ge=1, le=4096)
-
 
 ###############################################################################
 class TensorInspectionViewResponse(BaseModel):

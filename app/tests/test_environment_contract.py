@@ -9,7 +9,6 @@ from pathlib import Path
 from common.path import ENV_EXAMPLE_FILE
 from configurations.environment import ensure_environment_file
 
-
 ###############################################################################
 def test_concurrent_first_start_creates_one_exact_environment_file(
     tmp_path: Path,
@@ -42,7 +41,6 @@ def test_existing_environment_file_is_never_overwritten(tmp_path: Path) -> None:
     ensure_environment_file(environment_file, template)
 
     assert environment_file.read_bytes() == original
-
 
 ###############################################################################
 def test_environment_template_contains_no_database_or_application_settings() -> None:

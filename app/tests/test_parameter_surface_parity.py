@@ -13,6 +13,7 @@ from common.catalogs import loader
 from common.catalogs.loader import RESOURCE_ROOT, get_node_catalog
 
 
+###############################################################################
 def _resource_node_ids() -> set[str]:
     identifiers: set[str] = set()
     for path in RESOURCE_ROOT.glob("*.json"):
@@ -35,6 +36,7 @@ def _resource_node_ids() -> set[str]:
     return identifiers
 
 
+###############################################################################
 def test_node_parameter_surfaces_are_declarative_and_match_catalog() -> None:
     catalog = get_node_catalog()
     groups, assignments = loader._parameter_group_catalog(  # pyright: ignore[reportPrivateUsage]
@@ -70,6 +72,7 @@ def test_node_parameter_surfaces_are_declarative_and_match_catalog() -> None:
         assert manifest.parameter_groups == assignments.get(node_id, [])
 
 
+###############################################################################
 def test_pytorch_adapter_mappings_are_catalog_declarative() -> None:
     catalog = get_node_catalog()
     expected = {
@@ -111,6 +114,7 @@ def test_pytorch_adapter_mappings_are_catalog_declarative() -> None:
     } == expected
 
 
+###############################################################################
 def test_parameter_group_expansion_preserves_declarative_metadata() -> None:
     parameter = {
         "id": "scale",
@@ -129,6 +133,7 @@ def test_parameter_group_expansion_preserves_declarative_metadata() -> None:
     assert expanded["parameters"] == [parameter]
 
 
+###############################################################################
 def test_parameter_group_expansion_rejects_group_and_surface_collisions() -> None:
     with pytest.raises(RuntimeError, match="Parameter surface collision"):
         loader._expand_parameter_groups(  # pyright: ignore[reportPrivateUsage]
@@ -145,6 +150,7 @@ def test_parameter_group_expansion_rejects_group_and_surface_collisions() -> Non
         )
 
 
+###############################################################################
 def test_parameter_group_expansion_rejects_alias_collisions() -> None:
     with pytest.raises(RuntimeError, match="alias collision"):
         loader._expand_parameter_groups(  # pyright: ignore[reportPrivateUsage]

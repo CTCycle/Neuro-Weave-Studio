@@ -12,7 +12,6 @@ from uuid import UUID
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import ModelGraph
 
-
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class ProjectMetadata:

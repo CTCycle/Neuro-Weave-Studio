@@ -24,7 +24,6 @@ from repositories.application_settings import ApplicationSettingsRepository
 from services.database_configuration_service import DatabaseConfigurationService
 from services.runtime_controller import RuntimeController
 
-
 ###############################################################################
 def test_database_configuration_persists_and_switch_loads_isolated_settings(
     tmp_path: Path, app_factory: Callable[..., FastAPI]
@@ -110,7 +109,6 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
         "sqlite_path": str(primary_database.resolve()),
     }
 
-
 ###############################################################################
 def test_invalid_runtime_preferences_do_not_change_persisted_settings(
     client: TestClient,
@@ -133,7 +131,6 @@ def test_invalid_runtime_preferences_do_not_change_persisted_settings(
     )
     assert invalid.status_code == 422
     assert client.get("/api/settings").json() == initial
-
 
 ###############################################################################
 def test_settings_write_failure_restores_runtime_configuration(
@@ -161,7 +158,6 @@ def test_settings_write_failure_restores_runtime_configuration(
     assert applied_log_levels == ["DEBUG", "INFO"]
     assert application.state.settings.log_level == "INFO"
     assert client.get("/api/settings").json()["log_level"] == "INFO"
-
 
 ###############################################################################
 def test_connection_failure_rolls_back_and_unavailable_database_can_be_repaired(
@@ -217,7 +213,6 @@ def test_connection_failure_rolls_back_and_unavailable_database_can_be_repaired(
         assert repaired.status_code == 200, repaired.text
         assert repair_client.get("/api/settings").status_code == 200
 
-
 ###############################################################################
 def test_selected_database_file_configuration_survives_application_restart(
     tmp_path: Path, app_factory: Callable[..., FastAPI]
@@ -242,7 +237,6 @@ def test_selected_database_file_configuration_survives_application_restart(
             json={"backend": "sqlite", "sqlite_path": str(primary_database)},
         )
         assert restored.status_code == 200, restored.text
-
 
 ###############################################################################
 def test_active_runtime_jobs_block_database_switch(
@@ -270,7 +264,6 @@ def test_active_runtime_jobs_block_database_switch(
         status = client.get("/api/settings/database").json()
         assert status["sqlite_path"] == str(active_database.resolve())
         assert not target_database.exists()
-
 
 ###############################################################################
 def test_switch_gate_drains_requests_and_holds_new_requests_until_activation(
@@ -308,7 +301,6 @@ def test_switch_gate_drains_requests_and_holds_new_requests_until_activation(
         await manager.leave_request()
 
     asyncio.run(exercise_gate())
-
 
 ###############################################################################
 def test_legacy_environment_settings_migrate_once_into_file_and_database(
@@ -364,7 +356,6 @@ def test_legacy_environment_settings_migrate_once_into_file_and_database(
     assert "NEURO_WEAVE_LOG_LEVEL" not in migrated_environment
     assert "FASTAPI_PORT=9850" in migrated_environment
     assert discovery_path.is_relative_to(CACHE_ROOT)
-
 
 ###############################################################################
 def test_runtime_preferences_are_database_only_not_environment_migration_keys() -> None:

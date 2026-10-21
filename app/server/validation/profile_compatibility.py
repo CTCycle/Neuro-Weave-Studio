@@ -16,7 +16,6 @@ CompatibilityReasonCode = Literal[
     "backend_excluded",
 ]
 
-
 ###############################################################################
 @dataclass(frozen=True)
 class ImplementationCompatibility:
@@ -24,7 +23,6 @@ class ImplementationCompatibility:
     reason_code: CompatibilityReasonCode | None
     reason: str | None
     mapping: ImplementationMapping | None = None
-
 
 ###############################################################################
 def resolve_implementation_compatibility(

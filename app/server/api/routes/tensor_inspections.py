@@ -18,11 +18,9 @@ from services.tensor_inspection_service import TensorInspectionError, TensorInsp
 
 router = APIRouter(prefix="/api/tensor-inspections", tags=["tensor-inspection"])
 
-
 ###############################################################################
 def _raise(exc: TensorInspectionError) -> NoReturn:
     raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}) from exc
-
 
 ###############################################################################
 @router.get("/{session_id}", response_model=TensorInspectionSession)
@@ -34,7 +32,6 @@ def get_session(
         return service.get(session_id)
     except TensorInspectionError as exc:
         _raise(exc)
-
 
 ###############################################################################
 @router.get("/{session_id}/nodes/{node_id}", response_model=TensorInspectionNode)
@@ -48,7 +45,6 @@ def get_node(
     except TensorInspectionError as exc:
         _raise(exc)
 
-
 ###############################################################################
 @router.post("/{session_id}/view", response_model=TensorInspectionViewResponse)
 def get_view(
@@ -60,7 +56,6 @@ def get_view(
         return service.view(session_id, payload)
     except TensorInspectionError as exc:
         _raise(exc)
-
 
 ###############################################################################
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)

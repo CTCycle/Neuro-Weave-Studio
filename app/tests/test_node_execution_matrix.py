@@ -16,13 +16,11 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from models.native_runtime import build_native_model, forward_native
 from services.validation_service import ValidationService
 
-
 ###############################################################################
 def _as_values(value: Any) -> list[Any]:
     if isinstance(value, (list, tuple)):
         return list(cast(list[Any] | tuple[Any, ...], value))
     return [value]
-
 
 ###############################################################################
 def _node(
@@ -254,6 +252,7 @@ KERAS_RUNTIME_CASES: list[tuple[str, Callable[[], ModelGraph], dict[str, np.ndar
 ]
 
 
+###############################################################################
 @pytest.mark.parametrize(
     ("node_family", "factory", "inputs", "expected_shapes"),
     KERAS_RUNTIME_CASES,
@@ -280,6 +279,7 @@ def test_universal_nodes_execute_through_keras_runtime_registry(
         assert np.isfinite(detached).all(), node_family
 
 
+###############################################################################
 @pytest.mark.parametrize(
     ("node_family", "factory", "trainable_count"),
     [

@@ -15,7 +15,6 @@ from services.keras_import_service import (
     parse_keras_architecture,
 )
 
-
 ###############################################################################
 def keras_archive(document: dict[str, object]) -> bytes:
     buffer = io.BytesIO()

@@ -26,7 +26,6 @@ from repositories.models import (
     ProjectNodeRecord,
 )
 
-
 ###############################################################################
 class GraphRepository:
 

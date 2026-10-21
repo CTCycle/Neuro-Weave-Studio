@@ -24,7 +24,6 @@ from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 from models.tensor_inspection_runtime import persist_inspection
 from validation.output_resolution import input_nodes, output_selectors, resolved_outputs
 
-
 ###############################################################################
 class BackendWorker(Protocol):
     """Common contract implemented by one isolated execution-backend worker."""
@@ -495,7 +494,6 @@ def _configured_compilation_summary(graph: ModelGraph, api: str) -> dict[str, ob
         },
         "training": "not_run",
     }
-
 
 ###############################################################################
 def _compilation_summary_value(value: Any) -> Any:
