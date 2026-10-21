@@ -102,8 +102,8 @@ export class ApiService {
     return this.request<ApplicationSettings>('/settings')
   }
 
-  saveApplicationSettings(settings: ApplicationSettings): Promise<ApplicationSettings> {
-    return this.request<ApplicationSettings>('/settings', 'PUT', settings)
+  patchApplicationSettings(settings: Partial<ApplicationSettings>): Promise<ApplicationSettings> {
+    return this.request<ApplicationSettings>('/settings', 'PATCH', settings)
   }
 
   getDatabaseStatus(): Promise<DatabaseStatus> {

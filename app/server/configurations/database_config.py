@@ -21,7 +21,12 @@ DATABASE_ENV_KEYS = {"DATABASE_SQLITE_PATH", "DATABASE_CONNECT_TIMEOUT"}
 APPLICATION_ENV_KEYS = {
     f"NEURO_WEAVE_{field.upper()}"
     for field in Settings.model_fields
-    if field not in {"app_name", "app_version"}
+    if field not in {
+        "app_name",
+        "app_version",
+        "runtime_preferences",
+        "runtime_preference_backend",
+    }
 } | {"NEURO_WEAVE_APP_NAME", "NEURO_WEAVE_APP_VERSION"}
 LEGACY_ENV_KEYS = DATABASE_ENV_KEYS | APPLICATION_ENV_KEYS
 

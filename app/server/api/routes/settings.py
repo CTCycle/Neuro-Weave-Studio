@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from api.dependencies import get_repository_context
 from common.logging_config import configure_logging
@@ -81,29 +81,51 @@ def read_settings(request: Request) -> Settings:
         return uow.application_settings.get() or request.app.state.settings
 
 
-###############################################################################
-@router.put("", response_model=Settings)
-def update_settings(
-    payload: Settings,
+@router.patch("", response_model=Settings)
+def patch_settings(
+    payload: dict[str, object],
     request: Request,
 ) -> Settings:
+    context = get_repository_context(request)
+    with context.new_unit_of_work() as uow:
+        previous = uow.application_settings.get() or request.app.state.settings
+        patch = dict(payload)
+        preferences = patch.get("runtime_preferences")
+        if preferences is not None:
+            if not isinstance(preferences, dict):
+                raise HTTPException(status_code=422, detail="runtime_preferences must be an object.")
+            patch["runtime_preferences"] = {
+                **previous.runtime_preferences,
+                **preferences,
+            }
+        try:
+            updated = Settings.model_validate({**previous.model_dump(), **patch})
+        except ValidationError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+    return _save_application_settings(updated, request)
+
+
+###############################################################################
+def _save_application_settings(payload: Settings, request: Request) -> Settings:
     context = get_repository_context(request)
     controller: RuntimeController = request.app.state.runtime_controller
     with context.new_unit_of_work() as uow:
         previous = uow.application_settings.get() or request.app.state.settings
         try:
             controller.apply_settings(payload)
+            configure_logging(payload.log_level, payload.log_file)
             uow.application_settings.save(payload)
             uow.commit()
         except RuntimeControllerError as error:
             controller.apply_settings(previous)
+            configure_logging(previous.log_level, previous.log_file)
             raise HTTPException(status_code=409, detail=str(error)) from error
         except Exception as error:
             controller.apply_settings(previous)
+            configure_logging(previous.log_level, previous.log_file)
             LOGGER.exception("Could not persist application settings")
             raise HTTPException(status_code=500, detail="Application settings could not be saved.") from error
     request.app.state.settings = payload
-    configure_logging(payload.log_level, payload.log_file)
     return payload
 
 

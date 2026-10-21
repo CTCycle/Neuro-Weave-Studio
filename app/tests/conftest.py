@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app import create_app
-from common.path import CACHE_ROOT, PYTEST_BASETEMP_ROOT
+from common.path import CACHE_ROOT, PYTEST_BASETEMP_ROOT, REPOSITORY_ROOT
 from configurations.database_config import DatabaseConfig
 from configurations.settings import Settings
 
@@ -21,15 +21,14 @@ from configurations.settings import Settings
 ###############################################################################
 def pytest_configure(config: pytest.Config) -> None:
     cache_root = CACHE_ROOT.resolve()
+    qa_root = (REPOSITORY_ROOT / "assets" / "QA").resolve()
     configured_cache_dir = Path(config.getini("cache_dir"))
     if not configured_cache_dir.is_absolute():
         configured_cache_dir = (Path(config.rootpath) / configured_cache_dir).resolve()
-    try:
-        configured_cache_dir.relative_to(cache_root)
-    except ValueError as error:
+    if not any(configured_cache_dir.is_relative_to(root) for root in (cache_root, qa_root)):
         raise pytest.UsageError(
-            f"pytest cache_dir must be beneath the canonical cache root {cache_root}"
-        ) from error
+            f"pytest cache_dir must be beneath the canonical cache root {cache_root} or {qa_root}"
+        )
 
     if config.option.basetemp is None:
         base_temp = PYTEST_BASETEMP_ROOT
@@ -37,12 +36,10 @@ def pytest_configure(config: pytest.Config) -> None:
         config.option.basetemp = str(base_temp)
     else:
         configured_basetemp = Path(config.option.basetemp).resolve()
-        try:
-            configured_basetemp.relative_to(cache_root)
-        except ValueError as error:
+        if not any(configured_basetemp.is_relative_to(root) for root in (cache_root, qa_root)):
             raise pytest.UsageError(
-                f"pytest basetemp must be beneath the canonical cache root {cache_root}"
-            ) from error
+                f"pytest basetemp must be beneath the canonical cache root {cache_root} or {qa_root}"
+            )
 
 ###############################################################################
 def _reset_jax_x64() -> None:

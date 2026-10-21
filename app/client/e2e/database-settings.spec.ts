@@ -1,12 +1,12 @@
 // Copyright © 2026 Thomas Virdis
 // Licensed under the MIT License.
 
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 
 const repositoryRoot = path.resolve(process.cwd(), '..', '..')
-const evidenceRoot = path.join(repositoryRoot, 'assets', 'QA', 'database-settings-ui-e2e-20261020')
+const evidenceRoot = path.join(repositoryRoot, 'assets', 'QA', 'database-settings-ui-e2e-20261021')
 test.describe.configure({ mode: 'serial' })
 
 test('tests, switches, reloads, and restores independent SQLite settings through Settings UI', async ({ page, request }) => {
@@ -21,6 +21,9 @@ test('tests, switches, reloads, and restores independent SQLite settings through
   const initialSettings = await initialSettingsResponse.json() as { log_level: string }
   const secondaryPath = path.join(evidenceRoot, `switch-candidate-${process.pid}.sqlite`)
   const invalidPath = path.join(evidenceRoot, `invalid-target-${process.pid}`)
+  const profileRoot = process.env['NW_SETTINGS_E2E_PROFILE']
+  const configPath = profileRoot ? path.join(profileRoot, 'database-config.json') : null
+  const originalConfig = configPath ? await readFile(configPath, 'utf8') : null
   await mkdir(invalidPath, { recursive: true })
 
   try {
@@ -29,11 +32,10 @@ test('tests, switches, reloads, and restores independent SQLite settings through
     await expect(page.getByText('SQLITE · Connected', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Log level')).toHaveValue(initialSettings.log_level)
 
+    const savePrimary = page.waitForResponse((response) => response.url().endsWith('/api/settings') && response.request().method() === 'PATCH')
     await page.getByLabel('Log level').selectOption('WARNING')
-    const savePrimary = page.waitForResponse((response) => response.url().endsWith('/api/settings') && response.request().method() === 'PUT')
-    await page.getByRole('button', { name: 'Save application settings', exact: true }).click()
     expect((await savePrimary).status()).toBe(200)
-    await expect(page.getByRole('status').filter({ hasText: 'Application settings saved to the active database.' })).toBeVisible()
+    await expect(page.getByRole('status').filter({ hasText: 'Changes saved automatically.' })).toBeVisible()
 
     await page.getByLabel('Database file path').fill(invalidPath)
     const failedTest = page.waitForResponse((response) => response.url().endsWith('/api/settings/database/test') && response.request().method() === 'POST')
@@ -41,23 +43,33 @@ test('tests, switches, reloads, and restores independent SQLite settings through
     expect((await failedTest).status()).toBe(422)
     await expect(page.getByRole('alert')).toContainText('Connection test failed')
 
+    const failedSwitch = page.waitForResponse((response) => response.url().endsWith('/api/settings/database') && response.request().method() === 'PUT')
+    await page.getByRole('button', { name: 'Confirm and switch', exact: true }).click()
+    expect((await failedSwitch).status()).toBe(422)
+    const statusAfterFailedSwitch = await request.get('/api/settings/database')
+    expect((await statusAfterFailedSwitch.json()).sqlite_path).toBe(initialStatus.sqlite_path)
+    if (configPath && originalConfig !== null) expect(await readFile(configPath, 'utf8')).toBe(originalConfig)
+
     await page.getByLabel('Database file path').fill(secondaryPath)
     const successfulTest = page.waitForResponse((response) => response.url().endsWith('/api/settings/database/test') && response.request().method() === 'POST')
     await page.getByRole('button', { name: 'Test connection', exact: true }).click()
     expect((await successfulTest).status()).toBe(200)
+    const statusBeforeConfirmation = await request.get('/api/settings/database')
+    expect((await statusBeforeConfirmation.json()).sqlite_path).toBe(initialStatus.sqlite_path)
+    if (configPath && originalConfig !== null) expect(await readFile(configPath, 'utf8')).toBe(originalConfig)
     await expect(page.getByText('SQLite connection and required schema are ready.', { exact: true })).toBeVisible()
     await page.screenshot({ path: path.join(evidenceRoot, 'settings-database-tested.png'), fullPage: true })
 
     const switchToSecondary = page.waitForResponse((response) => response.url().endsWith('/api/settings/database') && response.request().method() === 'PUT')
-    await page.getByRole('button', { name: 'Save and switch', exact: true }).click()
+    await page.getByRole('button', { name: 'Confirm and switch', exact: true }).click()
     expect((await switchToSecondary).status()).toBe(200)
     await expect(page.getByText(secondaryPath, { exact: true })).toBeVisible()
+    if (configPath) expect(JSON.parse(await readFile(configPath, 'utf8')).sqlite_path).toBe(secondaryPath)
     await expect(page.getByLabel('Log level')).toHaveValue('INFO')
     await expect(page.getByRole('status').filter({ hasText: 'Database switched.' })).toBeVisible()
 
     await page.getByLabel('Log level').selectOption('DEBUG')
-    const saveSecondary = page.waitForResponse((response) => response.url().endsWith('/api/settings') && response.request().method() === 'PUT')
-    await page.getByRole('button', { name: 'Save application settings', exact: true }).click()
+    const saveSecondary = page.waitForResponse((response) => response.url().endsWith('/api/settings') && response.request().method() === 'PATCH')
     expect((await saveSecondary).status()).toBe(200)
     await expect(page.getByLabel('Log level')).toHaveValue('DEBUG')
     await page.screenshot({ path: path.join(evidenceRoot, 'settings-database-switched.png'), fullPage: true })
@@ -69,10 +81,14 @@ test('tests, switches, reloads, and restores independent SQLite settings through
 
     await page.getByLabel('Database file path').fill(initialStatus.sqlite_path)
     const switchBack = page.waitForResponse((response) => response.url().endsWith('/api/settings/database') && response.request().method() === 'PUT')
-    await page.getByRole('button', { name: 'Save and switch', exact: true }).click()
+    await page.getByRole('button', { name: 'Confirm and switch', exact: true }).click()
     expect((await switchBack).status()).toBe(200)
     await expect(page.getByText(initialStatus.sqlite_path, { exact: true })).toBeVisible()
+    if (configPath) expect(JSON.parse(await readFile(configPath, 'utf8')).sqlite_path).toBe(initialStatus.sqlite_path)
     await expect(page.getByLabel('Log level')).toHaveValue('WARNING')
+    await page.getByLabel('Log level').selectOption(initialSettings.log_level)
+    const restorePrimary = page.waitForResponse((response) => response.url().endsWith('/api/settings') && response.request().method() === 'PATCH')
+    expect((await restorePrimary).status()).toBe(200)
   } finally {
     const status = await request.get('/api/settings/database')
     if (status.ok()) {

@@ -54,7 +54,10 @@ const apiLabels: Record<RuntimeApi, string> = { keras: 'Keras', native: 'Native 
             </div>
           }
         </div>
-        @if (pendingSelection()) { <div class="selection-prompt panel" role="alert"><strong>This runtime is used by an active worker.</strong><span>Choose whether to stop and reap it before switching, or keep it unchanged and use the new selection only for subsequent jobs.</span><div class="dialog-actions"><button class="secondary" type="button" (click)="keepRunning()" [disabled]="stopping()">Keep running</button><button class="danger-action" type="button" (click)="stopAndSwitch()" [disabled]="stopping()">{{ stopping() ? 'Reaping…' : 'Stop and switch' }}</button></div></div> }
+        @if (resources.runtimePreferenceSaveError()) { <div class="selection-prompt panel" role="alert"><strong>Runtime preferences could not be saved.</strong><span>{{ resources.runtimePreferenceSaveError() }}</span></div> }
+        @else if (resources.runtimePreferenceSaveStatus() === 'saving') { <p class="runtime-save-status" role="status">Saving runtime preferences…</p> }
+        @else if (resources.runtimePreferenceSaveStatus() === 'saved') { <p class="runtime-save-status" role="status">Runtime preferences saved automatically.</p> }
+        @if (activeJobs().length) { <p class="runtime-save-status">New runtime selections apply to future jobs. Active workers keep their original configuration.</p> }
         @if (jobsError()) { <div class="selection-prompt panel" role="status"><strong>Worker status unavailable.</strong><span>{{ jobsError() }} Last confirmed worker state is preserved below.</span></div> }
         @if (!activeJobs().length && !jobsError()) { <div class="active-jobs panel"><div><span class="eyebrow">ACTIVE WORKERS</span><strong>No active workers</strong></div><span class="muted">Jobs continue across navigation and are reaped before their device lease is released.</span></div> } @else if (activeJobs().length) { <div class="active-jobs panel"><div class="section-heading"><div><span class="eyebrow">ACTIVE WORKERS</span><h3>{{ activeJobs().length }} active job{{ activeJobs().length === 1 ? '' : 's' }}</h3></div><svg lucideTerminal [size]="16"></svg></div>@for (job of activeJobs(); track job.id) { <div class="active-job-row"><div><strong>{{ job.operation }}</strong><span>{{ job.worker.backend }} · {{ job.worker.device_id }} · PID {{ job.pid ?? job.device_lease.pid ?? 'starting' }}</span></div><div><span>{{ job.state }}</span><small>{{ job.progress.phase }} · {{ memoryText(job) }}</small></div><button type="button" class="icon-button" title="Stop worker" (click)="stopJob(job)"><svg lucideSquare [size]="14"></svg></button></div> }</div> }
       </section>
@@ -69,8 +72,6 @@ export class BackendStatusPanelComponent {
   private readonly destroyRef = inject(DestroyRef)
   readonly activeJobs = signal<JobResponse[]>([])
   readonly jobsError = signal<string | null>(null)
-  readonly pendingSelection = signal<WorkerConfiguration | null>(null)
-  readonly stopping = signal(false)
   readonly checking = signal<string | null>(null)
   private readonly discoveryAbort = new AbortController()
   readonly runtimeSelection = computed(() => {
@@ -79,7 +80,6 @@ export class BackendStatusPanelComponent {
   })
   readonly selectedBackend = computed(() => this.resources.runtimePreferenceBackend())
   readonly runtimeApiStatuses = computed(() => this.resources.runtimeApis())
-  readonly currentJobUsesSelection = computed(() => this.activeJobs().some((job) => sameWorker(job.worker, this.runtimeSelection())))
 
   constructor() {
     this.destroyRef.onDestroy(() => this.discoveryAbort.abort())
@@ -171,30 +171,7 @@ export class BackendStatusPanelComponent {
     const numeric = Number(this.value(event))
     const policy = selected.kind === 'tensorflow_limit_mb' ? { kind: selected.kind, limit_mb: numeric } : { kind: selected.kind, fraction: numeric }
     const selection = this.selectionFor(status, device, policy)
-    if (selection) this.requestSelection(selection)
-  }
-
-  keepRunning(): void { const pending = this.pendingSelection(); if (pending) this.applySelection(pending) }
-  async stopAndSwitch(): Promise<void> {
-    const pending = this.pendingSelection()
-    const current = this.runtimeSelection()
-    if (!pending || !current) return
-    this.stopping.set(true)
-    try {
-      await Promise.all(this.activeJobs().filter((job) => sameWorker(job.worker, current)).map((job) => this.api.stopJob(job.id)))
-      let remaining = this.activeJobs().filter((job) => sameWorker(job.worker, current))
-      for (let attempt = 0; attempt < 48 && remaining.length; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 250))
-        remaining = (await this.api.listJobs(true)).filter((job) => sameWorker(job.worker, current))
-      }
-      if (remaining.length) throw new Error('The active worker did not stop before the switch timeout.')
-      this.applySelection(pending)
-      await this.refreshJobs()
-    } catch (reason) {
-      this.jobsError.set(`Unable to stop the active worker: ${message(reason)}`)
-    } finally {
-      this.stopping.set(false)
-    }
+    if (selection) this.requestSelection(selection, 350)
   }
 
   async stopJob(job: JobResponse): Promise<void> {
@@ -217,8 +194,8 @@ export class BackendStatusPanelComponent {
     }
   }
 
-  private requestSelection(next: WorkerConfiguration): void { if (this.runtimeSelection() && this.currentJobUsesSelection() && !sameWorker(this.runtimeSelection(), next)) this.pendingSelection.set(next); else this.applySelection(next) }
-  private applySelection(next: WorkerConfiguration): void { this.resources.setRuntimePreference(next); this.pendingSelection.set(null) }
+  private requestSelection(next: WorkerConfiguration, debounceMs = 0): void { this.applySelection(next, debounceMs) }
+  private applySelection(next: WorkerConfiguration, debounceMs = 0): void { this.resources.setRuntimePreference(next, debounceMs) }
   private selectionFor(status: ExecutionBackendStatus, device: RuntimeDevice, memoryPolicy: WorkerConfiguration['memory_policy']): WorkerConfiguration | null {
     const api = this.selectedApi(status)
     if (!device.available || !api || !device.supported_memory_policies.includes(memoryPolicy.kind) || !isMemoryPolicyValid(memoryPolicy)) return null
@@ -228,6 +205,5 @@ export class BackendStatusPanelComponent {
   private value(event: Event): string { return (event.target as HTMLInputElement | HTMLSelectElement).value }
 }
 
-function sameWorker(left: WorkerConfiguration | null, right: WorkerConfiguration | null): boolean { return Boolean(left && right && left.api === right.api && left.backend === right.backend && left.device_id === right.device_id && left.memory_policy.kind === right.memory_policy.kind && left.precision === right.precision) }
 function formatReason(reason: string | null | undefined): string { if (reason === 'dependency_missing') return 'Installed package could not be imported'; if (reason === 'worker_failed') return 'Worker probe failed'; if (reason === 'backend_import_failed') return 'Backend import failed'; return reason ? reason.replaceAll('_', ' ') : 'Capability probe unavailable' }
 function message(reason: unknown): string { return reason instanceof Error ? reason.message : String(reason) }

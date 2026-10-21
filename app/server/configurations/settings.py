@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from common.path import (
     CACHE_ROOT,
@@ -15,6 +15,12 @@ from common.path import (
     RUNTIME_LOG_ROOT,
     RUNTIME_ROOT,
 )
+from domain.enums import ExecutionBackend
+from domain.runtime import WorkerConfiguration
+
+
+def _empty_runtime_preferences() -> dict[ExecutionBackend, WorkerConfiguration]:
+    return {}
 
 
 ###############################################################################
@@ -38,6 +44,23 @@ class Settings(BaseModel):
     ml_terminate_grace_seconds: int = Field(default=5, ge=1, le=300)
     ml_job_history_limit: int = Field(default=100, ge=10, le=1_000)
     runtime_discovery_path: Path = RUNTIME_DISCOVERY_CACHE_PATH
+    runtime_preferences: dict[ExecutionBackend, WorkerConfiguration] = Field(
+        default_factory=_empty_runtime_preferences
+    )
+    runtime_preference_backend: ExecutionBackend | None = None
+
+    # -------------------------------------------------------------------------
+    @model_validator(mode="after")
+    def validate_runtime_preferences(self) -> Settings:
+        for backend, preference in self.runtime_preferences.items():
+            if preference.backend != backend:
+                raise ValueError("Each runtime preference must match its backend key")
+        if (
+            self.runtime_preference_backend is not None
+            and self.runtime_preference_backend not in self.runtime_preferences
+        ):
+            raise ValueError("The selected runtime backend must have a saved preference")
+        return self
 
     # -------------------------------------------------------------------------
     @field_validator(

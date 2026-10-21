@@ -16,6 +16,7 @@ import type {
   RuntimeDiscoveryResponse,
   WorkerConfiguration,
 } from '../../domain/types'
+import type { ApplicationSettings } from '../../domain/settings.types'
 import type { DatasetSummary } from '../../domain/dataset.types'
 import {
   defaultRuntimePreference,
@@ -23,18 +24,10 @@ import {
   preferredBackend,
   preferredBackendForApi as selectPreferredBackendForApi,
 } from './runtime-selection'
-import {
-  readRuntimePreferenceBackend,
-  readRuntimePreferences,
-  storedPreferenceBackend,
-  writeRuntimePreferenceBackend,
-  writeRuntimePreferences,
-} from './runtime-preference-storage'
 
 @Injectable({ providedIn: 'root' })
 export class AppResourcesService {
   private readonly api = inject(ApiService)
-  private readonly storedPreferences = readRuntimePreferences()
 
   readonly manifests = signal<NodeManifest[]>([])
   readonly projects = signal<ProjectSummary[]>([])
@@ -43,10 +36,10 @@ export class AppResourcesService {
   readonly runtimeApis = signal<RuntimeApiStatus[]>([])
   readonly compilationCapabilities = signal<CompilationCapabilities | null>(null)
   readonly metricDefinitions = signal<MetricDefinition[]>([])
-  readonly runtimePreferences = signal<Partial<Record<ExecutionBackend, WorkerConfiguration>>>(this.storedPreferences)
-  readonly runtimePreferenceBackend = signal<ExecutionBackend | null>(
-    readRuntimePreferenceBackend() ?? storedPreferenceBackend(this.storedPreferences),
-  )
+  readonly runtimePreferences = signal<Partial<Record<ExecutionBackend, WorkerConfiguration>>>({})
+  readonly runtimePreferenceBackend = signal<ExecutionBackend | null>(null)
+  readonly runtimePreferenceSaveStatus = signal<'idle' | 'saving' | 'saved'>('idle')
+  readonly runtimePreferenceSaveError = signal('')
   readonly catalogReady = signal(false)
   readonly projectsReady = signal(false)
   readonly datasetsReady = signal(false)
@@ -62,6 +55,15 @@ export class AppResourcesService {
   private metricsRequest?: Promise<MetricDefinition[]>
   private readonly discoveryRequests = new Map<string, Promise<RuntimeDiscoveryResponse>>()
   private readonly validatedDiscoveries = new Set<string>()
+  private runtimePreferenceBaseline: Partial<Record<ExecutionBackend, WorkerConfiguration>> = {}
+  private selectedRuntimePreferenceBaseline: ExecutionBackend | null = null
+  private readonly pendingRuntimePreferences: Partial<Record<ExecutionBackend, WorkerConfiguration>> = {}
+  private readonly runtimePreferenceTimers = new Map<ExecutionBackend, ReturnType<typeof setTimeout>>()
+  private readonly runtimePreferenceRevisions = new Map<ExecutionBackend, number>()
+  private runtimePreferenceRevision = 0
+  private selectedRuntimePreferenceRevision = 0
+  private pendingRuntimePreferenceBackend = false
+  private runtimePreferenceWriteChain: Promise<void> = Promise.resolve()
   readonly discoveryPending = signal<Record<string, boolean>>({})
 
   loadProjects(): Promise<ProjectSummary[]> {
@@ -114,37 +116,14 @@ export class AppResourcesService {
 
   loadRuntimeMetadata(): Promise<void> {
     if (this.runtimeRequest) return this.runtimeRequest
-    this.runtimeRequest = this.api.metadata().then((value) => {
+    this.runtimeRequest = Promise.all([this.api.metadata(), this.api.getApplicationSettings()]).then(([value, settings]) => {
       const statuses = value.execution_backends
       this.backendStatuses.set(statuses)
       this.compilationCapabilities.set(value.configuration.compilation_capabilities)
       this.runtimeApis.set(value.runtime_apis ?? [])
-      const current = this.runtimePreferences()
-      const next = { ...current }
-      for (const status of statuses) {
-        const existing = next[status.id]
-        if (!status.available) {
-          delete next[status.id]
-          continue
-        }
-        if (!existing || !isRuntimePreferenceValid(status, existing)) {
-          const preference = defaultRuntimePreference(status)
-          if (preference) next[status.id] = preference
-          else delete next[status.id]
-        }
-      }
-      this.runtimePreferences.set(next)
-      writeRuntimePreferences(next)
-      const selected = this.runtimePreferenceBackend()
-      const preferred = preferredBackend(statuses)
-      const fallback = preferred && next[preferred]
-        ? preferred
-        : statuses.find((item) => next[item.id])?.id ?? null
-      const activeBackend = selected && next[selected] && statuses.some((item) => item.id === selected && item.available)
-        ? selected
-        : fallback
-      this.runtimePreferenceBackend.set(activeBackend)
-      writeRuntimePreferenceBackend(activeBackend)
+      this.applyRuntimePreferences(settings.runtime_preferences, settings.runtime_preference_backend, statuses)
+      this.runtimePreferenceBaseline = { ...this.runtimePreferences() }
+      this.selectedRuntimePreferenceBaseline = this.runtimePreferenceBackend()
       for (const status of statuses) {
         for (const api of status.runtime_apis ?? []) {
           if (api.state === 'unchecked' || api.state === undefined) this.validatedDiscoveries.delete(discoveryKey(status.id, api.id))
@@ -296,29 +275,91 @@ export class AppResourcesService {
     return selectPreferredBackendForApi(this.backendStatuses(), api)
   }
 
-  selectRuntimePreferenceBackend(backend: ExecutionBackend | null): void {
-    this.runtimePreferenceBackend.set(backend)
-    writeRuntimePreferenceBackend(backend)
-    if (!backend) return
-    const status = this.backendStatuses().find((item) => item.id === backend)
-    if (!status) return
-    const preferences = this.runtimePreferences()
-    if (!preferences[backend]) {
-      const preference = defaultRuntimePreference(status)
-      if (preference) {
-        const next = { ...preferences, [backend]: preference }
-        this.runtimePreferences.set(next)
-        writeRuntimePreferences(next)
-      }
-    }
-  }
-
-  setRuntimePreference(selection: WorkerConfiguration): void {
+  setRuntimePreference(selection: WorkerConfiguration, debounceMs = 0): void {
     const next = { ...this.runtimePreferences(), [selection.backend]: selection }
     this.runtimePreferences.set(next)
-    writeRuntimePreferences(next)
     this.runtimePreferenceBackend.set(selection.backend)
-    writeRuntimePreferenceBackend(selection.backend)
+    this.pendingRuntimePreferences[selection.backend] = selection
+    this.pendingRuntimePreferenceBackend = true
+    const revision = ++this.runtimePreferenceRevision
+    this.runtimePreferenceRevisions.set(selection.backend, revision)
+    this.selectedRuntimePreferenceRevision = revision
+    this.runtimePreferenceSaveStatus.set('saving')
+    this.runtimePreferenceSaveError.set('')
+    const existing = this.runtimePreferenceTimers.get(selection.backend)
+    if (existing) clearTimeout(existing)
+    const timer = setTimeout(() => {
+      this.runtimePreferenceTimers.delete(selection.backend)
+      void this.flushRuntimePreferences().catch(() => undefined)
+    }, Math.max(0, debounceMs))
+    this.runtimePreferenceTimers.set(selection.backend, timer)
+  }
+
+  async flushRuntimePreferences(): Promise<void> {
+    for (const [backend, timer] of this.runtimePreferenceTimers) {
+      clearTimeout(timer)
+      this.runtimePreferenceTimers.delete(backend)
+    }
+    const preferences = { ...this.pendingRuntimePreferences }
+    for (const backend of Object.keys(preferences) as ExecutionBackend[]) delete this.pendingRuntimePreferences[backend]
+    const selectedBackend = this.runtimePreferenceBackend()
+    const includeSelectedBackend = this.pendingRuntimePreferenceBackend
+    this.pendingRuntimePreferenceBackend = false
+    if (!Object.keys(preferences).length && !includeSelectedBackend) return this.runtimePreferenceWriteChain
+
+    const revisions = new Map((Object.keys(preferences) as ExecutionBackend[]).map((backend) => [backend, this.runtimePreferenceRevisions.get(backend) ?? 0]))
+    const selectedRevision = this.selectedRuntimePreferenceRevision
+    const write = this.runtimePreferenceWriteChain.then(async () => {
+      try {
+        const saved = await this.api.patchApplicationSettings({
+          runtime_preferences: preferences,
+          ...(includeSelectedBackend ? { runtime_preference_backend: selectedBackend } : {}),
+        })
+        for (const backend of Object.keys(preferences) as ExecutionBackend[]) {
+          const persisted = saved.runtime_preferences[backend]
+          if (persisted) this.runtimePreferenceBaseline[backend] = persisted
+          else delete this.runtimePreferenceBaseline[backend]
+        }
+        if (includeSelectedBackend) this.selectedRuntimePreferenceBaseline = saved.runtime_preference_backend
+        this.runtimePreferenceSaveError.set('')
+        if (revisions.size === 0 || [...revisions].some(([backend, revision]) => this.runtimePreferenceRevisions.get(backend) === revision)) {
+          if (Object.keys(this.pendingRuntimePreferences).length === 0 && !this.pendingRuntimePreferenceBackend) {
+            this.runtimePreferenceSaveStatus.set('saved')
+          }
+        }
+      } catch (reason) {
+        for (const [backend, revision] of revisions) {
+          if (this.runtimePreferenceRevisions.get(backend) !== revision) continue
+          const reverted = { ...this.runtimePreferences() }
+          const persisted = this.runtimePreferenceBaseline[backend]
+          if (persisted) reverted[backend] = persisted
+          else delete reverted[backend]
+          this.runtimePreferences.set(reverted)
+        }
+        if (includeSelectedBackend && this.selectedRuntimePreferenceRevision === selectedRevision) {
+          this.runtimePreferenceBackend.set(this.selectedRuntimePreferenceBaseline)
+        }
+        this.runtimePreferenceSaveStatus.set('idle')
+        this.runtimePreferenceSaveError.set(this.message(reason, 'Runtime preferences could not be saved.'))
+        throw reason
+      }
+    })
+    this.runtimePreferenceWriteChain = write.catch(() => undefined)
+    return write
+  }
+
+  restoreRuntimePreferences(settings: ApplicationSettings): void {
+    for (const [backend, timer] of this.runtimePreferenceTimers) {
+      clearTimeout(timer)
+      this.runtimePreferenceTimers.delete(backend)
+    }
+    for (const backend of Object.keys(this.pendingRuntimePreferences) as ExecutionBackend[]) delete this.pendingRuntimePreferences[backend]
+    this.pendingRuntimePreferenceBackend = false
+    this.applyRuntimePreferences(settings.runtime_preferences, settings.runtime_preference_backend, this.backendStatuses())
+    this.runtimePreferenceBaseline = { ...this.runtimePreferences() }
+    this.selectedRuntimePreferenceBaseline = this.runtimePreferenceBackend()
+    this.runtimePreferenceSaveStatus.set('idle')
+    this.runtimePreferenceSaveError.set('')
   }
 
   clearError(): void {
@@ -327,6 +368,36 @@ export class AppResourcesService {
 
   private recordError(resource: string, message: string): void {
     this.errors.set({ ...this.errors(), [resource]: message })
+  }
+
+  private applyRuntimePreferences(
+    stored: Partial<Record<ExecutionBackend, WorkerConfiguration>>,
+    selected: ExecutionBackend | null,
+    statuses: ExecutionBackendStatus[],
+  ): void {
+    const next = { ...stored }
+    for (const status of statuses) {
+      const existing = next[status.id]
+      if (!status.available) {
+        delete next[status.id]
+        continue
+      }
+      if (!existing || !isRuntimePreferenceValid(status, existing)) {
+        const preference = defaultRuntimePreference(status)
+        if (preference) next[status.id] = preference
+        else delete next[status.id]
+      }
+    }
+    this.runtimePreferences.set(next)
+    const preferred = preferredBackend(statuses)
+    const fallback = preferred && next[preferred]
+      ? preferred
+      : statuses.find((item) => next[item.id])?.id ?? null
+    this.runtimePreferenceBackend.set(
+      selected && next[selected] && statuses.some((item) => item.id === selected && item.available)
+        ? selected
+        : fallback,
+    )
   }
 
   private clearResourceError(resource: string): void {

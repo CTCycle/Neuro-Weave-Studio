@@ -124,7 +124,7 @@ test('NW-T1-05 supports UI settings and keeps Training session-only', async ({ p
     await expect(page.getByLabel('Log level')).toHaveValue('INFO')
     await expect(page.getByLabel('Database file path')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Test connection' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save and switch' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Confirm and switch' })).toBeVisible()
     await page.screenshot({ path: path.join(evidenceRoot, 'nw-t1-05-settings-boundary.png'), fullPage: true })
 
     await page.getByRole('link', { name: /Node Library/ }).click()
