@@ -124,7 +124,7 @@ function computeCatalogFingerprint(catalog: CatalogResponse): string {
 
 function smokeGraph() {
   return {
-    schema_version: 5,
+    schema_version: 6,
     nodes: [
       {
         id: 't4-input',
@@ -251,8 +251,15 @@ test.describe('NW-T4-01 fresh serial runtime profile matrix', () => {
     const catalogFingerprint = computeCatalogFingerprint(catalog)
     expect(catalog.nodes).toHaveLength(149)
 
+    const initialSettingsResponse = await request.get('/api/settings')
+    expect(initialSettingsResponse.ok()).toBeTruthy()
+    const initialSettings = await initialSettingsResponse.json() as {
+      runtime_preferences: Record<string, unknown>
+      runtime_preference_backend: string | null
+    }
     const matrix: Array<Record<string, unknown>> = []
-    for (const profile of profiles) {
+    try {
+      for (const profile of profiles) {
       const runtime = await waitForDiscovery(request, profile)
       const fixture = await createProject(request, profile)
       const initialProject = await (await request.get(`/api/projects/${fixture.id}`)).json() as ProjectDocument
@@ -333,6 +340,15 @@ test.describe('NW-T4-01 fresh serial runtime profile matrix', () => {
       } finally {
         await deleteProject(request, fixture.id)
       }
+      }
+    } finally {
+      const restoreResponse = await request.patch('/api/settings', {
+        data: {
+          runtime_preferences: initialSettings.runtime_preferences,
+          runtime_preference_backend: initialSettings.runtime_preference_backend,
+        },
+      })
+      expect(restoreResponse.ok(), 'restore runtime preferences after the profile matrix').toBeTruthy()
     }
 
     await writeFile(path.join(evidenceDir, 'nw-t4-01-six-profile-matrix.json'), JSON.stringify({ catalog: { schema_version: catalog.schema_version, count: catalog.nodes.length, fingerprint_sha256: catalogFingerprint }, profiles: matrix }, null, 2), 'utf8')

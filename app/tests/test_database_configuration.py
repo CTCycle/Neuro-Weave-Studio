@@ -13,11 +13,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app import create_app
 from configurations.database_config import DatabaseConfig
 from repositories.application_settings import ApplicationSettingsRepository
 from services.database_configuration_service import DatabaseConfigurationService
 from services.runtime_controller import RuntimeController
+
 
 ###############################################################################
 def test_database_configuration_persists_and_switch_loads_isolated_settings(
@@ -40,6 +40,10 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
             "memory_policy": {"kind": "default"},
             "precision": "float32",
         }
+        normalized_preference = {
+            **preference,
+            "memory_policy": {"kind": "default", "limit_mb": None, "fraction": None},
+        }
         selected = primary.patch(
             "/api/settings",
             json={
@@ -50,10 +54,7 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
         assert selected.status_code == 200, selected.text
         partial = primary.patch("/api/settings", json={"ml_job_history_limit": 101})
         assert partial.status_code == 200, partial.text
-        assert partial.json()["runtime_preferences"]["pytorch"] == {
-            **preference,
-            "memory_policy": {"kind": "default", "limit_mb": None, "fraction": None},
-        }
+        assert partial.json()["runtime_preferences"]["pytorch"] == normalized_preference
         assert partial.json()["runtime_preference_backend"] == "pytorch"
 
         connection_test = primary.post(
@@ -89,11 +90,11 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
         assert switched_back.status_code == 200, switched_back.text
         assert switched_back.json()["settings"]["log_level"] == "DEBUG"
         assert primary.get("/api/settings").json()["log_level"] == "DEBUG"
-        assert primary.get("/api/settings").json()["runtime_preferences"]["pytorch"] == preference
+        assert primary.get("/api/settings").json()["runtime_preferences"]["pytorch"] == normalized_preference
 
     with TestClient(app_factory(database_path=primary_database)) as restarted:
         restored_settings = restarted.get("/api/settings").json()
-        assert restored_settings["runtime_preferences"]["pytorch"] == preference
+        assert restored_settings["runtime_preferences"]["pytorch"] == normalized_preference
         assert restored_settings["runtime_preference_backend"] == "pytorch"
 
     persisted_configuration = json.loads(primary_config.read_text(encoding="utf-8"))

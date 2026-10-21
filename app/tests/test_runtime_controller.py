@@ -27,7 +27,12 @@ from domain.runtime import (
     RuntimeDevice,
     WorkerConfiguration,
 )
-from services.runtime_controller import RuntimeController, RuntimeControllerError
+from services.runtime_controller import (
+    DISCOVERY_SNAPSHOT_SCHEMA_VERSION,
+    RuntimeController,
+    RuntimeControllerError,
+)
+
 
 ###############################################################################
 def status(*devices: RuntimeDevice) -> ExecutionBackendStatus:
@@ -234,7 +239,7 @@ def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapsh
                     "supported_memory_policies": ["default"],
                 }
             ],
-            "native_compilers": {"torch_compile": True},
+            "native_compilers": {"pytorch_compile": True},
         }
         return subprocess.CompletedProcess([], 0, json.dumps(payload), "")
 
@@ -248,6 +253,16 @@ def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapsh
         export_root=tmp_path / "exports",
         runtime_discovery_path=tmp_path / "environment-discovery.json",
     )
+    settings.runtime_discovery_path.write_text(
+        json.dumps(
+            {
+                "schema_version": DISCOVERY_SNAPSHOT_SCHEMA_VERSION - 1,
+                "fingerprint": "legacy-snapshot",
+                "statuses": {"pytorch": {"native_compilers": {"torch_compile": True}}},
+            }
+        ),
+        encoding="utf-8",
+    )
 
     first = RuntimeController(settings)
     try:
@@ -259,6 +274,11 @@ def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapsh
         assert (
             first.backend_statuses[ExecutionBackend.TENSORFLOW].reason_code == "dependency_missing"
         )
+        refreshed_snapshot = json.loads(settings.runtime_discovery_path.read_text(encoding="utf-8"))
+        assert refreshed_snapshot["schema_version"] == DISCOVERY_SNAPSHOT_SCHEMA_VERSION
+        assert refreshed_snapshot["statuses"]["pytorch"]["native_compilers"] == {
+            "pytorch_compile": True
+        }
     finally:
         first.shutdown()
 
@@ -272,6 +292,34 @@ def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapsh
         assert len(probes) == 4
     finally:
         second.shutdown()
+
+###############################################################################
+def test_native_compiler_availability_ignores_obsolete_capability_keys() -> None:
+    from domain.compilation_capabilities import get_native_compilation_capabilities
+
+    statuses = {
+        ExecutionBackend.TENSORFLOW: ExecutionBackendStatus(
+            id=ExecutionBackend.TENSORFLOW,
+            available=True,
+            native_compilers={"tensorflow_jit": True},
+        ),
+        ExecutionBackend.PYTORCH: ExecutionBackendStatus(
+            id=ExecutionBackend.PYTORCH,
+            available=True,
+            native_compilers={"torch_compile": True},
+        ),
+        ExecutionBackend.JAX: ExecutionBackendStatus(
+            id=ExecutionBackend.JAX,
+            available=True,
+            native_compilers={"jax_jit": False},
+        ),
+    }
+
+    capabilities = get_native_compilation_capabilities(statuses)
+
+    assert capabilities[ExecutionBackend.TENSORFLOW].available is False
+    assert capabilities[ExecutionBackend.PYTORCH].available is False
+    assert capabilities[ExecutionBackend.JAX].available is False
 
 ###############################################################################
 @pytest.mark.parametrize(

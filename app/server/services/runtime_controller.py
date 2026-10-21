@@ -66,7 +66,7 @@ from domain.runtime import (
 from models.export_artifacts import sha256_file
 
 LOGGER = logging.getLogger(__name__)
-DISCOVERY_SNAPSHOT_SCHEMA_VERSION = 2
+DISCOVERY_SNAPSHOT_SCHEMA_VERSION = 3
 
 ###############################################################################
 def _empty_diagnostics() -> dict[str, int | None]:

@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from repositories.graphs import GraphRepository
 
+
 ###############################################################################
 def fail_update_graph_replace(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("graph replacement failed")
@@ -45,7 +46,7 @@ def project_payload() -> dict[str, object]:
         "execution_backend": "pytorch",
         "keras_enabled": True,
         "graph": {
-            "schema_version": 5,
+            "schema_version": 6,
             "nodes": [
                 {
                     "id": "input",
@@ -89,17 +90,7 @@ def project_payload() -> dict[str, object]:
                     "target_port_id": "input",
                 },
             ],
-            "model_configuration": {
-                "keras": {
-                    "optimizer": "adam",
-                    "optimizer_parameters": {"learning_rate": 0.001},
-                    "losses": {},
-                    "metrics": {},
-                    "mixed_precision": False,
-                    "random_seed": 42,
-                },
-                "native": {},
-            },
+            "model_configuration": {},
             "export_settings": {
                 "include_comments": True,
                 "include_shape_assertions": True,

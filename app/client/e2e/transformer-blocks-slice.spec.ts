@@ -69,42 +69,10 @@ const evidenceDir = path.resolve(
 
 function graphShell(nodes: GraphNode[]) {
   return {
-    schema_version: 5,
+    schema_version: 6,
     nodes,
     edges: [],
-    model_configuration: {
-      keras: {
-        optimizer: 'adam',
-        optimizer_parameters: { learning_rate: 0.001 },
-        losses: {},
-        metrics: {},
-        default_initializer: 'glorot_uniform',
-        default_regularizer: 'none',
-        default_constraint: 'none',
-        mixed_precision: false,
-        random_seed: 42,
-      },
-      native: {
-        tensorflow: { jit_compile: false },
-        pytorch: {
-          optimizer: 'adamw',
-          optimizer_parameters: {
-            learning_rate: 0.0005,
-            weight_decay: 0.004,
-            beta_1: 0.9,
-            beta_2: 0.999,
-            epsilon: 1e-7,
-          },
-          losses: {},
-          metrics: {},
-          compile_enabled: false,
-          mode: 'default',
-          fullgraph: false,
-          dynamic: false,
-        },
-        jax: { jit_enabled: false },
-      },
-    },
+    model_configuration: {},
     export_settings: {
       include_comments: true,
       include_shape_assertions: true,
@@ -291,9 +259,16 @@ async function setTransformerParameters(
   }
 }
 
-async function validateGraph(page: Page): Promise<ValidationPayload> {
+async function validateGraph(page: Page, nodeId: string, edgeCount: number): Promise<ValidationPayload> {
   const validationResponsePromise = page.waitForResponse(
-    (response) => response.url().endsWith('/api/validation') && response.request().method() === 'POST',
+    (response) => {
+      if (!response.url().endsWith('/api/validation') || response.request().method() !== 'POST') return false
+      const body = response.request().postDataJSON() as {
+        graph?: { nodes?: Array<{ id?: string }>; edges?: unknown[] }
+      }
+      return body.graph?.nodes?.some((node) => node.id === nodeId) === true
+        && body.graph?.edges?.length === edgeCount
+    },
   )
   await page.getByRole('button', { name: 'Validate', exact: true }).click()
   const validationResponse = await validationResponsePromise
@@ -326,7 +301,7 @@ async function validateSaveAndRun(
   browserErrors: string[],
   failedRequests: string[],
 ): Promise<{ validation: ValidationPayload; saved: SavedProject; submittedJobId: string; finalJob: RuntimeJob }> {
-  const validation = await validateGraph(page)
+  const validation = await validateGraph(page, nodeId, candidate.edgeCount)
   expect(validation.valid, JSON.stringify(validation.diagnostics)).toBe(true)
   expect(validation.diagnostics).toEqual([])
   const summary = validation.shape_summaries.find((item) => item.node_id === nodeId)
@@ -681,7 +656,7 @@ test.describe('NW-T3-07 Transformer block catalog slice', () => {
       await setTransformerParameters(page, transformerNodeId, candidate.parameters)
       await connectCase(page, candidate)
 
-      const validBeforeRepair = await validateGraph(page)
+      const validBeforeRepair = await validateGraph(page, transformerNodeId, candidate.edgeCount)
       expect(validBeforeRepair.valid).toBe(true)
       const inspector = page.getByRole('complementary', { name: 'Properties inspector' })
       const layers = (await parameterField(inspector, /Layers/i)).locator('input')

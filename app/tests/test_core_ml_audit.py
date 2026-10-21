@@ -16,11 +16,12 @@ import pytest
 from common.catalogs.loader import get_node_catalog
 from compilation.compiler import compile_to_ir
 from configurations.settings import get_settings
+from domain.compilation_plan import CompilationObject, CompilationPlan
 from domain.enums import ExecutionBackend, keras_backend_value
 from domain.exports import ExportFormat
 from domain.graph import (
     EdgeInstance,
-    KerasCompilationConfiguration,
+    KerasProfileConfiguration,
     ModelConfiguration,
     ModelGraph,
     NodeInstance,
@@ -37,9 +38,10 @@ from exporters.keras_exporter import KerasSourceExporter
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
 
+
 ###############################################################################
-def _keras_configuration(**payload: object) -> KerasCompilationConfiguration:
-    return KerasCompilationConfiguration.model_validate(payload)
+def _keras_configuration(**payload: object) -> KerasProfileConfiguration:
+    return KerasProfileConfiguration.model_validate(payload)
 
 ###############################################################################
 def node(
@@ -266,8 +268,10 @@ def test_generated_keras_source_executes_and_compiles(tmp_path: Path) -> None:
         ],
         model_configuration=ModelConfiguration(
             keras=_keras_configuration(
-                losses={"__default__": "categorical_crossentropy"},
-                metrics={"__default__": ["categorical_accuracy"]},
+                compilation=CompilationPlan(
+                    losses={"__default__": CompilationObject(id="categorical_crossentropy")},
+                    metrics={"__default__": [CompilationObject(id="categorical_accuracy")]},
+                ),
             ),
         ),
     )
@@ -402,12 +406,14 @@ def test_multi_output_compile_selectors_generate_executable_transformer_source(
         ],
         model_configuration=ModelConfiguration(
             keras=_keras_configuration(
-                optimizer="adamw",
-                losses={
-                    "tokens": "mean_squared_error",
-                    "output_b": "mean_absolute_error",
-                },
-                metrics={"__default__": ["mean_squared_error"]},
+                compilation=CompilationPlan(
+                    optimizer=CompilationObject(id="adamw"),
+                    losses={
+                        "tokens": CompilationObject(id="mean_squared_error"),
+                        "output_b": CompilationObject(id="mean_absolute_error"),
+                    },
+                    metrics={"__default__": [CompilationObject(id="mean_squared_error")]},
+                ),
             ),
         ),
     )
@@ -474,9 +480,11 @@ def test_keras_export_reloads_custom_layer_in_clean_process(
         ],
         model_configuration=ModelConfiguration(
             keras=_keras_configuration(
-                optimizer="adamw",
-                losses={"__default__": "mean_squared_error"},
-                metrics={"__default__": ["mean_squared_error"]},
+                compilation=CompilationPlan(
+                    optimizer=CompilationObject(id="adamw"),
+                    losses={"__default__": CompilationObject(id="mean_squared_error")},
+                    metrics={"__default__": [CompilationObject(id="mean_squared_error")]},
+                ),
                 random_seed=123,
             ),
         ),

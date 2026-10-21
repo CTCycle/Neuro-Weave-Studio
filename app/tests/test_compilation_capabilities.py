@@ -11,6 +11,7 @@ import pytest
 from common.catalogs.loader import get_node_catalog
 from domain.compilation_capabilities import get_compilation_capabilities
 from domain.compilation_catalog import get_compilation_catalog
+from domain.compilation_plan import CompilerObject
 from domain.enums import ExecutionBackend
 from domain.graph import (
     EdgeInstance,
@@ -31,6 +32,7 @@ from models.worker_backend import (
 from services.compilation_service import CompilationService
 from services.validation_service import ValidationService
 from validation.compile_configuration import validate_model_configuration
+
 
 ###############################################################################
 def _tensorflow_native(**payload: object) -> TensorFlowNativeConfiguration:
@@ -92,14 +94,25 @@ def _native_graph() -> ModelGraph:
         ],
         model_configuration=ModelConfiguration(
             native=NativeCompilationConfiguration(
-                tensorflow=_tensorflow_native(jit_compile=True),
-                pytorch=_pytorch_native(
-                    compile_enabled=True,
-                    mode="max-autotune",
-                    fullgraph=True,
-                    dynamic=True,
+                tensorflow=_tensorflow_native(
+                    compiler=CompilerObject(
+                        id="tensorflow_function", parameters={"jit_compile": True}
+                    )
                 ),
-                jax=_jax_native(jit_enabled=True),
+                pytorch=_pytorch_native(
+                    compiler=CompilerObject(
+                        id="pytorch_compile",
+                        parameters={
+                            "enabled": True,
+                            "mode": "max-autotune",
+                            "fullgraph": True,
+                            "dynamic": True,
+                        },
+                    )
+                ),
+                jax=_jax_native(
+                    compiler=CompilerObject(id="jax_jit", parameters={"enabled": True})
+                ),
             )
         ),
     )
@@ -110,12 +123,12 @@ def test_metadata_exposes_one_capability_tree_with_explicit_runtime_reasons() ->
         ExecutionBackend.TENSORFLOW: ExecutionBackendStatus(
             id=ExecutionBackend.TENSORFLOW,
             available=True,
-            native_compilers={"tensorflow_jit": True},
+            native_compilers={"tensorflow_function": True},
         ),
         ExecutionBackend.PYTORCH: ExecutionBackendStatus(
             id=ExecutionBackend.PYTORCH,
             available=True,
-            native_compilers={"torch_compile": False},
+            native_compilers={"pytorch_compile": False},
         ),
         ExecutionBackend.JAX: ExecutionBackendStatus(
             id=ExecutionBackend.JAX,
@@ -145,12 +158,25 @@ def test_native_configuration_round_trips_and_invalid_options_are_diagnostic() -
     round_tripped = ModelGraph.model_validate(graph.model_dump(mode="json"))
 
     assert round_tripped.model_configuration == graph.model_configuration
-    assert round_tripped.model_configuration.native.pytorch.mode == "max-autotune"
+    assert (
+        round_tripped.model_configuration.native.pytorch.compiler.parameters["mode"]
+        == "max-autotune"
+    )
     invalid = graph.model_copy(
         update={
             "model_configuration": ModelConfiguration(
                 native=NativeCompilationConfiguration(
-                    pytorch=_pytorch_native(mode="not-a-torch-mode")
+                    pytorch=_pytorch_native(
+                        compiler=CompilerObject(
+                            id="pytorch_compile",
+                            parameters={
+                                "enabled": False,
+                                "mode": "not-a-torch-mode",
+                                "fullgraph": False,
+                                "dynamic": False,
+                            },
+                        )
+                    )
                 )
             )
         }

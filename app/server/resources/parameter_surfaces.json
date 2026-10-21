@@ -23,8 +23,7 @@
         "required_when": {},
         "framework_default": 32,
         "editor_default": 32,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_size",
@@ -55,8 +54,7 @@
         "editor_default": [
           3
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -94,8 +92,7 @@
         "required_when": {},
         "framework_default": "linear",
         "editor_default": "linear",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_bias",
@@ -117,8 +114,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "groups",
@@ -142,8 +138,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.max_pool1d": [
@@ -173,8 +168,7 @@
         "editor_default": [
           2
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -210,8 +204,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -233,8 +226,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -256,8 +248,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "strides",
@@ -282,8 +273,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "padding",
@@ -308,8 +298,7 @@
         "required_when": {},
         "framework_default": "valid",
         "editor_default": "valid",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -334,8 +323,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.average_pool1d": [
@@ -365,8 +353,7 @@
         "editor_default": [
           2
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -402,8 +389,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -425,8 +411,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -448,8 +433,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "strides",
@@ -474,8 +458,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "padding",
@@ -500,8 +483,7 @@
         "required_when": {},
         "framework_default": "valid",
         "editor_default": "valid",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -526,8 +508,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.global_pool1d": [
@@ -554,8 +535,7 @@
         "required_when": {},
         "framework_default": "average",
         "editor_default": "average",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -591,8 +571,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -614,8 +593,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -637,8 +615,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -663,8 +640,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "keepdims",
@@ -686,8 +662,7 @@
         "required_when": {},
         "framework_default": false,
         "editor_default": false,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.conv2d": [
@@ -713,8 +688,7 @@
         "required_when": {},
         "framework_default": 32,
         "editor_default": 32,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_size",
@@ -745,8 +719,7 @@
           3,
           3
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -784,8 +757,7 @@
         "required_when": {},
         "framework_default": "linear",
         "editor_default": "linear",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_bias",
@@ -807,8 +779,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "groups",
@@ -832,8 +803,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.max_pool2d": [
@@ -866,8 +836,7 @@
           2,
           2
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -903,8 +872,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -926,8 +894,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -949,8 +916,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "strides",
@@ -975,8 +941,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "padding",
@@ -1001,8 +966,7 @@
         "required_when": {},
         "framework_default": "valid",
         "editor_default": "valid",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -1027,8 +991,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.average_pool2d": [
@@ -1061,8 +1024,7 @@
           2,
           2
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -1098,8 +1060,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -1121,8 +1082,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -1144,8 +1104,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "strides",
@@ -1170,8 +1129,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "padding",
@@ -1196,8 +1154,7 @@
         "required_when": {},
         "framework_default": "valid",
         "editor_default": "valid",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -1222,8 +1179,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.global_pool2d": [
@@ -1250,8 +1206,7 @@
         "required_when": {},
         "framework_default": "average",
         "editor_default": "average",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -1287,8 +1242,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -1310,8 +1264,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -1333,8 +1286,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -1359,8 +1311,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "keepdims",
@@ -1382,8 +1333,7 @@
         "required_when": {},
         "framework_default": false,
         "editor_default": false,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.conv3d": [
@@ -1409,8 +1359,7 @@
         "required_when": {},
         "framework_default": 32,
         "editor_default": 32,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_size",
@@ -1444,8 +1393,7 @@
           3,
           3
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -1483,8 +1431,7 @@
         "required_when": {},
         "framework_default": "linear",
         "editor_default": "linear",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_bias",
@@ -1506,8 +1453,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "groups",
@@ -1531,8 +1477,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.max_pool3d": [
@@ -1568,8 +1513,7 @@
           2,
           2
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -1605,8 +1549,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -1628,8 +1571,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -1651,8 +1593,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "strides",
@@ -1677,8 +1618,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "padding",
@@ -1703,8 +1643,7 @@
         "required_when": {},
         "framework_default": "valid",
         "editor_default": "valid",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -1729,8 +1668,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.average_pool3d": [
@@ -1766,8 +1704,7 @@
           2,
           2
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -1803,8 +1740,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -1826,8 +1762,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -1849,8 +1784,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "strides",
@@ -1875,8 +1809,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "padding",
@@ -1901,8 +1834,7 @@
         "required_when": {},
         "framework_default": "valid",
         "editor_default": "valid",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -1927,8 +1859,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.global_pool3d": [
@@ -1955,8 +1886,7 @@
         "required_when": {},
         "framework_default": "average",
         "editor_default": "average",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -1992,8 +1922,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -2015,8 +1944,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -2038,8 +1966,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -2064,8 +1991,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "keepdims",
@@ -2087,8 +2013,7 @@
         "required_when": {},
         "framework_default": false,
         "editor_default": false,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.transposed": [
@@ -2116,8 +2041,7 @@
         "required_when": {},
         "framework_default": 2,
         "editor_default": 2,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "filters",
@@ -2139,8 +2063,7 @@
         "required_when": {},
         "framework_default": 32,
         "editor_default": 32,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_size",
@@ -2171,8 +2094,7 @@
           3,
           3
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -2208,8 +2130,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -2231,8 +2152,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -2254,8 +2174,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "output_padding",
@@ -2279,8 +2198,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "strides",
@@ -2313,8 +2231,7 @@
           1,
           1
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "padding",
@@ -2339,8 +2256,7 @@
         "required_when": {},
         "framework_default": "valid",
         "editor_default": "valid",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -2365,8 +2281,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dilation_rate",
@@ -2399,8 +2314,7 @@
           1,
           1
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -2438,8 +2352,7 @@
         "required_when": {},
         "framework_default": "linear",
         "editor_default": "linear",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_bias",
@@ -2461,8 +2374,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_initializer",
@@ -2503,8 +2415,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -2545,8 +2456,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_regularizer",
@@ -2574,8 +2484,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -2603,8 +2512,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -2632,8 +2540,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_constraint",
@@ -2662,8 +2569,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -2692,8 +2598,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.depthwise": [
@@ -2720,8 +2625,7 @@
         "required_when": {},
         "framework_default": 2,
         "editor_default": 2,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "depth_multiplier",
@@ -2745,8 +2649,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_size",
@@ -2780,8 +2683,7 @@
           3,
           3
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -2817,8 +2719,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -2840,8 +2741,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -2863,8 +2763,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "strides",
@@ -2897,8 +2796,7 @@
           1,
           1
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "padding",
@@ -2923,8 +2821,7 @@
         "required_when": {},
         "framework_default": "valid",
         "editor_default": "valid",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -2949,8 +2846,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dilation_rate",
@@ -2983,8 +2879,7 @@
           1,
           1
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -3022,8 +2917,7 @@
         "required_when": {},
         "framework_default": "linear",
         "editor_default": "linear",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_bias",
@@ -3045,8 +2939,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "depthwise_initializer",
@@ -3087,8 +2980,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -3129,8 +3021,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "depthwise_regularizer",
@@ -3158,8 +3049,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -3187,8 +3077,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -3216,8 +3105,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "depthwise_constraint",
@@ -3246,8 +3134,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -3276,8 +3163,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.separable": [
@@ -3301,8 +3187,7 @@
         "required_when": {},
         "framework_default": 32,
         "editor_default": 32,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_size",
@@ -3333,8 +3218,7 @@
           3,
           3
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -3370,8 +3254,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -3393,8 +3276,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -3416,8 +3298,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dimensions",
@@ -3442,8 +3323,7 @@
         "required_when": {},
         "framework_default": 2,
         "editor_default": 2,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "strides",
@@ -3476,8 +3356,7 @@
           1,
           1
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "padding",
@@ -3502,8 +3381,7 @@
         "required_when": {},
         "framework_default": "valid",
         "editor_default": "valid",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -3528,8 +3406,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dilation_rate",
@@ -3562,8 +3439,7 @@
           1,
           1
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -3601,8 +3477,7 @@
         "required_when": {},
         "framework_default": "linear",
         "editor_default": "linear",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_bias",
@@ -3624,8 +3499,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "depth_multiplier",
@@ -3649,8 +3523,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "depthwise_initializer",
@@ -3691,8 +3564,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "pointwise_initializer",
@@ -3733,8 +3605,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -3775,8 +3646,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "depthwise_regularizer",
@@ -3804,8 +3674,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "pointwise_regularizer",
@@ -3833,8 +3702,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -3862,8 +3730,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -3891,8 +3758,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "depthwise_constraint",
@@ -3921,8 +3787,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "pointwise_constraint",
@@ -3951,8 +3816,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -3981,8 +3845,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.upsampling": [
@@ -4015,8 +3878,7 @@
           2,
           2
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -4052,8 +3914,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -4075,8 +3936,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -4098,8 +3958,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dimensions",
@@ -4125,8 +3984,7 @@
         "required_when": {},
         "framework_default": 2,
         "editor_default": 2,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -4151,8 +4009,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "interpolation",
@@ -4181,8 +4038,7 @@
         "required_when": {},
         "framework_default": "nearest",
         "editor_default": "nearest",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.padding": [
@@ -4233,8 +4089,7 @@
             1
           ]
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -4270,8 +4125,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -4293,8 +4147,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -4316,8 +4169,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dimensions",
@@ -4343,8 +4195,7 @@
         "required_when": {},
         "framework_default": 2,
         "editor_default": 2,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -4369,8 +4220,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "conv.cropping": [
@@ -4421,8 +4271,7 @@
             1
           ]
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -4458,8 +4307,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -4481,8 +4329,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -4504,8 +4351,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dimensions",
@@ -4531,8 +4377,7 @@
         "required_when": {},
         "framework_default": 2,
         "editor_default": 2,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -4557,8 +4402,7 @@
         "required_when": {},
         "framework_default": "channels_last",
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.dense": [
@@ -4584,8 +4428,7 @@
         "required_when": {},
         "framework_default": 32,
         "editor_default": 32,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -4623,8 +4466,7 @@
         "required_when": {},
         "framework_default": "linear",
         "editor_default": "linear",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_bias",
@@ -4646,8 +4488,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "lora_rank",
@@ -4671,8 +4512,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "lora_alpha",
@@ -4700,8 +4540,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "quantization_config",
@@ -4731,8 +4570,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.activation": [
@@ -4772,8 +4610,7 @@
         "required_when": {},
         "framework_default": "relu",
         "editor_default": "relu",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -4809,8 +4646,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -4832,8 +4668,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -4855,8 +4690,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.dropout": [
@@ -4883,8 +4717,7 @@
         "required_when": {},
         "framework_default": 0.5,
         "editor_default": 0.5,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -4920,8 +4753,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -4943,8 +4775,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -4966,8 +4797,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "noise_shape",
@@ -4990,8 +4820,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "seed",
@@ -5013,8 +4842,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.batch_norm": [
@@ -5038,8 +4866,7 @@
         "required_when": {},
         "framework_default": 0.99,
         "editor_default": 0.99,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "epsilon",
@@ -5061,8 +4888,7 @@
         "required_when": {},
         "framework_default": 0.001,
         "editor_default": 0.001,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "moving_mean_initializer",
@@ -5103,8 +4929,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "moving_variance_initializer",
@@ -5145,8 +4970,7 @@
         "required_when": {},
         "framework_default": "ones",
         "editor_default": "ones",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "renorm",
@@ -5168,8 +4992,7 @@
         "required_when": {},
         "framework_default": false,
         "editor_default": false,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "renorm_clipping",
@@ -5231,8 +5054,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "renorm_momentum",
@@ -5261,8 +5083,7 @@
         "required_when": {},
         "framework_default": 0.99,
         "editor_default": 0.99,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "synchronized",
@@ -5284,8 +5105,7 @@
         "required_when": {},
         "framework_default": false,
         "editor_default": false,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.layer_norm": [
@@ -5309,8 +5129,7 @@
         "required_when": {},
         "framework_default": 0.001,
         "editor_default": 0.001,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.group_norm": [
@@ -5336,8 +5155,7 @@
         "required_when": {},
         "framework_default": 32,
         "editor_default": 32,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "epsilon",
@@ -5359,8 +5177,7 @@
         "required_when": {},
         "framework_default": 0.001,
         "editor_default": 0.001,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.flatten": [
@@ -5398,8 +5215,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -5421,8 +5237,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -5444,8 +5259,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "data_format",
@@ -5470,8 +5284,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "channels_last",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.reshape": [
@@ -5501,8 +5314,7 @@
         "editor_default": [
           -1
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -5538,8 +5350,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -5561,8 +5372,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -5584,8 +5394,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.permute": [
@@ -5618,8 +5427,7 @@
           2,
           1
         ],
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -5655,8 +5463,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -5678,8 +5485,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -5701,8 +5507,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.repeat": [
@@ -5728,8 +5533,7 @@
         "required_when": {},
         "framework_default": 2,
         "editor_default": 2,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "axis",
@@ -5751,8 +5555,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -5788,8 +5591,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -5811,8 +5613,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -5834,8 +5635,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.embedding": [
@@ -5861,8 +5661,7 @@
         "required_when": {},
         "framework_default": 10000,
         "editor_default": 10000,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "embedding_dim",
@@ -5886,8 +5685,7 @@
         "required_when": {},
         "framework_default": 128,
         "editor_default": 128,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -5923,8 +5721,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -5946,8 +5743,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -5969,8 +5765,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "embeddings_initializer",
@@ -6011,8 +5806,7 @@
         "required_when": {},
         "framework_default": "uniform",
         "editor_default": "uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "embeddings_regularizer",
@@ -6040,8 +5834,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -6069,8 +5862,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "embeddings_constraint",
@@ -6099,8 +5891,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "mask_zero",
@@ -6122,8 +5913,7 @@
         "required_when": {},
         "framework_default": false,
         "editor_default": false,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "lora_rank",
@@ -6147,8 +5937,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "lora_alpha",
@@ -6176,8 +5965,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "quantization_config",
@@ -6207,8 +5995,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.rms_norm": [
@@ -6232,8 +6019,7 @@
         "required_when": {},
         "framework_default": -1,
         "editor_default": -1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "epsilon",
@@ -6257,8 +6043,7 @@
         "required_when": {},
         "framework_default": 0.000001,
         "editor_default": 0.000001,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -6294,8 +6079,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -6317,8 +6101,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -6340,8 +6123,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.prelu": [
@@ -6365,8 +6147,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "alpha_regularizer",
@@ -6388,8 +6169,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "alpha_constraint",
@@ -6411,8 +6191,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "shared_axes",
@@ -6434,8 +6213,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -6471,8 +6249,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -6494,8 +6271,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -6517,8 +6293,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "layer.unit_norm": [
@@ -6542,8 +6317,7 @@
         "required_when": {},
         "framework_default": -1,
         "editor_default": -1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -6579,8 +6353,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -6602,8 +6375,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -6625,8 +6397,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "recurrent.simple_rnn": [
@@ -6652,8 +6423,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_initializer",
@@ -6694,8 +6464,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_initializer",
@@ -6736,8 +6505,7 @@
         "required_when": {},
         "framework_default": "orthogonal",
         "editor_default": "orthogonal",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -6778,8 +6546,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_regularizer",
@@ -6807,8 +6574,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_regularizer",
@@ -6836,8 +6602,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -6865,8 +6630,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -6894,8 +6658,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_constraint",
@@ -6924,8 +6687,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_constraint",
@@ -6954,8 +6716,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -6984,8 +6745,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "recurrent.lstm": [
@@ -7011,8 +6771,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_initializer",
@@ -7053,8 +6812,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_initializer",
@@ -7095,8 +6853,7 @@
         "required_when": {},
         "framework_default": "orthogonal",
         "editor_default": "orthogonal",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -7137,8 +6894,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_regularizer",
@@ -7166,8 +6922,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_regularizer",
@@ -7195,8 +6950,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -7224,8 +6978,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -7253,8 +7006,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_constraint",
@@ -7283,8 +7035,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_constraint",
@@ -7313,8 +7064,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -7343,8 +7093,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_cudnn",
@@ -7370,8 +7119,7 @@
         "required_when": {},
         "framework_default": "auto",
         "editor_default": "auto",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "unit_forget_bias",
@@ -7393,8 +7141,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "recurrent.gru": [
@@ -7420,8 +7167,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_initializer",
@@ -7462,8 +7208,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_initializer",
@@ -7504,8 +7249,7 @@
         "required_when": {},
         "framework_default": "orthogonal",
         "editor_default": "orthogonal",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -7546,8 +7290,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_regularizer",
@@ -7575,8 +7318,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_regularizer",
@@ -7604,8 +7346,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -7633,8 +7374,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -7662,8 +7402,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_constraint",
@@ -7692,8 +7431,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_constraint",
@@ -7722,8 +7460,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -7752,8 +7489,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_cudnn",
@@ -7779,8 +7515,7 @@
         "required_when": {},
         "framework_default": "auto",
         "editor_default": "auto",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "reset_after",
@@ -7802,8 +7537,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "recurrent.bidirectional": [
@@ -7831,8 +7565,7 @@
         "required_when": {},
         "framework_default": "lstm",
         "editor_default": "lstm",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "units",
@@ -7854,8 +7587,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "merge_mode",
@@ -7882,8 +7614,7 @@
         "required_when": {},
         "framework_default": "concat",
         "editor_default": "concat",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_initializer",
@@ -7924,8 +7655,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_initializer",
@@ -7966,8 +7696,7 @@
         "required_when": {},
         "framework_default": "orthogonal",
         "editor_default": "orthogonal",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -8008,8 +7737,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_regularizer",
@@ -8037,8 +7765,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_regularizer",
@@ -8066,8 +7793,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -8095,8 +7821,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -8124,8 +7849,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_constraint",
@@ -8154,8 +7878,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_constraint",
@@ -8184,8 +7907,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -8214,8 +7936,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "recurrent.stack": [
@@ -8243,8 +7964,7 @@
         "required_when": {},
         "framework_default": "lstm",
         "editor_default": "lstm",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "units",
@@ -8266,8 +7986,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "layers",
@@ -8289,8 +8008,7 @@
         "required_when": {},
         "framework_default": 2,
         "editor_default": 2,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "merge_mode",
@@ -8317,8 +8035,7 @@
         "required_when": {},
         "framework_default": "concat",
         "editor_default": "concat",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_initializer",
@@ -8359,8 +8076,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_initializer",
@@ -8401,8 +8117,7 @@
         "required_when": {},
         "framework_default": "orthogonal",
         "editor_default": "orthogonal",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -8443,8 +8158,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_regularizer",
@@ -8472,8 +8186,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_regularizer",
@@ -8501,8 +8214,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -8530,8 +8242,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -8559,8 +8270,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_constraint",
@@ -8589,8 +8299,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "recurrent_constraint",
@@ -8619,8 +8328,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -8649,8 +8357,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "attention.multi_head": [
@@ -8676,8 +8383,7 @@
         "required_when": {},
         "framework_default": 8,
         "editor_default": 8,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "key_dim",
@@ -8701,8 +8407,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dropout",
@@ -8727,8 +8432,7 @@
         "required_when": {},
         "framework_default": 0,
         "editor_default": 0,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "layers",
@@ -8752,8 +8456,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -8789,8 +8492,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -8812,8 +8514,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -8835,8 +8536,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "value_dim",
@@ -8860,8 +8560,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "output_shape",
@@ -8883,8 +8582,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "attention_axes",
@@ -8906,8 +8604,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "sliding_window",
@@ -8931,8 +8628,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "flash_attention",
@@ -8954,8 +8650,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_bias",
@@ -8977,8 +8672,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_gate",
@@ -9000,8 +8694,7 @@
         "required_when": {},
         "framework_default": false,
         "editor_default": false,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_initializer",
@@ -9042,8 +8735,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -9084,8 +8776,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_regularizer",
@@ -9113,8 +8804,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -9142,8 +8832,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -9171,8 +8860,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_constraint",
@@ -9201,8 +8889,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -9231,8 +8918,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "seed",
@@ -9254,8 +8940,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "attention.self": [
@@ -9281,8 +8966,7 @@
         "required_when": {},
         "framework_default": 8,
         "editor_default": 8,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "key_dim",
@@ -9306,8 +8990,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dropout",
@@ -9332,8 +9015,7 @@
         "required_when": {},
         "framework_default": 0,
         "editor_default": 0,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "layers",
@@ -9357,8 +9039,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -9394,8 +9075,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -9417,8 +9097,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -9440,8 +9119,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "value_dim",
@@ -9465,8 +9143,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "output_shape",
@@ -9488,8 +9165,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "attention_axes",
@@ -9511,8 +9187,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "sliding_window",
@@ -9536,8 +9211,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "flash_attention",
@@ -9559,8 +9233,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_bias",
@@ -9582,8 +9255,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_gate",
@@ -9605,8 +9277,7 @@
         "required_when": {},
         "framework_default": false,
         "editor_default": false,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_initializer",
@@ -9647,8 +9318,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -9689,8 +9359,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_regularizer",
@@ -9718,8 +9387,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -9747,8 +9415,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -9776,8 +9443,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_constraint",
@@ -9806,8 +9472,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -9836,8 +9501,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "seed",
@@ -9859,8 +9523,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "attention.cross": [
@@ -9886,8 +9549,7 @@
         "required_when": {},
         "framework_default": 8,
         "editor_default": 8,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "key_dim",
@@ -9911,8 +9573,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dropout",
@@ -9937,8 +9598,7 @@
         "required_when": {},
         "framework_default": 0,
         "editor_default": 0,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "layers",
@@ -9962,8 +9622,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -9999,8 +9658,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -10022,8 +9680,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -10045,8 +9702,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "value_dim",
@@ -10070,8 +9726,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "output_shape",
@@ -10093,8 +9748,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "attention_axes",
@@ -10116,8 +9770,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "sliding_window",
@@ -10141,8 +9794,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "flash_attention",
@@ -10164,8 +9816,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_bias",
@@ -10187,8 +9838,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "use_gate",
@@ -10210,8 +9860,7 @@
         "required_when": {},
         "framework_default": false,
         "editor_default": false,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_initializer",
@@ -10252,8 +9901,7 @@
         "required_when": {},
         "framework_default": "glorot_uniform",
         "editor_default": "glorot_uniform",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_initializer",
@@ -10294,8 +9942,7 @@
         "required_when": {},
         "framework_default": "zeros",
         "editor_default": "zeros",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_regularizer",
@@ -10323,8 +9970,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_regularizer",
@@ -10352,8 +9998,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activity_regularizer",
@@ -10381,8 +10026,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "kernel_constraint",
@@ -10411,8 +10055,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "bias_constraint",
@@ -10441,8 +10084,7 @@
         "required_when": {},
         "framework_default": "none",
         "editor_default": "none",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "seed",
@@ -10464,8 +10106,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": null,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "transformer.encoder_block": [
@@ -10503,8 +10144,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -10526,8 +10166,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -10549,8 +10188,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "num_heads",
@@ -10574,8 +10212,7 @@
         "required_when": {},
         "framework_default": 8,
         "editor_default": 8,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "key_dim",
@@ -10599,8 +10236,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dropout",
@@ -10625,8 +10261,7 @@
         "required_when": {},
         "framework_default": 0,
         "editor_default": 0,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "layers",
@@ -10650,8 +10285,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -10689,8 +10323,7 @@
         "required_when": {},
         "framework_default": "gelu",
         "editor_default": "gelu",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "ffn_multiplier",
@@ -10714,8 +10347,7 @@
         "required_when": {},
         "framework_default": 4,
         "editor_default": 4,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "pre_norm",
@@ -10737,8 +10369,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "transformer.decoder_block": [
@@ -10776,8 +10407,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -10799,8 +10429,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -10822,8 +10451,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "num_heads",
@@ -10847,8 +10475,7 @@
         "required_when": {},
         "framework_default": 8,
         "editor_default": 8,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "key_dim",
@@ -10872,8 +10499,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dropout",
@@ -10898,8 +10524,7 @@
         "required_when": {},
         "framework_default": 0,
         "editor_default": 0,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "layers",
@@ -10923,8 +10548,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -10962,8 +10586,7 @@
         "required_when": {},
         "framework_default": "gelu",
         "editor_default": "gelu",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "ffn_multiplier",
@@ -10987,8 +10610,7 @@
         "required_when": {},
         "framework_default": 4,
         "editor_default": 4,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "pre_norm",
@@ -11010,8 +10632,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "transformer.feed_forward": [
@@ -11049,8 +10670,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -11072,8 +10692,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -11095,8 +10714,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -11134,8 +10752,7 @@
         "required_when": {},
         "framework_default": "gelu",
         "editor_default": "gelu",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "ffn_multiplier",
@@ -11159,8 +10776,7 @@
         "required_when": {},
         "framework_default": 4,
         "editor_default": 4,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dropout",
@@ -11185,8 +10801,7 @@
         "required_when": {},
         "framework_default": 0,
         "editor_default": 0,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "transformer.stack": [
@@ -11224,8 +10839,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -11247,8 +10861,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -11270,8 +10883,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "num_heads",
@@ -11295,8 +10907,7 @@
         "required_when": {},
         "framework_default": 8,
         "editor_default": 8,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "key_dim",
@@ -11320,8 +10931,7 @@
         "required_when": {},
         "framework_default": 64,
         "editor_default": 64,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dropout",
@@ -11346,8 +10956,7 @@
         "required_when": {},
         "framework_default": 0,
         "editor_default": 0,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "layers",
@@ -11371,8 +10980,7 @@
         "required_when": {},
         "framework_default": 1,
         "editor_default": 1,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "activation",
@@ -11410,8 +11018,7 @@
         "required_when": {},
         "framework_default": "gelu",
         "editor_default": "gelu",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "ffn_multiplier",
@@ -11435,8 +11042,7 @@
         "required_when": {},
         "framework_default": 4,
         "editor_default": 4,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "pre_norm",
@@ -11458,8 +11064,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "transformer.positional_encoding": [
@@ -11486,8 +11091,7 @@
         "required_when": {},
         "framework_default": "sinusoidal",
         "editor_default": "sinusoidal",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "dtype",
@@ -11523,8 +11127,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -11546,8 +11149,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -11569,8 +11171,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "transformer.residual": [
@@ -11608,8 +11209,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -11631,8 +11231,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -11654,8 +11253,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ],
     "transformer.attention_mask": [
@@ -11693,8 +11291,7 @@
         "required_when": {},
         "framework_default": null,
         "editor_default": "float32",
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "trainable",
@@ -11716,8 +11313,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       },
       {
         "id": "autocast",
@@ -11739,8 +11335,7 @@
         "required_when": {},
         "framework_default": true,
         "editor_default": true,
-        "scope": "authoring",
-        "aliases": []
+        "scope": "authoring"
       }
     ]
   }

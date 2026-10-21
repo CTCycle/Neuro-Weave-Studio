@@ -17,11 +17,12 @@ from fastapi.testclient import TestClient
 from common.process_control import process_start_options
 from services.runtime_controller import RuntimeController
 
+
 ###############################################################################
 def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
     shape = input_shape or [4]
     return {
-        "schema_version": 5,
+        "schema_version": 6,
         "nodes": [
             {
                 "id": "input",

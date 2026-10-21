@@ -10,7 +10,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from alembic.script.revision import ResolutionError
+from alembic.util.exc import CommandError
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 
@@ -31,7 +31,7 @@ from repositories.migration_lock import database_migration_lock
 LOGGER = logging.getLogger(__name__)
 
 ALEMBIC_CONFIG_PATH = Path(__file__).resolve().parents[1] / "alembic.ini"
-HEAD_REVISION = "20261021_drop_write_only_persistence_columns"
+HEAD_REVISION = "20261021_current_schema_baseline"
 ALEMBIC_VERSION_TABLE = "alembic_version"
 
 ###############################################################################
@@ -67,7 +67,7 @@ def _validate_known_revisions(current_heads: tuple[str, ...], script: ScriptDire
     for revision in current_heads:
         try:
             script.get_revision(revision)
-        except ResolutionError as exc:
+        except CommandError as exc:
             raise RuntimeError(
                 f"The database references unknown Alembic revision {revision!r}. "
                 "Recreate the database using the current schema."

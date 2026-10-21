@@ -17,6 +17,19 @@ async function currentSettings(request: import('@playwright/test').APIRequestCon
 
 test.describe.configure({ mode: 'serial' })
 
+let settingsBaseline: SettingsRecord | null = null
+
+test.beforeEach(async ({ request }) => {
+  settingsBaseline = await currentSettings(request)
+})
+
+test.afterEach(async ({ request }) => {
+  if (!settingsBaseline) return
+  const response = await request.patch('/api/settings', { data: settingsBaseline })
+  expect(response.ok(), 'restore settings after the autosave test').toBeTruthy()
+  settingsBaseline = null
+})
+
 test('automatically saves every ordinary application settings control', async ({ page, request }) => {
   await mkdir(evidenceRoot, { recursive: true })
   await page.goto('/settings')

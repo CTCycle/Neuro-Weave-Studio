@@ -11,8 +11,13 @@ from pathlib import Path
 from typing import Protocol, cast
 
 import numpy as np
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
+
+from domain.datasets import DatasetDefinitionMutation
+
 
 ###############################################################################
 class _PyArrowModule(Protocol):
@@ -59,6 +64,7 @@ def _tabular_payload(path: Path, *, subset: dict[str, object] | None = None) -> 
         "relationships": [],
         "sequence_definition": None,
         "subset_definition": subset or {"type": "all"},
+        "split_definition": None,
     }
 
 ###############################################################################
@@ -224,6 +230,7 @@ def test_text_file_registration_and_text_table_composed_mapping(
         "relationships": [],
         "sequence_definition": None,
         "subset_definition": {"type": "all"},
+        "split_definition": None,
     }
 
     text_created = client.post("/api/datasets", json=text_payload)
@@ -270,6 +277,7 @@ def test_text_file_registration_and_text_table_composed_mapping(
         ],
         "sequence_definition": None,
         "subset_definition": {"type": "all"},
+        "split_definition": None,
     }
 
     composed_created = client.post("/api/datasets", json=composed_payload)
@@ -387,6 +395,7 @@ def test_image_folder_and_label_table_require_exact_mapping(
         ],
         "sequence_definition": None,
         "subset_definition": {"type": "all"},
+        "split_definition": None,
     }
 
     created = client.post("/api/datasets", json=payload)
@@ -424,6 +433,7 @@ def test_array_sources_validate_leading_sample_dimensions(
         "relationships": [],
         "sequence_definition": None,
         "subset_definition": {"type": "all"},
+        "split_definition": None,
     }
 
     created = client.post("/api/datasets", json=payload)
@@ -447,6 +457,7 @@ def test_npz_inspection_exposes_keys_without_persisting_array_values(
         "relationships": [],
         "sequence_definition": None,
         "subset_definition": {"type": "all"},
+        "split_definition": None,
     }
 
     created = client.post("/api/datasets", json=payload)
@@ -657,25 +668,14 @@ def test_revalidation_preserves_previous_inspection_when_source_is_unavailable(
     assert document["sample_count"] == 2
 
 ###############################################################################
-def test_legacy_definition_without_split_definition_remains_loadable(
-    client: TestClient, tmp_path: Path
+def test_dataset_definition_requires_current_split_definition_field(
+    tmp_path: Path,
 ) -> None:
-    source = tmp_path / "legacy.csv"
-    source.write_text("feature\n1\n", encoding="utf-8")
-    payload = _tabular_payload(source)
-    payload["input_definition"] = {"bindings": [{"type": "columns", "source_id": "table", "columns": ["feature"]}]}
-    payload["output_definition"] = {"bindings": []}
-    created = client.post("/api/datasets", json=payload).json()
-    database = tmp_path / "test.db"
-    with sqlite3.connect(database) as connection:
-        raw_definition = connection.execute("SELECT definition_json FROM datasets").fetchone()
-        assert raw_definition is not None
-        definition = json.loads(raw_definition[0])
-        definition.pop("split_definition", None)
-        connection.execute("UPDATE datasets SET definition_json = ?", (json.dumps(definition),))
-        connection.commit()
+    payload = _tabular_payload(tmp_path / "current.csv")
+    payload.pop("split_definition")
 
-    loaded = client.get(f"/api/datasets/{created['id']}")
+    with pytest.raises(ValidationError) as error_info:
+        DatasetDefinitionMutation.model_validate(payload)
 
-    assert loaded.status_code == 200
-    assert loaded.json()["split_definition"] is None
+    assert error_info.value.errors()[0]["loc"] == ("split_definition",)
+    assert error_info.value.errors()[0]["type"] == "missing"

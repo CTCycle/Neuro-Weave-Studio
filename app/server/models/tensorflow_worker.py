@@ -28,6 +28,7 @@ from models.worker_backend import (
     run_native_smoke,
 )
 
+
 ###############################################################################
 class TensorFlowWorker:
     backend = ExecutionBackend.TENSORFLOW
@@ -79,7 +80,7 @@ class TensorFlowWorker:
 
     # -------------------------------------------------------------------------
     def native_compilation_capabilities(self) -> dict[str, bool]:
-        return {"tensorflow_jit": callable(getattr(tensorflow, "function", None))}
+        return {"tensorflow_function": callable(getattr(tensorflow, "function", None))}
 
     # -------------------------------------------------------------------------
     def device_inventory(self) -> list[dict[str, object]]:

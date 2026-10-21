@@ -66,7 +66,7 @@ const evidenceDir = path.resolve(
 
 function smokeGraph() {
   return {
-    schema_version: 5,
+    schema_version: 6,
     nodes: [
       {
         id: 't4-compiler-input',

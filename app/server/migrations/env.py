@@ -14,6 +14,9 @@ from repositories import (
     custom_nodes as _custom_nodes,  # pyright: ignore[reportUnusedImport]  # noqa: F401 - register ORM tables
 )
 from repositories import (
+    datasets as _datasets,  # pyright: ignore[reportUnusedImport]  # noqa: F401 - register ORM tables
+)
+from repositories import (
     models as _models,  # pyright: ignore[reportUnusedImport]  # noqa: F401 - register ORM tables
 )
 from repositories.backend import SQLiteBackend, build_sqlite_url

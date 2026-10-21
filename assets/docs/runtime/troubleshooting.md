@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Last updated: 2026-09-28
+Last updated: 2026-10-21
 
 A blank catalog usually means node JSON failed Pydantic validation; inspect the backend log under `data/runtime/logs`. If a configured port is occupied, the launcher reports the listener PID and leaves that process untouched. Save conflicts return HTTP 409 and require reopening before overwrite.
 
@@ -26,4 +26,4 @@ The model builder does not silently replace the configured native compiler with 
 
 ## Database migrations
 
-The backend logs the current Alembic revision, pending upgrades, and the verified head. If startup reports an unsupported or incomplete schema (including an older database that fails with `table projects already exists`), the initializer stops before running Alembic and does not mutate the file. Do not delete the database: make a backup/export, restore matching migration files, or configure `DATABASE_SQLITE_PATH` to a new database after preserving the original. Version-1, the historical two-table prototype, and other unversioned schemas are intentionally not auto-adopted. A lock-timeout message means another process is migrating; close stale application instances and retry after confirming no migration process is still active.
+The backend reports whether the database is already at the current Alembic head or is being initialized, then verifies the schema against current ORM metadata. If startup reports an unsupported schema, the initializer stops and does not mutate the file. Databases stamped with removed revisions and populated databases without an Alembic revision must be recreated as an explicit operator action; back up or export any data that must be retained. The application does not delete databases automatically. To point the application at a new database before startup, update the validated `database-config.json` under the application resource directory. A lock-timeout message means another process is initializing the database; close stale application instances and retry after confirming no initializer is still active.

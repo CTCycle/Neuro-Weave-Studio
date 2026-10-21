@@ -30,6 +30,7 @@ from models.worker_backend import (
     run_native_smoke,
 )
 
+
 ###############################################################################
 class PyTorchWorker:
     backend = ExecutionBackend.PYTORCH
@@ -93,7 +94,7 @@ class PyTorchWorker:
             # callable API alone is not enough: without the MSVC developer
             # environment, the first compiled graph fails with InvalidCxxCompiler.
             available = shutil.which("cl") is not None
-        return {"torch_compile": available}
+        return {"pytorch_compile": available}
 
     # -------------------------------------------------------------------------
     def device_inventory(self) -> list[dict[str, object]]:
