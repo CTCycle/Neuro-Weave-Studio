@@ -7,8 +7,6 @@ from fastapi import APIRouter, Depends
 
 from api.dependencies import get_connection_validation_service, get_validation_service
 from domain.diagnostics import (
-    ConnectionCandidatesValidationRequest,
-    ConnectionCandidatesValidationResult,
     ConnectionValidationRequest,
     ConnectionValidationResult,
     ValidationRequest,
@@ -36,19 +34,6 @@ def validate_connection(
     return service.validate_connection(
         payload.graph,
         payload.connection,
-        payload.execution_backend,
-        payload.keras_enabled,
-    )
-
-###############################################################################
-@router.post("/connection-candidates", response_model=ConnectionCandidatesValidationResult)
-def validate_connection_candidates(
-    payload: ConnectionCandidatesValidationRequest,
-    service: ConnectionValidationService = Depends(get_connection_validation_service),
-) -> ConnectionCandidatesValidationResult:
-    return service.validate_candidates(
-        payload.graph,
-        payload.connections,
         payload.execution_backend,
         payload.keras_enabled,
     )

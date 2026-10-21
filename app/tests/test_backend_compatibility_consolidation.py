@@ -9,7 +9,6 @@ from common.catalogs.loader import NodeCatalog, get_node_catalog
 from domain.enums import ExecutionBackend
 from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from domain.manifests import ParameterCapability
-from services.connection_validation_service import ConnectionValidationService
 from services.validation_service import ValidationService
 from validation.profile_compatibility import resolve_implementation_compatibility
 
@@ -69,42 +68,6 @@ def chain_graph(
         ],
     )
 
-###############################################################################
-def connection_graph(definition_id: str) -> tuple[ModelGraph, EdgeInstance]:
-    graph = ModelGraph(
-        nodes=[
-            make_node("input", "input.sequence", {"shape": [12, 8], "dtype": "float32"}),
-            make_node("operation", definition_id, {"units": 4}),
-        ]
-    )
-    return graph, EdgeInstance(
-        id="candidate",
-        source_node_id="input",
-        source_port_id="output",
-        target_node_id="operation",
-        target_port_id="input",
-    )
-
-###############################################################################
-@pytest.mark.parametrize(("execution_backend", "keras_enabled"), PROFILES)
-def test_connection_candidates_use_the_same_verified_profile_resolution(
-    execution_backend: ExecutionBackend,
-    keras_enabled: bool,
-) -> None:
-    graph, connection = connection_graph("recurrent.simple_rnn")
-    service = ConnectionValidationService(
-        get_node_catalog(),
-        ValidationService(get_node_catalog()),
-    )
-
-    result = service.validate_candidates(
-        graph,
-        [connection],
-        execution_backend,
-        keras_enabled,
-    )
-
-    assert result.valid_connection_ids == ["candidate"]
 
 ###############################################################################
 @pytest.mark.parametrize(("execution_backend", "keras_enabled"), PROFILES)
