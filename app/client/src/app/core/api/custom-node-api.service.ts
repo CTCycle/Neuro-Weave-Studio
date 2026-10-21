@@ -10,12 +10,12 @@ import type {
   CustomNodeDefinitionMutation,
 } from '../../domain/custom-node.types'
 import { ApiError, apiErrorMessage } from './api-error'
-
-const API_BASE = '/api/nodes/custom'
+import { RuntimeApiConfigService } from './runtime-api-config.service'
 
 @Injectable({ providedIn: 'root' })
 export class CustomNodeApiService {
   private readonly http = inject(HttpClient)
+  private readonly runtimeConfig = inject(RuntimeApiConfigService)
   private readonly jsonHeaders = new HttpHeaders({ 'Content-Type': 'application/json' })
 
   async list(): Promise<CustomNodeDefinition[]> {
@@ -37,7 +37,7 @@ export class CustomNodeApiService {
 
   private async request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
     try {
-      return await firstValueFrom(this.http.request<T>(method, `${API_BASE}${path}`, {
+      return await firstValueFrom(this.http.request<T>(method, `${this.runtimeConfig.apiBaseUrl}/nodes/custom${path}`, {
         body,
         headers: this.jsonHeaders,
         timeout: 10000,

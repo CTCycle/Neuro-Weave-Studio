@@ -9,6 +9,7 @@ from pathlib import Path
 from common.path import ENV_EXAMPLE_FILE
 from configurations.environment import ensure_environment_file
 
+
 ###############################################################################
 def test_concurrent_first_start_creates_one_exact_environment_file(
     tmp_path: Path,
@@ -43,9 +44,10 @@ def test_existing_environment_file_is_never_overwritten(tmp_path: Path) -> None:
     assert environment_file.read_bytes() == original
 
 ###############################################################################
-def test_environment_template_contains_no_database_or_application_settings() -> None:
+def test_environment_template_contains_deployment_settings_not_database_settings() -> None:
     template = ENV_EXAMPLE_FILE.read_text(encoding="utf-8")
 
     assert "DATABASE_" not in template
-    assert "NEURO_WEAVE_CORS_ORIGINS" not in template
+    assert "NEURO_WEAVE_API_BASE_URL=/api" in template
+    assert "NEURO_WEAVE_CORS_ORIGINS=" in template
     assert "NEURO_WEAVE_LOG_LEVEL" not in template

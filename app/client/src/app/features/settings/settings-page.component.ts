@@ -12,7 +12,6 @@ import type { ApplicationSettings, DatabaseSettings, DatabaseStatus } from '../.
 const DEFAULT_SETTINGS: ApplicationSettings = {
   app_name: 'NeuroWeave Studio',
   app_version: '1.0.0',
-  cors_origins: 'http://127.0.0.1:5173,http://localhost:5173',
   log_level: 'INFO',
   log_file: 'data/runtime/logs/backend.log',
   export_root: 'data/runtime/exports',
@@ -50,10 +49,6 @@ const DEFAULT_SETTINGS: ApplicationSettings = {
             <div class="settings-form">
               <fieldset [disabled]="!settingsAvailable() || switchingDatabase()">
                 <div class="field-grid">
-                  <label class="setting-field wide">Allowed browser origins
-                    <input name="cors_origins" type="text" [ngModel]="settings().cors_origins" (ngModelChange)="updateSetting('cors_origins', $event)" required>
-                    <small>Comma-separated origins allowed to call the API.</small>
-                  </label>
                   <label class="setting-field">Log level
                     <select name="log_level" [ngModel]="settings().log_level" (ngModelChange)="updateSetting('log_level', $event, 0)">
                       <option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option><option>CRITICAL</option>

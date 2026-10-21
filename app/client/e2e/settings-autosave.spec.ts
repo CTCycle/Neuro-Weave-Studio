@@ -37,13 +37,14 @@ test('automatically saves every ordinary application settings control', async ({
   await expect(page.getByRole('button', { name: /save application settings|apply|cancel/i })).toHaveCount(0)
 
   const original = await currentSettings(request)
+  expect(original).not.toHaveProperty('cors_origins')
+  await expect(page.getByLabel('Allowed browser origins')).toHaveCount(0)
   const nextNumber = (field: string, minimum: number, maximum: number): number => {
     const current = Number(original[field])
     return current < maximum ? Math.min(maximum, current + 1) : Math.max(minimum, current - 1)
   }
   const uniquePath = (name: string): string => path.join(evidenceRoot, `${process.pid}-${name}`)
   const values: Array<{ label: string; field: string; value: string | number; select?: boolean }> = [
-    { label: 'Allowed browser origins', field: 'cors_origins', value: `${original['cors_origins']},http://qa-${process.pid}.invalid` },
     { label: 'Log level', field: 'log_level', value: original['log_level'] === 'DEBUG' ? 'INFO' : 'DEBUG', select: true },
     { label: 'Worker timeout (seconds)', field: 'ml_worker_timeout_seconds', value: nextNumber('ml_worker_timeout_seconds', 1, 86400) },
     { label: 'Runtime discovery timeout (seconds)', field: 'runtime_discovery_timeout_seconds', value: nextNumber('runtime_discovery_timeout_seconds', 1, 600) },
@@ -92,7 +93,8 @@ test('automatically saves every ordinary application settings control', async ({
 test('debounces rapid text edits and never lets a stale value win', async ({ page, request }) => {
   await page.goto('/settings')
   const original = await currentSettings(request)
-  const input = page.getByLabel('Allowed browser origins')
+  await page.getByText('Storage and log locations', { exact: true }).click()
+  const input = page.getByLabel('Log file')
   const patchBodies: string[] = []
   page.on('request', (requestEvent) => {
     if (requestEvent.url().endsWith('/api/settings') && requestEvent.method() === 'PATCH') {
@@ -100,16 +102,16 @@ test('debounces rapid text edits and never lets a stale value win', async ({ pag
     }
   })
 
-  await input.fill('http://127.0.0.1:5173')
-  await input.fill('http://127.0.0.1:5173,http://localhost:5173')
-  const finalValue = 'http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:6427'
+  const intermediateValue = path.join(evidenceRoot, `${process.pid}-intermediate.log`)
+  const finalValue = path.join(evidenceRoot, `${process.pid}-debounced.log`)
+  await input.fill(intermediateValue)
   const finalSave = page.waitForResponse((response) => response.url().endsWith('/api/settings') && response.request().method() === 'PATCH')
   await input.fill(finalValue)
   expect((await finalSave).status()).toBe(200)
-  await expect.poll(async () => (await currentSettings(request))['cors_origins']).toBe(finalValue)
+  await expect.poll(async () => (await currentSettings(request))['log_file']).toBe(path.resolve(finalValue))
   expect(patchBodies).toHaveLength(1)
-  expect(patchBodies[0]).toContain(finalValue)
-  expect(original['cors_origins']).not.toBe(finalValue)
+  expect(JSON.parse(patchBodies[0])['log_file']).toBe(finalValue)
+  expect(original['log_file']).not.toBe(finalValue)
 })
 
 test('reverts a failed application settings write and explains the failure', async ({ page, request }) => {
@@ -122,9 +124,10 @@ test('reverts a failed application settings write and explains the failure', asy
     await route.continue()
   })
   await page.goto('/settings')
-  const input = page.getByLabel('Allowed browser origins')
-  await input.fill(`${initial['cors_origins']},http://qa.invalid`)
+  await page.getByText('Storage and log locations', { exact: true }).click()
+  const input = page.getByLabel('Log file')
+  await input.fill(path.join(evidenceRoot, `${process.pid}-failed.log`))
   await expect(page.getByRole('alert')).toContainText('injected settings write failure')
-  await expect(input).toHaveValue(String(initial['cors_origins']))
-  expect((await currentSettings(request))['cors_origins']).toBe(initial['cors_origins'])
+  await expect(input).toHaveValue(String(initial['log_file']))
+  expect((await currentSettings(request))['log_file']).toBe(initial['log_file'])
 })

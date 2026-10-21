@@ -18,6 +18,7 @@ const proxyPath = path.join(cacheRoot, 'angular-proxy.json')
 
 await mkdir(cacheRoot, { recursive: true })
 await writeFile(proxyPath, JSON.stringify({
+  '/runtime-config.json': { target: `http://${apiHost}:${apiPort}`, changeOrigin: true },
   '/api': { target: `http://${apiHost}:${apiPort}`, changeOrigin: true, ws: true },
   '/health': { target: `http://${apiHost}:${apiPort}`, changeOrigin: true },
 }, null, 2))

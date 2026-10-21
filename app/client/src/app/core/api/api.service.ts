@@ -5,6 +5,7 @@ import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http
 import { Injectable, inject } from '@angular/core'
 import { firstValueFrom } from 'rxjs'
 import { ApiError, apiErrorMessage } from './api-error'
+import { RuntimeApiConfigService } from './runtime-api-config.service'
 import type { FilesystemBrowseResponse } from '../../domain/filesystem.types'
 import type { ApplicationSettings, DatabaseSettings, DatabaseStatus, DatabaseSwitchResult, DatabaseTestResult } from '../../domain/settings.types'
 import type {
@@ -41,7 +42,6 @@ import type {
   WorkerConfiguration,
 } from '../../domain/types'
 
-const API_BASE = '/api'
 const CONNECTION_CANDIDATE_BATCH_SIZE = 256
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000
 const GRAPH_VALIDATION_TIMEOUT_MS = 60_000
@@ -56,11 +56,12 @@ interface RequestOptions {
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient)
+  private readonly runtimeConfig = inject(RuntimeApiConfigService)
   private readonly jsonHeaders = new HttpHeaders({ 'Content-Type': 'application/json' })
 
   private async request<T>(path: string, method = 'GET', body?: unknown, options: RequestOptions = {}): Promise<T> {
     try {
-      return await firstValueFrom(this.http.request<T>(method, `${API_BASE}${path}`, {
+      return await firstValueFrom(this.http.request<T>(method, `${this.runtimeConfig.apiBaseUrl}${path}`, {
         body,
         headers: this.jsonHeaders,
         timeout: options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
@@ -72,7 +73,7 @@ export class ApiService {
 
   private async requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
     try {
-      return await firstValueFrom(this.http.get(`${API_BASE}${path}`, {
+      return await firstValueFrom(this.http.get(`${this.runtimeConfig.apiBaseUrl}${path}`, {
         responseType: 'blob',
         timeout: options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
       }))
@@ -202,7 +203,7 @@ export class ApiService {
     if (name) query.set('name', name)
     try {
       return await firstValueFrom(this.http.post<KerasArchitectureImportResponse>(
-        `${API_BASE}/imports/keras-architecture?${query.toString()}`,
+        `${this.runtimeConfig.apiBaseUrl}/imports/keras-architecture?${query.toString()}`,
         file,
         {
           headers: new HttpHeaders({ 'Content-Type': 'application/vnd.keras.zip' }),

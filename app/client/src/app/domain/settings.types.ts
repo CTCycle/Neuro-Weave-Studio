@@ -6,7 +6,6 @@ import type { ExecutionBackend, WorkerConfiguration } from './types'
 export interface ApplicationSettings {
   app_name: string
   app_version: string
-  cors_origins: string
   log_level: string
   log_file: string
   export_root: string
