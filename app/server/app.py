@@ -8,7 +8,7 @@ import logging
 import time
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
@@ -106,6 +106,8 @@ def _serve_client_path(full_path: str) -> FileResponse:
     client_file = _resolve_client_file(full_path)
     if client_file is not None:
         return FileResponse(client_file)
+    if PurePosixPath(full_path).suffix:
+        raise HTTPException(status_code=404, detail="Static file not found")
     return _serve_client_root()
 
 ###############################################################################

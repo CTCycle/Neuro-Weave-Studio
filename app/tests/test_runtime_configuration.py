@@ -143,6 +143,8 @@ def test_backend_serves_built_frontend_on_the_api_origin(
         assert "<app-root>" in client.get("/models/some-id").text
         assert client.get("/assets/main.js").text == "console.log(1)"
         assert client.get("/health").status_code == 200
+        assert client.get("/main-stale.js").status_code == 404
+        assert client.get("/openapi.json").status_code == 200
         missing_api = client.get("/api/does-not-exist")
 
     assert missing_api.status_code == 404

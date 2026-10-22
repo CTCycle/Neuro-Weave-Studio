@@ -37,9 +37,9 @@ const DEFAULT_SETTINGS: ApplicationSettings = {
       <header class="settings-header"><h1>Settings</h1></header>
       <div class="settings-layout">
         <nav class="settings-nav" aria-label="Settings sections">
-          <a href="#application-general" [class.active]="activeSection() === 'application-general'" [attr.aria-current]="activeSection() === 'application-general' ? 'location' : null" (click)="activeSection.set('application-general')">Application<span>General</span></a>
-          <a href="#database" [class.active]="activeSection() === 'database'" [attr.aria-current]="activeSection() === 'database' ? 'location' : null" (click)="activeSection.set('database')">Database<span>Connection</span></a>
-          <a href="#related-management" [class.active]="activeSection() === 'related-management'" [attr.aria-current]="activeSection() === 'related-management' ? 'location' : null" (click)="activeSection.set('related-management')">Related management<span>Installation resources</span></a>
+          <a [routerLink]="[]" fragment="application-general" [class.active]="activeSection() === 'application-general'" [attr.aria-current]="activeSection() === 'application-general' ? 'location' : null" (click)="activeSection.set('application-general')">Application<span>General</span></a>
+          <a [routerLink]="[]" fragment="database" [class.active]="activeSection() === 'database'" [attr.aria-current]="activeSection() === 'database' ? 'location' : null" (click)="activeSection.set('database')">Database<span>Connection</span></a>
+          <a [routerLink]="[]" fragment="related-management" [class.active]="activeSection() === 'related-management'" [attr.aria-current]="activeSection() === 'related-management' ? 'location' : null" (click)="activeSection.set('related-management')">Related management<span>Installation resources</span></a>
         </nav>
 
         <div class="settings-content">

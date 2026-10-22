@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Literal, Self
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -113,9 +113,9 @@ class ParameterValueSchema(BaseModel):
     """Recursive JSON-safe value metadata shared by validation and the UI."""
 
     type: ParameterType
-    item: Self | None = None
-    items: list[Self] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
-    properties: dict[str, Self] = Field(default_factory=dict)
+    item: ParameterValueSchema | None = None
+    items: list[ParameterValueSchema] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    properties: dict[str, ParameterValueSchema] = Field(default_factory=dict)
     required_properties: list[str] = Field(default_factory=list)
     nullable: bool = False
     recursive: bool = False
