@@ -64,7 +64,7 @@ $script:PythonVersion = '3.13.14'
 $script:UvVersion = '0.12.0'
 $script:NodeVersion = '22.23.1'
 $script:Children = [System.Collections.Generic.List[object]]::new()
-$script:LaunchHandedOff = $false
+$script:GracefulStop = $false
 $script:NoBrowser = $NoBrowser
 $script:NextProgressId = 1
 $script:ActiveProgressActivities = [Collections.Generic.Dictionary[int, string]]::new()
@@ -1068,10 +1068,7 @@ function Assert-BackendManagementEnvironmentStopped {
 }
 
 function Assert-ApplicationStopped {
-    $ports = @(
-        (Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'),
-        (Get-ConfiguredInt -Name 'UI_PORT' -Default '5173')
-    ) | Select-Object -Unique
+    $ports = @(Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000')
     $records = @(Get-PortListenerRecords -Ports $ports)
     if ($records.Count -gt 0) {
         $details = @(Get-ListenerProcessDetails -ListenerRecords $records)
@@ -1366,12 +1363,9 @@ function Assert-PortAvailable {
 }
 
 function Invoke-LaunchPortGuardrail {
-    param(
-        [Parameter(Mandatory = $true)][int]$BackendPort,
-        [Parameter(Mandatory = $true)][int]$UiPort
-    )
+    param([Parameter(Mandatory = $true)][int]$BackendPort)
 
-    $ports = @($BackendPort, $UiPort) | Sort-Object -Unique
+    $ports = @($BackendPort)
     $records = @(Get-PortListenerRecords -Ports $ports)
     if ($records.Count -eq 0) { return }
 
@@ -1518,13 +1512,15 @@ function Start-ManagedProcess {
     $mode = '/c'
     $startArguments = @('/d', $mode, $command)
     if ($Visible) {
+        # Share the launcher console so one window shows the logs and Ctrl+C
+        # reaches the child for its normal graceful shutdown.
         $process = Start-Process -FilePath 'cmd.exe' -ArgumentList $startArguments `
-            -WorkingDirectory $WorkingDirectory -WindowStyle Normal -PassThru
+            -WorkingDirectory $WorkingDirectory -NoNewWindow -PassThru
         $script:Children.Add([pscustomobject]@{
                 Name = $Name
                 Process = $process
                 Stdout = $null
-                Stderr = 'the dedicated backend log terminal'
+                Stderr = 'the launcher console'
             })
     } else {
         $process = Start-Process -FilePath 'cmd.exe' -ArgumentList $startArguments `
@@ -1576,11 +1572,19 @@ function Stop-ManagedProcesses {
     $script:Children.Clear()
 }
 
-function Detach-ManagedProcesses {
-    if ($script:Children.Count -gt 0) {
-        Write-Info "Launcher handoff complete; detached $($script:Children.Count) application process root(s)."
+function Stop-Application {
+    param([int]$GracefulSeconds = 15)
+
+    # Ctrl+C reaches the console-sharing backend directly; give Uvicorn's
+    # lifespan shutdown a bounded window before forcing the owned tree down.
+    $deadline = [DateTime]::UtcNow.AddSeconds($GracefulSeconds)
+    foreach ($child in @($script:Children)) {
+        $remaining = [int][Math]::Max(0, ($deadline - [DateTime]::UtcNow).TotalMilliseconds)
+        if (-not $child.Process.HasExited -and $remaining -gt 0 -and $script:GracefulStop) {
+            [void]$child.Process.WaitForExit($remaining)
+        }
     }
-    $script:Children.Clear()
+    Stop-ManagedProcesses
 }
 
 function Assert-ManagedProcessesAlive {
@@ -1595,18 +1599,14 @@ function Assert-ManagedProcessesAlive {
 # Application actions
 # ===============================================================================
 function Invoke-Launch {
-    $script:LaunchHandedOff = $false
     $launchStarted = [System.Diagnostics.Stopwatch]::StartNew()
     Invoke-TimedStartupStage -Name 'launcher.runtimes' -Action { Ensure-PortableRuntimes }
     Invoke-TimedStartupStage -Name 'launcher.environment' -Action { Import-DotEnv; Set-LauncherEnvironment }
     $backendHost = [Environment]::GetEnvironmentVariable('FASTAPI_HOST', 'Process')
     $backendPort = Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'
-    $uiHost = [Environment]::GetEnvironmentVariable('UI_HOST', 'Process')
-    $uiPort = Get-ConfiguredInt -Name 'UI_PORT' -Default '5173'
     $browserBackendHost = Get-BrowserHost -HostName $backendHost
-    $browserUiHost = Get-BrowserHost -HostName $uiHost
     Invoke-TimedStartupStage -Name 'launcher.port_checks' -Action {
-        Invoke-LaunchPortGuardrail -BackendPort $backendPort -UiPort $uiPort
+        Invoke-LaunchPortGuardrail -BackendPort $backendPort
     }
     Invoke-TimedStartupStage -Name 'launcher.dependencies' -Action {
         if (-not (Test-DependenciesReady)) {
@@ -1627,28 +1627,16 @@ function Invoke-Launch {
     }
 
     $venvPython = Get-VenvPython
-    $npm = Get-Npm
     $backendArguments = @('-m', 'uvicorn', 'app:create_app', '--factory', '--host', $backendHost, '--port', [string]$backendPort)
     if ([Environment]::GetEnvironmentVariable('RELOAD', 'Process') -ieq 'true') { $backendArguments += '--reload' }
+    $backendExitCode = 0
     try {
         $backendHealth = "http://${browserBackendHost}:$backendPort/health"
-        $uiUrl = "http://${browserUiHost}:$uiPort/"
+        $appUrl = "http://${browserBackendHost}:$backendPort/"
         Write-Status -Level RUN -Message "Launching backend at $backendHealth"
         $backendStarted = [System.Diagnostics.Stopwatch]::StartNew()
         $backendProcess = Start-ManagedProcess -Name 'Backend' -FilePath $venvPython -ArgumentList $backendArguments `
             -WorkingDirectory $script:ServerDir -Visible:$backendLogsVisible
-
-        Write-Status -Level RUN -Message "Launching frontend preview at $uiUrl"
-        $frontendStarted = [System.Diagnostics.Stopwatch]::StartNew()
-        $frontendProcess = Start-ManagedProcess -Name 'Frontend' -FilePath $npm -ArgumentList @('run', 'preview', '--', '--host', $uiHost, '--port', [string]$uiPort, '--strictPort') -WorkingDirectory $script:ClientDir
-        Write-Status -Level WAIT -Message "Waiting for frontend readiness at $uiUrl"
-        $frontendReady = Invoke-HealthCheck -Url $uiUrl -TimeoutSeconds 15 -Process $frontendProcess -DiagnosticsPath (Join-Path $script:LogDir 'frontend.err.log')
-        if (-not $frontendReady) {
-            throw "Frontend did not become ready at $uiUrl within 15 seconds. See $($script:LogDir)."
-        }
-        Write-StartupStageDuration -Name 'launcher.frontend_readiness' -Stopwatch $frontendStarted
-        Write-Ok 'Frontend is ready.'
-        Assert-ManagedProcessesAlive
 
         Write-Status -Level WAIT -Message "Waiting for backend readiness at $backendHealth"
         if (-not (Invoke-HealthCheck -Url $backendHealth -TimeoutSeconds 60 -Process $backendProcess -DiagnosticsPath (Join-Path $script:LogDir 'backend.err.log'))) {
@@ -1656,18 +1644,51 @@ function Invoke-Launch {
         }
         Write-StartupStageDuration -Name 'launcher.backend_readiness' -Stopwatch $backendStarted
         Write-Ok 'Backend is healthy.'
-        Open-ApplicationBrowser -Uri $uiUrl
+        Assert-FrontendServed -Url $appUrl
+        Write-Ok 'Frontend is served by the backend.'
+        Open-ApplicationBrowser -Uri $appUrl
         Write-Status -Level SUCCESS -Message 'NeuroWeave Studio is running.'
-        Write-Host "  Backend:  $backendHealth (PID $($backendProcess.Id))"
-        Write-Host "  Frontend: $uiUrl (PID $($frontendProcess.Id))"
-        Write-Host "  Logs:     $($script:LogDir)" -ForegroundColor DarkGray
-        Write-Host 'The launcher will now close; the application services remain running independently.' -ForegroundColor DarkGray
+        Write-Host "  Application: $appUrl (backend PID $($backendProcess.Id))"
+        Write-Host "  Logs:        $($script:LogDir)" -ForegroundColor DarkGray
         Clear-BackendRestartRequired
         Write-StartupStageDuration -Name 'launcher.total' -Stopwatch $launchStarted
-        Detach-ManagedProcesses
-        $script:LaunchHandedOff = $true
+
+        $canReadKeys = $script:LauncherInteractive
+        $stopHint = if ($canReadKeys) { 'Press Enter or Ctrl+C to stop NeuroWeave.' } else { 'Terminate this launcher to stop NeuroWeave.' }
+        Write-Host $stopHint -ForegroundColor DarkGray
+        try {
+            while (-not $backendProcess.HasExited) {
+                if ($canReadKeys -and [Console]::KeyAvailable) {
+                    if ([Console]::ReadKey($true).Key -eq [ConsoleKey]::Enter) { Write-Info 'Stop requested.'; break }
+                }
+                Start-Sleep -Milliseconds 250
+            }
+        } catch [System.Management.Automation.PipelineStoppedException] {
+            $script:GracefulStop = $true
+            throw
+        }
+        if ($backendProcess.HasExited) {
+            $backendExitCode = $backendProcess.ExitCode
+            $tail = Get-RecentLogTail -Path (Join-Path $script:LogDir 'backend.err.log')
+            Write-Warn "Backend exited with code $backendExitCode.$(if ($tail) { " Recent output: $tail" })"
+        }
     } finally {
-        if (-not $script:LaunchHandedOff) { Stop-ManagedProcesses }
+        Stop-Application
+        Write-Info 'NeuroWeave services stopped.'
+    }
+    if ($backendExitCode -ne 0) { throw "Backend exited unexpectedly with code $backendExitCode." }
+}
+
+function Assert-FrontendServed {
+    param([Parameter(Mandatory = $true)][string]$Url)
+
+    try {
+        $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 5
+    } catch {
+        throw "The backend did not serve the frontend at ${Url}: $($_.Exception.Message)"
+    }
+    if ($response.Content -notmatch '<app-root') {
+        throw "The backend responded at $Url but did not serve the frontend build. Rebuild the frontend and relaunch."
     }
 }
 
@@ -2354,7 +2375,7 @@ function Write-MenuRule {
 
 function Get-LauncherMenuEntries {
     return @(
-        [pscustomobject]@{ Section = 'APPLICATION'; Label = 'Launch application'; Description = 'Start local backend and frontend services'; Key = 'Launch'; Destructive = $false }
+        [pscustomobject]@{ Section = 'APPLICATION'; Label = 'Launch application'; Description = 'Start the application (backend serves the UI)'; Key = 'Launch'; Destructive = $false }
         [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Install or repair base dependencies'; Description = 'Prepare runtimes and core packages'; Key = 'Install'; Destructive = $false }
         [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Rebuild frontend'; Description = 'Rebuild the frontend from current source'; Key = 'Rebuild'; Destructive = $false }
         [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Manage compute backends'; Description = 'Install, inspect, or remove optional ML frameworks'; Key = 'Backends'; Destructive = $false }
@@ -2437,7 +2458,7 @@ while ($true) {
     try {
         Invoke-TrackedLauncherAction -Name $entry.Label -Operation {
             switch ($entry.Key) {
-                'Launch' { Invoke-Launch; exit 0 }
+                'Launch' { Invoke-Launch }
                 'Install' { Invoke-Install -PromptForInstallationType }
                 'Rebuild' { Invoke-FrontendRebuild }
                 'Backends' { Invoke-BackendManagement }

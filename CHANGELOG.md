@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-18
 
+## [Unreleased]
+
+- Launcher serves the frontend from the backend on one origin, stays attached as the lifecycle owner (Enter/Ctrl+C to stop), and no longer starts the Node preview server.
+
 ## [1.0.0] - 2026-10-18
 
 First stable release of NeuroWeave Studio as a locally hosted web application.

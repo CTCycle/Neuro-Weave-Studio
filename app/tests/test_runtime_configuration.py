@@ -124,3 +124,26 @@ def test_cors_preflight_uses_process_configuration(
     assert allowed.status_code == 200
     assert allowed.headers["access-control-allow-origin"] == "https://allowed.example"
     assert denied.status_code == 400
+
+
+def test_backend_serves_built_frontend_on_the_api_origin(
+    tmp_path: Path,
+    app_factory: Callable[..., FastAPI],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dist = tmp_path / "frontend-dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<app-root></app-root>", encoding="utf-8")
+    (dist / "assets" / "main.js").write_text("console.log(1)", encoding="utf-8")
+    monkeypatch.setattr("common.path.FRONTEND_DIST_ROOT", dist)
+    monkeypatch.setattr("common.path.FRONTEND_ASSETS_ROOT", dist / "assets")
+
+    with TestClient(app_factory()) as client:
+        assert "<app-root>" in client.get("/").text
+        assert "<app-root>" in client.get("/models/some-id").text
+        assert client.get("/assets/main.js").text == "console.log(1)"
+        assert client.get("/health").status_code == 200
+        missing_api = client.get("/api/does-not-exist")
+
+    assert missing_api.status_code == 404
+    assert missing_api.json() == {"detail": "API route not found"}
