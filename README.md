@@ -61,7 +61,7 @@ Set-Location .\Neuro-Weave-Studio
 .\start_on_windows.ps1 -Action Launch
 ```
 
-The first install creates `settings/.env` from `settings/.env.example`, initializes or upgrades the SQLite database, and builds the frontend. The launcher starts the local services and opens the app in your default browser when possible. Default ports are `6422` for the frontend and `9850` for the backend. Use `-InstallationType Development` to also install Ruff, Pyright, and pytest. Optional execution backends can be selected later through **Manage compute backends** in the launcher.
+The first install creates `settings/.env` from `settings/.env.example`, initializes or upgrades the SQLite database, and builds the frontend. The launcher starts the local services and opens the app in your default browser when possible. The backend serves the built frontend on the same origin (default port `9850`) and stays attached to the launcher console; press Enter or Ctrl+C there to stop the application. Use `-InstallationType Development` to also install Ruff, Pyright, and pytest. Optional execution backends can be selected later through **Manage compute backends** in the launcher.
 
 ### Manual
 
@@ -75,10 +75,10 @@ Keep machine-specific values in the ignored `settings/.env` file; the launcher c
 | --- | --- | --- |
 | `FASTAPI_HOST` | `127.0.0.1` | Backend bind host |
 | `FASTAPI_PORT` | `9850` | Backend port |
-| `UI_HOST` | `127.0.0.1` | Frontend bind host |
-| `UI_PORT` | `6422` | Frontend port |
+| `UI_HOST` | `127.0.0.1` | Development server bind host |
+| `UI_PORT` | `6422` | Development server port |
 | `RELOAD` | `false` | Enable Uvicorn reload for development |
-| `BACKEND_LOGS_VISIBLE` | `true` | Show backend logs in a dedicated terminal |
+| `BACKEND_LOGS_VISIBLE` | `true` | Show backend logs in the launcher console |
 | `NEURO_WEAVE_RESOURCES_DIR` | `data` | Resources and data directory |
 | `NEURO_WEAVE_API_BASE_URL` | `/api` | API base URL |
 | `NEURO_WEAVE_CORS_ORIGINS` | `http://127.0.0.1:5173,http://localhost:5173` | Allowed CORS origins |

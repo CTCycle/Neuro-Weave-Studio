@@ -17,18 +17,21 @@ def function_body(source: str, function_name: str, next_function: str) -> str:
     return source[start:end]
 
 ###############################################################################
-def test_launcher_opens_browser_only_after_backend_readiness() -> None:
+def test_launcher_serves_frontend_from_backend_and_supervises_until_stopped() -> None:
     launcher = launcher_source()
-    launch_start = launcher.index("function Invoke-Launch {")
-    launch_end = launcher.index("# Installation, database, and validation actions", launch_start)
-    launch_body = launcher[launch_start:launch_end]
+    launch = function_body(launcher, "Invoke-Launch", "Assert-FrontendServed")
 
-    frontend_ready = launch_body.index("Write-Ok 'Frontend is ready.'")
-    backend_wait = launch_body.index("$backendHealth", frontend_ready)
-    backend_healthy = launch_body.index("Write-Ok 'Backend is healthy.'")
-    browser_open = launch_body.index("Open-ApplicationBrowser -Uri $uiUrl")
+    backend_healthy = launch.index("Write-Ok 'Backend is healthy.'")
+    frontend_served = launch.index("Assert-FrontendServed -Url $appUrl")
+    browser_open = launch.index("Open-ApplicationBrowser -Uri $appUrl")
+    supervise = launch.index("while (-not $backendProcess.HasExited)")
+    stop = launch.index("Stop-Application", supervise)
 
-    assert frontend_ready < backend_wait < backend_healthy < browser_open
+    assert backend_healthy < frontend_served < browser_open < supervise < stop
+    assert launch.index("} finally {") < stop
+    assert "run', 'preview'" not in launcher
+    assert "Detach-ManagedProcesses" not in launcher
+    assert "UI_PORT" not in launch
 
 ###############################################################################
 def test_installation_orders_dependency_sync_database_initialization_and_build() -> None:
@@ -52,10 +55,11 @@ def test_dependency_sync_uses_lockfile_and_propagates_backend_and_frontend_failu
 def test_managed_process_shutdown_cleans_descendants_before_roots() -> None:
     launcher = launcher_source()
     process = function_body(launcher, "Start-ManagedProcess", "Get-DescendantProcessIds")
-    shutdown = function_body(launcher, "Stop-ManagedProcesses", "Detach-ManagedProcesses")
+    shutdown = function_body(launcher, "Stop-ManagedProcesses", "Stop-Application")
 
     assert "@('/d', $mode, $command)" in process
     assert "-WindowStyle Hidden" in process
+    assert "-NoNewWindow" in process
     descendant_stop = shutdown.index("foreach ($processId in $descendantIds)")
     root_stop = shutdown.index("Stop-Process -Id $rootProcessId", descendant_stop)
     assert descendant_stop < root_stop

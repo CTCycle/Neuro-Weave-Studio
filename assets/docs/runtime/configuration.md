@@ -1,6 +1,6 @@
 # Configuration
 
-Last updated: 2026-10-21
+Last updated: 2026-10-22
 
 The application resource directory is selected by `NEURO_WEAVE_RESOURCES_DIR`, read from the inherited environment or `settings/.env`; inherited values take precedence. Relative paths resolve from the repository root, and the default is `data`. The launcher uses this directory for the default database and application data. It does not import older database or application environment variables.
 
@@ -14,7 +14,7 @@ Application setting defaults include a 300-second worker timeout, five seconds c
 
 Memory policies are explicit per job and are never translated between backends: TensorFlow supports `default`, `tensorflow_growth`, and `tensorflow_limit_mb`; JAX supports `default`, `jax_no_preallocation`, `jax_preallocate_fraction`, and the slow/debug `jax_platform_allocator`; PyTorch supports `default` and `pytorch_fraction`. Metadata exposes only policies discovered as supported for each live device.
 
-`FASTAPI_HOST`, `FASTAPI_PORT`, `UI_HOST`, and `UI_PORT` configure the local servers. `RELOAD` controls backend reload mode and defaults to `false` for ordinary launches. `BACKEND_LOGS_VISIBLE` controls whether the launcher opens a dedicated terminal for backend logs and defaults to `true` when absent. The Angular development wrapper and Node preview server proxy `/runtime-config.json`, `/health`, and `/api` to the configured backend. `NEURO_WEAVE_API_BASE_URL` may be a same-origin path such as `/api` or an absolute HTTP(S) API URL; when using an absolute URL, include the UI origin in `NEURO_WEAVE_CORS_ORIGINS`.
+`FASTAPI_HOST` and `FASTAPI_PORT` configure the backend, which also serves the built frontend on the same origin in normal launches. `UI_HOST` and `UI_PORT` configure only the Angular development server. `RELOAD` controls backend reload mode and defaults to `false` for ordinary launches. `BACKEND_LOGS_VISIBLE` controls whether backend output is shown in the launcher console (`true`, the default) or captured only in `data/runtime/logs`. The Angular development wrapper proxies `/runtime-config.json`, `/health`, and `/api` to the configured backend. `NEURO_WEAVE_API_BASE_URL` may be a same-origin path such as `/api` or an absolute HTTP(S) API URL; when using an absolute URL, include the UI origin in `NEURO_WEAVE_CORS_ORIGINS`.
 
 Runtime discovery snapshots are keyed by a SHA-256 fingerprint of the Python/platform identity, installed framework versions, selected runtime environment variables, hardware summary, and the persisted backend-installation record. Snapshot loading is display-only and never imports optional frameworks during startup. A matching snapshot is validated and reused when the requested capability is first needed; otherwise `POST /api/execution/discovery` probes only that backend/API pair in an isolated worker. Changing dependencies, hardware, runtime variables, or backend configuration causes the next requested check to refresh; the Environment page also exposes an explicit refresh action. The database-backed runtime discovery timeout defaults to 60 seconds.
 

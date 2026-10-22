@@ -4,8 +4,6 @@
 # pyright: reportUnknownLambdaType=false, reportUnknownArgumentType=false
 from __future__ import annotations
 
-import socket
-import subprocess
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -208,51 +206,3 @@ def test_job_submission_starts_discovery_and_returns_pending(tmp_path: Path, mon
         assert runtime.discovery_status(ExecutionBackend.PYTORCH, RuntimeApi.KERAS).reason_code == "dependency_missing"
     finally:
         runtime.shutdown()
-
-###############################################################################
-def test_preview_server_serves_spa_root_without_crashing() -> None:
-    repository_root = Path(__file__).resolve().parents[2]
-    node = repository_root / "runtimes" / "node" / "node.exe"
-    preview = repository_root / "app" / "client" / "tools" / "preview-server.mjs"
-    index = repository_root / "runtimes" / "cache" / "frontend-dist" / "index.html"
-    if not node.is_file() or not preview.is_file() or not index.is_file():
-        pytest.skip("official frontend preview prerequisites are not installed")
-
-    import urllib.error
-    import urllib.request
-
-    with socket.socket() as probe_socket:
-        probe_socket.bind(("127.0.0.1", 0))
-        port = probe_socket.getsockname()[1]
-    process = subprocess.Popen(
-        [str(node), str(preview), "--host", "127.0.0.1", "--port", str(port)],
-        cwd=repository_root / "app" / "client",
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    try:
-        for _ in range(30):
-            if process.poll() is not None:
-                diagnostics = process.stderr.read() if process.stderr else ""
-                raise AssertionError(diagnostics)
-            try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=1) as response:
-                    assert response.status == 200
-                break
-            except (ConnectionError, urllib.error.URLError):
-                time.sleep(0.05)
-        else:
-            raise AssertionError("preview server did not become ready")
-        with pytest.raises(urllib.error.HTTPError) as missing:
-            urllib.request.urlopen(f"http://127.0.0.1:{port}/missing.js", timeout=1)
-        assert missing.value.code == 404
-        missing.value.close()
-        assert process.poll() is None
-    finally:
-        try:
-            process.terminate()
-            process.wait(timeout=3)
-        finally:
-            if process.stderr is not None:
-                process.stderr.close()

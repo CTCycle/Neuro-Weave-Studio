@@ -9,8 +9,7 @@
     "lint": "eslint . --max-warnings 0 --cache --cache-location ../../runtimes/cache/eslint/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test",
-    "preview": "node tools/preview-server.mjs"
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@angular/common": "22.2.3",
