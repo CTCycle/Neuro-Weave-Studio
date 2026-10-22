@@ -5,6 +5,7 @@ Last updated: 2026-10-18
 ## [Unreleased]
 
 - Launcher serves the frontend from the backend on one origin, stays attached as the lifecycle owner (Enter/Ctrl+C to stop), and no longer starts the Node preview server.
+- Fixed Settings section links leaving `/settings` under the backend-served build (`<base href="/">`), `/openapi.json` and `/docs` failing with HTTP 500 (`typing.Self` in `ParameterValueSchema`), and missing static files returning the SPA shell instead of 404.
 
 ## [1.0.0] - 2026-10-18
 
