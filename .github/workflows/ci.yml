@@ -20,7 +20,6 @@ env:
   npm_config_cache: ${{ github.workspace }}/runtimes/cache/npm
   PYTHONPYCACHEPREFIX: ${{ github.workspace }}/runtimes/cache/python-bytecode
   PYTHON_EGG_CACHE: ${{ github.workspace }}/runtimes/cache/python-eggs
-  COVERAGE_FILE: ${{ github.workspace }}/runtimes/cache/coverage/.coverage
   RUFF_CACHE_DIR: ${{ github.workspace }}/runtimes/cache/ruff
   PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/runtimes/cache/playwright/browsers
 
@@ -116,7 +115,7 @@ jobs:
           NEURO_WEAVE_REQUIRED_NATIVE_BACKEND: ${{ matrix.backend }}
         run: >-
           uv run --project app/server python -m pytest
-          app/tests/test_native_parity.py -q
+          app/tests/test_native_backend_parity.py -q
           -k "native_dense_values_are_deterministic_across_frameworks or native_representative_cases or native_multi_input_multi_output_signatures_match"
 
   frontend:
@@ -241,11 +240,10 @@ jobs:
           if-no-files-found: ignore
           include-hidden-files: true
           path: |
-            runtimes/cache/coverage/
             runtimes/cache/angular/
             runtimes/cache/eslint/
             runtimes/cache/frontend-dist/
-            runtimes/cache/playwright/test-results/
+            assets/QA/playwright/test-results/
             runtimes/cache/typescript/
             runtimes/cache/vite/
             .ci-logs/
