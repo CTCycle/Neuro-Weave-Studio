@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from domain.diagnostics import ValidationDiagnostic
 
+
 ###############################################################################
 class ProjectNotFoundError(LookupError):
 

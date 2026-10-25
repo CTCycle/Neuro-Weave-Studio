@@ -12,6 +12,7 @@ from uuid import UUID
 from domain.enums import ExecutionBackend, ValidationStatus
 from domain.graph import ModelGraph
 
+
 ###############################################################################
 @dataclass(frozen=True, slots=True)
 class ProjectMetadata:
@@ -108,9 +109,6 @@ class RevisionRepositoryProtocol(Protocol):
         project_id: UUID,
         *,
         revision: int,
-        graph: ModelGraph,
-        execution_backend: ExecutionBackend,
-        keras_enabled: bool,
         timestamp: datetime,
     ) -> None: ...
 
@@ -129,8 +127,6 @@ class CodeSnapshotRepositoryProtocol(Protocol):
         project_id: UUID,
         *,
         revision: int,
-        execution_backend: ExecutionBackend,
-        keras_enabled: bool,
         source_code: str,
         timestamp: datetime,
     ) -> None: ...

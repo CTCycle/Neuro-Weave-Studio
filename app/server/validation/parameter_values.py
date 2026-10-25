@@ -8,6 +8,7 @@ from typing import Any, cast
 from domain.manifests import NodeManifest, ParameterDefinition, ParameterValueSchema
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 
+
 ###############################################################################
 class ParameterValueError(ValueError):
     pass

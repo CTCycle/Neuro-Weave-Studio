@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+
 ###############################################################################
 class FilesystemEntry(BaseModel):
     name: str

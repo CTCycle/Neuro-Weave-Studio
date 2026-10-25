@@ -24,6 +24,7 @@ from validation.output_resolution import output_selectors, resolved_outputs
 from validation.parameter_values import condition_matches
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
+
 ###############################################################################
 class NativeJaxSourceExporter(SourceExporter):
     """Generate a native Flax Linen module for the verified subset."""

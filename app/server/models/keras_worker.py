@@ -31,6 +31,7 @@ from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.output_resolution import input_nodes, resolved_outputs
 from validation.shape_inference import infer_shapes
 
+
 ###############################################################################
 def _checkpoint(callback: Callable[[], None] | None) -> None:
     if callback is not None:

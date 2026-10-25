@@ -20,6 +20,7 @@ from domain.metrics import (
 from repositories.contracts import UnitOfWorkFactory, UnitOfWorkProtocol
 from repositories.models import CustomMetricDefinitionRecord
 
+
 ###############################################################################
 class MetricDefinitionConflictError(ValueError):
 

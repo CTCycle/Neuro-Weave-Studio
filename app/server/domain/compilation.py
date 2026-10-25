@@ -9,6 +9,7 @@ from domain.diagnostics import ValidationDiagnostic
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph, OutputBinding, ShapeSummary
 
+
 ###############################################################################
 class InputBinding(BaseModel):
     """A compiled edge retaining both endpoint port identities."""

@@ -19,6 +19,7 @@ from validation.safe_expression import (
     validate_safe_expression,
 )
 
+
 ###############################################################################
 class ShapeInferenceError(ValueError):
     pass

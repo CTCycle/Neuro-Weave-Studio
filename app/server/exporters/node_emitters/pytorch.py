@@ -11,6 +11,7 @@ from .contracts import (
     safe_index_expression,
 )
 
+
 ###############################################################################
 def _simple(context: NodeEmitterContext) -> EmissionResult:
     source = next(iter(context.input_expressions_by_target_port.values()), "")

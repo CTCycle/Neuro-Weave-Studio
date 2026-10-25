@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from repositories.models import GeneratedCodeSnapshotRecord
 
+
 ###############################################################################
 class CodeSnapshotRepository:
 

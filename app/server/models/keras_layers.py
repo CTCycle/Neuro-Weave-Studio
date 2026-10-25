@@ -9,6 +9,7 @@ from typing import Any
 import keras
 from keras import layers
 
+
 ###############################################################################
 @keras.saving.register_keras_serializable(package="NeuroWeave")
 class SinusoidalPositionalEncoding(layers.Layer):

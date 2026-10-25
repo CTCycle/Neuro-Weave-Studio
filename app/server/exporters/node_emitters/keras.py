@@ -14,6 +14,7 @@ from .contracts import (
     safe_index_expression,
 )
 
+
 ###############################################################################
 def _identity(context: NodeEmitterContext) -> EmissionResult:
     expression = next(iter(context.input_expressions_by_target_port.values()), "")

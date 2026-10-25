@@ -8,6 +8,7 @@ from typing import Any
 
 from domain.manifests import NodeManifest, PortDefinition
 
+
 ###############################################################################
 def materialize_ports(
     definitions: Iterable[PortDefinition], parameters: dict[str, Any] | None = None

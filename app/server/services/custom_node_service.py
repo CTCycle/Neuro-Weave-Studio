@@ -30,6 +30,7 @@ from validation.parameter_values import (
     normalize_manifest_parameters,
 )
 
+
 ###############################################################################
 class CustomNodeDefinitionConflictError(ValueError):
     pass

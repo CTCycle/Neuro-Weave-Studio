@@ -12,6 +12,7 @@ from common.timestamps import utc_now
 from repositories.base import Base
 from repositories.types import UTCDateTime
 
+
 ###############################################################################
 class CustomNodeDefinitionRecord(Base):
     """Installation-wide user-authored node templates."""

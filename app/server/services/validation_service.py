@@ -47,6 +47,7 @@ from validation.profile_compatibility import resolve_implementation_compatibilit
 from validation.safe_expression import SafeExpressionError, validate_safe_expression
 from validation.shape_inference import ShapeInferenceError, infer_shapes
 
+
 ###############################################################################
 def _parameter_type_matches(parameter: ParameterDefinition, value: Any) -> bool:
     if parameter.value_schema is not None:

@@ -14,6 +14,7 @@ from domain.compilation import CompiledNode
 from domain.graph import ModelGraph
 from domain.manifests import ImplementationMapping, NodeManifest, PortDefinition
 
+
 ###############################################################################
 def _empty_any_mapping() -> dict[str, Any]:
     return {}

@@ -16,6 +16,7 @@ from repositories.models import (
     ProjectRecord,
 )
 
+
 ###############################################################################
 class MetricRepository:
 

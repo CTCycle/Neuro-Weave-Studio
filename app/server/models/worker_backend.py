@@ -24,6 +24,7 @@ from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 from models.tensor_inspection_runtime import persist_inspection
 from validation.output_resolution import input_nodes, output_selectors, resolved_outputs
 
+
 ###############################################################################
 class BackendWorker(Protocol):
     """Common contract implemented by one isolated execution-backend worker."""

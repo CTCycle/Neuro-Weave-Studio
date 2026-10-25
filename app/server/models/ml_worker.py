@@ -21,6 +21,7 @@ from models.worker_backend import (
 )
 from models.worker_core import WorkerCancelled, WorkerContext, read_request, run_job
 
+
 ###############################################################################
 def _probe(backend: ExecutionBackend, api: RuntimeApi) -> None:
     config = WorkerConfiguration(backend=backend, api=api, device_id="auto")
