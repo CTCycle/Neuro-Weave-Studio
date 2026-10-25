@@ -388,18 +388,24 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
         await expect(page).toHaveURL(/\/environment$/)
         await expect(page.getByRole('heading', { name: 'Execution backends', exact: true })).toBeVisible()
 
-        const emptyProjects = await request.get('/api/projects')
-        const emptyDatasets = await request.get('/api/datasets')
-        expect(emptyProjects.ok()).toBeTruthy()
-        expect(emptyDatasets.ok()).toBeTruthy()
-        expect((await emptyProjects.json() as { projects: unknown[] }).projects).toEqual([])
-        expect((await emptyDatasets.json() as { datasets: unknown[] }).datasets).toEqual([])
+        const projectsResponse = await request.get('/api/projects')
+        const datasetsResponse = await request.get('/api/datasets')
+        expect(projectsResponse.ok()).toBeTruthy()
+        expect(datasetsResponse.ok()).toBeTruthy()
+        const projects = (await projectsResponse.json() as { projects: unknown[] }).projects
+        const datasets = (await datasetsResponse.json() as { datasets: unknown[] }).datasets
 
         await page.goto('/training')
         await expect(page.getByRole('heading', { name: 'Training', exact: true })).toBeVisible()
-        await expect(page.getByText('A registered dataset is required.', { exact: true })).toBeVisible()
-        await expect(page.getByText('A saved model is required.', { exact: true })).toBeVisible()
-        await expect(page.locator('header').getByRole('button', { name: 'New training' })).toBeDisabled()
+        const datasetPrerequisite = page.getByText('A registered dataset is required.', { exact: true })
+        const projectPrerequisite = page.getByText('A saved model is required.', { exact: true })
+        const newTrainingButton = page.locator('header').getByRole('button', { name: 'New training' })
+        if (datasets.length === 0) await expect(datasetPrerequisite).toBeVisible()
+        else await expect(datasetPrerequisite).toHaveCount(0)
+        if (projects.length === 0) await expect(projectPrerequisite).toBeVisible()
+        else await expect(projectPrerequisite).toHaveCount(0)
+        if (projects.length === 0 || datasets.length === 0) await expect(newTrainingButton).toBeDisabled()
+        else await expect(newTrainingButton).toBeEnabled()
 
         projectId = await createProject(request)
         datasetId = await registerDataset(page)
@@ -413,6 +419,8 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 
         const dialog = page.getByRole('dialog', { name: 'Training setup' })
         await expect(dialog).toBeVisible()
+        await dialog.getByLabel('Model').selectOption(projectId)
+        await dialog.getByLabel('Dataset').selectOption(datasetId)
         await dialog.getByLabel('Name').fill(trainingName)
         await dialog.getByLabel('Epochs').fill('7')
         await dialog.getByLabel('Batch size').fill('16')

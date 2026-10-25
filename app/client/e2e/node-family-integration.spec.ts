@@ -632,7 +632,11 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo, type Lo
       await connectByPorts(page, candidate.displayName, 'Merged output', 'Input', 4)
 
       const validationResponsePromise = page.waitForResponse(
-        (response) => response.url().endsWith('/api/validation') && response.request().method() === 'POST',
+        (response) => {
+          if (!response.url().endsWith('/api/validation') || response.request().method() !== 'POST') return false
+          const request = response.request().postDataJSON() as { graph?: { edges?: unknown[] } }
+          return request.graph?.edges?.length === 4
+        },
       )
       await page.getByRole('button', { name: 'Validate', exact: true }).click()
       const validationResponse = await validationResponsePromise
@@ -1041,12 +1045,14 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo, type Lo
       await expect(page.locator('f-connection path.f-connection-selection')).toHaveCount(expectedConnectionCount)
     }
 
-    async function parameterField(inspector: Locator, displayName: string): Promise<Locator> {
+    async function parameterField(inspector: Locator, displayName: string, groupName?: string): Promise<Locator> {
       const field = inspector.locator('label.inspector-field').filter({ hasText: displayName }).first()
       if (!(await field.isVisible())) {
-        const group = inspector.locator('details.parameter-group').filter({ has: field }).first()
-        await group.locator('summary').click()
-        await expect(group).toHaveAttribute('open', '')
+        if (!groupName) throw new Error(`Parameter field ${displayName} is hidden without a known group`)
+        const groupSummary = inspector.locator('details.parameter-group > summary').filter({ hasText: groupName }).first()
+        await expect(groupSummary).toBeVisible()
+        await groupSummary.click()
+        await expect(field).toBeVisible()
       }
       await expect(field, `${displayName} should be visible in the Inspector`).toBeVisible()
       return field
@@ -1070,7 +1076,7 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo, type Lo
           output_shape: 'Output shape',
         }[id]
         if (!displayName) continue
-        const field = await parameterField(inspector, displayName)
+        const field = await parameterField(inspector, displayName, ['value_dim', 'output_shape'].includes(id) ? 'Attention' : undefined)
         if (id === 'use_bias') {
           const checkbox = field.locator('input[type="checkbox"]')
           if (value === true) await checkbox.check()
