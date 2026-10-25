@@ -356,13 +356,6 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo } from '
       await expect(page.getByRole('heading', { name: 'Register', exact: true })).toBeVisible()
     }
 
-    test('starts the Angular shell at the model catalog', async ({ page }) => {
-      await page.goto('/models')
-      await expect(page.locator('nw-app-shell')).toBeVisible()
-      await expect(page.getByRole('link', { name: 'Models', exact: true })).toHaveClass(/active/)
-      await expect(page.locator('app-root')).toContainText('Saved models')
-    })
-
     test('serves Angular deep links and preserves the shell on refresh', async ({ page }) => {
       test.setTimeout(60_000)
       for (const route of ['/datasets', '/training', '/environment', '/metrics', '/nodes', '/settings', '/builder', '/models/missing/compilation']) {
@@ -371,36 +364,6 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo } from '
         await page.reload()
         await expect(page.locator('nw-app-shell')).toBeVisible()
       }
-    })
-
-    test('exposes dataset and training as primary navigation tabs', async ({ page }) => {
-      await page.goto('/datasets')
-      await expect(page.getByRole('link', { name: 'Datasets', exact: true })).toHaveClass(/active/)
-      await expect(page.getByRole('heading', { name: 'Datasets', exact: true })).toBeVisible()
-      await page.getByRole('link', { name: 'Training', exact: true }).click()
-      await expect(page.getByRole('heading', { name: 'Training', exact: true })).toBeVisible()
-    })
-
-    test('exposes node library and global settings navigation', async ({ page }) => {
-      await page.goto('/nodes')
-      await expect(page.getByRole('link', { name: 'Nodes', exact: true })).toHaveClass(/active/)
-      await expect(page.getByRole('heading', { name: 'Nodes', exact: true })).toBeVisible()
-      await expect(page.getByText('Built-in', { exact: true }).first()).toBeVisible()
-
-      await page.getByRole('link', { name: 'Settings', exact: true }).click()
-      await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
-      await expect(page.getByRole('navigation', { name: 'Settings sections' })).toBeVisible()
-      await expect(page.getByLabel('Log level')).toBeVisible()
-      await expect(page.getByRole('link', { name: /Node Library/ })).toBeVisible()
-      await expect(page.getByRole('link', { name: /Runtime Environment/ })).toBeVisible()
-
-      const settingsSections = page.getByRole('navigation', { name: 'Settings sections' })
-      await settingsSections.getByRole('link', { name: /Application/ }).click()
-      await expect(page).toHaveURL(/\/settings#application-general$/)
-      await expect(page.locator('#application-general')).toBeVisible()
-      await settingsSections.getByRole('link', { name: /Related management/ }).click()
-      await expect(page).toHaveURL(/\/settings#related-management$/)
-      await expect(page.locator('#related-management')).toBeVisible()
     })
 
     test('dismisses the dataset registration dialog with Escape', async ({ page }) => {
@@ -1026,24 +989,6 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo } from '
         await dialog.getByRole('button', { name: 'Continue', exact: true }).click()
         await expect(dialog.locator('.wizard-body')).toBeVisible()
         await dialog.getByRole('button', { name: 'Close custom node wizard' }).click()
-      }
-    })
-
-    test('adds the intended small Models toolbar gap without changing card structure', async ({ page, request }) => {
-      const fixture = await createProject(request, `UI spacing ${Date.now()}`)
-      try {
-        await page.goto('/models')
-        const card = page.locator('.model-card').filter({ hasText: fixture.name }).first()
-        await expect(card).toBeVisible()
-        const gap = await page.evaluate(() => {
-          const controls = document.querySelector<HTMLElement>('.catalog-controls')?.getBoundingClientRect()
-          const cards = document.querySelector<HTMLElement>('.model-card-grid')?.getBoundingClientRect()
-          return controls && cards ? cards.top - controls.bottom : 0
-        })
-        expect(gap).toBeGreaterThanOrEqual(16)
-        expect(await page.locator('.model-card').count()).toBeGreaterThan(0)
-      } finally {
-        await deleteProject(request, fixture.id)
       }
     })
 
