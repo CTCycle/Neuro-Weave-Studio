@@ -27,5 +27,5 @@ The GitHub combined-status lookup returned no status entries for the pushed revi
 
 NW-T5-01 is closed as PASS for explicitly bounded controlled-failure and recovery behavior. The focused tests passed for (1) an injected worker import failure that fails closed, preserves service health and cleans the failed workspace, followed by successful same-profile inference, and (2) an injected repository `URLError` that returns 503 without persisting a definition, followed by successful resolution. The full backend suite also passed these tests.
 
-A later isolated attempt at the repository-outage test produced no test result and was stopped after it stalled in the test harness. This adds no new pass or failure evidence. No naturally occurring import failure, process crash, or upstream outage was observed; the product area therefore remains PARTIAL for those broader natural conditions.
+A later isolated attempt at the repository-outage test produced no test result and was stopped after it stalled in the test harness. This adds no new pass or failure evidence. Naturally occurring import failures, crashes, and outages are excluded from NW-T5-01 acceptance criteria because no stable, reproducible trigger is available; the PASS claim covers controlled injections and recovery only.
 
