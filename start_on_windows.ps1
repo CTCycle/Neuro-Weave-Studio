@@ -163,18 +163,19 @@ function Invoke-TrackedLauncherAction {
         throw
     }
     finally {
-        Clear-LauncherProgress
-        Write-StartupStageDuration -Name "launcher.$($Name.Replace(' ', '_'))" -Stopwatch $stopwatch
+        Write-ElapsedTime -Name "Action: $Name" -Stopwatch $stopwatch
     }
 }
 
-function Write-StartupStageDuration {
+function Write-ElapsedTime {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][System.Diagnostics.Stopwatch]$Stopwatch
     )
     $Stopwatch.Stop()
-    Write-Info ("startup_stage={0} duration_ms={1}" -f $Name, [math]::Round($Stopwatch.Elapsed.TotalMilliseconds, 1))
+    $durationMilliseconds = [long][math]::Round($Stopwatch.Elapsed.TotalMilliseconds)
+    Clear-LauncherProgress
+    Write-Host ('[TIME] {0,-42} {1,8} ms' -f "$($Name):", $durationMilliseconds) -ForegroundColor Gray
 }
 
 function Invoke-TimedStartupStage {
@@ -186,7 +187,7 @@ function Invoke-TimedStartupStage {
     try {
         & $Action
     } finally {
-        Write-StartupStageDuration -Name $Name -Stopwatch $stopwatch
+        Write-ElapsedTime -Name $Name -Stopwatch $stopwatch
     }
 }
 
@@ -283,7 +284,7 @@ function Invoke-DownloadAndExtract {
     } finally {
         Remove-Item -LiteralPath $ArchivePath -Force -ErrorAction SilentlyContinue
         Complete-LauncherProgress $progressId
-        Write-StartupStageDuration -Name "launcher.download.$([IO.Path]::GetFileName($ArchivePath))" -Stopwatch $stopwatch
+        Write-ElapsedTime -Name "Download $([IO.Path]::GetFileName($ArchivePath))" -Stopwatch $stopwatch
     }
 }
 
@@ -312,7 +313,7 @@ function Ensure-PortableRuntimes {
 
     $python = Get-PortablePythonPath
     if (-not (Test-Path -LiteralPath $python)) {
-        Invoke-TimedStartupStage -Name "install portable Python $($script:PythonVersion)" -Action {
+        Invoke-TimedStartupStage -Name "Portable Python $($script:PythonVersion) installation" -Action {
             & $uv python install $script:PythonVersion --install-dir $script:PythonDir
             if ($LASTEXITCODE -ne 0) { throw "Portable Python installation failed with exit code $LASTEXITCODE." }
         }
@@ -1600,15 +1601,15 @@ function Assert-ManagedProcessesAlive {
 # ===============================================================================
 function Invoke-Launch {
     $launchStarted = [System.Diagnostics.Stopwatch]::StartNew()
-    Invoke-TimedStartupStage -Name 'launcher.runtimes' -Action { Ensure-PortableRuntimes }
-    Invoke-TimedStartupStage -Name 'launcher.environment' -Action { Import-DotEnv; Set-LauncherEnvironment }
+    Invoke-TimedStartupStage -Name 'Portable runtime setup' -Action { Ensure-PortableRuntimes }
+    Invoke-TimedStartupStage -Name 'Environment loading' -Action { Import-DotEnv; Set-LauncherEnvironment }
     $backendHost = [Environment]::GetEnvironmentVariable('FASTAPI_HOST', 'Process')
     $backendPort = Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'
     $browserBackendHost = Get-BrowserHost -HostName $backendHost
-    Invoke-TimedStartupStage -Name 'launcher.port_checks' -Action {
+    Invoke-TimedStartupStage -Name 'Port availability checks' -Action {
         Invoke-LaunchPortGuardrail -BackendPort $backendPort
     }
-    Invoke-TimedStartupStage -Name 'launcher.dependencies' -Action {
+    Invoke-TimedStartupStage -Name 'Dependency check and setup' -Action {
         if (-not (Test-DependenciesReady)) {
             $state = Get-BackendInstallationState
             $backendExtras = @(Get-DependencyRepairBackends -State $state)
@@ -1620,9 +1621,9 @@ function Invoke-Launch {
             Write-Ok 'Application environments are ready; skipped dependency installation.'
         }
     }
-    Invoke-TimedStartupStage -Name 'launcher.backend_setup' -Action { Invoke-OptionalBackendSetup }
+    Invoke-TimedStartupStage -Name 'Optional backend setup' -Action { Invoke-OptionalBackendSetup }
     $backendLogsVisible = Get-BooleanEnvironmentValue -Name 'BACKEND_LOGS_VISIBLE' -Default $true
-    Invoke-TimedStartupStage -Name 'launcher.frontend_artifact' -Action {
+    Invoke-TimedStartupStage -Name 'Frontend artifact check and build' -Action {
         Ensure-FrontendBuildCurrent
     }
 
@@ -1635,23 +1636,33 @@ function Invoke-Launch {
         $appUrl = "http://${browserBackendHost}:$backendPort/"
         Write-Status -Level RUN -Message "Launching backend at $backendHealth"
         $backendStarted = [System.Diagnostics.Stopwatch]::StartNew()
-        $backendProcess = Start-ManagedProcess -Name 'Backend' -FilePath $venvPython -ArgumentList $backendArguments `
-            -WorkingDirectory $script:ServerDir -Visible:$backendLogsVisible
+        try {
+            $backendProcess = Start-ManagedProcess -Name 'Backend' -FilePath $venvPython -ArgumentList $backendArguments `
+                -WorkingDirectory $script:ServerDir -Visible:$backendLogsVisible
+        } finally {
+            Write-ElapsedTime -Name 'Backend process start' -Stopwatch $backendStarted
+        }
 
         Write-Status -Level WAIT -Message "Waiting for backend readiness at $backendHealth"
-        if (-not (Invoke-HealthCheck -Url $backendHealth -TimeoutSeconds 60 -Process $backendProcess -DiagnosticsPath (Join-Path $script:LogDir 'backend.err.log'))) {
-            throw "Backend did not become healthy at $backendHealth within 60 seconds. See $($script:LogDir)."
+        $backendReadiness = [System.Diagnostics.Stopwatch]::StartNew()
+        try {
+            if (-not (Invoke-HealthCheck -Url $backendHealth -TimeoutSeconds 60 -Process $backendProcess -DiagnosticsPath (Join-Path $script:LogDir 'backend.err.log'))) {
+                throw "Backend did not become healthy at $backendHealth within 60 seconds. See $($script:LogDir)."
+            }
+            Write-Ok 'Backend is healthy.'
+        } finally {
+            Write-ElapsedTime -Name 'Backend readiness' -Stopwatch $backendReadiness
         }
-        Write-StartupStageDuration -Name 'launcher.backend_readiness' -Stopwatch $backendStarted
-        Write-Ok 'Backend is healthy.'
-        Assert-FrontendServed -Url $appUrl
-        Write-Ok 'Frontend is served by the backend.'
+        Invoke-TimedStartupStage -Name 'Frontend serving check' -Action {
+            Assert-FrontendServed -Url $appUrl
+            Write-Ok 'Frontend is served by the backend.'
+        }
         Open-ApplicationBrowser -Uri $appUrl
         Write-Status -Level SUCCESS -Message 'NeuroWeave Studio is running.'
         Write-Host "  Application: $appUrl (backend PID $($backendProcess.Id))"
         Write-Host "  Logs:        $($script:LogDir)" -ForegroundColor DarkGray
         Clear-BackendRestartRequired
-        Write-StartupStageDuration -Name 'launcher.total' -Stopwatch $launchStarted
+        Write-ElapsedTime -Name 'Total time to application ready' -Stopwatch $launchStarted
 
         $canReadKeys = $script:LauncherInteractive
         $stopHint = if ($canReadKeys) { 'Press Enter or Ctrl+C to stop NeuroWeave.' } else { 'Terminate this launcher to stop NeuroWeave.' }
