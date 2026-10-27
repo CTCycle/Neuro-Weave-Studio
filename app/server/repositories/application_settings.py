@@ -27,9 +27,7 @@ class ApplicationSettingsRepository:
             raise ValueError(
                 f"Unsupported application settings schema version {record.schema_version}."
             )
-        settings_payload = dict(record.settings_json)
-        settings_payload.pop("cors_origins", None)
-        return Settings.model_validate(settings_payload)
+        return Settings.model_validate(record.settings_json)
 
     # -------------------------------------------------------------------------
     def save(self, settings: Settings) -> None:

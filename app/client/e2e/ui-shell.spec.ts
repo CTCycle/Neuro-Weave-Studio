@@ -535,7 +535,7 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo } from '
       }
     })
 
-    test('NW-T1-01 exercises dataset workspace tabs and structure redirect', async ({ page, request }, testInfo) => {
+    test('NW-T1-01 exercises dataset workspace tabs', async ({ page, request }, testInfo) => {
       test.setTimeout(120_000)
       const diagnostics = collectBrowserDiagnostics(page)
       const fixtureBase = path.resolve(process.env.NEURO_WEAVE_E2E_FIXTURE_DIR ?? path.resolve(process.cwd(), '..', '..', 'assets', 'QA'))
@@ -586,7 +586,7 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo } from '
         await expectDatasetTab(tabs[3])
         await page.goForward()
         await expectDatasetTab(tabs[4])
-        await page.goto(`/datasets/${datasetId}/structure`)
+        await page.goto(`/datasets/${datasetId}/io`)
         await expect(page).toHaveURL(new RegExp(`/datasets/${datasetId}/io$`))
         await expectDatasetTab(tabs[2])
 

@@ -6,7 +6,7 @@ import { RouterLink } from '@angular/router'
 import { LucideFlaskConical, LucideSquare } from '@lucide/angular'
 import { ApiService } from '../../core/api/api.service'
 import { ApiError } from '../../core/api/api-error'
-import type { JobResponse, RuntimeDevice, WorkerConfiguration } from '../../domain/types'
+import type { JobResponse, WorkerConfiguration } from '../../domain/types'
 import { AppResourcesService } from '../../core/state/app-resources.service'
 import { pollJobUntilTerminal, terminalJobStates } from './job-polling'
 import { ModelWorkspaceState } from './model-workspace.state'
@@ -69,7 +69,7 @@ export class ModelValidationPageComponent {
     if (!project) return null
     const status = this.resources.backendStatuses().find((item) => item.id === project.execution_backend && item.available)
     const preference = this.resources.runtimePreferences()[project.execution_backend]
-    const devices = status?.devices?.length ? status.devices : status ? [fallbackDevice()] : []
+    const devices = status?.devices ?? []
     const device = devices.find((item) => item.device_id === preference?.device_id && item.available) ?? devices.find((item) => item.available)
     const api = project.keras_enabled ? 'keras' : 'native'
     if (!status || !preference || !device || !this.resources.runtimeCapabilityReady(project.execution_backend, api)) return null
@@ -179,5 +179,3 @@ export class ModelValidationPageComponent {
 
   private jobStorageKey(projectId: string): string { return `neuro-weave:validation-job:${projectId}` }
 }
-
-function fallbackDevice(): RuntimeDevice { return { device_id: 'cpu', lease_key: 'cpu', kind: 'cpu', name: 'CPU', accelerator: 'cpu', available: true, supported_memory_policies: ['default'] } }

@@ -127,9 +127,8 @@ function safeFilename(value: string): string { return value.replaceAll(/[^a-zA-Z
 function workerForProject(project: ProjectDocument, statuses: ExecutionBackendStatus[], preferences: Partial<Record<ProjectDocument['execution_backend'], WorkerConfiguration>>, resources: AppResourcesService): WorkerConfiguration | null {
   const status = statuses.find((item) => item.id === project.execution_backend); if (!status?.available) return null
   const api: WorkerConfiguration['api'] = project.keras_enabled ? 'keras' : 'native'; if (!resources.runtimeCapabilityReady(project.execution_backend, api)) return null
-  const preference = preferences[project.execution_backend]; const devices = status.devices?.length ? status.devices : [fallbackDevice()]; const preferred = preference ? devices.find((item) => item.device_id === preference.device_id && item.available) : null; const device = preferred ?? devices.find((item) => item.available); if (!device) return null
+  const preference = preferences[project.execution_backend]; const devices = status.devices ?? []; const preferred = preference ? devices.find((item) => item.device_id === preference.device_id && item.available) : null; const device = preferred ?? devices.find((item) => item.available); if (!device) return null
   const preferredPolicy = preference?.memory_policy; const memoryPolicy = preferredPolicy && device.supported_memory_policies.includes(preferredPolicy.kind) ? preferredPolicy : policyForDevice(device)
   return { api, backend: project.execution_backend, device_id: device.device_id, memory_policy: memoryPolicy, precision: preference?.precision ?? 'float32' }
 }
-function fallbackDevice(): RuntimeDevice { return { device_id: 'cpu', lease_key: 'cpu', kind: 'cpu', name: 'CPU', accelerator: 'cpu', available: true, supported_memory_policies: ['default'] } }
 function policyForDevice(device: RuntimeDevice): WorkerConfiguration['memory_policy'] { const kind = device.supported_memory_policies[0] ?? 'default'; if (kind === 'tensorflow_limit_mb') return { kind, limit_mb: 1024 }; if (kind === 'jax_preallocate_fraction' || kind === 'pytorch_fraction') return { kind, fraction: 0.5 }; return { kind } }

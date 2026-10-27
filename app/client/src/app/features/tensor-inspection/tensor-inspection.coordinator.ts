@@ -7,7 +7,6 @@ import { AppResourcesService } from '../../core/state/app-resources.service'
 import type {
   JobResponse,
   ProjectDocument,
-  RuntimeDevice,
   TensorInspectionNode,
   TensorInspectionSession,
   TensorInspectionViewResponse,
@@ -228,7 +227,7 @@ export class TensorInspectionCoordinator {
     await this.resources.discoverRuntime(project.execution_backend, api, false)
     const status = this.resources.backendStatuses().find((item) => item.id === project.execution_backend && item.available)
     const preference = this.resources.runtimePreferences()[project.execution_backend]
-    const devices = status?.devices?.length ? status.devices : status ? [fallbackDevice()] : []
+    const devices = status?.devices ?? []
     const device = devices.find((item) => item.device_id === preference?.device_id && item.available) ?? devices.find((item) => item.available)
     if (!status || !preference || !device || !this.resources.runtimeCapabilityReady(project.execution_backend, api)) return null
     const memoryPolicy = device.supported_memory_policies.includes(preference.memory_policy.kind) ? preference.memory_policy : { kind: 'default' as const }
@@ -288,5 +287,3 @@ export class TensorInspectionCoordinator {
     return view === 'values' || view === 'plot' || view === 'heatmap' || view === 'scatter'
   }
 }
-
-function fallbackDevice(): RuntimeDevice { return { device_id: 'cpu', lease_key: 'cpu', kind: 'cpu', name: 'CPU', accelerator: 'cpu', available: true, supported_memory_policies: ['default'] } }

@@ -17,6 +17,7 @@ import pytest
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
@@ -162,9 +163,10 @@ def test_invalid_runtime_preferences_do_not_change_persisted_settings(
     assert client.get("/api/settings").json() == initial
 
 ###############################################################################
-def test_settings_api_retires_database_cors_value_and_rejects_cors_patches(
+def test_settings_rejects_retired_database_cors_value_and_cors_patches(
     client: TestClient,
 ) -> None:
+    assert client.patch("/api/settings", json={"cors_origins": "https://ui.example"}).status_code == 422
     application = cast(FastAPI, client.app)
     context = application.state.repository_context
     with context.new_unit_of_work() as uow:
@@ -177,21 +179,10 @@ def test_settings_api_retires_database_cors_value_and_rejects_cors_patches(
         }
         uow.commit()
 
-    current = client.get("/api/settings")
-    assert current.status_code == 200
-    assert "cors_origins" not in current.json()
-    assert current.json()["log_level"] == "INFO"
-
-    rejected = client.patch("/api/settings", json={"cors_origins": "https://ui.example"})
-    assert rejected.status_code == 422
-
-    saved = client.patch("/api/settings", json={"log_level": "DEBUG"})
-    assert saved.status_code == 200
     with context.new_unit_of_work() as uow:
         assert uow.session is not None
-        record = uow.session.get(ApplicationSettingsRecord, 1)
-        assert record is not None
-        assert "cors_origins" not in record.settings_json
+        with pytest.raises(ValidationError, match="cors_origins"):
+            ApplicationSettingsRepository(uow.session).get()
 
 ###############################################################################
 def test_settings_write_failure_restores_runtime_configuration(

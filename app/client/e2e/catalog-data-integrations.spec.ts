@@ -249,7 +249,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
         await expect(page.getByRole('heading', { name: datasetName })).toBeVisible()
         for (const tab of ['Overview', 'Validation', 'I/O', 'Processing', 'Split']) await expect(page.getByRole('link', { name: tab, exact: true })).toBeVisible()
 
-        await page.goto(`/datasets/${datasetId}/structure`)
+        await page.goto(`/datasets/${datasetId}/io`)
         await expect(page).toHaveURL(new RegExp(`/datasets/${datasetId}/io$`))
 
         await page.getByRole('link', { name: 'Validation', exact: true }).click()
