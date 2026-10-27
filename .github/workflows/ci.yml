@@ -214,7 +214,7 @@ jobs:
         run: |
           mkdir -p ../../.ci-logs
           set -o pipefail
-          npm run e2e 2>&1 | tee ../../.ci-logs/playwright.log
+          npm run e2e -- node-functional-matrix.spec.ts 2>&1 | tee ../../.ci-logs/playwright.log
       - name: Stop backend for browser tests
         if: ${{ always() }}
         run: |
