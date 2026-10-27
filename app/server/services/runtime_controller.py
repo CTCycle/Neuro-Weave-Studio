@@ -970,6 +970,7 @@ class RuntimeController:
                 daemon=True,
             )
             record.monitor = monitor
+            LOGGER.info("job started id=%s operation=%s device=%s pid=%s", job_id, operation.value, lease_key, record.pid)
             monitor.start()
             return self._response(record)
 
@@ -981,6 +982,8 @@ class RuntimeController:
                 raise RuntimeControllerError("job_not_found", f"ML job '{job_id}' was not found")
             if record.state in {JobState.SUCCEEDED, JobState.TERMINATED, JobState.FAILED}:
                 return self._response(record)
+            if not record.cancellation_requested:
+                LOGGER.info("job cancellation requested id=%s", job_id)
             record.cancellation_requested = True
             record.stop_started_at = record.stop_started_at or time.monotonic()
             record.state = JobState.STOP_REQUESTED
@@ -1311,6 +1314,10 @@ class RuntimeController:
                         )
             self._bound_log(record.job_dir / "worker.log")
             record.stderr_tail = self._tail_log(record.job_dir / "worker.log")
+            log_level = logging.ERROR if record.state is JobState.FAILED else (
+                logging.WARNING if record.error and record.error.code == "worker_timeout" else logging.INFO
+            )
+            LOGGER.log(log_level, "job finished id=%s operation=%s state=%s exit_code=%s error=%s", record.job_id, record.operation.value, record.state.value, record.exit_code, record.error.code if record.error else None)
             self._leases.pop(record.device.lease_key, None)
             self._trim_history()
         self._remove_job_workspace(record.job_dir)

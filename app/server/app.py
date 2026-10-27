@@ -45,7 +45,7 @@ LOGGER = logging.getLogger(__name__)
 
 ###############################################################################
 def _log_startup_stage(stage: str, started: float) -> None:
-    LOGGER.info(
+    LOGGER.debug(
         "startup_stage stage=%s duration_ms=%s",
         stage,
         round((time.perf_counter() - started) * 1000, 1),
@@ -77,13 +77,14 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     _log_startup_stage("runtime_controller", stage_started)
     application.state.catalog = catalog
     application.state.runtime_controller = runtime_controller
-    LOGGER.info("runtime_discovery deferred=on_demand")
+    LOGGER.info("Application started; runtime discovery is on demand")
     _log_startup_stage("lifespan", startup_started)
     try:
         yield
     finally:
         runtime_controller.shutdown()
         database_configuration.dispose()
+        LOGGER.info("Application shutdown complete")
 
 ###############################################################################
 def _client_build_available() -> bool:
@@ -167,6 +168,13 @@ def create_app(
         )
         if preflight:
             response = Response(status_code=200 if allowed_origin else 400)
+            LOGGER.log(
+                logging.DEBUG if allowed_origin else logging.WARNING,
+                "api_preflight method=%s path=%s status=%s",
+                request.method,
+                request.url.path,
+                response.status_code,
+            )
         elif not request.url.path.startswith("/api"):
             return await call_next(request)
         else:
@@ -201,7 +209,11 @@ def create_app(
             finally:
                 if request_entered:
                     await database_configuration.leave_request()
-            LOGGER.info(
+            log_level = logging.ERROR if response.status_code >= 500 else (
+                logging.WARNING if response.status_code >= 400 else logging.DEBUG
+            )
+            LOGGER.log(
+                log_level,
                 "api_request method=%s path=%s status=%s duration_ms=%s",
                 request.method,
                 request.url.path,

@@ -10,6 +10,8 @@ Database settings are SQLite-only. The selected database path and connection tim
 
 Runtime paths, logging, timeout values, and Environment-page runtime selections are application settings stored in the selected database. Defaults place the database at `data/database.db`, artifacts at `data/runtime/exports`, worker workspaces at `data/runtime/ml-jobs`, and launcher logs at `data/runtime/logs`. The environment discovery cache uses `runtimes/cache/environment-discovery.json`. Runtime, application, frontend, tooling, pytest, and temporary test caches all use `runtimes/cache`.
 
+At INFO, backend logs include startup, shutdown, job lifecycle events and runtime discovery; successful API requests and health checks are quiet. Failed API requests are logged at WARNING for 4xx and ERROR for 5xx. Set the application log level to DEBUG to include successful requests, health checks and startup timings. API request logs include the path without query parameters.
+
 Application setting defaults include a 300-second worker timeout, five seconds cooperative cancellation, five seconds termination escalation, and 100 terminal records. Saved database values govern worker lifecycle; they do not enable training or native inference.
 
 Memory policies are explicit per job and are never translated between backends: TensorFlow supports `default`, `tensorflow_growth`, and `tensorflow_limit_mb`; JAX supports `default`, `jax_no_preallocation`, `jax_preallocate_fraction`, and the slow/debug `jax_platform_allocator`; PyTorch supports `default` and `pytorch_fraction`. Metadata exposes only policies discovered as supported for each live device.
