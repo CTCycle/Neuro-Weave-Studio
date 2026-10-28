@@ -1,39 +1,25 @@
-<p align="center">
-  <img src="assets/brand/neuroweave-mark.svg" alt="NeuroWeave Studio" width="88" />
-</p>
+<p align="center"><img src="assets/brand/neuroweave-mark.svg" alt="NeuroWeave Studio mark" width="80"></p>
 
 <h1 align="center">NeuroWeave Studio</h1>
 
-<p align="center">
-  Design and inspect machine-learning model graphs in a local visual workspace.
-</p>
+<p align="center">A local workspace for designing, validating, and exporting machine-learning model graphs.</p>
 
 <p align="center">
-  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
-  <img src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white" alt="Python 3.13" />
-  <img src="https://img.shields.io/badge/Angular-22-DD0031?logo=angular&logoColor=white" alt="Angular 22" />
-  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?logo=windows&logoColor=white" alt="Windows 10 or 11" />
+  <a href="#model-builder">Model Builder</a> ·
+  <a href="#functional-validation-and-export">Validation and export</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="assets/docs/project_index.md">Documentation</a>
 </p>
 
-NeuroWeave Studio runs an Angular interface and FastAPI service on your computer. Build a model as a directed graph, inspect its tensor shapes, save revisions, and generate source or supported exports. Projects are stored in a local SQLite database.
+NeuroWeave Studio runs locally as an Angular application with a FastAPI backend. Model projects and graph revisions are stored in SQLite.
 
-## What you can do
+## NeuroWeave Studio
 
-- Add layers from a searchable node catalog, configure their parameters, and connect typed ports in the Model Builder.
-- Save model projects and graph revisions, then review graph and tensor-shape diagnostics.
-- Create reusable mathematical and sequential node templates.
-- Register datasets by referencing their existing files. The app stores definitions and inspection metadata; it does not copy dataset contents.
-- Generate Keras source, project bundles, and supported model-format exports when the required runtime is installed.
+Use the Model Builder to assemble directed graphs from a searchable node catalog, configure parameters, connect typed ports, and review graph and tensor-shape diagnostics. Save a model to keep its graph revision. Mathematical and sequential node templates can be reused across graphs.
 
-Functional validation runs a synthetic forward pass with initialized weights. The application does not train models or serve predictions; binary exports are untrained.
+Dataset registration refers to files already on disk and stores their definitions and inspection metadata; dataset contents are not copied into the application.
 
-## Screenshots
-
-The Compilation workspace shows a validated execution profile and source snapshot for a saved revision:
-
-![Compilation workspace showing a validated Keras and PyTorch profile with generated Python source](assets/QA/readme-20261028/compilation.png)
-
-## Quick start
+### Start NeuroWeave Studio
 
 The supported launcher runs on 64-bit Windows 10 or 11 and requires PowerShell 7. Git and internet access are needed to clone the repository and install its pinned runtimes. You do not need to install Python or Node.js separately.
 
@@ -44,36 +30,41 @@ Set-Location .\Neuro-Weave-Studio
 .\start_on_windows.ps1 -Action Launch
 ```
 
-The launcher installs the base environment, initializes the database, builds the frontend, and opens `http://127.0.0.1:9850/`. On first launch, choose an execution backend if you plan to run functional validation or binary exports. Keras-only mode supports graph editing and source generation.
+The launcher installs the base environment, initializes the database, builds the frontend, and opens `http://127.0.0.1:9850/`. On first launch, select an execution backend for functional validation and binary exports. Keras-only mode supports graph editing and source generation. Keep the launcher open while using the app; press **Enter** or **Ctrl+C** to stop it.
 
-To start the frontend and backend as separate development processes, follow the [development startup guide](assets/docs/runtime/startup.md). See the [installation guide](assets/docs/runtime/installation.md) for backend options and runtime details.
+See [installation and backend setup](assets/docs/runtime/installation.md) for profile details. The [startup guide](assets/docs/runtime/startup.md) covers separate frontend and backend development processes.
 
-## Typical workflow
+### Build a graph
 
 1. Choose **New model** and add nodes from the catalog.
 2. Connect ports, set input shapes, and configure node parameters.
 3. Save the model to persist its graph and revision.
-4. Open **Functional Validation** to run a synthetic forward pass with an installed execution profile.
-5. Use **Compilation** to inspect generated source or **Export** to create a supported artifact.
 
-## Technology and platform
+## Functional Validation and Export
 
-The frontend uses Angular 22 and TypeScript. The backend uses FastAPI on Python 3.13, with SQLite for persistence and Keras 3 as the model API. PyTorch, TensorFlow, and JAX are optional execution backends. The supported Windows launcher provisions pinned Python, uv, and Node.js versions under `runtimes/`.
+Functional Validation runs a synthetic forward pass with initialized weights on an installed execution backend. The application does not train models or serve predictions, so binary exports contain untrained weights.
 
-The launcher is Windows-only. Native Windows backend capabilities vary: TensorFlow and JAX are CPU-only, JAX CPU support is experimental, and PyTorch CUDA depends on the installed NVIDIA driver. GPU execution for TensorFlow and JAX requires a separate WSL2/Linux environment.
+Compilation generates inspectable Keras source for a saved revision. Export can create project bundles and supported model formats when the required runtime is installed.
 
-## Documentation
+<p align="center"><img src="assets/QA/readme-20261028/compilation.png" alt="Compilation workspace showing a validated execution profile and generated Python source for a saved model revision" width="760"></p>
 
-- [Installation and backend setup](assets/docs/runtime/installation.md)
-- [Startup and development workflow](assets/docs/runtime/startup.md)
-- [Configuration](assets/docs/runtime/configuration.md)
-- [User flows](assets/docs/product/user_flows.md)
-- [Architecture overview](assets/docs/architecture/system_overview.md)
-- [Contribution guide](assets/docs/development/contribution_guide.md)
+The screenshot shows a validated Keras compile profile with the PyTorch backend selected and a source snapshot for revision 3.
+
+## Configuration
+
+Application data defaults to `data`. Set `NEURO_WEAVE_RESOURCES_DIR` in the inherited environment or `settings/.env` to use another resource directory. Service addresses and other deployment settings are also configured outside the Settings workspace.
+
+See [runtime configuration](assets/docs/runtime/configuration.md) for the full options and the [project documentation index](assets/docs/project_index.md) for architecture, product, and development guides.
+
+## Development
+
+The frontend uses Angular 22 and TypeScript. The backend uses FastAPI on Python 3.13, SQLite for persistence, and Keras 3 as its model API. PyTorch, TensorFlow, and JAX are optional execution backends. The Windows launcher provisions pinned Python, uv, and Node.js versions under `runtimes/`.
+
+The launcher is Windows-only. TensorFlow and JAX are CPU-only on native Windows; JAX CPU support is experimental. PyTorch CUDA depends on the installed NVIDIA driver. TensorFlow and JAX GPU execution requires a separate WSL2/Linux environment. See the [testing strategy](assets/docs/development/testing_strategy.md) for validation guidance.
 
 ## Contributing
 
-Please read the [contribution guide](assets/docs/development/contribution_guide.md) and the relevant coding standards under `assets/docs/development/` before opening a pull request.
+Please read the [contribution guide](assets/docs/development/contribution_guide.md) and the relevant coding standards before opening a pull request.
 
 ## License
 
