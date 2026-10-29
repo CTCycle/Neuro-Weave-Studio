@@ -1,4 +1,4 @@
-# Copyright © 2026 Thomas Virdis
+﻿# Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
 # ===============================================================================
@@ -15,6 +15,7 @@ param(
     [string]$InstallationType = 'Development',
     [switch]$ExportTools,
     [switch]$NoBrowser,
+    [switch]$DryRun,
     [string]$ResourcesDir = ''
 )
 
@@ -29,6 +30,8 @@ $script:SettingsDir = Join-Path $RepoRoot 'settings'
 $script:ServerDir = Join-Path $AppDir 'server'
 $script:ClientDir = Join-Path $AppDir 'client'
 $script:ScriptsDir = Join-Path $AppDir 'scripts'
+$script:CleanupModule = Join-Path $script:ScriptsDir 'launcher_cleanup.psm1'
+Import-Module -Name $script:CleanupModule -Force -ErrorAction Stop
 $script:EnvironmentBootstrap = Join-Path $ScriptsDir 'ensure_environment.py'
 $script:RuntimeDir = Join-Path $RepoRoot 'runtimes'
 $script:CacheDir = Join-Path $script:RuntimeDir 'cache'
@@ -66,6 +69,7 @@ $script:NodeVersion = '22.23.1'
 $script:Children = [System.Collections.Generic.List[object]]::new()
 $script:GracefulStop = $false
 $script:NoBrowser = $NoBrowser
+$script:DryRun = $DryRun
 $script:NextProgressId = 1
 $script:ActiveProgressActivities = [Collections.Generic.Dictionary[int, string]]::new()
 $script:LauncherInteractive = -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
@@ -332,7 +336,14 @@ function Ensure-PortableRuntimes {
         $nested = Join-Path $script:NodeDir "node-v$($script:NodeVersion)-win-x64"
         if (Test-Path -LiteralPath $nested) {
             Get-ChildItem -LiteralPath $nested -Force | Move-Item -Destination $script:NodeDir -Force
-[void](Remove-LauncherPath -Path $nested -Activity 'NeuroWeave: flatten runtime archive' -Strict)
+            $archivePlan = [pscustomobject]@{
+                Operation = 'Flatten runtime archive'
+                RepositoryRoot = $script:RepoRoot
+                ResourceRoot = $script:ResourceDir
+                Targets = @([pscustomobject]@{ Path = $nested; Scope = 'Repository'; Kind = 'Directory'; Reason = 'Extracted Node.js archive wrapper' })
+            }
+            $archiveResult = Invoke-NwCleanupPlan -Plan $archivePlan
+            if ($archiveResult.Failed.Count -gt 0) { throw "Could not remove the extracted runtime archive wrapper: $($archiveResult.Failed -join '; ')" }
         }
     }
     if (-not (Test-Path -LiteralPath $node) -or -not (Test-Path -LiteralPath $npm)) {
@@ -1069,12 +1080,15 @@ function Assert-BackendManagementEnvironmentStopped {
 }
 
 function Assert-ApplicationStopped {
-    $ports = @(Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000')
+    $ports = @(
+        (Get-ConfiguredInt -Name 'FASTAPI_PORT' -Default '8000'),
+        (Get-ConfiguredInt -Name 'UI_PORT' -Default '5173')
+    ) | Select-Object -Unique
     $records = @(Get-PortListenerRecords -Ports $ports)
     if ($records.Count -gt 0) {
         $details = @(Get-ListenerProcessDetails -ListenerRecords $records)
         $description = @($details | ForEach-Object { "port $($_.Port) -> PID $($_.ProcessId) ($($_.ProcessName))" }) -join '; '
-        throw "Cannot change the database or dependency environment while $description. Close NeuroWeave and retry."
+        throw "Cannot run destructive maintenance while an application port is active ($description). Close NeuroWeave and retry."
     }
 }
 
@@ -1949,8 +1963,69 @@ function Get-ConfiguredDatabasePath {
     }
 }
 
+function Resolve-ApplicationSettingPath {
+    param([Parameter(Mandatory = $true)][string]$Value)
+    if ([IO.Path]::IsPathRooted($Value)) { return [IO.Path]::GetFullPath($Value) }
+    return [IO.Path]::GetFullPath((Join-Path $script:RepoRoot $Value))
+}
+
+function Get-ApplicationStorageSettings {
+    param([switch]$Required)
+    $defaults = [ordered]@{
+        log_file = Join-Path $script:LogDir 'backend.log'
+        export_root = Join-Path $script:UserDataRuntimeDir 'exports'
+        ml_job_root = Join-Path $script:UserDataRuntimeDir 'ml-jobs'
+        tensor_inspection_root = Join-Path $script:UserDataRuntimeDir 'tensor-inspections'
+    }
+    $database = Get-ConfiguredDatabasePath
+    if (-not (Test-Path -LiteralPath $database -PathType Leaf)) { return [pscustomobject]$defaults }
+
+    $python = Get-PortablePythonPath
+    if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+        $pythonCommand = Get-Command 'python.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($null -ne $pythonCommand) { $python = $pythonCommand.Source }
+    }
+    if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+        if ($Required) { throw "Cannot inspect application storage settings in '$database' because no Python runtime is available." }
+        Write-Warn "Custom application storage paths could not be read from '$database'; only known default paths will be used."
+        return [pscustomobject]$defaults
+    }
+
+    $probe = @'
+import json, sqlite3, sys
+from pathlib import Path
+database = Path(sys.argv[1]).resolve()
+uri = database.as_uri() + "?mode=ro"
+with sqlite3.connect(uri, uri=True) as connection:
+    try:
+        row = connection.execute("SELECT settings_json FROM application_settings WHERE id = 1").fetchone()
+    except sqlite3.OperationalError as error:
+        if "no such table" in str(error).lower():
+            row = None
+        else:
+            raise
+settings = json.loads(row[0]) if row else {}
+print(json.dumps(settings))
+'@
+    try {
+        $rawSettings = $probe | & $python - $database 2>$null
+        if ($LASTEXITCODE -ne 0) { throw "SQLite settings query exited with code $LASTEXITCODE." }
+        $stored = if ($rawSettings) { ($rawSettings -join "`n") | ConvertFrom-Json -ErrorAction Stop } else { $null }
+        foreach ($name in @('log_file', 'export_root', 'ml_job_root', 'tensor_inspection_root')) {
+            if ($null -ne $stored -and -not [string]::IsNullOrWhiteSpace([string]$stored.$name)) {
+                $defaults[$name] = Resolve-ApplicationSettingPath -Value ([string]$stored.$name)
+            }
+        }
+    } catch {
+        if ($Required) { throw "Could not read application storage settings from '$database': $($_.Exception.Message)" }
+        Write-Warn "Could not read custom application storage paths from '$database': $($_.Exception.Message)"
+    }
+    return [pscustomobject]$defaults
+}
+
 function Get-UserDataTargets {
-    $targets = [System.Collections.Generic.List[string]]::new()
+    param([Parameter(Mandatory = $true)][object]$Storage)
+    $targets = [System.Collections.Generic.List[object]]::new()
     $databasePaths = [System.Collections.Generic.List[string]]::new()
     $configuredDatabase = Get-ConfiguredDatabasePath
 
@@ -1959,29 +2034,37 @@ function Get-UserDataTargets {
         $fullPath = [IO.Path]::GetFullPath($candidate)
         if ($databasePaths -notcontains $fullPath) { $databasePaths.Add($fullPath) }
     }
-    if (Test-Path -LiteralPath $script:ResourceDir -PathType Container) {
-        foreach ($database in @(Get-ChildItem -LiteralPath $script:ResourceDir -Filter 'database*.db' -File -Force -ErrorAction SilentlyContinue)) {
-            $fullPath = [IO.Path]::GetFullPath($database.FullName)
-            if ($databasePaths -notcontains $fullPath) { $databasePaths.Add($fullPath) }
+
+    $addTarget = {
+        param([string]$Path, [string]$Kind, [string]$Reason, [string]$ScopeOverride = '')
+        if ([string]::IsNullOrWhiteSpace($Path)) { return }
+        $fullPath = [IO.Path]::GetFullPath($Path)
+        $scope = if ($ScopeOverride) { $ScopeOverride } elseif (Test-NwPathWithin -Child $fullPath -Parent $script:ResourceDir) { 'Resource' } elseif (Test-NwPathWithin -Child $fullPath -Parent $script:RepoRoot) { 'Repository' } else { 'Configured' }
+        if (@($targets | Where-Object { $_.Path -ieq $fullPath }).Count -eq 0) {
+            $targets.Add([pscustomobject]@{ Path = $fullPath; Scope = $scope; Kind = $Kind; Reason = $Reason })
         }
     }
-
-    $targets.Add($script:UserDataRuntimeDir)
-    $targets.Add($script:DatabaseConfigPath)
+    & $addTarget $script:UserDataRuntimeDir 'Directory' 'Application runtime data' 'Resource'
+    & $addTarget $script:DatabaseConfigPath 'File' 'Database configuration' 'Resource'
+    & $addTarget $script:EnvironmentFile 'File' 'Local application configuration' 'Repository'
     foreach ($databasePath in $databasePaths) {
         foreach ($suffix in @('', '-wal', '-shm', '-journal')) {
-            $targets.Add("$databasePath$suffix")
+            & $addTarget "$databasePath$suffix" 'File' 'Configured or default SQLite database and sidecar'
         }
     }
+    & $addTarget ([string]$storage.log_file) 'File' 'Configured application log file'
+    & $addTarget ([string]$storage.export_root) 'Directory' 'Configured export output'
+    & $addTarget ([string]$storage.ml_job_root) 'Directory' 'Configured job workspace output'
+    & $addTarget ([string]$storage.tensor_inspection_root) 'Directory' 'Configured tensor inspection output'
 
-    return @($targets | Select-Object -Unique)
+    return @($targets)
 }
 
 function Get-TrackedFilesUnderPath {
     param([Parameter(Mandatory = $true)][string]$Path)
 
     if (-not (Test-PathWithin -Child $Path -Parent $script:RepoRoot)) { return @() }
-    $relative = (Get-RepositoryRelativePath -BasePath $script:RepoRoot -Path [IO.Path]::GetFullPath($Path)).Replace('\', '/')
+    $relative = (Get-RepositoryRelativePath -BasePath $script:RepoRoot -Path ([IO.Path]::GetFullPath($Path))).Replace('\', '/')
     if ([string]::IsNullOrWhiteSpace($relative) -or $relative -eq '.') {
         throw 'The repository root is not a removable user-data target.'
     }
@@ -2019,270 +2102,133 @@ function Assert-UserDataTarget {
     }
 }
 
-function Invoke-RemoveApplicationLogs {
-    if (-not (Confirm-LauncherAction -Prompt 'This removes application log files. Continue?')) {
-        Write-Warn 'Log removal cancelled.'
-        return
+function Get-LauncherCleanupPaths {
+    param([Parameter(Mandatory = $true)][string]$Operation)
+    $storage = Get-ApplicationStorageSettings -Required:($Operation -eq 'RemoveAllData')
+    $dataTargets = @()
+    if ($Operation -eq 'RemoveAllData') { $dataTargets = @(Get-UserDataTargets -Storage $storage) }
+    return @{
+        RepoRoot = $script:RepoRoot
+        ResourceRoot = $script:ResourceDir
+        RuntimeRoot = $script:RuntimeDir
+        CacheRoot = $script:CacheDir
+        PythonDir = $script:PythonDir
+        UvDir = $script:UvDir
+        NodeDir = $script:NodeDir
+        VenvDir = $script:VenvDir
+        ClientDir = $script:ClientDir
+        ServerDir = $script:ServerDir
+        ScriptsDir = $script:ScriptsDir
+        NodeModulesDir = (Join-Path $script:ClientDir 'node_modules')
+        LogDir = $script:LogDir
+        ConfiguredLogFile = [string]$storage.log_file
+        ConfiguredJobRoot = [string]$storage.ml_job_root
+        PlaywrightResults = (Join-Path $script:RepoRoot 'assets\QA\playwright\test-results')
+        BackendInstallState = $script:BackendInstallState
+        DatabaseConfigPath = $script:DatabaseConfigPath
+        EnvironmentFile = $script:EnvironmentFile
+        UvArchive = (Join-Path $script:UvDir "uv-$($script:UvVersion).zip")
+        NodeArchive = (Join-Path $script:NodeDir "node-v$($script:NodeVersion)-win-x64.zip")
+        UvVersion = $script:UvVersion
+        NodeVersion = $script:NodeVersion
+        DataTargets = $dataTargets
     }
-    if (-not (Test-Path -LiteralPath $script:LogDir)) {
-        Write-Info "Log directory does not exist: $($script:LogDir)"
-        return
-    }
-    $logs = @(Get-ChildItem -LiteralPath $script:LogDir -Filter '*.log' -File -ErrorAction SilentlyContinue |
-        Sort-Object @{ Expression = { $_.FullName.ToUpperInvariant() }; Descending = $false })
-    if ($logs.Count -eq 0) {
-        Write-Info 'No application log files found.'
-        return
-    }
-    Write-Status -Level STEP -Message "Removing $($logs.Count) application log file(s)."
-    $removedCount = 0
-    $skippedCount = 0
-    $progressId = Start-LauncherProgress -Activity 'NeuroWeave: remove application logs' -Status "0 of $($logs.Count) files"
-    try {
-        for ($index = 0; $index -lt $logs.Count; $index++) {
-            $log = $logs[$index]
-            Update-LauncherProgress -Id $progressId -Activity 'NeuroWeave: remove application logs' -Status "$($index + 1) of $($logs.Count): $($log.Name)" -PercentComplete ([int](($index + 1) * 100 / $logs.Count))
-            $result = Remove-PathBestEffort -Path $log.FullName
-            $removedCount += $result.Removed
-            $skippedCount += $result.Skipped
+}
+
+function Invoke-LauncherCleanupAction {
+    param([Parameter(Mandatory = $true)][ValidateSet('CleanLogs', 'ClearCache', 'Uninstall', 'RemoveAllData')][string]$Operation)
+    if (-not $DryRun) { Assert-ApplicationStopped }
+    $paths = Get-LauncherCleanupPaths -Operation $Operation
+    $plan = New-NwCleanupPlan -Operation $Operation -Paths $paths
+    $allTargets = if ($plan.PSObject.Properties['RequestedTargets']) { @($plan.RequestedTargets) } else { @($plan.Targets) }
+    $validationFailures = [Collections.Generic.List[string]]::new()
+    $invalidPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $dataTargetsToValidate = if ($Operation -eq 'RemoveAllData') { $allTargets } else { @($plan.Targets) }
+    foreach ($target in $dataTargetsToValidate) {
+        try {
+            if ($target.Scope -eq 'Repository' -and $Operation -ne 'RemoveAllData') {
+                $trackedFiles = @(Get-TrackedFilesUnderPath -Path $target.Path)
+                if ($trackedFiles.Count -gt 0) {
+                    throw "Refusing to remove '$($target.Path)' because it contains tracked application files: $($trackedFiles -join ', ')"
+                }
+            } elseif (($target.Scope -eq 'Configured' -and (Test-NwPathWithin -Child $target.Path -Parent $script:RepoRoot)) -or $Operation -eq 'RemoveAllData') {
+                Assert-UserDataTarget -Path $target.Path
+            }
+        } catch {
+            [void]$invalidPaths.Add([IO.Path]::GetFullPath($target.Path))
+            $validationFailures.Add("$($target.Path) ($($_.Exception.Message))")
         }
     }
-    finally {
-        Complete-LauncherProgress $progressId
+    $preview = Invoke-NwCleanupPlan -Plan $plan -DryRun
+    foreach ($targetResult in $preview.TargetResults) {
+        if ($targetResult.Failed.Count -gt 0) { [void]$invalidPaths.Add([IO.Path]::GetFullPath($targetResult.Path)) }
     }
-    Write-Status -Level SUCCESS -Message "Removed $removedCount application log file(s); skipped $skippedCount locked or inaccessible file(s)."
+    $safeTargets = [Collections.Generic.List[object]]::new()
+    foreach ($target in $plan.Targets) {
+        $blocked = $false
+        foreach ($invalidPath in $invalidPaths) {
+            if (Test-NwPathWithin -Child $invalidPath -Parent $target.Path) { $blocked = $true; break }
+        }
+        if (-not $blocked) { $safeTargets.Add($target) }
+    }
+    $plan.Targets = @($safeTargets)
+    Write-Status -Level STEP -Message "$(if ($DryRun) { 'Previewing' } else { 'Targeting' }) $Operation cleanup paths."
+    foreach ($target in $allTargets) {
+        Write-Host ("[TARGET] {0} [{1}] — {2}" -f $target.Path, $target.Kind, $target.Reason) -ForegroundColor DarkCyan
+    }
+    foreach ($failure in $validationFailures) { Write-Warn "Rejected target: $failure" }
+    foreach ($failure in $preview.Failed) { Write-Warn "Rejected or inaccessible target: $failure" }
+    foreach ($path in $preview.Skipped) { Write-Warn "Skipped during discovery: $path" }
+    if ($DryRun) {
+        Write-Status -Level SUCCESS -Message "Dry run complete: $($allTargets.Count) target(s) listed, $($preview.Skipped.Count) location(s) safely skipped, $($preview.Failed.Count + $validationFailures.Count) failure(s); no files were removed."
+        $incompletePreviewSkips = @($preview.Skipped | Where-Object { $_ -notmatch '\(not present\)$' })
+        if ($preview.Failed.Count -gt 0 -or $validationFailures.Count -gt 0 -or $incompletePreviewSkips.Count -gt 0) {
+            throw "$Operation dry run could not validate all locations."
+        }
+        return
+    }
+    Assert-ApplicationStopped
+    if ($Operation -eq 'RemoveAllData' -and ($preview.Failed.Count -gt 0 -or $validationFailures.Count -gt 0)) {
+        throw 'Complete data removal was not started because one or more targets failed safety validation.'
+    }
+
+    $prompt = switch ($Operation) {
+        'CleanLogs' { 'Remove the listed application log files?' }
+        'ClearCache' { 'Remove the listed cache and generated test-output paths?' }
+        'Uninstall' { 'Remove the listed installation files and generated logs while preserving user data?' }
+        'RemoveAllData' { 'Permanently remove the listed application data and settings?' }
+    }
+    if (-not (Confirm-LauncherAction -Prompt $prompt)) {
+        Write-Warn "$Operation cancelled."
+        return
+    }
+
+    Assert-ApplicationStopped
+    $result = Invoke-NwCleanupPlan -Plan $plan
+    foreach ($targetResult in $result.TargetResults) {
+        if ($targetResult.RemovedCount -gt 0) { Write-Ok "Removed $($targetResult.Path) ($($targetResult.RemovedCount) item(s))" }
+    }
+    foreach ($path in $result.Skipped) { Write-Warn "Skipped $path" }
+    foreach ($path in $result.Failed) { Write-Fatal "Failed $path" }
+    $incompleteSkips = @($result.Skipped | Where-Object { $_ -notmatch '\(not present\)$' })
+    $failureCount = $result.Failed.Count + $validationFailures.Count + $incompleteSkips.Count
+    if ($failureCount -gt 0) {
+        throw "$Operation was incomplete: $($result.RemovedCount) item(s) removed, $($result.Skipped.Count) skipped, $failureCount failure(s)."
+    }
+    Write-Status -Level SUCCESS -Message "$Operation completed: $($result.RemovedCount) item(s) removed; $($result.Skipped.Count) absent or protected path(s) skipped."
+}
+
+function Invoke-RemoveApplicationLogs {
+    Invoke-LauncherCleanupAction -Operation 'CleanLogs'
 }
 
 function Invoke-RemoveAllData {
-    Assert-ApplicationStopped
-    $targets = @(Get-UserDataTargets)
-    foreach ($target in $targets) { Assert-UserDataTarget -Path $target }
-
-    if (-not (Confirm-LauncherAction -Prompt 'This removes all user-generated data. Continue?')) {
-        Write-Warn 'Remove all data cancelled. Application files, settings, runtimes, dependencies, caches, and build output were preserved.'
-        return
-    }
-
-    Write-Status -Level STEP -Message 'Removing user-generated application data.'
-    $removedCount = 0
-    $skippedCount = 0
-    $progressId = Start-LauncherProgress -Activity 'NeuroWeave: remove user data' -Status "0 of $($targets.Count) paths"
-    try {
-        for ($index = 0; $index -lt $targets.Count; $index++) {
-            $target = $targets[$index]
-            if (-not (Test-Path -LiteralPath $target -ErrorAction SilentlyContinue)) { continue }
-            Update-LauncherProgress -Id $progressId -Activity 'NeuroWeave: remove user data' -Status "$($index + 1) of $($targets.Count): $target" -PercentComplete ([int](($index + 1) * 100 / [Math]::Max(1, $targets.Count)))
-            Write-Info "Removing $target"
-            $result = Remove-PathBestEffort -Path $target
-            $removedCount += $result.Removed
-            $skippedCount += $result.Skipped
-        }
-    }
-    finally {
-        Complete-LauncherProgress $progressId
-    }
-    New-Item -ItemType Directory -Path $script:UserDataRuntimeDir -Force | Out-Null
-    Write-Status -Level SUCCESS -Message "User-generated data removed ($removedCount item$(if ($removedCount -eq 1) { '' } else { 's' }) removed; $skippedCount locked or inaccessible item$(if ($skippedCount -eq 1) { '' } else { 's' }) skipped). Application files and settings were preserved."
-}
-
-function Remove-PythonCaches {
-    $roots = @(
-        $script:ServerDir,
-        $script:ScriptsDir,
-        (Join-Path $script:AppDir 'tests')
-    )
-    $cachePaths = @()
-    foreach ($root in $roots) {
-        if (-not (Test-Path -LiteralPath $root)) { continue }
-        $pending = [Collections.Generic.Stack[string]]::new()
-        $pending.Push([IO.Path]::GetFullPath($root))
-        while ($pending.Count -gt 0) {
-            $current = $pending.Pop()
-            $children = @(Get-ChildItem -LiteralPath $current -Directory -Force -ErrorAction SilentlyContinue)
-            foreach ($child in $children) {
-                if ($child.Name -eq '__pycache__') {
-                    $cachePaths += $child
-                    continue
-                }
-                if ($child.Name -in @('.venv', 'node_modules', 'runtimes')) { continue }
-                $pending.Push($child.FullName)
-            }
-        }
-    }
-    $cachePaths = @($cachePaths |
-        Sort-Object @{ Expression = { $_.FullName.Length }; Descending = $true }, @{ Expression = { $_.FullName.ToUpperInvariant() }; Descending = $false } -Unique)
-    $removedCount = 0
-    $skippedCount = 0
-    foreach ($cachePath in $cachePaths) {
-        $result = Remove-PathBestEffort -Path $cachePath.FullName
-        $removedCount += $result.Removed
-        $skippedCount += $result.Skipped
-    }
-    return [pscustomobject]@{
-        Removed = $removedCount
-        Skipped = $skippedCount
-    }
-}
-
-function Remove-LauncherPath {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)][string]$Path,
-        [switch]$KeepRoot,
-        [string[]]$PreserveNames = @('.gitkeep'),
-        [switch]$Strict,
-        [switch]$WhatIf,
-        [string]$Activity = 'NeuroWeave: remove files'
-    )
-
-    $fullPath = [IO.Path]::GetFullPath($Path)
-    $removedPaths = [Collections.Generic.List[string]]::new()
-    $preservedEntries = [Collections.Generic.List[string]]::new()
-    $skippedPaths = [Collections.Generic.List[string]]::new()
-    $result = [ordered]@{
-        Target = $fullPath
-        Path = $fullPath
-        Planned = 0
-        PlannedCount = 0
-        Removed = 0
-        RemovedCount = 0
-        RemovedPaths = $removedPaths
-        Preserved = 0
-        PreservedEntries = $preservedEntries
-        Skipped = 0
-        SkippedPaths = $skippedPaths
-        EnumerationErrors = @()
-        WhatIf = [bool]$WhatIf
-    }
-    try {
-        $item = Get-Item -LiteralPath $fullPath -Force -ErrorAction Stop
-    }
-    catch {
-        if ($_.CategoryInfo.Category -eq [System.Management.Automation.ErrorCategory]::ObjectNotFound) {
-            return [pscustomobject]$result
-        }
-        $message = "$fullPath ($($_.Exception.Message))"
-        $result.EnumerationErrors = @($message)
-        [void]$skippedPaths.Add($message)
-        Write-Warn "Skipped inaccessible path: $message"
-        $result.Skipped = 1
-        if ($Strict) { throw }
-        return [pscustomobject]$result
-    }
-
-    $enumerationErrors = @()
-    $entries = if ($item.PSIsContainer) {
-        @(Get-ChildItem -LiteralPath $item.FullName -Force -Recurse -ErrorAction SilentlyContinue -ErrorVariable enumerationErrors)
-    } else { @($item) }
-    $result.EnumerationErrors = @($enumerationErrors | ForEach-Object { [string]$_.Exception.Message })
-    foreach ($message in $result.EnumerationErrors) {
-        Write-Warn "Skipped inaccessible path below ${fullPath}: $message"
-    }
-
-    $preservedPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    $protectedDirectories = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach ($entry in @($entries)) {
-        if ($entry.Name -in $PreserveNames) {
-            [void]$preservedPaths.Add($entry.FullName)
-            [void]$preservedEntries.Add($entry.FullName)
-            $result.Preserved++
-            $ancestor = [IO.Path]::GetDirectoryName($entry.FullName)
-            [void]$protectedDirectories.Add($item.FullName)
-            while ($ancestor -and $ancestor.StartsWith($item.FullName.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
-                [void]$protectedDirectories.Add($ancestor)
-                $ancestor = [IO.Path]::GetDirectoryName($ancestor)
-            }
-        }
-    }
-    $candidates = @($entries |
-        Where-Object { -not $preservedPaths.Contains($_.FullName) -and -not $protectedDirectories.Contains($_.FullName) } |
-        Sort-Object @{ Expression = { $_.FullName.Length }; Descending = $true }, @{ Expression = { $_.FullName.ToUpperInvariant() }; Descending = $false })
-    if ($item.PSIsContainer -and -not $KeepRoot -and $result.Preserved -eq 0) {
-        $candidates += $item
-    }
-    $result.Planned = $candidates.Count
-    $result.PlannedCount = $candidates.Count
-    $progressId = $null
-    try {
-        if ($candidates.Count -gt 0) {
-            $progressId = Start-LauncherProgress -Activity $Activity -Status "0 of $($candidates.Count) items"
-        }
-        for ($index = 0; $index -lt $candidates.Count; $index++) {
-            $candidate = $candidates[$index]
-            if ($null -ne $progressId) {
-                Update-LauncherProgress -Id $progressId -Activity $Activity -Status "$($index + 1) of $($candidates.Count): $($candidate.Name)" -PercentComplete ([int](($index + 1) * 100 / [Math]::Max(1, $candidates.Count)))
-            }
-            if ($WhatIf) { continue }
-            try {
-                if ($candidate.PSIsContainer) {
-                    Remove-Item -LiteralPath $candidate.FullName -Recurse -Force -Confirm:$false -ErrorAction Stop
-                }
-                else {
-                    Remove-Item -LiteralPath $candidate.FullName -Force -Confirm:$false -ErrorAction Stop
-                }
-                [void]$removedPaths.Add($candidate.FullName)
-                $result.Removed++
-            }
-            catch {
-                $result.Skipped++
-                [void]$skippedPaths.Add("$($candidate.FullName) ($($_.Exception.Message))")
-                Write-Warn "Skipped locked or inaccessible path: $($candidate.FullName) ($($_.Exception.Message))"
-            }
-        }
-    }
-    finally {
-        if ($null -ne $progressId) { Complete-LauncherProgress -Id $progressId }
-    }
-    $result.RemovedCount = $result.Removed
-    $result.SkippedPaths = $skippedPaths
-    if ($Strict -and ($result.Skipped -gt 0 -or $result.EnumerationErrors.Count -gt 0)) {
-        throw "Removal of '$fullPath' was incomplete. Skipped $($result.Skipped) item(s) and encountered $($result.EnumerationErrors.Count) enumeration error(s)."
-    }
-    return [pscustomobject]$result
-}
-
-function Remove-PathBestEffort([string]$Path) {
-    $result = Remove-LauncherPath -Path $Path -Activity "NeuroWeave: remove $([IO.Path]::GetFileName($Path))"
-    return [pscustomobject]@{
-        Removed = $result.Removed
-        Skipped = $result.Skipped + $result.EnumerationErrors.Count
-    }
-}
-
-function Remove-CanonicalCacheRoot([string]$Path) {
-    if (-not (Test-Path -LiteralPath $Path -ErrorAction SilentlyContinue)) {
-        return [pscustomobject]@{ Removed = 0; Skipped = 0 }
-    }
-    try {
-        Remove-Item -LiteralPath $Path -Recurse -Force -Confirm:$false -ErrorAction Stop
-        return [pscustomobject]@{ Removed = 1; Skipped = 0 }
-    }
-    catch {
-        Write-Warn "Skipped locked or inaccessible cache root: $Path ($($_.Exception.Message))"
-        $partial = Remove-LauncherPath -Path $Path -Activity "NeuroWeave: remove cache contents"
-        return [pscustomobject]@{
-            Removed = $partial.Removed
-            Skipped = $partial.Skipped + $partial.EnumerationErrors.Count
-        }
-    }
+    Invoke-LauncherCleanupAction -Operation 'RemoveAllData'
 }
 
 function Invoke-ClearApplicationCache {
-    if (-not (Confirm-LauncherAction -Prompt 'This removes runtime, test, and tool caches. Continue?')) {
-        Write-Warn 'Cache cleanup cancelled.'
-        return
-    }
-    Write-Status -Level STEP -Message 'Removing runtime, test, and tool caches plus generated artifacts.'
-    $pythonCacheResult = Remove-PythonCaches
-    $removedCount = [int]$pythonCacheResult.Removed
-    $skippedCount = [int]$pythonCacheResult.Skipped
-    $cacheResult = Remove-CanonicalCacheRoot -Path $script:CacheDir
-    $removedCount += $cacheResult.Removed
-    $skippedCount += $cacheResult.Skipped
-    Set-LauncherEnvironment
-    Write-Status -Level SUCCESS -Message "Caches cleared ($removedCount item$(if ($removedCount -eq 1) { '' } else { 's' }) removed; $skippedCount locked or inaccessible item$(if ($skippedCount -eq 1) { '' } else { 's' }) skipped)."
+    Invoke-LauncherCleanupAction -Operation 'ClearCache'
 }
-
 function Confirm-LauncherAction {
     param(
         [Parameter(Mandatory = $true)][string]$Prompt
@@ -2297,35 +2243,7 @@ function Confirm-LauncherAction {
 }
 
 function Invoke-UninstallApplication {
-    if (-not (Confirm-LauncherAction -Prompt 'This removes runtimes, dependencies, and build output. Continue?')) {
-        Write-Warn 'Uninstall cancelled. Settings, lockfiles, database files, and exports were preserved.'
-        return
-    }
-
-    $targets = @(
-        $script:PythonDir,
-        $script:UvDir,
-        $script:NodeDir,
-        $script:CacheDir,
-        $script:VenvDir,
-        (Join-Path $script:ClientDir 'node_modules'),
-        $script:BackendInstallState
-    )
-    Write-Status -Level STEP -Message 'Removing generated runtimes, dependencies, and frontend build output.'
-    $removedCount = 0
-    $skippedCount = 0
-    foreach ($target in $targets) {
-        if (-not (Test-Path -LiteralPath $target -ErrorAction SilentlyContinue)) { continue }
-        Write-Info "Removing $target"
-        $result = Remove-PathBestEffort -Path $target
-        $removedCount += $result.Removed
-        $skippedCount += $result.Skipped
-    }
-    $pythonCacheResult = Remove-PythonCaches
-    $removedCount += $pythonCacheResult.Removed
-    $skippedCount += $pythonCacheResult.Skipped
-    New-Item -ItemType Directory -Path $script:RuntimeDir, $script:CacheDir -Force | Out-Null
-    Write-Status -Level SUCCESS -Message "Application dependencies removed ($removedCount item$(if ($removedCount -eq 1) { '' } else { 's' }) removed; $skippedCount locked or inaccessible item$(if ($skippedCount -eq 1) { '' } else { 's' }) skipped). Settings, lockfiles, database files, and exports were preserved."
+    Invoke-LauncherCleanupAction -Operation 'Uninstall'
 }
 
 # ===============================================================================
@@ -2394,10 +2312,10 @@ function Get-LauncherMenuEntries {
         [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Run validation suite'; Description = 'Run backend and frontend quality gates'; Key = 'Tests'; Destructive = $false }
         [pscustomobject]@{ Section = 'SOURCE CONTROL'; Label = 'Check for updates'; Description = 'Report main-branch status without changing files'; Key = 'Check'; Destructive = $false }
         [pscustomobject]@{ Section = 'SOURCE CONTROL'; Label = 'Update application'; Description = 'Pull the latest changes from the main branch'; Key = 'Update'; Destructive = $false }
-        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Remove logs'; Description = 'Clear generated application logs'; Key = 'Logs'; Destructive = $true }
-        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Clear cache'; Description = 'Remove runtime and test/tool caches'; Key = 'Cache'; Destructive = $true }
-        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Remove all data'; Description = 'Delete user-generated data; preserve application files'; Key = 'AllData'; Destructive = $true }
-        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Uninstall application'; Description = 'Remove dependencies and build output'; Key = 'Uninstall'; Destructive = $true }
+        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Remove logs'; Description = 'Remove application log files, including the configured log'; Key = 'Logs'; Destructive = $true }
+        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Clear cache'; Description = 'Remove recognized caches and generated Playwright results'; Key = 'Cache'; Destructive = $true }
+        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Remove all data'; Description = 'Permanently remove app data and local settings; keeps installation'; Key = 'AllData'; Destructive = $true }
+        [pscustomobject]@{ Section = 'DATA & MAINTENANCE'; Label = 'Uninstall application'; Description = 'Remove runtimes, dependencies, caches and logs; keep user data'; Key = 'Uninstall'; Destructive = $true }
         [pscustomobject]@{ Section = 'EXIT'; Label = 'Exit'; Description = 'Close this launcher'; Key = 'Exit'; Destructive = $false }
     )
 }

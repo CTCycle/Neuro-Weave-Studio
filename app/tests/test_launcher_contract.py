@@ -207,12 +207,13 @@ def test_launcher_routes_generated_data_to_the_canonical_cache_root() -> None:
     assert "$script:CacheDir = Join-Path $script:RuntimeDir 'cache'" in launcher
     assert "RuntimeCacheDir" not in launcher
     assert "app\\tests\\cache" not in launcher
-    assert "assets\\QA" not in launcher
     assert "$env:PYTHONPYCACHEPREFIX = $script:PythonBytecodeCacheDir" in environment
     assert "$env:RUFF_CACHE_DIR = $script:RuffCacheDir" in environment
     assert "$env:PLAYWRIGHT_BROWSERS_PATH = $script:PlaywrightBrowsersDir" in environment
-    assert "Remove-CanonicalCacheRoot -Path $script:CacheDir" in clear_cache
-    assert "Set-LauncherEnvironment" in clear_cache
+    assert "Invoke-LauncherCleanupAction -Operation 'ClearCache'" in clear_cache
+    assert "[switch]$DryRun" in launcher
+    assert "launcher_cleanup.psm1" in launcher
+    assert "Set-LauncherEnvironment" not in clear_cache
     assert "Ensure-PlaywrightBrowser" in test_suite
     assert "playwright install chromium" in launcher
 
@@ -229,8 +230,29 @@ def test_launcher_uses_configurable_repository_resource_root() -> None:
     assert "$script:BackendInstallState = Join-Path $script:UserDataRuntimeDir 'backend-installation.json'" in initialization
     assert "$script:DatabaseConfigPath = Join-Path $script:ResourceDir 'database-config.json'" in initialization
     assert "ConvertFrom-Json" in database_configuration
+    assert "database*.db" not in launcher
+    assert "EnvironmentFile" in launcher
     assert "DATABASE_SQLITE_PATH" not in launcher
     assert "NEURO_WEAVE_EXPORT_ROOT" not in launcher
     assert "NEURO_WEAVE_LOG_FILE" not in launcher
     assert "NEURO_WEAVE_ML_JOB_ROOT" not in launcher
     assert "app" + "/resources" not in launcher
+
+###############################################################################
+def test_launcher_cleanup_plans_exact_paths_and_preserves_standard_uninstall_data() -> None:
+    launcher = launcher_source()
+    repository_root = Path(__file__).resolve().parents[2]
+    cleanup_module = (repository_root / "app" / "scripts" / "launcher_cleanup.psm1").read_text(encoding="utf-8")
+    paths = function_body(launcher, "Get-LauncherCleanupPaths", "Invoke-LauncherCleanupAction")
+    cleanup_action = function_body(launcher, "Invoke-LauncherCleanupAction", "Invoke-RemoveApplicationLogs")
+    uninstall_start = launcher.index("function Invoke-UninstallApplication {")
+    uninstall = launcher[uninstall_start:launcher.index("# Non-interactive action dispatch", uninstall_start)]
+
+    assert "PlaywrightResults" in paths
+    assert "ConfiguredLogFile" in paths
+    assert "Invoke-NwCleanupPlan -Plan $plan -DryRun" in cleanup_action
+    assert "Permanently remove the listed application data and settings?" in launcher
+    assert "application log file" in cleanup_module
+    assert "symbolic link or junction" in cleanup_module
+    assert "settings/.env" not in uninstall
+    assert "Remove-NwTargetSafely" in cleanup_module
