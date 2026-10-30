@@ -5,6 +5,20 @@
 <p align="center">A local workspace for designing, validating, and exporting machine-learning model graphs.</p>
 
 <p align="center">
+  <a href="https://github.com/CTCycle/Neuro-Weave-Studio/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/CTCycle/Neuro-Weave-Studio?style=flat-square"></a>
+  <a href="https://github.com/CTCycle/Neuro-Weave-Studio/commits"><img alt="Last commit" src="https://img.shields.io/github/last-commit/CTCycle/Neuro-Weave-Studio?style=flat-square"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/CTCycle/Neuro-Weave-Studio/releases"><img alt="Release" src="https://img.shields.io/github/v/release/CTCycle/Neuro-Weave-Studio?style=flat-square"></a>
+  <a href="https://github.com/CTCycle/Neuro-Weave-Studio/actions/workflows/ci.yml?query=branch%3Adevelop"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/CTCycle/Neuro-Weave-Studio/ci.yml?branch=develop&label=CI&style=flat-square"></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
+  <img src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white" alt="Python 3.13" />
+  <img src="https://img.shields.io/badge/Angular-22-DD0031?logo=angular&logoColor=white" alt="Angular 22" />
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?logo=windows&logoColor=white" alt="Windows 10 or 11" />
+</p>
+
+<p align="center">
   <a href="#model-builder">Model Builder</a> ·
   <a href="#functional-validation-and-export">Validation and export</a> ·
   <a href="#configuration">Configuration</a> ·
