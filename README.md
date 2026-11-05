@@ -40,8 +40,8 @@ The supported launcher runs on 64-bit Windows 10 or 11 and requires PowerShell 7
 ```powershell
 git clone https://github.com/CTCycle/Neuro-Weave-Studio.git
 Set-Location .\Neuro-Weave-Studio
-.\start_on_windows.ps1 -Action Install -InstallationType Standard
-.\start_on_windows.ps1 -Action Launch
+.\setup_and_maintenance.ps1 -Action Install -InstallationType Standard
+.\start_on_windows.bat
 ```
 
 The launcher installs the base environment, initializes the database, builds the frontend, and opens `http://127.0.0.1:9850/`. On first launch, select an execution backend for functional validation and binary exports. Keras-only mode supports graph editing and source generation. Keep the launcher open while using the app; press **Enter** or **Ctrl+C** to stop it.

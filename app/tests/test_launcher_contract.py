@@ -9,7 +9,7 @@ from pathlib import Path
 ###############################################################################
 def launcher_source() -> str:
     repository_root = Path(__file__).resolve().parents[2]
-    return (repository_root / "start_on_windows.ps1").read_text(encoding="utf-8")
+    return (repository_root / "setup_and_maintenance.ps1").read_text(encoding="utf-8")
 
 ###############################################################################
 def function_body(source: str, function_name: str, next_function: str) -> str:
@@ -256,3 +256,24 @@ def test_launcher_cleanup_plans_exact_paths_and_preserves_standard_uninstall_dat
     assert "symbolic link or junction" in cleanup_module
     assert "settings/.env" not in uninstall
     assert "Remove-NwTargetSafely" in cleanup_module
+
+###############################################################################
+def test_start_batch_uses_supported_host_and_menu_is_maintenance_only() -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    launcher = launcher_source()
+    menu = function_body(launcher, "Get-LauncherMenuEntries", "Write-MenuOption")
+
+    assert "[switch]$Launch" in launcher
+    assert "if ($Launch)" in launcher
+    assert "Label = 'Launch application'" not in menu
+    assert "Key = 'Install'" in menu
+    dispatch_start = launcher.index("# Non-interactive action dispatch")
+    menu_start = launcher.index("function Wait-ForMenuReturn")
+    assert "'Launch' { Invoke-Launch }" in launcher[dispatch_start:menu_start]
+    menu_loop_start = launcher.index("while ($true) {", launcher.index("function Show-LauncherMenu"))
+    assert "'Launch' { Invoke-Launch }" not in launcher[menu_loop_start:]
+
+    wrapper = (repository_root / "start_on_windows.bat").read_text(encoding="utf-8")
+    assert "pwsh.exe" in wrapper
+    assert "setup_and_maintenance.ps1" in wrapper
+    assert "-Launch" in wrapper

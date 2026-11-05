@@ -1,4 +1,4 @@
-﻿# Copyright © 2026 Thomas Virdis
+# Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
 # ===============================================================================
@@ -8,6 +8,7 @@
 param(
     [ValidateSet('Menu', 'Install', 'RebuildFrontend', 'ManageBackends', 'Launch', 'InitDb', 'Test', 'CleanLogs', 'ClearCache', 'RemoveAllData', 'CheckForUpdates', 'Update', 'Uninstall')]
     [string]$Action = 'Menu',
+    [switch]$Launch,
     [string]$Backends = '',
     [ValidateSet('Auto', 'CPU')]
     [string]$Acceleration = 'Auto',
@@ -2251,6 +2252,14 @@ function Invoke-UninstallApplication {
 # ===============================================================================
 Initialize-ResourcePaths
 
+if ($Launch -and $Action -ne 'Menu') {
+    throw 'Use either -Launch or -Action, not both.'
+}
+if ($Launch) {
+    Invoke-TrackedLauncherAction -Name 'Launch application' -Operation { Invoke-Launch }
+    exit 0
+}
+
 if ($Action -ne 'Menu') {
     try {
         Invoke-TrackedLauncherAction -Name "action $Action" -Operation {
@@ -2304,7 +2313,6 @@ function Write-MenuRule {
 
 function Get-LauncherMenuEntries {
     return @(
-        [pscustomobject]@{ Section = 'APPLICATION'; Label = 'Launch application'; Description = 'Start the application (backend serves the UI)'; Key = 'Launch'; Destructive = $false }
         [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Install or repair base dependencies'; Description = 'Prepare runtimes and core packages'; Key = 'Install'; Destructive = $false }
         [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Rebuild frontend'; Description = 'Rebuild the frontend from current source'; Key = 'Rebuild'; Destructive = $false }
         [pscustomobject]@{ Section = 'SETUP & VALIDATION'; Label = 'Manage compute backends'; Description = 'Install, inspect, or remove optional ML frameworks'; Key = 'Backends'; Destructive = $false }
@@ -2387,7 +2395,7 @@ while ($true) {
     try {
         Invoke-TrackedLauncherAction -Name $entry.Label -Operation {
             switch ($entry.Key) {
-                'Launch' { Invoke-Launch }
+
                 'Install' { Invoke-Install -PromptForInstallationType }
                 'Rebuild' { Invoke-FrontendRebuild }
                 'Backends' { Invoke-BackendManagement }
