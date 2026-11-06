@@ -64,6 +64,7 @@ from domain.runtime import (
     WorkerConfiguration,
 )
 from models.export_artifacts import sha256_file
+from services.tensor_inspection_service import cleanup_inspection_sessions
 
 LOGGER = logging.getLogger(__name__)
 DISCOVERY_SNAPSHOT_SCHEMA_VERSION = 3
@@ -89,13 +90,13 @@ class _JobRecord:
     worker: WorkerConfiguration
     device: RuntimeDevice
     job_dir: Path
-    created_at: Any
+    created_at: datetime
     process: subprocess.Popen[bytes] | None = None
     state: JobState = JobState.STARTING
     pid: int | None = None
-    started_at: Any | None = None
-    updated_at: Any = field(default_factory=utc_now)
-    finished_at: Any | None = None
+    started_at: datetime | None = None
+    updated_at: datetime = field(default_factory=utc_now)
+    finished_at: datetime | None = None
     exit_code: int | None = None
     cancellation_requested: bool = False
     forced_termination: bool = False
@@ -142,6 +143,7 @@ class RuntimeController:
         self._validated_discovery_keys: set[tuple[ExecutionBackend, RuntimeApi]] = set()
         self._discovery_futures: dict[tuple[ExecutionBackend, RuntimeApi], Future[RuntimeDiscoveryResponse]] = {}
         self._probe_processes: dict[tuple[ExecutionBackend, RuntimeApi], subprocess.Popen[str]] = {}
+        self._log_drainers: dict[int, threading.Thread] = {}
         self._discovery_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="runtime-discovery")
         self._shutting_down = False
         self._sweep_orphaned_jobs()
@@ -348,8 +350,7 @@ class RuntimeController:
                 source="live",
                 capabilities=capabilities,
             )
-            statuses = dict(self._backend_statuses)
-        self._write_discovery_snapshot(fingerprint, fingerprint_inputs, statuses)
+            self._write_discovery_snapshot(fingerprint, fingerprint_inputs, dict(self._backend_statuses))
         result = self.discovery_status(backend, api)
         LOGGER.info("runtime_discovery backend=%s api=%s source=live duration_ms=%s", backend.value, api.value, round((time.perf_counter() - started) * 1000, 1))
         return result
@@ -662,14 +663,14 @@ class RuntimeController:
             )
             status_objects[backend] = status
 
-        self._apply_backend_statuses(status_objects)
         with self._lock:
+            self._apply_backend_statuses(status_objects)
             self._validated_discovery_keys.update(
                 (backend, api_status.id)
                 for backend, status in status_objects.items()
                 for api_status in status.runtime_apis
             )
-        self._write_discovery_snapshot(fingerprint, fingerprint_inputs, status_objects)
+            self._write_discovery_snapshot(fingerprint, fingerprint_inputs, dict(self._backend_statuses))
         LOGGER.info(
             "runtime_discovery source=live duration_ms=%s",
             round((time.perf_counter() - discovery_started) * 1000, 1),
@@ -1190,26 +1191,70 @@ class RuntimeController:
     # -------------------------------------------------------------------------
     def _start_process(self, job_dir: Path) -> subprocess.Popen[bytes]:
         log_path = job_dir / "worker.log"
-        log_handle = log_path.open("wb")
         environment = os.environ.copy()
         environment.pop("KERAS_BACKEND", None)
         # Torch ONNX diagnostics can contain Unicode symbols on Windows. Keep
         # worker logs UTF-8 so a diagnostic cannot turn a valid export into a
         # locale-dependent encoding failure.
         environment["PYTHONIOENCODING"] = "utf-8"
+        process = subprocess.Popen(
+            [sys.executable, "-m", "models.ml_worker", "--job-dir", str(job_dir)],
+            cwd=self._server_root,
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            **process_start_options(),
+        )
+        drainer = threading.Thread(
+            target=self._drain_worker_log,
+            args=(process, log_path),
+            name=f"neuro-weave-log-{process.pid}",
+            daemon=True,
+        )
+        self._log_drainers[process.pid] = drainer
         try:
-            process = subprocess.Popen(
-                [sys.executable, "-m", "models.ml_worker", "--job-dir", str(job_dir)],
-                cwd=self._server_root,
-                env=environment,
-                stdin=subprocess.DEVNULL,
-                stdout=log_handle,
-                stderr=log_handle,
-                **process_start_options(),
-            )
-        finally:
-            log_handle.close()
+            drainer.start()
+        except Exception:
+            self._log_drainers.pop(process.pid, None)
+            process.kill()
+            process.wait()
+            if process.stdout is not None:
+                process.stdout.close()
+            raise
         return cast(subprocess.Popen[bytes], process)
+
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _drain_worker_log(process: subprocess.Popen[bytes], path: Path, limit: int = 64_000) -> None:
+        stream = process.stdout
+        if stream is None:
+            return
+        try:
+            with path.open("wb") as handle:
+                tail = b""
+                while chunk := stream.read(8_192):
+                    tail = (tail + chunk)[-limit:]
+                    handle.seek(0)
+                    handle.write(tail)
+                    handle.truncate()
+                    handle.flush()
+        except OSError:
+            LOGGER.exception("Could not write ML worker log %s", path)
+            # Keep draining even when the log file cannot be written; otherwise
+            # a full pipe can block the child process from exiting.
+            while stream.read(8_192):
+                pass
+        finally:
+            stream.close()
+
+    # -------------------------------------------------------------------------
+    def _finish_worker_log(self, process: subprocess.Popen[bytes]) -> None:
+        drainer = self._log_drainers.pop(process.pid, None)
+        if drainer is not None:
+            drainer.join(timeout=2)
+            if drainer.is_alive():
+                LOGGER.warning("ML worker log stream did not close after worker exit pid=%s", process.pid)
 
     # -------------------------------------------------------------------------
     def _monitor_job(self, record: _JobRecord) -> None:
@@ -1217,7 +1262,6 @@ class RuntimeController:
         if process is None:
             return
         timeout_started = time.monotonic()
-        last_log_bound = timeout_started
         while process.poll() is None:
             status = self._read_status(record.job_dir / "status.json")
             with self._lock:
@@ -1249,11 +1293,9 @@ class RuntimeController:
                         code="worker_timeout",
                         message="The ML worker exceeded its configured timeout",
                     )
-            if time.monotonic() - last_log_bound >= 1:
-                self._bound_log(record.job_dir / "worker.log")
-                last_log_bound = time.monotonic()
             sleep_poll(0.1)
         process.wait()
+        self._finish_worker_log(process)
         status = self._read_status(record.job_dir / "status.json")
         with self._lock:
             self._apply_worker_status(record, status)
@@ -1312,7 +1354,6 @@ class RuntimeController:
                             message=self._tail_log(record.job_dir / "worker.log")
                             or "ML worker failed",
                         )
-            self._bound_log(record.job_dir / "worker.log")
             record.stderr_tail = self._tail_log(record.job_dir / "worker.log")
             log_level = logging.ERROR if record.state is JobState.FAILED else (
                 logging.WARNING if record.error and record.error.code == "worker_timeout" else logging.INFO
@@ -1577,22 +1618,12 @@ class RuntimeController:
     @staticmethod
     def _tail_log(path: Path, limit: int = 4_000) -> str | None:
         try:
-            return path.read_text(encoding="utf-8", errors="replace")[-limit:].strip() or None
+            with path.open("rb") as handle:
+                handle.seek(0, os.SEEK_END)
+                handle.seek(max(0, handle.tell() - limit))
+                return handle.read().decode("utf-8", errors="replace").strip() or None
         except OSError:
             return None
-
-    # -------------------------------------------------------------------------
-    @staticmethod
-    def _bound_log(path: Path, limit: int = 64_000) -> None:
-        try:
-            data = path.read_bytes()
-            if len(data) <= limit:
-                return
-            temporary = path.with_suffix(".bounded")
-            temporary.write_bytes(data[-limit:])
-            os.replace(temporary, path)
-        except OSError:
-            return
 
     # -------------------------------------------------------------------------
     def _trim_history(self) -> None:
@@ -1648,27 +1679,7 @@ class RuntimeController:
 
     # -------------------------------------------------------------------------
     def _sweep_inspection_sessions(self) -> None:
-        now = time.time()
-        retained: list[tuple[float, Path]] = []
-        for path in self._inspection_root.iterdir():
-            if not path.is_dir():
-                continue
-            try:
-                payload = json.loads((path / "session.json").read_text(encoding="utf-8"))
-                expires = datetime.fromisoformat(str(payload.get("expires_at"))).timestamp()
-                if expires <= now:
-                    self._remove_job_workspace(path)
-                else:
-                    retained.append((expires, path))
-            except (OSError, ValueError, TypeError, json.JSONDecodeError):
-                self._remove_job_workspace(path)
-        # The filesystem root is deliberately bounded even when no API request
-        # has instantiated the service yet. Keep the three sessions with the
-        # furthest idle expiry; their metadata is still ephemeral and can be
-        # deleted explicitly by the modal.
-        retained.sort(key=lambda item: item[0], reverse=True)
-        for _, path in retained[3:]:
-            self._remove_job_workspace(path)
+        cleanup_inspection_sessions(self._inspection_root)
 
     # -------------------------------------------------------------------------
     def _sweep_orphaned_jobs(self) -> None:

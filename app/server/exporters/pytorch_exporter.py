@@ -1,7 +1,6 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
 from typing import Any, cast
@@ -11,7 +10,6 @@ from common.catalogs.operation_emitter import emit_operation_source
 from domain.compilation import CanonicalModelIR
 from domain.compilation_catalog import (
     CompilationCatalog,
-    CompilationOption,
     get_compilation_catalog,
 )
 from domain.compilation_plan import CompilationObject
@@ -21,7 +19,8 @@ from domain.ports import materialized_outputs
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 from exporters.node_emitters import NodeEmitterContext, registry_for_backend
-from validation.output_resolution import output_selectors, resolved_outputs
+from validation.compile_configuration import pytorch_compilation_option
+from validation.output_resolution import resolved_outputs, selected_output_value
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
 
@@ -72,7 +71,7 @@ class PyTorchSourceExporter(SourceExporter):
         value = parameters.get(key, default)
         if value is None:
             value = default
-        if not isinstance(value, list) or len(value) != dimensions:
+        if not isinstance(value, list) or len(cast(list[Any], value)) != dimensions:
             raise ValueError(f"PyTorch {key} expects {dimensions} values")
         values = cast(list[Any], value)
         if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in values):
@@ -90,7 +89,7 @@ class PyTorchSourceExporter(SourceExporter):
         value = parameters.get(key, default)
         if value is None:
             value = default
-        if not isinstance(value, list) or len(value) != dimensions:
+        if not isinstance(value, list) or len(cast(list[Any], value)) != dimensions:
             raise ValueError(f"PyTorch {key} expects {dimensions} values")
         values = cast(list[Any], value)
         if any(not isinstance(item, int) or isinstance(item, bool) or item < 0 for item in values):
@@ -101,17 +100,18 @@ class PyTorchSourceExporter(SourceExporter):
     @staticmethod
     def _spatial_pairs(parameters: dict[str, Any], key: str, dimensions: int) -> tuple[tuple[int, int], ...]:
         value = parameters.get(key)
-        if not isinstance(value, list) or len(value) != dimensions:
+        if not isinstance(value, list) or len(cast(list[Any], value)) != dimensions:
             raise ValueError(f"PyTorch {key} expects {dimensions} pairs")
         pairs: list[tuple[int, int]] = []
         for item in cast(list[Any], value):
             if (
                 not isinstance(item, list)
-                or len(item) != 2
-                or any(not isinstance(entry, int) or isinstance(entry, bool) or entry < 0 for entry in item)
+                or len(cast(list[Any], item)) != 2
+                or any(not isinstance(entry, int) or isinstance(entry, bool) or entry < 0 for entry in cast(list[Any], item))
             ):
                 raise ValueError(f"PyTorch {key} expects non-negative pairs")
-            pairs.append((int(item[0]), int(item[1])))
+            pair = cast(list[Any], item)
+            pairs.append((int(pair[0]), int(pair[1])))
         return tuple(pairs)
 
     # -------------------------------------------------------------------------
@@ -187,25 +187,8 @@ class PyTorchSourceExporter(SourceExporter):
             output for output in resolved_outputs(graph, catalog) if output.node is not None
         ]
 
-        def selected_value(configuration: dict[str, Any], output: Any, default: Any) -> Any:
-            value = configuration.get("__default__", default)
-            for selector in output_selectors(output):
-                if selector and selector in configuration:
-                    value = configuration[selector]
-                    break
-            return value
-
-        def option(options: list[CompilationOption], identifier: str) -> CompilationOption:
-            selected = next((item for item in options if item.id == identifier), None)
-            if selected is None:
-                raise ValueError(f"No compilation catalog option registered for {identifier}")
-            implementation = selected.implementations.get("pytorch")
-            if implementation is None or not implementation.supported or not implementation.adapter:
-                raise ValueError(f"No PyTorch compilation adapter registered for {identifier}")
-            return selected
-
         optimizer_value = compilation.optimizer
-        optimizer_option = option(compilation_catalog.optimizers, optimizer_value.id)
+        optimizer_option = pytorch_compilation_option(compilation_catalog.optimizers, optimizer_value.id)
         optimizer_class = optimizer_option.implementations["pytorch"].adapter.rsplit(".", 1)[-1]  # type: ignore[union-attr]
         resolved_losses: dict[str, tuple[str, str]] = {}
         resolved_metrics: dict[str, list[tuple[str, str]]] = {}
@@ -214,10 +197,10 @@ class PyTorchSourceExporter(SourceExporter):
         target_contracts: dict[str, str] = {}
         metric_target_contracts: dict[str, dict[str, str]] = {}
         for output in output_items:
-            loss_value = selected_value(compilation.losses, output, None)
+            loss_value = selected_output_value(compilation.losses, output, None)
             if isinstance(loss_value, CompilationObject):
                 loss_id = loss_value.id
-                loss_option = option(compilation_catalog.losses, loss_id)
+                loss_option = pytorch_compilation_option(compilation_catalog.losses, loss_id)
                 loss_adapter = loss_option.implementations["pytorch"].adapter
                 if loss_adapter is None:
                     raise ValueError(f"No PyTorch loss adapter registered for {loss_id}")
@@ -225,14 +208,14 @@ class PyTorchSourceExporter(SourceExporter):
                 loss_configurations[output.name] = loss_value
                 if loss_option.target_contract is not None:
                     target_contracts[output.name] = loss_option.target_contract
-            metric_values = selected_value(compilation.metrics, output, [])
+            metric_values = selected_output_value(compilation.metrics, output, [])
             if isinstance(metric_values, list):
                 resolved_metrics[output.name] = []
                 for metric_value in cast(list[Any], metric_values):
                     if not isinstance(metric_value, CompilationObject):
                         continue
                     metric_id = metric_value.id
-                    metric_option = option(compilation_catalog.metrics, metric_id)
+                    metric_option = pytorch_compilation_option(compilation_catalog.metrics, metric_id)
                     metric_adapter = metric_option.implementations["pytorch"].adapter
                     if metric_adapter is None:
                         raise ValueError(f"No PyTorch metric adapter registered for {metric_id}")
@@ -453,7 +436,7 @@ class PyTorchSourceExporter(SourceExporter):
                 if shared_axes is not None:
                     if not isinstance(shared_axes, list):
                         raise ValueError("PyTorch PReLU shared_axes must be a list or null")
-                    for shared_axis in shared_axes:
+                    for shared_axis in cast(list[Any], shared_axes):
                         if not isinstance(shared_axis, int) or not 1 <= shared_axis < source_spec.rank:
                             raise ValueError("PyTorch PReLU shared_axes must contain non-batch axes")
                         alpha_shape[shared_axis - 1] = 1
@@ -666,15 +649,15 @@ class PyTorchSourceExporter(SourceExporter):
                 kernel_size = params.get("kernel_size", [3])
                 strides = params.get("strides", [1])
                 dilation = params.get("dilation_rate", [1])
-                if not isinstance(kernel_size, list) or len(kernel_size) != 1:
+                if not isinstance(kernel_size, list) or len(cast(list[Any], kernel_size)) != 1:
                     raise ValueError("PyTorch Conv1D expects one kernel_size value")
-                if not isinstance(strides, list) or len(strides) != 1:
+                if not isinstance(strides, list) or len(cast(list[Any], strides)) != 1:
                     raise ValueError("PyTorch Conv1D expects one strides value")
-                if not isinstance(dilation, list) or len(dilation) != 1:
+                if not isinstance(dilation, list) or len(cast(list[Any], dilation)) != 1:
                     raise ValueError("PyTorch Conv1D expects one dilation_rate value")
-                kernel = int(kernel_size[0])
-                stride = int(strides[0])
-                dilation_value = int(dilation[0])
+                kernel = int(cast(int, kernel_size[0]))
+                stride = int(cast(int, strides[0]))
+                dilation_value = int(cast(int, dilation[0]))
                 filters = int(params.get("filters", 32))
                 groups = int(params.get("groups", 1))
                 bias = bool(params.get("use_bias", True))
@@ -818,7 +801,7 @@ class PyTorchSourceExporter(SourceExporter):
                     output_shape = (int(raw_output_shape),)
                     output_dimension = int(raw_output_shape)
                 elif isinstance(raw_output_shape, list) and raw_output_shape:
-                    output_shape = tuple(int(value) for value in raw_output_shape)
+                    output_shape = tuple(int(value) for value in cast(list[Any] | tuple[Any, ...], raw_output_shape))
                     output_dimension = 1
                     for value in output_shape:
                         output_dimension *= value
@@ -1435,7 +1418,7 @@ class PyTorchSourceExporter(SourceExporter):
                 elif isinstance(raw_output_shape, int) and not isinstance(raw_output_shape, bool):
                     output_shape = (int(raw_output_shape),)
                 elif isinstance(raw_output_shape, (list, tuple)) and raw_output_shape:
-                    output_shape = tuple(int(value) for value in raw_output_shape)
+                    output_shape = tuple(int(value) for value in cast(list[Any] | tuple[Any, ...], raw_output_shape))
                 else:
                     raise ValueError(f"PyTorch attention node {node.id} has an invalid output_shape")
                 query = source_by_port.get("query", source)
@@ -1532,7 +1515,7 @@ class PyTorchSourceExporter(SourceExporter):
         for parameter in optimizer_option.parameters:
             target = parameter_mapping.get(parameter.id, parameter.id)
             mapped_parameters.setdefault(target, []).append(optimizer_parameters[parameter.id])
-        optimizer_kwargs = []
+        optimizer_kwargs: list[str] = []
         for target, values in mapped_parameters.items():
             value: Any = values[0] if len(values) == 1 else tuple(values)
             optimizer_kwargs.append(f"        {target}={value!r},")

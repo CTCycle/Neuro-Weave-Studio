@@ -1,7 +1,6 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
 from typing import Any, cast
@@ -20,7 +19,7 @@ from domain.ports import materialized_outputs
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 from exporters.node_emitters import NodeEmitterContext, registry_for_backend
-from validation.output_resolution import output_selectors, resolved_outputs
+from validation.output_resolution import resolved_outputs, selected_output_value
 from validation.parameter_values import condition_matches
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
@@ -100,14 +99,6 @@ class NativeJaxSourceExporter(SourceExporter):
         configuration = graph.model_configuration.native.jax.compilation
         outputs = [output for output in resolved_outputs(graph, catalog) if output.node is not None]
 
-        def selected(values: dict[str, Any], output: Any, default: Any) -> Any:
-            value = values.get("__default__", default)
-            for selector in output_selectors(output):
-                if selector and selector in values:
-                    value = values[selector]
-                    break
-            return value
-
         loss_ids: dict[str, str] = {}
         loss_parameters: dict[str, dict[str, Any]] = {}
         metric_ids: dict[str, list[str]] = {}
@@ -117,7 +108,7 @@ class NativeJaxSourceExporter(SourceExporter):
         losses: dict[str, dict[str, Any]] = {}
         metrics: dict[str, list[dict[str, Any]]] = {}
         for output in outputs:
-            loss_value = selected(configuration.losses, output, None)
+            loss_value = selected_output_value(configuration.losses, output, None)
             if isinstance(loss_value, CompilationObject):
                 option = cls._catalog_option(compilation_catalog, "losses", loss_value.id)
                 loss_ids[output.name] = loss_value.id
@@ -128,9 +119,10 @@ class NativeJaxSourceExporter(SourceExporter):
                 }
                 if option.target_contract is not None:
                     target_contracts[output.name] = option.target_contract
-            metric_values = selected(configuration.metrics, output, [])
+            metric_values = selected_output_value(configuration.metrics, output, [])
             if not isinstance(metric_values, list):
                 continue
+            metric_values = cast(list[Any], metric_values)
             metric_ids[output.name] = []
             metric_parameters[output.name] = []
             metrics[output.name] = []
@@ -358,7 +350,7 @@ class NativeJaxSourceExporter(SourceExporter):
     # -------------------------------------------------------------------------
     @staticmethod
     def _initializer_expression(value: object, default: str) -> str:
-        identifier = value.get("id", default) if isinstance(value, dict) else value
+        identifier = cast(dict[str, Any], value).get("id", default) if isinstance(value, dict) else value
         init_name = {
             "ones": "ones",
             "random_normal": "normal",
@@ -384,7 +376,7 @@ class NativeJaxSourceExporter(SourceExporter):
         value = parameters.get(key, default)
         if value is None:
             value = default
-        if not isinstance(value, list) or len(value) != dimensions:
+        if not isinstance(value, list) or len(cast(list[Any], value)) != dimensions:
             raise ValueError(f"JAX {key} expects {dimensions} values")
         values = cast(list[Any], value)
         if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in values):
@@ -402,7 +394,7 @@ class NativeJaxSourceExporter(SourceExporter):
         value = parameters.get(key, default)
         if value is None:
             value = default
-        if not isinstance(value, list) or len(value) != dimensions:
+        if not isinstance(value, list) or len(cast(list[Any], value)) != dimensions:
             raise ValueError(f"JAX {key} expects {dimensions} values")
         values = cast(list[Any], value)
         if any(not isinstance(item, int) or isinstance(item, bool) or item < 0 for item in values):
@@ -413,17 +405,18 @@ class NativeJaxSourceExporter(SourceExporter):
     @staticmethod
     def _spatial_pairs(parameters: dict[str, Any], key: str, dimensions: int) -> tuple[tuple[int, int], ...]:
         value = parameters.get(key)
-        if not isinstance(value, list) or len(value) != dimensions:
+        if not isinstance(value, list) or len(cast(list[Any], value)) != dimensions:
             raise ValueError(f"JAX {key} expects {dimensions} pairs")
         pairs: list[tuple[int, int]] = []
         for item in cast(list[Any], value):
             if (
                 not isinstance(item, list)
-                or len(item) != 2
-                or any(not isinstance(entry, int) or isinstance(entry, bool) or entry < 0 for entry in item)
+                or len(cast(list[Any], item)) != 2
+                or any(not isinstance(entry, int) or isinstance(entry, bool) or entry < 0 for entry in cast(list[Any], item))
             ):
                 raise ValueError(f"JAX {key} expects non-negative pairs")
-            pairs.append((int(item[0]), int(item[1])))
+            pair = cast(list[Any], item)
+            pairs.append((int(pair[0]), int(pair[1])))
         return tuple(pairs)
 
     # -------------------------------------------------------------------------
@@ -440,8 +433,9 @@ class NativeJaxSourceExporter(SourceExporter):
         nodes = {node.id: node for node in graph.nodes}
         requires_int64_output = any(
             (
-                catalog.get(node.definition_id, node.definition_version).operation is not None
-                and catalog.get(node.definition_id, node.definition_version).operation.output_dtype == "int64"
+                (operation := catalog.get(node.definition_id, node.definition_version).operation)
+                is not None
+                and operation.output_dtype == "int64"
             )
             for node in graph.nodes
         )
@@ -675,7 +669,7 @@ class NativeJaxSourceExporter(SourceExporter):
                 shared_axes = params.get("shared_axes")
                 lines.append(f"        {name}_alpha_shape = list({source}.shape[1:])")
                 if isinstance(shared_axes, list):
-                    for shared_axis in shared_axes:
+                    for shared_axis in cast(list[Any], shared_axes):
                         lines.append(f"        {name}_alpha_shape[{int(shared_axis) - 1}] = 1")
                 lines.append(
                     f"        {name}_alpha = self.param({name + '_alpha'!r}, {initializer_expression}, tuple({name}_alpha_shape))"
@@ -768,15 +762,15 @@ class NativeJaxSourceExporter(SourceExporter):
                 kernel_size = params.get("kernel_size", [3])
                 strides = params.get("strides", [1])
                 dilation = params.get("dilation_rate", [1])
-                if not isinstance(kernel_size, list) or len(kernel_size) != 1:
+                if not isinstance(kernel_size, list) or len(cast(list[Any], kernel_size)) != 1:
                     raise ValueError("Native JAX Conv1D expects one kernel_size value")
-                if not isinstance(strides, list) or len(strides) != 1:
+                if not isinstance(strides, list) or len(cast(list[Any], strides)) != 1:
                     raise ValueError("Native JAX Conv1D expects one strides value")
-                if not isinstance(dilation, list) or len(dilation) != 1:
+                if not isinstance(dilation, list) or len(cast(list[Any], dilation)) != 1:
                     raise ValueError("Native JAX Conv1D expects one dilation_rate value")
                 padding = str(params.get("padding", "same")).upper()
                 lines.append(
-                    f"        {name} = nn.Conv(features={int(params.get('filters', 32))}, kernel_size={(int(kernel_size[0]),)!r}, strides={(int(strides[0]),)!r}, kernel_dilation={(int(dilation[0]),)!r}, padding={padding!r}, feature_group_count={int(params.get('groups', 1))}, use_bias={bool(params.get('use_bias', True))!r}, name={name!r})({name}_input)"
+                    f"        {name} = nn.Conv(features={int(params.get('filters', 32))}, kernel_size={(int(cast(int, kernel_size[0])),)!r}, strides={(int(cast(int, strides[0])),)!r}, kernel_dilation={(int(cast(int, dilation[0])),)!r}, padding={padding!r}, feature_group_count={int(params.get('groups', 1))}, use_bias={bool(params.get('use_bias', True))!r}, name={name!r})({name}_input)"
                 )
                 if data_format == "channels_first":
                     lines.append(f"        {name} = {name}.transpose(0, 2, 1)")
@@ -1057,7 +1051,7 @@ class NativeJaxSourceExporter(SourceExporter):
                     output_shape = (int(raw_output_shape),)
                     output_dimension = int(raw_output_shape)
                 elif isinstance(raw_output_shape, (list, tuple)) and raw_output_shape:
-                    output_shape = tuple(int(value) for value in raw_output_shape)
+                    output_shape = tuple(int(value) for value in cast(list[Any] | tuple[Any, ...], raw_output_shape))
                     output_dimension = 1
                     for value in output_shape:
                         output_dimension *= value

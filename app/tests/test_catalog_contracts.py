@@ -5,8 +5,11 @@ from __future__ import annotations
 
 import json
 from typing import cast
+from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 from common.catalogs import loader
 from common.catalogs.loader import RESOURCE_ROOT, get_node_catalog
@@ -16,10 +19,38 @@ from domain.graph import EdgeInstance, ModelGraph, NodeInstance, Position
 from exporters.keras_exporter import KerasSourceExporter
 from exporters.node_emitters import build_catalog_adapter_audit, registry_for_backend
 from exporters.node_emitters.contracts import EmissionResult, NodeEmitterRegistry
+from repositories.base import Base
+from repositories.code_snapshots import CodeSnapshotRepository
+from repositories.models import GeneratedCodeSnapshotRecord, ProjectRecord, ProjectRevisionRecord
 
 # Consolidated from test_adapter_registry_integration.py
 
 MANAGED_ADAPTERS = {"constant", "parameter", "average", "split", "detection"}
+
+
+def test_snapshot_lookup_handles_large_project_catalog() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    try:
+        Base.metadata.create_all(engine)
+        current, obsolete = uuid4(), uuid4()
+        with Session(engine) as session:
+            session.add_all(
+                [
+                    ProjectRecord(id=str(current), name="Current"),
+                    ProjectRecord(id=str(obsolete), name="Obsolete"),
+                    ProjectRevisionRecord(project_id=str(current), revision=1),
+                    ProjectRevisionRecord(project_id=str(obsolete), revision=1),
+                    GeneratedCodeSnapshotRecord(project_id=str(current), revision=1, source_code="code"),
+                    GeneratedCodeSnapshotRecord(project_id=str(obsolete), revision=1, source_code="old code"),
+                ]
+            )
+            session.flush()
+            revisions: dict[UUID, int] = {uuid4(): 1 for _ in range(1_001)}
+            revisions[current] = 1
+            revisions[obsolete] = 2
+            assert CodeSnapshotRepository(session).has_for_revisions(revisions) == {current: True}
+    finally:
+        engine.dispose()
 
 
 ###############################################################################

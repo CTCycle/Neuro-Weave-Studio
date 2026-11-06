@@ -56,35 +56,39 @@ def _log_startup_stage(stage: str, started: float) -> None:
 async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     startup_started = time.perf_counter()
     database_configuration: DatabaseConfigurationService = application.state.database_configuration
-    stage_started = time.perf_counter()
-    await asyncio.to_thread(database_configuration.start)
-    settings = database_configuration.settings
-    application.state.settings = settings
-    application.state.repository_context = database_configuration.repository_context
-    configure_logging(settings.log_level, settings.log_file)
-    _log_startup_stage("database_configuration", stage_started)
-
-    stage_started = time.perf_counter()
-    settings.export_root.mkdir(parents=True, exist_ok=True)
-    _log_startup_stage("export_root", stage_started)
-
-    stage_started = time.perf_counter()
-    catalog = get_node_catalog()
-    _log_startup_stage("node_catalog", stage_started)
-
-    stage_started = time.perf_counter()
-    runtime_controller = RuntimeController(settings)
-    _log_startup_stage("runtime_controller", stage_started)
-    application.state.catalog = catalog
-    application.state.runtime_controller = runtime_controller
-    LOGGER.info("Application started; runtime discovery is on demand")
-    _log_startup_stage("lifespan", startup_started)
+    runtime_controller: RuntimeController | None = None
     try:
+        stage_started = time.perf_counter()
+        await asyncio.to_thread(database_configuration.start)
+        settings = database_configuration.settings
+        application.state.settings = settings
+        application.state.repository_context = database_configuration.repository_context
+        configure_logging(settings.log_level, settings.log_file)
+        _log_startup_stage("database_configuration", stage_started)
+
+        stage_started = time.perf_counter()
+        settings.export_root.mkdir(parents=True, exist_ok=True)
+        _log_startup_stage("export_root", stage_started)
+
+        stage_started = time.perf_counter()
+        catalog = get_node_catalog()
+        _log_startup_stage("node_catalog", stage_started)
+
+        stage_started = time.perf_counter()
+        runtime_controller = RuntimeController(settings)
+        _log_startup_stage("runtime_controller", stage_started)
+        application.state.catalog = catalog
+        application.state.runtime_controller = runtime_controller
+        LOGGER.info("Application started; runtime discovery is on demand")
+        _log_startup_stage("lifespan", startup_started)
         yield
     finally:
-        runtime_controller.shutdown()
-        database_configuration.dispose()
-        LOGGER.info("Application shutdown complete")
+        try:
+            if runtime_controller is not None:
+                runtime_controller.shutdown()
+        finally:
+            database_configuration.dispose()
+            LOGGER.info("Application shutdown complete")
 
 ###############################################################################
 def _client_build_available() -> bool:
@@ -132,6 +136,80 @@ def _serve_runtime_configuration(request: Request) -> JSONResponse:
     )
 
 ###############################################################################
+async def log_api_request(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    origin = request.headers.get("origin")
+    runtime_configuration: RuntimeConfiguration = request.app.state.runtime_configuration
+    allowed_origin = origin in runtime_configuration.cors_origin_list if origin else False
+    preflight = (
+        request.method == "OPTIONS"
+        and request.headers.get("access-control-request-method") is not None
+    )
+    if preflight:
+        response = Response(status_code=200 if allowed_origin else 400)
+        LOGGER.log(
+            logging.DEBUG if allowed_origin else logging.WARNING,
+            "api_preflight method=%s path=%s status=%s",
+            request.method,
+            request.url.path,
+            response.status_code,
+        )
+    elif not request.url.path.startswith("/api"):
+        return await call_next(request)
+    else:
+        started = time.perf_counter()
+        database_configuration: DatabaseConfigurationService = request.app.state.database_configuration
+        is_database_configuration_route = request.url.path.startswith("/api/settings/database")
+        request_entered = False
+        try:
+            if not is_database_configuration_route:
+                await database_configuration.enter_request()
+                request_entered = True
+                if not database_configuration.available:
+                    response = JSONResponse(
+                        {"detail": "The configured database is unavailable. Check Database settings and try again."},
+                        status_code=503,
+                    )
+                elif request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+                    async with request.app.state.sqlite_write_lock:
+                        response = await call_next(request)
+                else:
+                    response = await call_next(request)
+            else:
+                response = await call_next(request)
+        except Exception:
+            LOGGER.exception(
+                "api_request method=%s path=%s status=exception duration_ms=%s",
+                request.method,
+                request.url.path,
+                round((time.perf_counter() - started) * 1000, 1),
+            )
+            raise
+        finally:
+            if request_entered:
+                await database_configuration.leave_request()
+        log_level = logging.ERROR if response.status_code >= 500 else (
+            logging.WARNING if response.status_code >= 400 else logging.DEBUG
+        )
+        LOGGER.log(
+            log_level,
+            "api_request method=%s path=%s status=%s duration_ms=%s",
+            request.method,
+            request.url.path,
+            response.status_code,
+            round((time.perf_counter() - started) * 1000, 1),
+        )
+    if allowed_origin and origin is not None:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        requested_headers = request.headers.get("access-control-request-headers")
+        response.headers["Access-Control-Allow-Headers"] = requested_headers or "*"
+        response.headers["Vary"] = "Origin"
+    return response
+
+###############################################################################
 def create_app(
     *,
     database_config_path: Path = DATABASE_CONFIG_PATH,
@@ -155,79 +233,6 @@ def create_app(
     # SQLite readers can run concurrently, but shared-process mutations must
     # not attempt to upgrade separate deferred transactions at the same time.
     application.state.sqlite_write_lock = asyncio.Lock()
-    async def log_api_request(
-        request: Request,
-        call_next: Callable[[Request], Awaitable[Response]],
-    ) -> Response:
-        origin = request.headers.get("origin")
-        runtime_configuration: RuntimeConfiguration = request.app.state.runtime_configuration
-        allowed_origin = origin in runtime_configuration.cors_origin_list if origin else False
-        preflight = (
-            request.method == "OPTIONS"
-            and request.headers.get("access-control-request-method") is not None
-        )
-        if preflight:
-            response = Response(status_code=200 if allowed_origin else 400)
-            LOGGER.log(
-                logging.DEBUG if allowed_origin else logging.WARNING,
-                "api_preflight method=%s path=%s status=%s",
-                request.method,
-                request.url.path,
-                response.status_code,
-            )
-        elif not request.url.path.startswith("/api"):
-            return await call_next(request)
-        else:
-            started = time.perf_counter()
-            database_configuration: DatabaseConfigurationService = request.app.state.database_configuration
-            is_database_configuration_route = request.url.path.startswith("/api/settings/database")
-            request_entered = False
-            try:
-                if not is_database_configuration_route:
-                    await database_configuration.enter_request()
-                    request_entered = True
-                    if not database_configuration.available:
-                        response = JSONResponse(
-                            {"detail": "The configured database is unavailable. Check Database settings and try again."},
-                            status_code=503,
-                        )
-                    elif request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-                        async with request.app.state.sqlite_write_lock:
-                            response = await call_next(request)
-                    else:
-                        response = await call_next(request)
-                else:
-                    response = await call_next(request)
-            except Exception:
-                LOGGER.exception(
-                    "api_request method=%s path=%s status=exception duration_ms=%s",
-                    request.method,
-                    request.url.path,
-                    round((time.perf_counter() - started) * 1000, 1),
-                )
-                raise
-            finally:
-                if request_entered:
-                    await database_configuration.leave_request()
-            log_level = logging.ERROR if response.status_code >= 500 else (
-                logging.WARNING if response.status_code >= 400 else logging.DEBUG
-            )
-            LOGGER.log(
-                log_level,
-                "api_request method=%s path=%s status=%s duration_ms=%s",
-                request.method,
-                request.url.path,
-                response.status_code,
-                round((time.perf_counter() - started) * 1000, 1),
-            )
-        if allowed_origin and origin is not None:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-            requested_headers = request.headers.get("access-control-request-headers")
-            response.headers["Access-Control-Allow-Headers"] = requested_headers or "*"
-            response.headers["Vary"] = "Origin"
-        return response
-
     application.middleware("http")(log_api_request)
 
     application.include_router(health.router)

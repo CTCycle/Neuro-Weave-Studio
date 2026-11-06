@@ -36,20 +36,20 @@ class CodeSnapshotRepository:
     def has_for_revisions(self, revisions: Mapping[UUID, int]) -> dict[UUID, bool]:
         if not revisions:
             return {}
-        conditions = [
-            and_(
-                GeneratedCodeSnapshotRecord.project_id == str(project_id),
-                GeneratedCodeSnapshotRecord.revision == revision,
-            )
-            for project_id, revision in revisions.items()
-        ]
-        rows = self._session.scalars(
-            select(GeneratedCodeSnapshotRecord).where(or_(*conditions))
-        ).all()
         result: dict[UUID, bool] = {}
-        for row in rows:
-            project_id = UUID(row.project_id)
-            result[project_id] = True
+        items = list(revisions.items())
+        for start in range(0, len(items), 250):
+            conditions = [
+                and_(
+                    GeneratedCodeSnapshotRecord.project_id == str(project_id),
+                    GeneratedCodeSnapshotRecord.revision == revision,
+                )
+                for project_id, revision in items[start : start + 250]
+            ]
+            project_ids = self._session.scalars(
+                select(GeneratedCodeSnapshotRecord.project_id).where(or_(*conditions))
+            )
+            result.update({UUID(project_id): True for project_id in project_ids})
         return result
 
     # -------------------------------------------------------------------------

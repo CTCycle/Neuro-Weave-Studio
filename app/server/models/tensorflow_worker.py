@@ -1,17 +1,15 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalOperand=false, reportOperatorIssue=false, reportArgumentType=false
 
 from __future__ import annotations
 
 import contextlib
 import gc
+import importlib
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
-
-import tensorflow
+from typing import Any, cast
 
 from domain.compilation_catalog import CompilationCatalog
 from domain.enums import ExecutionBackend
@@ -27,6 +25,8 @@ from models.worker_backend import (
     run_native_inspection,
     run_native_smoke,
 )
+
+tensorflow = cast(Any, importlib.import_module("tensorflow"))
 
 
 ###############################################################################
@@ -61,21 +61,21 @@ class TensorFlowWorker:
 
     # -------------------------------------------------------------------------
     def capabilities(self) -> dict[str, object]:
-        devices = (
+        devices: list[Any] = (
             []
             if self._config is not None and self._config.device_id == "cpu"
-            else tensorflow.config.list_logical_devices("GPU")
+            else list(tensorflow.config.list_logical_devices("GPU"))
         )
         backend_name = "tensorflow"
         if self._config is not None and self._config.api is RuntimeApi.KERAS:
-            import keras
+            keras = cast(Any, importlib.import_module("keras"))
 
             backend_name = str(keras.backend.backend())
         return {
             "backend": backend_name,
             "available": True,
             "accelerator": "cuda" if devices else "cpu",
-            "device_name": str(devices[0].name) if devices else "CPU",
+            "device_name": str(getattr(devices[0], "name", "GPU:0")) if devices else "CPU",
         }
 
     # -------------------------------------------------------------------------
@@ -131,7 +131,7 @@ class TensorFlowWorker:
         if capabilities.get("accelerator") == "cuda":
             if self._config is not None and self._config.api is RuntimeApi.NATIVE:
                 return tensorflow.device("/GPU:0")
-            import keras
+            keras = cast(Any, importlib.import_module("keras"))
 
             return keras.device("gpu:0")
         return contextlib.nullcontext()
@@ -158,7 +158,7 @@ class TensorFlowWorker:
                 checkpoint=checkpoint,
                 compilation_catalog=compilation_catalog,
             )
-        import keras
+        keras = cast(Any, importlib.import_module("keras"))
 
         from models import keras_worker
         from models.keras_runtime import compile_model
@@ -194,15 +194,18 @@ class TensorFlowWorker:
                 project_revision=project_revision, output_root=output_root, worker=self._config,
                 compilation_catalog=compilation_catalog,
             )
-        import keras
+        keras = cast(Any, importlib.import_module("keras"))
 
         from models import keras_worker
         from models.keras_runtime import compile_model
+        worker = self._config
+        if worker is None:
+            raise RuntimeError("TensorFlow worker must be configured before inspection")
         return run_keras_inspection(
             graph, keras_module=keras, build_model=keras_worker.build_model, compile_model=compile_model,
             capabilities=self.capabilities(), scope=self.device_scope(), synchronize=self.synchronize,
             checkpoint=checkpoint, seed=seed, project_id=project_id, project_revision=project_revision,
-            output_root=output_root, worker=self._config, compilation_catalog=compilation_catalog,
+            output_root=output_root, worker=worker, compilation_catalog=compilation_catalog,
         )
 
     # -------------------------------------------------------------------------
@@ -236,7 +239,7 @@ class TensorFlowWorker:
     # -------------------------------------------------------------------------
     def cleanup(self) -> None:
         with contextlib.suppress(AttributeError, RuntimeError, TypeError):
-            import keras
+            keras = cast(Any, importlib.import_module("keras"))
 
             keras.backend.clear_session()
         gc.collect()

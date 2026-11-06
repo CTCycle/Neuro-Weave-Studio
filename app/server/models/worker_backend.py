@@ -1,7 +1,6 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalOperand=false, reportOperatorIssue=false
 
 from __future__ import annotations
 
@@ -22,7 +21,7 @@ from domain.exports import ExportFormat, ExportOptions
 from domain.graph import ModelGraph
 from domain.runtime import MemoryPolicyKind, RuntimeApi, WorkerConfiguration
 from models.tensor_inspection_runtime import persist_inspection
-from validation.output_resolution import input_nodes, output_selectors, resolved_outputs
+from validation.output_resolution import input_nodes, resolved_outputs, selected_output_value
 
 
 ###############################################################################
@@ -159,11 +158,12 @@ def run_keras_smoke(
         compile_model(model, graph, compilation_catalog=compilation_catalog)
         input_values = _dummy_inputs(keras_module, model, graph)
         model_input: Any = input_values[0] if len(input_values) == 1 else input_values
-        output_values = model(model_input, training=False)
+        output_values: Any = model(model_input, training=False)
         checkpoint()
 
-    actual_outputs = (
-        list(output_values) if isinstance(output_values, (list, tuple)) else [output_values]
+    actual_outputs: list[Any] = (
+        list(cast(list[Any] | tuple[Any, ...], output_values))
+        if isinstance(output_values, (list, tuple)) else [output_values]
     )
     synchronize(actual_outputs)
     graph_inputs = input_nodes(graph, get_node_catalog())
@@ -209,16 +209,17 @@ def _inspection_input_arrays(graph: ModelGraph, *, seed: int) -> list[np.ndarray
         # inputs own that axis and must therefore validate the persisted
         # feature shape from the underlying mapping instead of rejecting the
         # expected placeholder ``None``.
-        shape_value = dict.get(node.parameters, "shape", [1])
+        parameters: dict[str, Any] = node.parameters
+        shape_value: Any = parameters.get("shape", [1])
         if not isinstance(shape_value, list) or any(
             not isinstance(value, int) or isinstance(value, bool) or value <= 0
-            for value in shape_value
+            for value in cast(list[Any], shape_value)
         ):
             raise ValueError(
                 f"dynamic_dimension_unresolved: input node '{node.id}' has no fully resolved feature shape"
             )
-        shape = [1, *[int(value) for value in shape_value]]
-        dtype = str(node.parameters.get("dtype", "float32"))
+        shape = [1, *[int(value) for value in cast(list[Any], shape_value)]]
+        dtype = str(parameters.get("dtype", "float32"))
         if dtype == "bool":
             values = rng.random(shape) > 0.5
         elif dtype.startswith("int"):
@@ -273,9 +274,11 @@ def run_keras_inspection(
         probe_values: list[Any] = []
         probe_keys: list[tuple[str, str, int | None]] = []
         for node_id in [node.id for node in graph.nodes]:
-            for port_id, symbolic in trace_outputs.get(node_id, {}).items():
+            node_outputs: dict[str, Any] = trace_outputs.get(node_id, {})
+            for port_id, symbolic in node_outputs.items():
                 if isinstance(symbolic, (list, tuple)):
-                    for item_index, item in enumerate(symbolic):
+                    symbolic_values: list[Any] = list(cast(list[Any] | tuple[Any, ...], symbolic))
+                    for item_index, item in enumerate(symbolic_values):
                         probe_values.append(item)
                         probe_keys.append((node_id, port_id, item_index))
                 else:
@@ -286,8 +289,8 @@ def run_keras_inspection(
                 "capture_unsupported: Keras inspection did not expose any node outputs"
             )
         probe = keras_module.Model(inputs=model.inputs, outputs=probe_values)
-        raw_values = probe(model_input, training=False)
-        actual_values = list(raw_values) if isinstance(raw_values, (list, tuple)) else [raw_values]
+        raw_values: Any = probe(model_input, training=False)
+        actual_values: list[Any] = list(cast(list[Any] | tuple[Any, ...], raw_values)) if isinstance(raw_values, (list, tuple)) else [raw_values]
         trace: dict[str, dict[str, Any]] = {}
         for (node_id, port_id, item_index), value in zip(probe_keys, actual_values, strict=True):
             node_trace = trace.setdefault(node_id, {})
@@ -297,11 +300,12 @@ def run_keras_inspection(
             # A tensor-list port is represented as one manifest port with
             # explicit item indices. Reassemble the list after the probe
             # model flattens it into individual symbolic outputs.
-            items = node_trace.setdefault(port_id, [])
-            if not isinstance(items, list):
+            item_bucket: object = node_trace.setdefault(port_id, [])
+            if not isinstance(item_bucket, list):
                 raise RuntimeError(
                     f"capture_unsupported: Keras returned mixed values for output port '{port_id}'"
                 )
+            items: list[Any] = cast(list[Any], item_bucket)
             while len(items) <= item_index:
                 items.append(None)
             items[item_index] = value
@@ -363,7 +367,7 @@ def run_native_inspection(
 
     raw_arrays = _inspection_input_arrays(graph, seed=seed)
     if backend is ExecutionBackend.PYTORCH:
-        import torch
+        torch = cast(Any, importlib.import_module("torch"))
 
         inputs = [torch.as_tensor(value) for value in raw_arrays]
     elif backend is ExecutionBackend.TENSORFLOW:
@@ -371,7 +375,7 @@ def run_native_inspection(
 
         inputs = [tf.convert_to_tensor(value) for value in raw_arrays]
     else:
-        import jax.numpy as jnp
+        jnp = cast(Any, importlib.import_module("jax.numpy"))
 
         inputs = [jnp.asarray(value) for value in raw_arrays]
     with scope:
@@ -467,14 +471,6 @@ def _configured_compilation_summary(graph: ModelGraph, api: str) -> dict[str, ob
         output for output in resolved_outputs(graph, get_node_catalog()) if output.node is not None
     ]
 
-    def selected(values: dict[str, Any], output: Any, default: Any) -> Any:
-        value = values.get("__default__", default)
-        for selector in output_selectors(output):
-            if selector and selector in values:
-                value = values[selector]
-                break
-        return value
-
     compilation = configuration.compilation
 
     return {
@@ -484,14 +480,14 @@ def _configured_compilation_summary(graph: ModelGraph, api: str) -> dict[str, ob
             "instantiated": True,
         },
         "losses": {
-            output.name: _compilation_summary_value(selected(compilation.losses, output, None))
+            output.name: _compilation_summary_value(selected_output_value(compilation.losses, output, None))
             for output in output_items
-            if selected(compilation.losses, output, None) is not None
+            if selected_output_value(compilation.losses, output, None) is not None
         },
         "metrics": {
-            output.name: _compilation_summary_value(selected(compilation.metrics, output, []))
+            output.name: _compilation_summary_value(selected_output_value(compilation.metrics, output, []))
             for output in output_items
-            if selected(compilation.metrics, output, [])
+            if selected_output_value(compilation.metrics, output, [])
         },
         "training": "not_run",
     }
@@ -501,8 +497,12 @@ def _compilation_summary_value(value: Any) -> Any:
     if hasattr(value, "model_dump"):
         return value.model_dump(mode="json")
     if isinstance(value, list):
-        return [_compilation_summary_value(item) for item in value]
+        return [_compilation_summary_value(item) for item in cast(list[Any], value)]
     return value
+
+
+def _mapping_or_none(value: Any) -> dict[str, Any] | None:
+    return cast(dict[str, Any], value) if isinstance(value, dict) else None
 
 ###############################################################################
 def _output_metadata(output: Any, tensor: Any) -> dict[str, object]:
@@ -529,19 +529,19 @@ def _verify_native_compilation(
         return _verify_tensorflow_compilation(graph, handle, checkpoint)
     if handle.backend is ExecutionBackend.JAX:
         return _verify_jax_compilation(graph, handle, checkpoint)
-    import torch
+    torch = cast(Any, importlib.import_module("torch"))
 
-    compilation = handle.compilation
+    compilation: dict[str, Any] = cast(dict[str, Any], handle.compilation)
     output_bindings = resolved_outputs(graph, get_node_catalog())
     output_values = {
         output.name: value
         for output, value in zip(output_bindings, handle.outputs, strict=True)
     }
-    loss_functions = compilation.get("loss_functions", {})
-    loss_objects = compilation.get("losses", {})
-    metric_functions = compilation.get("metric_functions", {})
-    target_contracts = compilation.get("target_contracts", {})
-    metric_target_contracts = compilation.get("metric_target_contracts", {})
+    loss_functions: dict[str, Any] = cast(dict[str, Any], compilation.get("loss_functions", {}))
+    loss_objects: dict[str, Any] = cast(dict[str, Any], compilation.get("losses", {}))
+    metric_functions: dict[str, Any] = cast(dict[str, Any], compilation.get("metric_functions", {}))
+    target_contracts: dict[str, Any] = cast(dict[str, Any], compilation.get("target_contracts", {}))
+    metric_target_contracts: dict[str, Any] = cast(dict[str, Any], compilation.get("metric_target_contracts", {}))
     loss_summary: dict[str, object] = {}
     metric_summary: dict[str, object] = {}
     with torch.no_grad():
@@ -550,12 +550,12 @@ def _verify_native_compilation(
             contract = str(target_contracts.get(output_id, "continuous_same_shape"))
             value = function(prediction, _synthetic_target(prediction, contract))
             _assert_finite_scalar(value, f"loss for output {output_id}")
-            loss_object = loss_objects.get(output_id, {})
+            loss_object = _mapping_or_none(loss_objects.get(output_id))
             loss_summary[output_id] = {
-                "id": loss_object.get("id") if isinstance(loss_object, dict) else None,
+                "id": loss_object.get("id") if loss_object is not None else None,
                 "parameters": (
                     loss_object.get("parameters", {})
-                    if isinstance(loss_object, dict)
+                    if loss_object is not None
                     else {}
                 ),
                 "value": float(value.detach().cpu().item()),
@@ -591,7 +591,7 @@ def _verify_native_compilation(
 
 ###############################################################################
 def _synthetic_target(prediction: Any, contract: str) -> Any:
-    import torch
+    torch = cast(Any, importlib.import_module("torch"))
 
     if contract == "class_index":
         return torch.zeros(prediction.shape[:-1], dtype=torch.long, device=prediction.device)
@@ -606,7 +606,7 @@ def _synthetic_target(prediction: Any, contract: str) -> Any:
 
 ###############################################################################
 def _assert_finite_scalar(value: Any, description: str) -> None:
-    import torch
+    torch = cast(Any, importlib.import_module("torch"))
 
     if (
         not isinstance(value, torch.Tensor)
@@ -614,6 +614,56 @@ def _assert_finite_scalar(value: Any, description: str) -> None:
         or not bool(torch.isfinite(value).all())
     ):
         raise RuntimeError(f"Native PyTorch {description} did not return one finite scalar")
+
+
+def _tensorflow_target_for(prediction: Any, contract: str) -> Any:
+    tf = cast(Any, importlib.import_module("tensorflow"))
+    if contract == "class_index":
+        return tf.zeros(tf.shape(prediction)[:-1], dtype=tf.int32)
+    if contract == "one_hot_same_shape":
+        return tf.one_hot(
+            tf.zeros(tf.shape(prediction)[:-1], dtype=tf.int32),
+            depth=tf.shape(prediction)[-1],
+            dtype=tf.float32,
+        )
+    if contract == "probability_distribution_same_shape":
+        width = tf.maximum(tf.shape(prediction)[-1], 1)
+        return tf.ones_like(prediction, dtype=tf.float32) / tf.cast(width, tf.float32)
+    return tf.zeros_like(prediction, dtype=tf.float32)
+
+
+def _tensorflow_scalar(value: Any, description: str) -> float:
+    tf = cast(Any, importlib.import_module("tensorflow"))
+    tensor = tf.convert_to_tensor(value)
+    if tensor.shape.num_elements() not in (None, 1):
+        raise RuntimeError(f"Native TensorFlow {description} did not return one scalar")
+    if not bool(tf.reduce_all(tf.math.is_finite(tensor))):
+        raise RuntimeError(f"Native TensorFlow {description} was not finite")
+    return float(tf.reshape(tensor, [-1])[0].numpy())
+
+
+def _jax_target_for(prediction: Any, contract: str) -> Any:
+    jnp = cast(Any, importlib.import_module("jax.numpy"))
+
+    if contract == "class_index":
+        return jnp.zeros(prediction.shape[:-1], dtype=jnp.int32)
+    if contract == "one_hot_same_shape":
+        return jnp.zeros_like(prediction, dtype=jnp.float32).at[..., 0].set(1.0)
+    if contract == "probability_distribution_same_shape":
+        width = max(int(prediction.shape[-1]), 1)
+        return jnp.ones_like(prediction, dtype=jnp.float32) / width
+    return jnp.zeros_like(prediction, dtype=jnp.float32)
+
+
+def _jax_scalar(value: Any, description: str) -> float:
+    jnp = cast(Any, importlib.import_module("jax.numpy"))
+
+    array = jnp.asarray(value)
+    if array.size != 1:
+        raise RuntimeError(f"Native JAX {description} did not return one scalar")
+    if not bool(jnp.all(jnp.isfinite(array))):
+        raise RuntimeError(f"Native JAX {description} was not finite")
+    return float(array.reshape(-1)[0])
 
 ###############################################################################
 def _verify_tensorflow_compilation(
@@ -623,50 +673,28 @@ def _verify_tensorflow_compilation(
 ) -> dict[str, object]:
     tf = cast(Any, importlib.import_module("tensorflow"))
 
-    compilation = handle.compilation
+    compilation: dict[str, Any] = cast(dict[str, Any], handle.compilation)
     output_bindings = resolved_outputs(graph, get_node_catalog())
     output_values = {
         output.name: value
         for output, value in zip(output_bindings, handle.outputs, strict=True)
     }
-    loss_functions = compilation.get("loss_functions", {})
-    loss_objects = compilation.get("losses", {})
-    metric_functions = compilation.get("metric_functions", {})
-    target_contracts = compilation.get("target_contracts", {})
-    metric_target_contracts = compilation.get("metric_target_contracts", {})
+    loss_functions: dict[str, Any] = cast(dict[str, Any], compilation.get("loss_functions", {}))
+    loss_objects: dict[str, Any] = cast(dict[str, Any], compilation.get("losses", {}))
+    metric_functions: dict[str, Any] = cast(dict[str, Any], compilation.get("metric_functions", {}))
+    target_contracts: dict[str, Any] = cast(dict[str, Any], compilation.get("target_contracts", {}))
+    metric_target_contracts: dict[str, Any] = cast(dict[str, Any], compilation.get("metric_target_contracts", {}))
     loss_summary: dict[str, object] = {}
     metric_summary: dict[str, object] = {}
-
-    def target_for(prediction: Any, contract: str) -> Any:
-        if contract == "class_index":
-            return tf.zeros(tf.shape(prediction)[:-1], dtype=tf.int32)
-        if contract == "one_hot_same_shape":
-            return tf.one_hot(
-                tf.zeros(tf.shape(prediction)[:-1], dtype=tf.int32),
-                depth=tf.shape(prediction)[-1],
-                dtype=tf.float32,
-            )
-        if contract == "probability_distribution_same_shape":
-            width = tf.maximum(tf.shape(prediction)[-1], 1)
-            return tf.ones_like(prediction, dtype=tf.float32) / tf.cast(width, tf.float32)
-        return tf.zeros_like(prediction, dtype=tf.float32)
-
-    def scalar(value: Any, description: str) -> float:
-        tensor = tf.convert_to_tensor(value)
-        if tensor.shape.num_elements() not in (None, 1):
-            raise RuntimeError(f"Native TensorFlow {description} did not return one scalar")
-        if not bool(tf.reduce_all(tf.math.is_finite(tensor))):
-            raise RuntimeError(f"Native TensorFlow {description} was not finite")
-        return float(tf.reshape(tensor, [-1])[0].numpy())
 
     for output_id, function in loss_functions.items():
         prediction = output_values[output_id]
         contract = str(target_contracts.get(output_id, "continuous_same_shape"))
-        value = scalar(function(prediction, target_for(prediction, contract)), f"loss for output {output_id}")
-        loss_object = loss_objects.get(output_id, {})
+        value = _tensorflow_scalar(function(prediction, _tensorflow_target_for(prediction, contract)), f"loss for output {output_id}")
+        loss_object = _mapping_or_none(loss_objects.get(output_id))
         loss_summary[output_id] = {
-            "id": loss_object.get("id") if isinstance(loss_object, dict) else None,
-            "parameters": loss_object.get("parameters", {}) if isinstance(loss_object, dict) else {},
+            "id": loss_object.get("id") if loss_object is not None else None,
+            "parameters": loss_object.get("parameters", {}) if loss_object is not None else {},
             "value": value,
             "target_contract": contract,
         }
@@ -679,8 +707,8 @@ def _verify_tensorflow_compilation(
             metric_contract = str(
                 metric_target_contracts.get(output_id, {}).get(metric_id, contract)
             )
-            values[metric_id] = scalar(
-                function(prediction, target_for(prediction, metric_contract)),
+            values[metric_id] = _tensorflow_scalar(
+                function(prediction, _tensorflow_target_for(prediction, metric_contract)),
                 f"metric {metric_id} for output {output_id}",
             )
             checkpoint()
@@ -726,51 +754,32 @@ def _verify_jax_compilation(
     handle: Any,
     checkpoint: Callable[[], None],
 ) -> dict[str, object]:
-    import jax
-    import jax.numpy as jnp
-    import optax
+    jax = cast(Any, importlib.import_module("jax"))
+    jnp = cast(Any, importlib.import_module("jax.numpy"))
+    optax = cast(Any, importlib.import_module("optax"))
 
-    compilation = handle.compilation
+    compilation: dict[str, Any] = cast(dict[str, Any], handle.compilation)
     output_bindings = resolved_outputs(graph, get_node_catalog())
     output_values = {
         output.name: value
         for output, value in zip(output_bindings, handle.outputs, strict=True)
     }
-    loss_functions = compilation.get("loss_functions", {})
-    loss_objects = compilation.get("losses", {})
-    metric_functions = compilation.get("metric_functions", {})
-    target_contracts = compilation.get("target_contracts", {})
-    metric_target_contracts = compilation.get("metric_target_contracts", {})
+    loss_functions: dict[str, Any] = cast(dict[str, Any], compilation.get("loss_functions", {}))
+    loss_objects: dict[str, Any] = cast(dict[str, Any], compilation.get("losses", {}))
+    metric_functions: dict[str, Any] = cast(dict[str, Any], compilation.get("metric_functions", {}))
+    target_contracts: dict[str, Any] = cast(dict[str, Any], compilation.get("target_contracts", {}))
+    metric_target_contracts: dict[str, Any] = cast(dict[str, Any], compilation.get("metric_target_contracts", {}))
     loss_summary: dict[str, object] = {}
     metric_summary: dict[str, object] = {}
-
-    def target_for(prediction: Any, contract: str) -> Any:
-        if contract == "class_index":
-            return jnp.zeros(prediction.shape[:-1], dtype=jnp.int32)
-        if contract == "one_hot_same_shape":
-            target = jnp.zeros_like(prediction, dtype=jnp.float32)
-            return target.at[..., 0].set(1.0)
-        if contract == "probability_distribution_same_shape":
-            width = max(int(prediction.shape[-1]), 1)
-            return jnp.ones_like(prediction, dtype=jnp.float32) / width
-        return jnp.zeros_like(prediction, dtype=jnp.float32)
-
-    def scalar(value: Any, description: str) -> float:
-        array = jnp.asarray(value)
-        if array.size != 1:
-            raise RuntimeError(f"Native JAX {description} did not return one scalar")
-        if not bool(jnp.all(jnp.isfinite(array))):
-            raise RuntimeError(f"Native JAX {description} was not finite")
-        return float(array.reshape(-1)[0])
 
     for output_id, function in loss_functions.items():
         prediction = output_values[output_id]
         contract = str(target_contracts.get(output_id, "continuous_same_shape"))
-        value = scalar(function(prediction, target_for(prediction, contract)), f"loss for output {output_id}")
-        loss_object = loss_objects.get(output_id, {})
+        value = _jax_scalar(function(prediction, _jax_target_for(prediction, contract)), f"loss for output {output_id}")
+        loss_object = _mapping_or_none(loss_objects.get(output_id))
         loss_summary[output_id] = {
-            "id": loss_object.get("id") if isinstance(loss_object, dict) else None,
-            "parameters": loss_object.get("parameters", {}) if isinstance(loss_object, dict) else {},
+            "id": loss_object.get("id") if loss_object is not None else None,
+            "parameters": loss_object.get("parameters", {}) if loss_object is not None else {},
             "value": value,
             "target_contract": contract,
         }
@@ -783,8 +792,8 @@ def _verify_jax_compilation(
             metric_contract = str(
                 metric_target_contracts.get(output_id, {}).get(metric_id, contract)
             )
-            values[metric_id] = scalar(
-                function(prediction, target_for(prediction, metric_contract)),
+            values[metric_id] = _jax_scalar(
+                function(prediction, _jax_target_for(prediction, metric_contract)),
                 f"metric {metric_id} for output {output_id}",
             )
             checkpoint()

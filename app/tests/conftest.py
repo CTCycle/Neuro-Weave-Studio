@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Callable, Iterator
+from functools import partial
 from pathlib import Path
 from typing import cast
 
@@ -63,33 +64,36 @@ def reset_jax_precision_state() -> Iterator[None]:
 ###############################################################################
 @pytest.fixture()
 def app_factory(tmp_path: Path) -> Callable[..., FastAPI]:
-    def build_app(
-        *,
-        database_path: Path | None = None,
-        config_path: Path | None = None,
-        settings: Settings | None = None,
-    ) -> FastAPI:
-        selected_database = database_path or (tmp_path / "test.db")
-        selected_config = config_path or (tmp_path / "database-config.json")
-        if not selected_config.exists():
-            selected_config.parent.mkdir(parents=True, exist_ok=True)
-            selected_config.write_text(
-                DatabaseConfig(sqlite_path=selected_database).model_dump_json(indent=2),
-                encoding="utf-8",
-            )
-        default_settings = Settings(
-            log_file=tmp_path / "logs" / "backend.log",
-            export_root=tmp_path / "exports",
-            ml_job_root=tmp_path / "jobs",
-            tensor_inspection_root=tmp_path / "inspections",
-            runtime_discovery_path=CACHE_ROOT / "pytest-database-settings" / f"{tmp_path.name}-{selected_database.stem}.json",
-        )
-        return create_app(
-            database_config_path=selected_config,
-            initial_settings=settings or default_settings,
-        )
+    return partial(_build_test_app, tmp_path)
 
-    return build_app
+
+###############################################################################
+def _build_test_app(
+    tmp_path: Path,
+    *,
+    database_path: Path | None = None,
+    config_path: Path | None = None,
+    settings: Settings | None = None,
+) -> FastAPI:
+    selected_database = database_path or (tmp_path / "test.db")
+    selected_config = config_path or (tmp_path / "database-config.json")
+    if not selected_config.exists():
+        selected_config.parent.mkdir(parents=True, exist_ok=True)
+        selected_config.write_text(
+            DatabaseConfig(sqlite_path=selected_database).model_dump_json(indent=2),
+            encoding="utf-8",
+        )
+    default_settings = Settings(
+        log_file=tmp_path / "logs" / "backend.log",
+        export_root=tmp_path / "exports",
+        ml_job_root=tmp_path / "jobs",
+        tensor_inspection_root=tmp_path / "inspections",
+        runtime_discovery_path=CACHE_ROOT / "pytest-database-settings" / f"{tmp_path.name}-{selected_database.stem}.json",
+    )
+    return create_app(
+        database_config_path=selected_config,
+        initial_settings=settings or default_settings,
+    )
 
 ###############################################################################
 @pytest.fixture()

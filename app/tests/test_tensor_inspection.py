@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -17,13 +18,40 @@ from configurations.settings import Settings
 from domain.enums import ExecutionBackend
 from domain.graph import ModelGraph
 from domain.runtime import RuntimeApi, WorkerConfiguration
-from domain.tensor_inspection import TensorInspectionViewRequest
+from domain.tensor_inspection import TensorInspectionSession, TensorInspectionViewRequest
 from models import tensor_inspection_runtime
 from models.tensor_inspection_runtime import persist_inspection
+from services import tensor_inspection_service
 from services.tensor_inspection_service import (
     TensorInspectionError,
     TensorInspectionService,
 )
+
+
+class _ReadBeforeSessionReplace:
+    def __init__(self, root: Path, session_id: str) -> None:
+        self.root = root
+        self.session_id = session_id
+        self.replace = os.replace
+        self.read_during_replace = False
+
+    def __call__(self, source: str | Path, destination: str | Path) -> None:
+        metadata = self.root / self.session_id / "session.json"
+        assert TensorInspectionSession.model_validate_json(metadata.read_text(encoding="utf-8")).id == self.session_id
+        self.read_during_replace = True
+        self.replace(source, destination)
+
+
+def test_session_refresh_keeps_metadata_readable_during_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "inspections"
+    session_id = create_bundle(root)
+    service = inspection_service(root)
+    reader = _ReadBeforeSessionReplace(root, session_id)
+    monkeypatch.setattr(tensor_inspection_service.os, "replace", reader)
+    assert service.get(session_id).id == session_id
+    assert reader.read_during_replace
 
 
 ###############################################################################

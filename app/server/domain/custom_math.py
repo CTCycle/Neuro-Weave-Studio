@@ -79,15 +79,16 @@ def _replace_grouped_command(value: str, command: str, function: str) -> str:
 ###############################################################################
 def _replace_operatorname(value: str) -> str:
     pattern = re.compile(r"\\operatorname\s*\{([A-Za-z]+)\}")
+    return pattern.sub(_operatorname_replacement, value)
 
-    def replace(match: re.Match[str]) -> str:
-        name = match.group(1).casefold()
-        try:
-            return _OPERATOR_FUNCTIONS[name]
-        except KeyError as exc:
-            raise CustomMathFormulaError(f"Function '{match.group(1)}' is not supported") from exc
 
-    return pattern.sub(replace, value)
+###############################################################################
+def _operatorname_replacement(match: re.Match[str]) -> str:
+    name = match.group(1).casefold()
+    try:
+        return _OPERATOR_FUNCTIONS[name]
+    except KeyError as exc:
+        raise CustomMathFormulaError(f"Function '{match.group(1)}' is not supported") from exc
 
 ###############################################################################
 def _strip_equation_label(value: str) -> str:

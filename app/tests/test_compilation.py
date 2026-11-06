@@ -770,7 +770,6 @@ def test_compilation_rejects_a_native_parameter_without_falling_back_to_keras() 
 
 # Consolidated from test_pytorch_compilation_helpers.py
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 
 
 
@@ -809,24 +808,26 @@ def _edge(edge_id: str, source: str, target: str) -> EdgeInstance:
     )
 
 ###############################################################################
-def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
-    def graph(
-        nodes: list[NodeInstance], links: list[str], expected: tuple[int, ...], output: str
-    ) -> tuple[ModelGraph, tuple[int, ...], str]:
-        return (
-            ModelGraph(
-                nodes=nodes,
-                edges=[
-                    _edge(f"edge-{index}", source, target)
-                    for index, (source, target) in enumerate(pairwise(links), start=1)
-                ],
-            ),
-            expected,
-            output,
-        )
+def _workflow_graph(
+    nodes: list[NodeInstance], links: list[str], expected: tuple[int, ...], output: str
+) -> tuple[ModelGraph, tuple[int, ...], str]:
+    return (
+        ModelGraph(
+            nodes=nodes,
+            edges=[
+                _edge(f"edge-{index}", source, target)
+                for index, (source, target) in enumerate(pairwise(links), start=1)
+            ],
+        ),
+        expected,
+        output,
+    )
 
+
+###############################################################################
+def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
     return {
-        "dense_regression": graph(
+        "dense_regression": _workflow_graph(
             [
                 _node("input", "input.tabular", {"shape": [8], "dtype": "float32"}),
                 _node("hidden", "layer.dense", {"units": 16, "activation": "relu"}),
@@ -837,7 +838,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
             (1, 1),
             "regression",
         ),
-        "binary_classification": graph(
+        "binary_classification": _workflow_graph(
             [
                 _node("input", "input.tabular", {"shape": [8], "dtype": "float32"}),
                 _node("head", "layer.dense", {"units": 1, "activation": "sigmoid"}),
@@ -847,7 +848,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
             (1, 1),
             "binary",
         ),
-        "multiclass_classification": graph(
+        "multiclass_classification": _workflow_graph(
             [
                 _node("input", "input.tabular", {"shape": [8], "dtype": "float32"}),
                 _node("head", "layer.dense", {"units": 3, "activation": "softmax"}),
@@ -857,7 +858,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
             (1, 3),
             "multiclass",
         ),
-        "recurrent": graph(
+        "recurrent": _workflow_graph(
             [
                 _node("input", "input.sequence", {"shape": [6, 4], "dtype": "float32"}),
                 _node("recurrent", "recurrent.gru", {"units": 4}),
@@ -868,7 +869,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
             (1, 1),
             "binary",
         ),
-        "lstm": graph(
+        "lstm": _workflow_graph(
             [
                 _node("input", "input.sequence", {"shape": [6, 4], "dtype": "float32"}),
                 _node("lstm", "recurrent.lstm", {"units": 4, "return_sequences": True}),
@@ -880,7 +881,7 @@ def _workflow_graphs() -> dict[str, tuple[ModelGraph, tuple[int, ...], str]]:
             (1, 3),
             "multiclass",
         ),
-        "cnn": graph(
+        "cnn": _workflow_graph(
             [
                 _node("input", "input.image", {"shape": [16, 16, 1], "dtype": "float32"}),
                 _node(
@@ -986,16 +987,16 @@ def test_native_pytorch_workflows_verify_forward_and_compilation_helpers(workflo
     )
 
     assert result["status"] == "succeeded"
-    assert result["compilation"]["verified"] is True
-    assert result["compilation"]["optimizer"] == {"id": "adamw", "instantiated": True}
+    compilation = cast(dict[str, Any], result["compilation"])
+    assert compilation["verified"] is True
+    assert compilation["optimizer"] == {"id": "adamw", "instantiated": True}
     outputs = cast(list[dict[str, Any]], result["outputs"])
     assert [tuple(item["shape"]) for item in outputs] == [expected_shape]
 
 ###############################################################################
 @pytest.mark.parametrize("workflow", list(_workflow_graphs()))
 def test_keras_pytorch_backend_workflows_compile_and_forward(workflow: str) -> None:
-    pytest.importorskip("keras")
-    import keras
+    keras = pytest.importorskip("keras")
 
     from models.keras_runtime import compile_model
     from models.keras_worker import build_model
@@ -1014,7 +1015,8 @@ def test_keras_pytorch_backend_workflows_compile_and_forward(workflow: str) -> N
     )
 
     assert result["status"] == "succeeded"
-    assert result["compilation"]["verified"] is True
+    compilation = cast(dict[str, Any], result["compilation"])
+    assert compilation["verified"] is True
     outputs = cast(list[dict[str, Any]], result["outputs"])
     assert [tuple(item["shape"]) for item in outputs] == [expected_shape]
 
@@ -1118,7 +1120,8 @@ def test_unknown_output_selector_reports_available_output_specific_selectors() -
 
     assert diagnostic.parameter_id == "losses"
     assert diagnostic.details["output_selector"] == "missing-output"
-    assert "left_head:output" in diagnostic.details["available_selectors"]
+    available_selectors = cast(list[str], diagnostic.details["available_selectors"])
+    assert "left_head:output" in available_selectors
 
 ###############################################################################
 def test_unknown_classification_width_does_not_assume_multiclass_semantics() -> None:
@@ -1237,8 +1240,9 @@ def test_native_optimizer_helpers_cover_catalog_variants(
         synchronize=lambda values: None,
         checkpoint=lambda: None,
     )
-    assert result["compilation"]["optimizer"] == {"id": optimizer, "instantiated": True}
-    assert result["compilation"]["losses"]["output"]["id"] == "mean_squared_error"
+    compilation = cast(dict[str, Any], result["compilation"])
+    assert compilation["optimizer"] == {"id": optimizer, "instantiated": True}
+    assert compilation["losses"]["output"]["id"] == "mean_squared_error"
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -1302,7 +1306,8 @@ def test_native_loss_helpers_cover_remaining_catalog_variants(
         synchronize=lambda values: None,
         checkpoint=lambda: None,
     )
-    assert result["compilation"]["losses"]["output"]["id"] == loss_id
+    compilation = cast(dict[str, Any], result["compilation"])
+    assert compilation["losses"]["output"]["id"] == loss_id
 
 ###############################################################################
 @pytest.mark.parametrize(
@@ -1375,7 +1380,8 @@ def test_native_metric_helpers_cover_remaining_catalog_variants(
         synchronize=lambda values: None,
         checkpoint=lambda: None,
     )
-    value = result["compilation"]["metrics"]["output"][metric_id]
+    compilation = cast(dict[str, Any], result["compilation"])
+    value = compilation["metrics"]["output"][metric_id]
     assert isinstance(value, float)
     assert isfinite(value)
 

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, NoReturn, cast
 from uuid import uuid4
 
-import httpx
+import httpx2
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -46,7 +46,7 @@ def fail_update_graph_replace(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("graph replacement failed")
 
 ###############################################################################
-def ensure_discovery(client: httpx.Client, backend: str, api: str) -> dict[str, object]:
+def ensure_discovery(client: httpx2.Client, backend: str, api: str) -> dict[str, object]:
     response = client.post(
         "/api/execution/discovery",
         json={"backend": backend, "api": api},
@@ -126,7 +126,7 @@ def project_payload() -> dict[str, object]:
     }
 
 ###############################################################################
-def execution_worker(client: httpx.Client) -> dict[str, object]:
+def execution_worker(client: httpx2.Client) -> dict[str, object]:
     metadata = client.get("/api/metadata").json()
     status = next(item for item in metadata["execution_backends"] if item["id"] == "pytorch")
     if not status["installed"]:
@@ -151,7 +151,7 @@ def execution_worker(client: httpx.Client) -> dict[str, object]:
     }
 
 ###############################################################################
-def native_execution_worker(client: httpx.Client) -> dict[str, object]:
+def native_execution_worker(client: httpx2.Client) -> dict[str, object]:
     metadata = client.get("/api/metadata").json()
     status = next(item for item in metadata["execution_backends"] if item["id"] == "pytorch")
     if not status["installed"]:
@@ -177,7 +177,7 @@ def native_execution_worker(client: httpx.Client) -> dict[str, object]:
     }
 
 ###############################################################################
-def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
+def wait_for_job(client: httpx2.Client, job_id: str) -> dict[str, Any]:
     deadline = time.monotonic() + 300
     while time.monotonic() < deadline:
         job = cast(dict[str, Any], client.get(f"/api/execution/jobs/{job_id}").json())
@@ -188,7 +188,7 @@ def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
 
 ###############################################################################
 def test_project_revision_workflow_invalidates_generated_source_and_rejects_stale_save(
-    client: httpx.Client,
+    client: httpx2.Client,
 ) -> None:
     created = client.post("/api/projects", json=project_payload())
     assert created.status_code == 201, created.text
@@ -293,7 +293,7 @@ def test_project_revision_survives_application_restart(
         assert any(item["id"] == created["id"] for item in listed.json()["projects"])
 
 ###############################################################################
-def test_model_export_publishes_only_verified_artifact(client: httpx.Client) -> None:
+def test_model_export_publishes_only_verified_artifact(client: httpx2.Client) -> None:
     project = client.post("/api/projects", json=project_payload()).json()
     response = client.post(
         "/api/execution/jobs",
@@ -316,7 +316,7 @@ def test_model_export_publishes_only_verified_artifact(client: httpx.Client) -> 
 
 ###############################################################################
 def test_model_export_rejects_invalid_graph_before_worker_start(
-    client: httpx.Client,
+    client: httpx2.Client,
     tmp_path: Path,
 ) -> None:
     payload = project_payload()
@@ -345,7 +345,7 @@ def test_model_export_rejects_invalid_graph_before_worker_start(
 
 ###############################################################################
 def test_model_export_rejects_worker_profile_mismatch_before_job_creation(
-    client: httpx.Client,
+    client: httpx2.Client,
 ) -> None:
     project = client.post("/api/projects", json=project_payload()).json()
     worker = {
@@ -372,7 +372,7 @@ def test_model_export_rejects_worker_profile_mismatch_before_job_creation(
 
 ###############################################################################
 def test_export_capabilities_expose_matrix_and_explicit_reasons(
-    client: httpx.Client,
+    client: httpx2.Client,
 ) -> None:
     project = client.post("/api/projects", json=project_payload()).json()
 
@@ -399,7 +399,7 @@ def test_export_capabilities_expose_matrix_and_explicit_reasons(
     assert opset["choices"] == [17, 18]
 
 ###############################################################################
-def test_unsupported_onnx_opset_is_rejected_at_request_boundary(client: httpx.Client) -> None:
+def test_unsupported_onnx_opset_is_rejected_at_request_boundary(client: httpx2.Client) -> None:
     response = client.post(
         "/api/execution/jobs",
         json={
@@ -422,7 +422,7 @@ def test_unsupported_onnx_opset_is_rejected_at_request_boundary(client: httpx.Cl
     assert response.status_code == 422
 
 ###############################################################################
-def test_removed_keras_export_operation_is_rejected(client: httpx.Client) -> None:
+def test_removed_keras_export_operation_is_rejected(client: httpx2.Client) -> None:
     project = client.post("/api/projects", json=project_payload()).json()
     response = client.post(
         "/api/execution/jobs",
@@ -436,7 +436,7 @@ def test_removed_keras_export_operation_is_rejected(client: httpx.Client) -> Non
 
 ###############################################################################
 def test_project_create_requires_current_backend_and_graph_contracts(
-    client: httpx.Client,
+    client: httpx2.Client,
 ) -> None:
     missing_backend = project_payload()
     missing_backend.pop("execution_backend")
@@ -447,7 +447,7 @@ def test_project_create_requires_current_backend_and_graph_contracts(
     assert client.post("/api/projects", json=old_graph).status_code == 422
 
 ###############################################################################
-def test_project_import_requires_current_bundle_format(client: httpx.Client) -> None:
+def test_project_import_requires_current_bundle_format(client: httpx2.Client) -> None:
     project = client.post("/api/projects", json=project_payload()).json()
     bundle = client.get(f"/api/projects/{project['id']}/export").json()
     bundle["format_version"] = 5
@@ -455,7 +455,7 @@ def test_project_import_requires_current_bundle_format(client: httpx.Client) -> 
     assert client.post("/api/projects/import", json=bundle).status_code == 422
 
 ###############################################################################
-def test_native_model_export_publishes_pt2_artifact(client: httpx.Client) -> None:
+def test_native_model_export_publishes_pt2_artifact(client: httpx2.Client) -> None:
     payload = project_payload()
     payload["keras_enabled"] = False
     project = client.post("/api/projects", json=payload).json()
@@ -484,7 +484,7 @@ def test_native_model_export_publishes_pt2_artifact(client: httpx.Client) -> Non
 
 ###############################################################################
 def test_project_json_export_import_preserves_editable_graph(
-    client: httpx.Client,
+    client: httpx2.Client,
 ) -> None:
     project = client.post("/api/projects", json=project_payload()).json()
 
@@ -498,7 +498,7 @@ def test_project_json_export_import_preserves_editable_graph(
 
 ###############################################################################
 def test_update_rolls_back_metadata_and_revision_when_graph_persistence_fails(
-    client: httpx.Client,
+    client: httpx2.Client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     created = client.post("/api/projects", json=project_payload()).json()
@@ -704,23 +704,28 @@ def _test_project_catalog_performance_project_payload(name: str, *, extra_dense:
     return payload
 
 ###############################################################################
+class _ProjectListQueryCounter:
+    def __init__(self) -> None:
+        self.statements = 0
+
+    def before_cursor_execute(self, *_args: object) -> None:
+        self.statements += 1
+
+
+###############################################################################
 def count_project_list_queries(client: TestClient) -> int:
     application = cast(FastAPI, client.app)
     repository_context = cast(RepositoryContext, application.state.repository_context)
     engine = repository_context.engine
-    statements = 0
-
-    def before_cursor_execute(*_args: object) -> None:
-        nonlocal statements
-        statements += 1
-
-    event.listen(engine, "before_cursor_execute", before_cursor_execute)
+    counter = _ProjectListQueryCounter()
+    listener = counter.before_cursor_execute
+    event.listen(engine, "before_cursor_execute", listener)
     try:
         response = client.get("/api/projects")
         assert response.status_code == 200, response.text
     finally:
-        event.remove(engine, "before_cursor_execute", before_cursor_execute)
-    return statements
+        event.remove(engine, "before_cursor_execute", listener)
+    return counter.statements
 
 ###############################################################################
 def test_project_catalog_query_count_does_not_scale_with_project_count(client: TestClient) -> None:

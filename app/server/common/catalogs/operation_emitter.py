@@ -142,28 +142,36 @@ def _keywords(
 def _safe_expression_source(expression: str, source: str, backend: str) -> str:
     validate_safe_expression(expression)
     tree = ast.parse(expression, mode="eval")
+    return _SafeExpressionRenderer(source, backend).render(tree)
 
-    def render_slice(node: ast.AST) -> str:
+
+###############################################################################
+class _SafeExpressionRenderer:
+    def __init__(self, source: str, backend: str) -> None:
+        self.source = source
+        self.backend = backend
+
+    def render_slice(self, node: ast.AST) -> str:
         if isinstance(node, ast.Tuple):
-            values = [render_slice(element) for element in node.elts]
+            values = [self.render_slice(element) for element in node.elts]
             return ", ".join(values) + ("," if len(values) == 1 else "")
         if isinstance(node, ast.Slice):
-            lower = "" if node.lower is None else render(node.lower)
-            upper = "" if node.upper is None else render(node.upper)
-            step = "" if node.step is None else f":{render(node.step)}"
+            lower = "" if node.lower is None else self.render(node.lower)
+            upper = "" if node.upper is None else self.render(node.upper)
+            step = "" if node.step is None else f":{self.render(node.step)}"
             return f"{lower}:{upper}{step}"
         if isinstance(node, ast.Constant) and node.value is Ellipsis:
             return "..."
-        return render(node)
+        return self.render(node)
 
-    def render(node: ast.AST) -> str:
+    def render(self, node: ast.AST) -> str:
         if isinstance(node, ast.Expression):
-            return render(node.body)
+            return self.render(node.body)
         if isinstance(node, ast.Name):
             if node.id == "x":
-                return source
-            if node.id in _SAFE_FUNCTION_SYMBOLS[backend]:
-                return _SAFE_FUNCTION_SYMBOLS[backend][node.id]
+                return self.source
+            if node.id in _SAFE_FUNCTION_SYMBOLS[self.backend]:
+                return _SAFE_FUNCTION_SYMBOLS[self.backend][node.id]
             raise OperationEmissionError(f"Expression name '{node.id}' is not allowed")
         if isinstance(node, ast.Constant):
             return _literal(node.value)
@@ -171,21 +179,21 @@ def _safe_expression_source(expression: str, source: str, backend: str) -> str:
             operator = _BINARY_OPERATOR_SYMBOLS.get(type(node.op))
             if operator is None:
                 raise OperationEmissionError("Expression operator is not allowed")
-            return f"({render(node.left)} {operator} {render(node.right)})"
+            return f"({self.render(node.left)} {operator} {self.render(node.right)})"
         if isinstance(node, ast.UnaryOp):
             operator = _UNARY_OPERATOR_SYMBOLS.get(type(node.op))
             if operator is None:
                 raise OperationEmissionError("Expression operator is not allowed")
-            return f"({operator}{render(node.operand)})"
+            return f"({operator}{self.render(node.operand)})"
         if isinstance(node, ast.Call):
             if not isinstance(node.func, ast.Name):
                 raise OperationEmissionError("Expression call is not allowed")
-            symbol = _SAFE_FUNCTION_SYMBOLS[backend].get(node.func.id)
+            symbol = _SAFE_FUNCTION_SYMBOLS[self.backend].get(node.func.id)
             if symbol is None or node.keywords:
                 raise OperationEmissionError("Expression call is not allowed")
-            arguments = [render(argument) for argument in node.args]
+            arguments = [self.render(argument) for argument in node.args]
             if node.func.id == "softmax":
-                axis = "dim" if backend == "pytorch" else "axis"
+                axis = "dim" if self.backend == "pytorch" else "axis"
                 arguments.append(f"{axis}=-1")
             return f"{symbol}({', '.join(arguments)})"
         if isinstance(node, ast.Subscript):
@@ -194,11 +202,9 @@ def _safe_expression_source(expression: str, source: str, backend: str) -> str:
             if isinstance(node.slice, ast.Slice) and all(
                 value is None for value in (node.slice.lower, node.slice.upper, node.slice.step)
             ):
-                return source
-            return f"{render(node.value)}[{render_slice(node.slice)}]"
+                return self.source
+            return f"{self.render(node.value)}[{self.render_slice(node.slice)}]"
         raise OperationEmissionError(f"Expression element '{type(node).__name__}' is not allowed")
-
-    return render(tree)
 
 ###############################################################################
 def _dtype_literal(value: Any, backend: str) -> str:
@@ -348,22 +354,32 @@ def evaluate_safe_expression(
 
     validate_safe_expression(expression)
     tree = ast.parse(expression, mode="eval")
-    symbols = _SAFE_FUNCTION_SYMBOLS[backend]
+    return _SafeExpressionEvaluator(value, functions, backend).evaluate(tree)
 
-    def evaluate(node: ast.AST) -> Any:
+
+###############################################################################
+class _SafeExpressionEvaluator:
+    def __init__(
+        self, value: Any, functions: Mapping[str, Callable[..., Any]], backend: str
+    ) -> None:
+        self.value = value
+        self.functions = functions
+        self.symbols = _SAFE_FUNCTION_SYMBOLS[backend]
+
+    def evaluate(self, node: ast.AST) -> Any:
         if isinstance(node, ast.Expression):
-            return evaluate(node.body)
+            return self.evaluate(node.body)
         if isinstance(node, ast.Name):
             if node.id == "x":
-                return value
-            symbol = symbols.get(node.id)
+                return self.value
+            symbol = self.symbols.get(node.id)
             if symbol is None:
                 raise OperationEmissionError(f"Expression name '{node.id}' is not allowed")
-            return functions[symbol]
+            return self.functions[symbol]
         if isinstance(node, ast.Constant):
             return node.value
         if isinstance(node, ast.BinOp):
-            left, right = evaluate(node.left), evaluate(node.right)
+            left, right = self.evaluate(node.left), self.evaluate(node.right)
             operator = type(node.op)
             if operator is ast.Add:
                 return left + right
@@ -379,7 +395,7 @@ def evaluate_safe_expression(
                 return left % right
             raise OperationEmissionError("Expression operator is not allowed")
         if isinstance(node, ast.UnaryOp):
-            operand = evaluate(node.operand)
+            operand = self.evaluate(node.operand)
             if isinstance(node.op, ast.UAdd):
                 return +operand
             if isinstance(node.op, ast.USub):
@@ -388,33 +404,30 @@ def evaluate_safe_expression(
         if isinstance(node, ast.Call):
             if not isinstance(node.func, ast.Name) or node.keywords:
                 raise OperationEmissionError("Expression call is not allowed")
-            function = evaluate(node.func)
-            return function(*(evaluate(argument) for argument in node.args))
+            function = self.evaluate(node.func)
+            return function(*(self.evaluate(argument) for argument in node.args))
         if isinstance(node, ast.Subscript):
             if not isinstance(node.value, ast.Name) or node.value.id != "x":
                 raise OperationEmissionError("Only the input tensor may be sliced")
             if isinstance(node.slice, ast.Slice) and all(
                 value is None for value in (node.slice.lower, node.slice.upper, node.slice.step)
             ):
-                return value
-
-            def evaluate_slice(slice_node: ast.AST) -> Any:
-                if isinstance(slice_node, ast.Tuple):
-                    return tuple(evaluate_slice(element) for element in slice_node.elts)
-                if isinstance(slice_node, ast.Slice):
-                    return slice(
-                        None if slice_node.lower is None else evaluate(slice_node.lower),
-                        None if slice_node.upper is None else evaluate(slice_node.upper),
-                        None if slice_node.step is None else evaluate(slice_node.step),
-                    )
-                if isinstance(slice_node, ast.Constant) and slice_node.value is Ellipsis:
-                    return Ellipsis
-                return evaluate(slice_node)
-
-            return value[evaluate_slice(node.slice)]
+                return self.value
+            return self.value[self.evaluate_slice(node.slice)]
         raise OperationEmissionError(f"Expression element '{type(node).__name__}' is not allowed")
 
-    return evaluate(tree)
+    def evaluate_slice(self, node: ast.AST) -> Any:
+        if isinstance(node, ast.Tuple):
+            return tuple(self.evaluate_slice(element) for element in node.elts)
+        if isinstance(node, ast.Slice):
+            return slice(
+                None if node.lower is None else self.evaluate(node.lower),
+                None if node.upper is None else self.evaluate(node.upper),
+                None if node.step is None else self.evaluate(node.step),
+            )
+        if isinstance(node, ast.Constant) and node.value is Ellipsis:
+            return Ellipsis
+        return self.evaluate(node)
 
 ###############################################################################
 def evaluate_safe_index_expression(expression: str, value: Any) -> Any:
@@ -428,15 +441,22 @@ def evaluate_safe_index_expression(expression: str, value: Any) -> Any:
     if not isinstance(tree.body.value, ast.Name) or tree.body.value.id != "x":
         raise OperationEmissionError("Only the input tensor may be indexed")
 
-    def literal(node: ast.AST) -> object:
+    try:
+        return value[_index_literal(tree.body.slice)]
+    except (IndexError, TypeError, ValueError) as exc:
+        raise OperationEmissionError(str(exc)) from exc
+
+
+###############################################################################
+def _index_literal(node: ast.AST) -> object:
         if isinstance(node, ast.Slice):
             return slice(
-                literal(node.lower) if node.lower is not None else None,
-                literal(node.upper) if node.upper is not None else None,
-                literal(node.step) if node.step is not None else None,
+                _index_literal(node.lower) if node.lower is not None else None,
+                _index_literal(node.upper) if node.upper is not None else None,
+                _index_literal(node.step) if node.step is not None else None,
             )
         if isinstance(node, ast.Tuple):
-            return tuple(literal(item) for item in node.elts)
+            return tuple(_index_literal(item) for item in node.elts)
         if isinstance(node, ast.Constant) and node.value is Ellipsis:
             return Ellipsis
         if (
@@ -454,11 +474,6 @@ def evaluate_safe_index_expression(expression: str, value: Any) -> Any:
             value = int(node.operand.value)
             return value if isinstance(node.op, ast.UAdd) else -value
         raise OperationEmissionError("Index expressions may contain only integer literals and slices")
-
-    try:
-        return value[literal(tree.body.slice)]
-    except (IndexError, TypeError, ValueError) as exc:
-        raise OperationEmissionError(str(exc)) from exc
 
 ###############################################################################
 def apply_runtime_operation(

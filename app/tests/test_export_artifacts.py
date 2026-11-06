@@ -8,7 +8,8 @@ import json
 import os
 import time
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from functools import partial
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -163,23 +164,9 @@ def test_conversion_failure_preserves_published_artifact_and_cleans_job(
     destination.write_bytes(original)
     job_dirs: list[Path] = []
 
-    def start_failed_worker(job_dir: Path) -> _FinishedWorker:
-        job_dirs.append(job_dir)
-        (job_dir / "worker.log").write_text("simulated exporter conversion failure", encoding="utf-8")
-        (job_dir / "status.json").write_text(
-            json.dumps(
-                {
-                    "state": "failed",
-                    "phase": "conversion",
-                    "message": "Export conversion failed",
-                    "error": {"code": "export_conversion_failed", "message": "simulated exporter conversion failure"},
-                }
-            ),
-            encoding="utf-8",
-        )
-        return _FinishedWorker(returncode=1)
-
-    monkeypatch.setattr(export_controller, "_start_process", start_failed_worker)
+    monkeypatch.setattr(
+        export_controller, "_start_process", partial(_start_failed_worker, job_dirs=job_dirs)
+    )
     job = export_controller.submit(
         _export_request(backend, api),
         graph=dense_graph(),
@@ -213,54 +200,24 @@ def test_atomic_publication_failure_preserves_prior_artifact_and_cleans_temp(
     destination.write_bytes(original)
     job_dirs: list[Path] = []
 
-    def start_successful_worker(job_dir: Path) -> _FinishedWorker:
-        job_dirs.append(job_dir)
-        source = job_dir / "staged.keras"
-        payload = b"verified staged artifact bytes"
-        source.write_bytes(payload)
-        manifest = ExportArtifactManifest(
-            format=ExportFormat.KERAS,
-            filename=destination.name,
-            layout=ExportLayout.FILE,
-            payload=ExportPayload.FULL_MODEL,
-            conversion=ExportConversion.KERAS,
-            execution_backend=backend,
-            runtime_api=api,
-            project_id=project_id,
-            project_revision=1,
-            files=[
-                ExportArtifactFile(
-                    path=source.name,
-                    size_bytes=len(payload),
-                    sha256=sha256_bytes(payload),
-                )
-            ],
-        )
-        (job_dir / "status.json").write_text(
-            json.dumps(
-                {
-                    "state": "succeeded",
-                    "phase": "completed",
-                    "message": "Export conversion completed",
-                    "result": {
-                        "artifact_path": source.name,
-                        "artifact_manifest": manifest.model_dump(mode="json"),
-                    },
-                }
-            ),
-            encoding="utf-8",
-        )
-        return _FinishedWorker(returncode=0)
-
     real_replace = os.replace
-
-    def fail_atomic_publish(source: str | os.PathLike[str], target: str | os.PathLike[str]) -> None:
-        if Path(target) == destination:
-            raise OSError("simulated atomic publication failure")
-        real_replace(source, target)
-
-    monkeypatch.setattr(export_controller, "_start_process", start_successful_worker)
-    monkeypatch.setattr(runtime_controller_module.os, "replace", fail_atomic_publish)
+    monkeypatch.setattr(
+        export_controller,
+        "_start_process",
+        partial(
+            _start_successful_worker,
+            job_dirs=job_dirs,
+            destination=destination,
+            backend=backend,
+            api=api,
+            project_id=project_id,
+        ),
+    )
+    monkeypatch.setattr(
+        runtime_controller_module.os,
+        "replace",
+        partial(_fail_atomic_publish, destination=destination, real_replace=real_replace),
+    )
     job = export_controller.submit(
         _export_request(backend, api, project_id=project_id),
         graph=dense_graph(),
@@ -294,20 +251,20 @@ def test_cancelled_export_preserves_published_artifact_and_cleans_worker(
     job_dirs: list[Path] = []
     running_worker = _FinishedWorker(returncode=None)
 
-    def start_running_worker(job_dir: Path) -> _FinishedWorker:
-        job_dirs.append(job_dir)
-        (job_dir / "status.json").write_text(
-            json.dumps({"state": "running", "phase": "conversion", "message": "Exporting"}),
-            encoding="utf-8",
-        )
-        return running_worker
-
-    def terminate_fake_worker(_pid: int, *, force: bool) -> None:
-        assert not force
-        running_worker.returncode = 20
-
-    monkeypatch.setattr(export_controller, "_start_process", start_running_worker)
-    monkeypatch.setattr(runtime_controller_module, "terminate_process_tree", terminate_fake_worker)
+    monkeypatch.setattr(
+        export_controller,
+        "_start_process",
+        partial(
+            _start_running_worker,
+            job_dirs=job_dirs,
+            running_worker=running_worker,
+        ),
+    )
+    monkeypatch.setattr(
+        runtime_controller_module,
+        "terminate_process_tree",
+        partial(_terminate_fake_worker, running_worker=running_worker),
+    )
     job = export_controller.submit(
         _export_request(backend, api),
         graph=dense_graph(),
@@ -345,6 +302,114 @@ class _FinishedWorker:
     # -------------------------------------------------------------------------
     def kill(self) -> None:
         self.returncode = -9
+
+
+###############################################################################
+def _start_failed_worker(job_dir: Path, *, job_dirs: list[Path]) -> _FinishedWorker:
+    job_dirs.append(job_dir)
+    (job_dir / "worker.log").write_text(
+        "simulated exporter conversion failure", encoding="utf-8"
+    )
+    (job_dir / "status.json").write_text(
+        json.dumps(
+            {
+                "state": "failed",
+                "phase": "conversion",
+                "message": "Export conversion failed",
+                "error": {
+                    "code": "export_conversion_failed",
+                    "message": "simulated exporter conversion failure",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return _FinishedWorker(returncode=1)
+
+
+###############################################################################
+def _start_successful_worker(
+    job_dir: Path,
+    *,
+    job_dirs: list[Path],
+    destination: Path,
+    backend: ExecutionBackend,
+    api: RuntimeApi,
+    project_id: UUID,
+) -> _FinishedWorker:
+    job_dirs.append(job_dir)
+    source = job_dir / "staged.keras"
+    payload = b"verified staged artifact bytes"
+    source.write_bytes(payload)
+    manifest = ExportArtifactManifest(
+        format=ExportFormat.KERAS,
+        filename=destination.name,
+        layout=ExportLayout.FILE,
+        payload=ExportPayload.FULL_MODEL,
+        conversion=ExportConversion.KERAS,
+        execution_backend=backend,
+        runtime_api=api,
+        project_id=project_id,
+        project_revision=1,
+        files=[
+            ExportArtifactFile(
+                path=source.name,
+                size_bytes=len(payload),
+                sha256=sha256_bytes(payload),
+            )
+        ],
+    )
+    (job_dir / "status.json").write_text(
+        json.dumps(
+            {
+                "state": "succeeded",
+                "phase": "completed",
+                "message": "Export conversion completed",
+                "result": {
+                    "artifact_path": source.name,
+                    "artifact_manifest": manifest.model_dump(mode="json"),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return _FinishedWorker(returncode=0)
+
+
+###############################################################################
+def _fail_atomic_publish(
+    source: str | os.PathLike[str],
+    target: str | os.PathLike[str],
+    *,
+    destination: Path,
+    real_replace: Callable[[str | os.PathLike[str], str | os.PathLike[str]], None],
+) -> None:
+    if Path(target) == destination:
+        raise OSError("simulated atomic publication failure")
+    real_replace(source, target)
+
+
+###############################################################################
+def _start_running_worker(
+    job_dir: Path,
+    *,
+    job_dirs: list[Path],
+    running_worker: _FinishedWorker,
+) -> _FinishedWorker:
+    job_dirs.append(job_dir)
+    (job_dir / "status.json").write_text(
+        json.dumps({"state": "running", "phase": "conversion", "message": "Exporting"}),
+        encoding="utf-8",
+    )
+    return running_worker
+
+
+###############################################################################
+def _terminate_fake_worker(
+    _pid: int, *, force: bool, running_worker: _FinishedWorker
+) -> None:
+    assert not force
+    running_worker.returncode = 20
 
 ###############################################################################
 def _export_request(

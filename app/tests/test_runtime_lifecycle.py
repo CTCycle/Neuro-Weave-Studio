@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Callable
 from functools import partial
@@ -36,6 +37,163 @@ from services.runtime_controller import (
     RuntimeController,
     RuntimeControllerError,
 )
+
+
+def _test_environment_fingerprint() -> tuple[str, dict[str, object]]:
+    return "test-fingerprint", {}
+
+
+def _empty_discovery_snapshot(
+    _fingerprint: str,
+) -> dict[ExecutionBackend, ExecutionBackendStatus] | None:
+    return None
+
+
+def _cached_verified_pytorch_snapshot(
+    _fingerprint: str,
+) -> dict[ExecutionBackend, ExecutionBackendStatus]:
+    return {
+        ExecutionBackend.PYTORCH: ExecutionBackendStatus(
+            id=ExecutionBackend.PYTORCH,
+            installed=True,
+            available=True,
+            runtime_apis=[
+                RuntimeApiStatus(
+                    id=RuntimeApi.KERAS,
+                    available=True,
+                    state=RuntimeDiscoveryState.VERIFIED,
+                    source="snapshot",
+                )
+            ],
+        )
+    }
+
+
+def _probe_timeout(
+    _backend: ExecutionBackend, _api: RuntimeApi
+) -> tuple[bool, str | None, dict[str, object]]:
+    return False, "probe_timeout", {"message": "deadline"}
+
+
+def _probe_dependency_missing(
+    _backend: ExecutionBackend, _api: RuntimeApi
+) -> tuple[bool, str | None, dict[str, object]]:
+    return False, "dependency_missing", {}
+
+
+###############################################################################
+def _installed_package_from_test_map(
+    backend: ExecutionBackend,
+    *,
+    installed: dict[ExecutionBackend, tuple[bool, str | None]],
+) -> tuple[bool, str | None]:
+    return installed[backend]
+
+
+###############################################################################
+def _run_test_probe(
+    backend: ExecutionBackend,
+    api: RuntimeApi,
+    *,
+    probes: list[tuple[ExecutionBackend, RuntimeApi]],
+) -> subprocess.CompletedProcess[str]:
+    probes.append((backend, api))
+    expected_backend = (
+        keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
+    )
+    payload = {
+        "backend": expected_backend,
+        "available": True,
+        "accelerator": "cpu",
+        "device_name": "CPU",
+        "devices": [
+            {
+                "device_id": "cpu",
+                "lease_key": "cpu",
+                "kind": "cpu",
+                "name": "CPU",
+                "accelerator": "cpu",
+                "supported_memory_policies": ["default"],
+            }
+        ],
+        "native_compilers": {"pytorch_compile": True},
+    }
+    return subprocess.CompletedProcess([], 0, json.dumps(payload), "")
+
+
+###############################################################################
+def _no_test_hardware_fingerprint() -> dict[str, None]:
+    return {"nvidia_smi": None}
+
+
+###############################################################################
+def _fake_discovery_probe(
+    backend: ExecutionBackend,
+    api: RuntimeApi,
+    *,
+    delay_seconds: float = 0.0,
+) -> tuple[bool, str | None, dict[str, object]]:
+    if delay_seconds:
+        time.sleep(delay_seconds)
+    expected = keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
+    return True, None, {
+        "backend": expected,
+        "available": True,
+        "accelerator": "cpu",
+        "device_name": "Test CPU",
+        "devices": [
+            {
+                "device_id": "cpu",
+                "lease_key": "cpu",
+                "kind": "cpu",
+                "name": "Test CPU",
+                "accelerator": "cpu",
+                "supported_memory_policies": ["default"],
+            }
+        ],
+    }
+
+
+###############################################################################
+def _barrier_discovery_probe(
+    backend: ExecutionBackend,
+    _api: RuntimeApi,
+    *,
+    both_probing: threading.Barrier,
+) -> tuple[bool, str | None, dict[str, object]]:
+    both_probing.wait(timeout=5)
+    return True, None, {"backend": backend.value, "available": True}
+
+
+###############################################################################
+def _forced_refresh_probe(
+    backend: ExecutionBackend,
+    api: RuntimeApi,
+    *,
+    probes: list[tuple[ExecutionBackend, RuntimeApi]],
+) -> tuple[bool, str | None, dict[str, object]]:
+    probes.append((backend, api))
+    expected = keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
+    return True, None, {
+        "backend": expected,
+        "available": True,
+        "devices": [
+            RuntimeDevice(
+                device_id="cpu",
+                lease_key="cpu",
+                kind="cpu",
+                name="CPU",
+                accelerator="cpu",
+                supported_memory_policies=[MemoryPolicyKind.DEFAULT],
+            ).model_dump(mode="json")
+        ],
+    }
+
+
+###############################################################################
+def _fail_unexpected_probe(*_args: object, **_kwargs: object) -> None:
+    raise AssertionError("optional framework probe ran unexpectedly")
+
 
 # Consolidated from test_runtime_controller.py
 
@@ -210,49 +368,28 @@ def test_environment_discovery_skips_missing_backends_and_reuses_matching_snapsh
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    installed = {
+    installed: dict[ExecutionBackend, tuple[bool, str | None]] = {
         ExecutionBackend.TENSORFLOW: (False, None),
         ExecutionBackend.PYTORCH: (True, "2.1.0"),
         ExecutionBackend.JAX: (False, None),
     }
     probes: list[tuple[ExecutionBackend, RuntimeApi]] = []
 
-    def fake_installed(backend: ExecutionBackend) -> tuple[bool, str | None]:
-        return installed[backend]
-
-    def fake_probe(
-        _runtime: RuntimeController,
-        backend: ExecutionBackend,
-        api: RuntimeApi,
-    ) -> subprocess.CompletedProcess[str]:
-        probes.append((backend, api))
-        expected_backend = (
-            keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
-        )
-        payload = {
-            "backend": expected_backend,
-            "available": True,
-            "accelerator": "cpu",
-            "device_name": "CPU",
-            "devices": [
-                {
-                    "device_id": "cpu",
-                    "lease_key": "cpu",
-                    "kind": "cpu",
-                    "name": "CPU",
-                    "accelerator": "cpu",
-                    "supported_memory_policies": ["default"],
-                }
-            ],
-            "native_compilers": {"pytorch_compile": True},
-        }
-        return subprocess.CompletedProcess([], 0, json.dumps(payload), "")
-
-    monkeypatch.setattr(RuntimeController, "_installed_package", staticmethod(fake_installed))
     monkeypatch.setattr(
-        RuntimeController, "_hardware_fingerprint", staticmethod(lambda: {"nvidia_smi": None})
+        RuntimeController,
+        "_installed_package",
+        staticmethod(partial(_installed_package_from_test_map, installed=installed)),
     )
-    monkeypatch.setattr(RuntimeController, "_run_probe", fake_probe)
+    monkeypatch.setattr(
+        RuntimeController,
+        "_hardware_fingerprint",
+        staticmethod(_no_test_hardware_fingerprint),
+    )
+    monkeypatch.setattr(
+        RuntimeController,
+        "_run_probe",
+        staticmethod(partial(_run_test_probe, probes=probes)),
+    )
     settings = Settings(
         ml_job_root=tmp_path / "jobs",
         export_root=tmp_path / "exports",
@@ -402,17 +539,13 @@ def test_unavailable_native_compilers_are_rejected_before_worker_start(
 
 # Consolidated from test_startup_regressions.py
 
-# pyright: reportUnknownLambdaType=false, reportUnknownArgumentType=false
 
 
 
 
 ###############################################################################
 def test_controller_startup_does_not_probe_optional_frameworks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    def fail_probe(*_args: object, **_kwargs: object) -> None:
-        raise AssertionError("optional framework probe ran during controller startup")
-
-    monkeypatch.setattr(RuntimeController, "_run_probe", fail_probe)
+    monkeypatch.setattr(RuntimeController, "_run_probe", _fail_unexpected_probe)
     runtime = RuntimeController(Settings(ml_job_root=tmp_path / "jobs", runtime_discovery_path=tmp_path / "missing.json"))
     try:
         assert all(status.discovery_state is RuntimeDiscoveryState.UNCHECKED for status in runtime.backend_statuses.values())
@@ -426,30 +559,14 @@ def test_discovery_requests_are_deduplicated_and_complete_in_background(
 ) -> None:
     runtime = RuntimeController(Settings(ml_job_root=tmp_path / "jobs", runtime_discovery_path=tmp_path / "discovery.json"))
     try:
-        monkeypatch.setattr(runtime, "_environment_fingerprint", lambda: ("test-fingerprint", {}))
-        monkeypatch.setattr(runtime, "_load_discovery_snapshot", lambda _fingerprint: None)
+        monkeypatch.setattr(runtime, "_environment_fingerprint", _test_environment_fingerprint)
+        monkeypatch.setattr(runtime, "_load_discovery_snapshot", _empty_discovery_snapshot)
 
-        def fake_probe(backend: ExecutionBackend, api: RuntimeApi) -> tuple[bool, str | None, dict[str, object]]:
-            time.sleep(0.05)
-            expected = keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
-            return True, None, {
-                "backend": expected,
-                "available": True,
-                "accelerator": "cpu",
-                "device_name": "Test CPU",
-                "devices": [
-                    {
-                        "device_id": "cpu",
-                        "lease_key": "cpu",
-                        "kind": "cpu",
-                        "name": "Test CPU",
-                        "accelerator": "cpu",
-                        "supported_memory_policies": ["default"],
-                    }
-                ],
-            }
-
-        monkeypatch.setattr(runtime, "_probe_backend_api", fake_probe)
+        monkeypatch.setattr(
+            runtime,
+            "_probe_backend_api",
+            partial(_fake_discovery_probe, delay_seconds=0.05),
+        )
         first = runtime.request_discovery(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
         second = runtime.request_discovery(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
         assert first.state is RuntimeDiscoveryState.CHECKING
@@ -468,50 +585,87 @@ def test_discovery_requests_are_deduplicated_and_complete_in_background(
         runtime.shutdown()
 
 ###############################################################################
+def test_concurrent_discovery_preserves_both_results_in_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    snapshot_path = tmp_path / "discovery.json"
+    runtime = RuntimeController(Settings(ml_job_root=tmp_path / "jobs", runtime_discovery_path=snapshot_path))
+    both_probing = threading.Barrier(2)
+    try:
+        monkeypatch.setattr(runtime, "_environment_fingerprint", _test_environment_fingerprint)
+        monkeypatch.setattr(runtime, "_load_discovery_snapshot", _empty_discovery_snapshot)
+
+        monkeypatch.setattr(
+            runtime,
+            "_probe_backend_api",
+            partial(_barrier_discovery_probe, both_probing=both_probing),
+        )
+        runtime.request_discovery(ExecutionBackend.PYTORCH, RuntimeApi.NATIVE)
+        runtime.request_discovery(ExecutionBackend.TENSORFLOW, RuntimeApi.NATIVE)
+        for _ in range(200):
+            if all(
+                runtime.discovery_status(backend, RuntimeApi.NATIVE).state is RuntimeDiscoveryState.VERIFIED
+                for backend in (ExecutionBackend.PYTORCH, ExecutionBackend.TENSORFLOW)
+            ):
+                break
+            time.sleep(0.01)
+        runtime.shutdown()
+        payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        assert set(payload["statuses"]) >= {"pytorch", "tensorflow"}
+        assert all(payload["statuses"][name]["runtime_apis"] for name in ("pytorch", "tensorflow"))
+    finally:
+        runtime.shutdown()
+
+###############################################################################
+def test_worker_log_stays_bounded_while_child_has_output_open(tmp_path: Path) -> None:
+    process = subprocess.Popen(
+        [sys.executable, "-u", "-c", "import sys,time; sys.stdout.buffer.write(b'x' * 200000); sys.stdout.flush(); time.sleep(.3); print('COMPLETE')"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        **process_start_options(),
+    )
+    path = tmp_path / "worker.log"
+    drainer = threading.Thread(
+        target=RuntimeController._drain_worker_log,  # pyright: ignore[reportPrivateUsage]
+        args=(process, path),
+    )
+    try:
+        drainer.start()
+        for _ in range(50):
+            if path.exists() and path.stat().st_size >= 64_000:
+                break
+            time.sleep(0.01)
+        assert process.poll() is None
+        assert path.stat().st_size <= 64_000
+        assert process.wait(timeout=5) == 0
+        drainer.join(timeout=5)
+        assert not drainer.is_alive()
+        assert path.stat().st_size <= 64_000
+        tail = RuntimeController._tail_log(path)  # pyright: ignore[reportPrivateUsage]
+        assert tail is not None
+        assert tail.endswith("COMPLETE")
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
+        drainer.join(timeout=5)
+
+###############################################################################
 def test_force_refresh_bypasses_matching_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     runtime = RuntimeController(Settings(ml_job_root=tmp_path / "jobs", runtime_discovery_path=tmp_path / "discovery.json"))
     probes: list[tuple[ExecutionBackend, RuntimeApi]] = []
     try:
-        monkeypatch.setattr(runtime, "_environment_fingerprint", lambda: ("test-fingerprint", {}))
+        monkeypatch.setattr(runtime, "_environment_fingerprint", _test_environment_fingerprint)
         monkeypatch.setattr(
-            runtime,
-            "_load_discovery_snapshot",
-            lambda _fingerprint: {
-                ExecutionBackend.PYTORCH: ExecutionBackendStatus(
-                    id=ExecutionBackend.PYTORCH,
-                    installed=True,
-                    available=True,
-                    runtime_apis=[
-                        RuntimeApiStatus(
-                            id=RuntimeApi.KERAS,
-                            available=True,
-                            state=RuntimeDiscoveryState.VERIFIED,
-                            source="snapshot",
-                        )
-                    ],
-                )
-            },
+            runtime, "_load_discovery_snapshot", _cached_verified_pytorch_snapshot
         )
 
-        def fake_probe(backend: ExecutionBackend, api: RuntimeApi) -> tuple[bool, str | None, dict[str, object]]:
-            probes.append((backend, api))
-            expected = keras_backend_value(backend) if api is RuntimeApi.KERAS else backend.value
-            return True, None, {
-                "backend": expected,
-                "available": True,
-                "devices": [
-                    RuntimeDevice(
-                        device_id="cpu",
-                        lease_key="cpu",
-                        kind="cpu",
-                        name="CPU",
-                        accelerator="cpu",
-                        supported_memory_policies=[MemoryPolicyKind.DEFAULT],
-                    ).model_dump(mode="json")
-                ],
-            }
-
-        monkeypatch.setattr(runtime, "_probe_backend_api", fake_probe)
+        monkeypatch.setattr(
+            runtime,
+            "_probe_backend_api",
+            partial(_forced_refresh_probe, probes=probes),
+        )
         runtime.request_discovery(ExecutionBackend.PYTORCH, RuntimeApi.KERAS, force_refresh=True)
         result = runtime.discovery_status(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
         for _ in range(100):
@@ -531,10 +685,7 @@ def test_health_and_metadata_do_not_probe_optional_frameworks(
     monkeypatch: pytest.MonkeyPatch,
     app_factory: Callable[..., FastAPI],
 ) -> None:
-    def fail_probe(*_args: object, **_kwargs: object) -> None:
-        raise AssertionError("optional framework probe ran during a health or metadata read")
-
-    monkeypatch.setattr(RuntimeController, "_run_probe", fail_probe)
+    monkeypatch.setattr(RuntimeController, "_run_probe", _fail_unexpected_probe)
     with TestClient(app_factory(database_path=tmp_path / "database.db")) as client:
         assert client.get("/health").json() == {"status": "ok"}
         metadata = client.get("/api/metadata")
@@ -547,9 +698,9 @@ def test_probe_timeout_is_reported_and_shutdown_joins_discovery_worker(
 ) -> None:
     runtime = RuntimeController(Settings(ml_job_root=tmp_path / "jobs", runtime_discovery_path=tmp_path / "discovery.json"))
     try:
-        monkeypatch.setattr(runtime, "_environment_fingerprint", lambda: ("test-fingerprint", {}))
-        monkeypatch.setattr(runtime, "_load_discovery_snapshot", lambda _fingerprint: None)
-        monkeypatch.setattr(runtime, "_probe_backend_api", lambda _backend, _api: (False, "probe_timeout", {"message": "deadline"}))
+        monkeypatch.setattr(runtime, "_environment_fingerprint", _test_environment_fingerprint)
+        monkeypatch.setattr(runtime, "_load_discovery_snapshot", _empty_discovery_snapshot)
+        monkeypatch.setattr(runtime, "_probe_backend_api", _probe_timeout)
         runtime.request_discovery(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
         result = runtime.discovery_status(ExecutionBackend.PYTORCH, RuntimeApi.KERAS)
         for _ in range(100):
@@ -568,9 +719,9 @@ def test_probe_timeout_is_reported_and_shutdown_joins_discovery_worker(
 def test_job_submission_starts_discovery_and_returns_pending(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     runtime = RuntimeController(Settings(ml_job_root=tmp_path / "jobs", runtime_discovery_path=tmp_path / "discovery.json"))
     try:
-        monkeypatch.setattr(runtime, "_environment_fingerprint", lambda: ("test-fingerprint", {}))
-        monkeypatch.setattr(runtime, "_load_discovery_snapshot", lambda _fingerprint: None)
-        monkeypatch.setattr(runtime, "_probe_backend_api", lambda _backend, _api: (False, "dependency_missing", {}))
+        monkeypatch.setattr(runtime, "_environment_fingerprint", _test_environment_fingerprint)
+        monkeypatch.setattr(runtime, "_load_discovery_snapshot", _empty_discovery_snapshot)
+        monkeypatch.setattr(runtime, "_probe_backend_api", _probe_dependency_missing)
         request = JobSubmitRequest(
             operation=SmokeInferenceOperation(project_id=uuid4(), graph=ModelGraph()),
             worker=WorkerConfiguration(backend=ExecutionBackend.PYTORCH, device_id="cpu"),

@@ -1,15 +1,16 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
 import contextlib
 import importlib.metadata
+import inspect
 import shutil
 import tempfile
 import time
 from collections.abc import Callable, Iterable
+from functools import partial
 from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
@@ -415,12 +416,15 @@ def _export_native(
             raise RuntimeError("TensorFlow checkpoints require the native TensorFlow backend")
         import tensorflow as tf
 
+        tensorflow_api: Any = cast(Any, tf)
         checkpoint_prefix = working_root / "model"
-        prefix = tf.train.Checkpoint(model=handle.model).write(str(checkpoint_prefix))
+        prefix: str = tensorflow_api.train.Checkpoint(model=handle.model).write(
+            str(checkpoint_prefix)
+        )
         checkpoint_files = sorted(Path(prefix).parent.glob(f"{Path(prefix).name}.*"))
         graph_path = working_root / "graph.json"
         write_json(graph_path, graph.model_dump(mode="json"))
-        restored = tf.train.Checkpoint(model=handle.model).restore(prefix)
+        restored: Any = tensorflow_api.train.Checkpoint(model=handle.model).restore(prefix)
         restored.expect_partial()
         verification = ExportVerification(
             structural=bool(checkpoint_files),
@@ -451,11 +455,14 @@ def _export_native(
             raise RuntimeError("Flax checkpoints require the native JAX backend")
         from flax import serialization
 
+        serialization_api: Any = cast(Any, serialization)
         message_path = working_root / "model.msgpack"
-        message_path.write_bytes(serialization.to_bytes(handle.variables))
+        message_path.write_bytes(serialization_api.to_bytes(handle.variables))
         graph_path = working_root / "graph.json"
         write_json(graph_path, graph.model_dump(mode="json"))
-        restored = serialization.from_bytes(handle.variables, message_path.read_bytes())
+        restored: Any = serialization_api.from_bytes(
+            handle.variables, message_path.read_bytes()
+        )
         loaded_outputs = _as_list(handle.model.apply(restored, handle.model_input))
         synchronize(loaded_outputs)
         verification = _compare_outputs(outputs, loaded_outputs, semantic=True)
@@ -695,9 +702,10 @@ def _verify_keras_model(
     synchronize: Callable[[list[Any]], None],
     checkpoint: Callable[[], None],
 ) -> ExportVerification:
-    import keras
+    import keras  # pyright: ignore[reportMissingTypeStubs]
 
-    loaded = cast(Callable[..., Any], keras.saving.load_model(destination, compile=False))
+    keras_api: Any = cast(Any, keras)
+    loaded = cast(Callable[..., Any], keras_api.saving.load_model(destination, compile=False))
     checkpoint()
     values = _as_list(
         loaded(input_values[0] if len(input_values) == 1 else input_values, training=False)
@@ -734,7 +742,8 @@ def _verify_tensorflow_saved_model(
 ) -> ExportVerification:
     import tensorflow as tf
 
-    loaded = tf.saved_model.load(str(directory))
+    tensorflow_api: Any = cast(Any, tf)
+    loaded: Any = tensorflow_api.saved_model.load(str(directory))
     signatures = getattr(loaded, "signatures", {})
     signature = signatures.get("serving_default") or signatures.get("serve")
     if signature is None:
@@ -770,18 +779,19 @@ def _export_onnx_result(
 ) -> dict[str, object]:
     import onnx
 
+    onnx_api: Any = cast(Any, onnx)
     if model_proto is None:
-        model_proto = onnx.load(str(raw_path), load_external_data=True)
+        model_proto = onnx_api.load(str(raw_path), load_external_data=True)
     _normalize_onnx_names(model_proto, graph)
     if options.dynamic_batch:
         _set_onnx_dynamic_batch(model_proto)
-    onnx.checker.check_model(model_proto)
-    onnx.save_model(model_proto, str(raw_path))
+    onnx_api.checker.check_model(model_proto)
+    onnx_api.save_model(model_proto, str(raw_path))
     checkpoint()
     verification = _verify_onnx(raw_path, graph, input_values, outputs)
     if options.external_data == "always":
         data_path = working_root / "model.onnx.data"
-        onnx.save_model(
+        onnx_api.save_model(
             model_proto,
             str(raw_path),
             save_as_external_data=True,
@@ -837,77 +847,75 @@ def _export_onnx_result(
     )
 
 ###############################################################################
+def _call_native_tensorflow(handle: Any, graph_inputs: list[Any], *values: Any) -> Any:
+    model_input = (
+        values[0]
+        if len(values) == 1
+        else {node.id: value for node, value in zip(graph_inputs, values, strict=True)}
+    )
+    native_call = getattr(handle.model.__call__, "python_function", None)
+    return native_call(model_input) if callable(native_call) else handle.model(model_input)
+
+
+###############################################################################
+def _call_native_jax(handle: Any, graph_inputs: list[Any], *values: Any) -> Any:
+    model_input = (
+        values[0]
+        if len(values) == 1
+        else {node.id: value for node, value in zip(graph_inputs, values, strict=True)}
+    )
+    return handle.model.apply(handle.variables, model_input)
+
+
+###############################################################################
 def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: ExportOptions) -> Any:
     if handle.backend is ExecutionBackend.PYTORCH:
         import torch
 
-        ###############################################################################
-        class Wrapper(torch.nn.Module):
+        from models.onnx_worker_adapters import NativeOnnxWrapper
 
-            # -------------------------------------------------------------------------
-            def __init__(self, model: Any, input_ids: list[str]) -> None:
-                super().__init__()
-                self.model = model
-                self.input_ids = input_ids
-
-            # -------------------------------------------------------------------------
-            def forward(self, *values: Any) -> Any:
-                model_input = (
-                    values[0]
-                    if len(values) == 1
-                    else dict(zip(self.input_ids, values, strict=True))
-                )
-                return self.model(model_input)
-
+        torch_api: Any = cast(Any, torch)
         input_ids = list(handle.ir.input_node_ids)
         output_ids = [
             output.name
             for output in resolved_outputs(graph, get_node_catalog())
         ]
-        wrapper = Wrapper(handle.model, input_ids)
+        export_parameters = inspect.signature(torch_api.onnx.export).parameters
+        if not {"dynamo", "dynamic_shapes"}.issubset(export_parameters):
+            raise RuntimeError(
+                "Native PyTorch ONNX export requires the Dynamo exporter and dynamic_shapes API; "
+                "install PyTorch 2.5 or newer."
+            )
+        wrapper = NativeOnnxWrapper(handle.model, input_ids)
         args = tuple(handle.inputs)
-        dynamic_axes = (
-            {name: {0: "batch"} for name in [*input_ids, *output_ids]}
-            if options.dynamic_batch
-            else None
+        dynamic_shapes = None
+        if options.dynamic_batch:
+            batch_dimension = torch_api.export.Dim("batch", min=1)
+            dynamic_shapes = (tuple({0: batch_dimension} for _ in args),)
+        torch_api.onnx.export(
+            wrapper,
+            args,
+            str(raw_path),
+            input_names=input_ids,
+            output_names=output_ids,
+            opset_version=options.opset_version,
+            dynamo=True,
+            dynamic_shapes=dynamic_shapes,
         )
-        try:
-            torch.onnx.export(
-                wrapper,
-                args,
-                str(raw_path),
-                input_names=input_ids,
-                output_names=output_ids,
-                opset_version=options.opset_version,
-                dynamo=True,
-                dynamic_axes=dynamic_axes,
-            )
-        except Exception:
-            # PyTorch 2.8 can reject dynamic_axes with the dynamo exporter
-            # before producing an ONNX graph. Retry with the stable exporter
-            # supported across the declared PyTorch dependency range; the
-            # artifact remains direct native PyTorch ONNX.
-            torch.onnx.export(
-                wrapper,
-                args,
-                str(raw_path),
-                input_names=input_ids,
-                output_names=output_ids,
-                opset_version=options.opset_version,
-                dynamic_axes=dynamic_axes,
-                dynamo=False,
-            )
         import onnx
 
-        return onnx.load(str(raw_path), load_external_data=True)
+        onnx_api: Any = cast(Any, onnx)
+        return onnx_api.load(str(raw_path), load_external_data=True)
 
     if handle.backend is ExecutionBackend.TENSORFLOW:
         import tensorflow as tf
-        import tf2onnx
+        import tf2onnx  # pyright: ignore[reportMissingTypeStubs]
 
+        tensorflow_api: Any = cast(Any, tf)
+        tf2onnx_api: Any = cast(Any, tf2onnx)
         graph_inputs = input_nodes(graph, get_node_catalog())
-        specs = [
-            tf.TensorSpec(tuple(_concrete_shape(value)), value.dtype, name=node.id)
+        specs: list[Any] = [
+            tensorflow_api.TensorSpec(tuple(_concrete_shape(value)), value.dtype, name=node.id)
             for node, value in zip(graph_inputs, handle.inputs, strict=True)
         ]
 
@@ -918,20 +926,10 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
         # Trace the original Python body for the ONNX conversion instead. This
         # keeps the saved native model JIT-enabled while giving the converter
         # the concrete TensorFlow ops it needs.
-        native_call = getattr(handle.model.__call__, "python_function", None)
-
-        def call(*values: Any) -> Any:
-            model_input = (
-                values[0]
-                if len(values) == 1
-                else {node.id: value for node, value in zip(graph_inputs, values, strict=True)}
-            )
-            if callable(native_call):
-                return native_call(model_input)
-            return handle.model(model_input)
-
-        function = tf.function(call)
-        model_proto, _ = tf2onnx.convert.from_function(
+        function: Any = tensorflow_api.function(
+            partial(_call_native_tensorflow, handle, graph_inputs)
+        )
+        model_proto, _ = tf2onnx_api.convert.from_function(
             function,
             input_signature=specs,
             opset=options.opset_version,
@@ -940,30 +938,24 @@ def _native_to_onnx(handle: Any, graph: ModelGraph, raw_path: Path, options: Exp
         return model_proto
 
     import jax
-    import jax2onnx
+    import jax2onnx  # pyright: ignore[reportMissingTypeStubs]
 
+    jax_api: Any = cast(Any, jax)
+    jax2onnx_api: Any = cast(Any, jax2onnx)
     graph_inputs = input_nodes(graph, get_node_catalog())
     input_names = [node.id for node in graph_inputs]
     output_names = [
         output.name for output in resolved_outputs(graph, get_node_catalog())
     ]
-    specs = []
+    specs: list[Any] = []
     for value in handle.inputs:
         shape = tuple(_concrete_shape(value))
         if options.dynamic_batch and shape:
             shape = ("batch", *shape[1:])
-        specs.append(jax.ShapeDtypeStruct(shape, value.dtype))
+        specs.append(jax_api.ShapeDtypeStruct(shape, value.dtype))
 
-    def call_jax(*values: Any) -> Any:
-        model_input = (
-            values[0]
-            if len(values) == 1
-            else {node.id: value for node, value in zip(graph_inputs, values, strict=True)}
-        )
-        return handle.model.apply(handle.variables, model_input)
-
-    return jax2onnx.to_onnx(
-        call_jax,
+    return jax2onnx_api.to_onnx(
+        partial(_call_native_jax, handle, graph_inputs),
         specs,
         model_name="neuro_weave_native_jax",
         opset=options.opset_version,
@@ -1008,16 +1000,20 @@ def _verify_onnx(
     expected_outputs: list[Any],
 ) -> ExportVerification:
     import onnx
-    import onnxruntime as ort
+    import onnxruntime as ort  # pyright: ignore[reportMissingTypeStubs]
 
-    model_proto = onnx.load(str(path), load_external_data=True)
-    onnx.checker.check_model(model_proto)
-    session = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
-    feeds = {
+    onnx_api: Any = cast(Any, onnx)
+    onnxruntime_api: Any = cast(Any, ort)
+    model_proto: Any = onnx_api.load(str(path), load_external_data=True)
+    onnx_api.checker.check_model(model_proto)
+    session: Any = onnxruntime_api.InferenceSession(
+        str(path), providers=["CPUExecutionProvider"]
+    )
+    feeds: dict[str, Any] = {
         item.name: _to_numpy(value)
         for item, value in zip(session.get_inputs(), input_values, strict=False)
     }
-    values = session.run(None, feeds)
+    values: list[Any] = list(session.run(None, feeds))
     if len(values) != len(expected_outputs):
         raise RuntimeError("ONNX Runtime returned an unexpected output count")
     for actual, expected in zip(values, expected_outputs, strict=True):
@@ -1035,31 +1031,41 @@ def _verify_onnx(
     )
 
 ###############################################################################
+def _serve_native_tensorflow(handle: Any, input_count: int, *values: Any) -> Any:
+    model_input = (
+        values[0]
+        if input_count == 1
+        else dict(zip(handle.model_input.keys(), values, strict=True))
+    )
+    return handle.model(model_input)
+
+
+###############################################################################
 def _save_native_tensorflow_model(handle: Any, input_values: list[Any], directory: Path) -> None:
     import tensorflow as tf
 
+    tensorflow_api: Any = cast(Any, tf)
     directory.mkdir(parents=True, exist_ok=True)
     input_count = len(input_values)
-    specs = [
-        tf.TensorSpec(tuple(_concrete_shape(value)), value.dtype, name=f"input_{index}")
+    specs: list[Any] = [
+        tensorflow_api.TensorSpec(
+            tuple(_concrete_shape(value)), value.dtype, name=f"input_{index}"
+        )
         for index, value in enumerate(input_values)
     ]
 
-    @tf.function(input_signature=specs)
-    def serving(*values: Any) -> Any:
-        model_input = (
-            values[0]
-            if input_count == 1
-            else dict(zip(handle.model_input.keys(), values, strict=True))
-        )
-        return handle.model(model_input)
-
-    tf.saved_model.save(handle.model, str(directory), signatures={"serving_default": serving})
+    serving: Any = tensorflow_api.function(
+        partial(_serve_native_tensorflow, handle, input_count), input_signature=specs
+    )
+    tensorflow_api.saved_model.save(
+        handle.model, str(directory), signatures={"serving_default": serving}
+    )
 
 ###############################################################################
 def _save_keras_safetensors(model: Any, path: Path) -> None:
-    from safetensors.numpy import save_file
+    import safetensors.numpy as safetensors_numpy
 
+    safetensors_numpy_api: Any = cast(Any, safetensors_numpy)
     tensors: dict[str, Any] = {}
     for index, variable in enumerate(model.weights):
         name = str(getattr(variable, "path", getattr(variable, "name", f"weight_{index}")))
@@ -1067,12 +1073,13 @@ def _save_keras_safetensors(model: Any, path: Path) -> None:
         while key in tensors:
             key = f"{key}_{index}"
         tensors[key] = _to_numpy(variable)
-    save_file(tensors, str(path))
+    safetensors_numpy_api.save_file(tensors, str(path))
 
 ###############################################################################
 def _save_native_safetensors(handle: Any, path: Path) -> None:
-    from safetensors.numpy import save_file
+    import safetensors.numpy as safetensors_numpy
 
+    safetensors_numpy_api: Any = cast(Any, safetensors_numpy)
     tensors: dict[str, Any] = {}
     if handle.backend is ExecutionBackend.PYTORCH:
         for key, value in handle.model.state_dict().items():
@@ -1082,19 +1089,25 @@ def _save_native_safetensors(handle: Any, path: Path) -> None:
             name = str(getattr(value, "name", f"weight_{index}")).replace(":", "_")
             tensors[name] = _to_numpy(value)
     else:
-        from flax.traverse_util import flatten_dict
+        import flax.traverse_util as flax_traverse_util
 
-        for path_key, value in flatten_dict(handle.variables).items():
+        flax_traverse_api: Any = cast(Any, flax_traverse_util)
+        flattened: dict[tuple[Any, ...], Any] = cast(
+            dict[tuple[Any, ...], Any], flax_traverse_api.flatten_dict(handle.variables)
+        )
+        for path_key, value in flattened.items():
             name = "__".join(str(part) for part in path_key)
             tensors[name] = _to_numpy(value)
-    save_file(tensors, str(path))
+    safetensors_numpy_api.save_file(tensors, str(path))
 
 ###############################################################################
 def _verify_safetensors(path: Path) -> bool:
     from safetensors import safe_open
 
-    with safe_open(str(path), framework="numpy") as handle:
-        return bool(list(handle.keys()))
+    safe_open_api: Any = cast(Any, safe_open)
+    with safe_open_api(str(path), framework="numpy") as handle:
+        keys: Iterable[str] = cast(Iterable[str], handle.keys())
+        return bool(list(keys))
 
 ###############################################################################
 def _compare_outputs(
@@ -1141,10 +1154,11 @@ def _tensor_metadata(nodes: list[Any], values: list[Any]) -> list[dict[str, obje
 
 ###############################################################################
 def _keras_dummy_inputs(model: Any) -> list[Any]:
-    import keras
+    import keras  # pyright: ignore[reportMissingTypeStubs]
 
+    keras_api: Any = cast(Any, keras)
     return [
-        keras.ops.zeros(_concrete_shape(tensor), dtype=_dtype_name(tensor))
+        keras_api.ops.zeros(_concrete_shape(tensor), dtype=_dtype_name(tensor))
         for tensor in model.inputs
     ]
 
@@ -1180,7 +1194,7 @@ def _tool_versions(
 
 ###############################################################################
 def _concrete_shape(value: Any) -> list[int]:
-    shape = getattr(value, "shape", ())
+    shape: Iterable[Any] = cast(Iterable[Any], getattr(value, "shape", ()))
     result: list[int] = []
     for dimension in shape:
         try:
@@ -1197,7 +1211,7 @@ def _dtype_name(value: Any) -> str:
 
 ###############################################################################
 def _as_list(value: Any) -> list[Any]:
-    return list(value) if isinstance(value, (tuple, list)) else [value]
+    return list(cast(Iterable[Any], value)) if isinstance(value, (tuple, list)) else [value]
 
 ###############################################################################
 def _synchronize_tensors(values: Iterable[Any]) -> None:

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+from functools import partial
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -20,6 +21,13 @@ from services.runtime_controller import RuntimeController, RuntimeControllerErro
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 LOGGER = logging.getLogger(__name__)
+
+
+###############################################################################
+def _apply_runtime_settings(request: Request, settings: Settings) -> None:
+    controller: RuntimeController = request.app.state.runtime_controller
+    controller.apply_settings(settings)
+    configure_logging(settings.log_level, settings.log_file)
 
 ###############################################################################
 class DatabaseSettingsRequest(BaseModel):
@@ -101,26 +109,18 @@ def patch_settings(
 
 ###############################################################################
 def _save_application_settings(payload: Settings, request: Request) -> Settings:
-    context = get_repository_context(request)
-    controller: RuntimeController = request.app.state.runtime_controller
-    with context.new_unit_of_work() as uow:
-        previous = uow.application_settings.get() or request.app.state.settings
-        try:
-            controller.apply_settings(payload)
-            configure_logging(payload.log_level, payload.log_file)
-            uow.application_settings.save(payload)
-            uow.commit()
-        except RuntimeControllerError as error:
-            controller.apply_settings(previous)
-            configure_logging(previous.log_level, previous.log_file)
-            raise HTTPException(status_code=409, detail=str(error)) from error
-        except Exception as error:
-            controller.apply_settings(previous)
-            configure_logging(previous.log_level, previous.log_file)
-            LOGGER.exception("Could not persist application settings")
-            raise HTTPException(status_code=500, detail="Application settings could not be saved.") from error
-    request.app.state.settings = payload
-    return payload
+    database_configuration: DatabaseConfigurationService = request.app.state.database_configuration
+    try:
+        result = database_configuration.save_application_settings(
+            payload, apply_settings=partial(_apply_runtime_settings, request)
+        )
+    except RuntimeControllerError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except Exception as error:
+        LOGGER.exception("Could not persist application settings")
+        raise HTTPException(status_code=500, detail="Application settings could not be saved.") from error
+    request.app.state.settings = result
+    return result
 
 ###############################################################################
 @router.get("/database", response_model=DatabaseStatusResponse)
@@ -152,31 +152,25 @@ async def test_database_connection(
 async def switch_database(payload: DatabaseSettingsRequest, request: Request) -> DatabaseSwitchResponse:
     database_configuration: DatabaseConfigurationService = request.app.state.database_configuration
     controller: RuntimeController = request.app.state.runtime_controller
-    previous_settings: Settings = request.app.state.settings
-
-    def apply_settings(settings: Settings) -> None:
-        controller.apply_settings(settings)
-        request.app.state.settings = settings
-        configure_logging(settings.log_level, settings.log_file)
 
     try:
         candidate = payload.to_config()
         settings = await database_configuration.activate(
             candidate,
             has_active_jobs=lambda: bool(controller.list(active_only=True)),
-            apply_settings=apply_settings,
+            apply_settings=partial(_apply_runtime_settings, request),
         )
     except DatabaseSwitchBusyError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except RuntimeControllerError as error:
-        apply_settings(previous_settings)
         raise HTTPException(status_code=409, detail=str(error)) from error
     except Exception as error:
-        apply_settings(previous_settings)
         LOGGER.exception("Database activation failed")
         raise HTTPException(status_code=422, detail=f"Database was not switched: {error}") from error
+    finally:
+        request.app.state.settings = database_configuration.settings
+        request.app.state.repository_context = database_configuration.repository_context
 
-    request.app.state.repository_context = database_configuration.repository_context
     return DatabaseSwitchResponse(
         status=_status_response(database_configuration),
         settings=settings,

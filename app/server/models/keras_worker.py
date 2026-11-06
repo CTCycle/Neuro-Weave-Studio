@@ -1,15 +1,12 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportUntypedClassDecorator=false, reportUntypedBaseClass=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOperatorIssue=false
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import importlib
+from collections.abc import Callable, Sequence
 from typing import Any, cast
-
-import keras
-from keras import layers
 
 from common.catalogs.loader import NodeCatalog, get_node_catalog
 from common.catalogs.operation_emitter import (
@@ -30,6 +27,13 @@ from models.keras_runtime import layer_option, prepare_runtime
 from validation.graph_utils import ordered_incoming_edges, topological_order
 from validation.output_resolution import input_nodes, resolved_outputs
 from validation.shape_inference import infer_shapes
+
+keras = cast(Any, importlib.import_module("keras"))
+layers = keras.layers
+
+
+def _repeat_values(value: Any, *, repeat_count: int, repeat_axis: int) -> Any:
+    return keras.ops.repeat(value, repeat_count, axis=repeat_axis)
 
 
 ###############################################################################
@@ -200,7 +204,7 @@ def _transformer_encoder_block(source: Any, node_id: str, parameters: dict[str, 
                 layers.Add(name=f"{node_id}{suffix}_attention_residual")([current, attention])
             )
             feed_forward_input = current
-        feed_forward = layers.Dense(
+        feed_forward: Any = layers.Dense(
             hidden_dimension,
             activation=None if activation == "gelu" else activation,
             **base_kwargs,
@@ -235,7 +239,7 @@ def build_model(
     *,
     checkpoint: Callable[[], None] | None = None,
     trace_outputs: dict[str, dict[str, Any]] | None = None,
-) -> keras.Model:
+) -> Any:
     _checkpoint(checkpoint)
     prepare_runtime(graph)
     catalog = catalog or get_node_catalog()
@@ -464,9 +468,8 @@ def build_model(
                 )(source)
             else:
                 tensors[node_id] = keras.layers.Lambda(
-                    lambda value, repeats=repeats, axis=axis: keras.ops.repeat(
-                        value, repeats, axis=axis
-                    ),
+                    _repeat_values,
+                    arguments={"repeat_count": repeats, "repeat_axis": axis},
                     **_base_layer_kwargs(params),
                     name=node.id,
                 )(source)
@@ -779,7 +782,7 @@ def build_model(
             if source_dimension is None:
                 raise RuntimeError("Transformer feed-forward requires a known embedding dimension")
             activation = params.get("activation", "gelu")
-            current = layers.Dense(
+            current: Any = layers.Dense(
                 int(source_dimension) * int(params.get("ffn_multiplier", 4)),
                 activation=None if activation == "gelu" else activation,
                 **_base_layer_kwargs(params),
@@ -847,7 +850,7 @@ def build_model(
                 )
                 current = cross_residual if pre_norm else cross_norm(cross_residual)
                 feed_forward_input = ffn_norm(current) if pre_norm else current
-                feed_forward = layers.Dense(
+                feed_forward: Any = layers.Dense(
                     hidden_dimension,
                     activation=None if activation == "gelu" else activation,
                     **base_kwargs,
@@ -891,16 +894,22 @@ def build_model(
         output_ports = _enabled_output_ports(manifest, params)
         if not output_ports:
             raise RuntimeError(f"Node {node_id} does not expose an enabled output port")
-        result = tensors[node_id]
+        result: Any = tensors[node_id]
         if len(output_ports) > 1:
-            if not isinstance(result, (tuple, list)) or len(result) != len(output_ports):
+            if not isinstance(result, (tuple, list)):
                 raise RuntimeError(
-                    f"Node {node_id} returned {type(result).__name__}, expected "
+                    f"Node {node_id} returned {type(cast(object, result)).__name__}, expected "
                     f"{len(output_ports)} output values"
                 )
-            for port, value in zip(output_ports, result, strict=True):
+            output_items: list[Any] = list(cast(Sequence[Any], result))
+            if len(output_items) != len(output_ports):
+                raise RuntimeError(
+                    f"Node {node_id} returned {type(cast(object, result)).__name__}, expected "
+                    f"{len(output_ports)} output values"
+                )
+            for port, value in zip(output_ports, output_items, strict=True):
                 port_tensors[(node_id, port.id)] = value
-            tensors[node_id] = result[0]
+            tensors[node_id] = output_items[0]
         else:
             port_tensors[(node_id, output_ports[0].id)] = result
         if trace_outputs is not None:

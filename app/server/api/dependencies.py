@@ -120,7 +120,6 @@ def get_runtime_service(
 def get_project_service(
     uow_factory: UnitOfWorkFactory = Depends(get_uow_factory),
     validator: ValidationService = Depends(get_validation_service),
-    controller: RuntimeController = Depends(get_runtime_controller),
 ) -> ProjectService:
     return ProjectService(uow_factory, validator)
 

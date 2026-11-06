@@ -13,6 +13,7 @@ from common.catalogs.loader import NodeCatalog
 from domain.compilation import CompiledNode
 from domain.graph import ModelGraph
 from domain.manifests import ImplementationMapping, NodeManifest, PortDefinition
+from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
 
 ###############################################################################
@@ -228,8 +229,6 @@ def render_structured_value(value: Any) -> str:
 ###############################################################################
 def safe_index_expression(value: Any) -> str:
     """Normalize and validate an index expression before source emission."""
-
-    from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
     expression = normalize_index_expression(value if isinstance(value, str) else ":")
     validate_safe_expression(expression)

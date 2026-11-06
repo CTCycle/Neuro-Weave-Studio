@@ -1,12 +1,11 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
-from typing import Any
-
-import keras
+import importlib
+from collections.abc import Callable
+from typing import Any, cast
 
 from common.catalogs.loader import get_node_catalog
 from domain.compilation_catalog import (
@@ -18,6 +17,16 @@ from domain.compilation_plan import CompilationObject
 from domain.graph import ModelGraph
 from domain.metric_formula import MetricFormulaError, evaluate_metric_formula, parse_metric_formula
 from validation.output_resolution import output_selectors, resolved_outputs
+
+keras = cast(Any, importlib.import_module("keras"))
+
+
+def _noop_metric_init(**kwargs: Any) -> None:
+    del kwargs
+
+
+def _empty_metric_config() -> dict[str, Any]:
+    return {}
 
 
 ###############################################################################
@@ -68,7 +77,8 @@ class PredictionAggregateMetric(keras.metrics.Metric):
 
     # -------------------------------------------------------------------------
     def __init__(self, mode: str, name: str | None = None, **kwargs: Any) -> None:
-        super().__init__(name=name or f"prediction_{mode}", **kwargs)
+        base_init: Callable[..., Any] = getattr(super(), "__init__", _noop_metric_init)
+        base_init(name=name or f"prediction_{mode}", **kwargs)
         if mode not in {"mean", "sum"}:
             raise ValueError(f"Unsupported prediction aggregate mode: {mode}")
         self.mode = mode
@@ -97,7 +107,10 @@ class PredictionAggregateMetric(keras.metrics.Metric):
 
     # -------------------------------------------------------------------------
     def get_config(self) -> dict[str, Any]:
-        return {**super().get_config(), "mode": self.mode}
+        get_base_config: Callable[[], dict[str, Any]] = getattr(
+            super(), "get_config", _empty_metric_config
+        )
+        return {**get_base_config(), "mode": self.mode}
 
 ###############################################################################
 def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
@@ -113,7 +126,7 @@ def _output_names(graph: ModelGraph) -> list[tuple[str, set[str]]]:
 ###############################################################################
 def _configured_values(
     graph: ModelGraph,
-    configuration: dict[str, CompilationObject],
+    configuration: dict[str, CompilationObject] | dict[str, list[CompilationObject]],
     *,
     default: Any,
 ) -> dict[str, Any]:
@@ -150,7 +163,7 @@ def _catalog_option(category: str, identifier: str, catalog: CompilationCatalog)
     return option
 
 ###############################################################################
-def _optimizer(value: CompilationObject, catalog: CompilationCatalog) -> keras.optimizers.Optimizer:
+def _optimizer(value: CompilationObject, catalog: CompilationCatalog) -> Any:
     option = _catalog_option("optimizers", value.id, catalog)
     implementation = option.implementations["keras"]
     optimizer_type = getattr(keras.optimizers, implementation.symbol or "")
@@ -161,6 +174,17 @@ def _optimizer(value: CompilationObject, catalog: CompilationCatalog) -> keras.o
         if key in accepted_parameters
     }
     return optimizer_type(**kwargs)
+
+###############################################################################
+class _CustomFormula:
+    def __init__(self, tree: Any, operations: dict[str, Any], name: str) -> None:
+        self.tree = tree
+        self.operations = operations
+        self.__name__ = name
+
+    def __call__(self, y_true: Any, y_pred: Any) -> Any:
+        return evaluate_metric_formula(self.tree, y_true, y_pred, self.operations)
+
 
 ###############################################################################
 def _custom_formula(option: CompilationOption) -> Any:
@@ -178,11 +202,7 @@ def _custom_formula(option: CompilationOption) -> Any:
         "sum": keras.ops.sum,
     }
 
-    def custom(y_true: Any, y_pred: Any) -> Any:
-        return evaluate_metric_formula(tree, y_true, y_pred, operations)
-
-    custom.__name__ = option.id
-    return custom
+    return _CustomFormula(tree, operations, option.id)
 
 ###############################################################################
 def _compile_option(
@@ -214,7 +234,7 @@ def _resolve_compilation_values(values: dict[str, Any], category: str, catalog: 
         output_id: (
             _compile_option(category, value, catalog)
             if category == "losses" and isinstance(value, CompilationObject)
-            else [_compile_option(category, item, catalog) for item in value]
+            else [_compile_option(category, item, catalog) for item in cast(list[Any], value)]
             if category == "metrics" and isinstance(value, list)
             else value
         )
@@ -222,7 +242,7 @@ def _resolve_compilation_values(values: dict[str, Any], category: str, catalog: 
     }
 
 ###############################################################################
-def compile_model(model: keras.Model, graph: ModelGraph, *, compilation_catalog: CompilationCatalog | None = None) -> keras.Model:
+def compile_model(model: Any, graph: ModelGraph, *, compilation_catalog: CompilationCatalog | None = None) -> Any:
     compilation_catalog = compilation_catalog or get_compilation_catalog()
     configuration = graph.model_configuration.keras
     compilation = configuration.compilation

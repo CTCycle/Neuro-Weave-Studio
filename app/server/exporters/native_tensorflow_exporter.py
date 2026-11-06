@@ -1,7 +1,6 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
 from typing import Any, cast
@@ -20,7 +19,7 @@ from domain.ports import materialized_outputs
 from domain.tensor import TensorSpec
 from exporters.base import SourceExporter
 from exporters.node_emitters import NodeEmitterContext, registry_for_backend
-from validation.output_resolution import output_selectors, resolved_outputs
+from validation.output_resolution import resolved_outputs, selected_output_value
 from validation.safe_expression import normalize_index_expression, validate_safe_expression
 
 
@@ -52,7 +51,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
     @staticmethod
     def _spatial_tuple(parameters: dict[str, Any], key: str, default: list[int]) -> tuple[int, int]:
         value = parameters.get(key, default)
-        if not isinstance(value, list) or len(value) != 2:
+        if not isinstance(value, list) or len(cast(list[Any], value)) != 2:
             raise ValueError(f"TensorFlow {key} expects two values")
         values = cast(list[Any], value)
         if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in values):
@@ -70,7 +69,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         value = parameters.get(key, default)
         if value is None:
             value = default
-        if not isinstance(value, list) or len(value) != dimensions:
+        if not isinstance(value, list) or len(cast(list[Any], value)) != dimensions:
             raise ValueError(f"TensorFlow {key} expects {dimensions} values")
         values = cast(list[Any], value)
         if any(not isinstance(item, int) or isinstance(item, bool) or item <= 0 for item in values):
@@ -88,7 +87,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         value = parameters.get(key, default)
         if value is None:
             value = default
-        if not isinstance(value, list) or len(value) != dimensions:
+        if not isinstance(value, list) or len(cast(list[Any], value)) != dimensions:
             raise ValueError(f"TensorFlow {key} expects {dimensions} values")
         values = cast(list[Any], value)
         if any(not isinstance(item, int) or isinstance(item, bool) or item < 0 for item in values):
@@ -99,17 +98,18 @@ class NativeTensorFlowSourceExporter(SourceExporter):
     @staticmethod
     def _spatial_pairs(parameters: dict[str, Any], key: str, dimensions: int) -> tuple[tuple[int, int], ...]:
         value = parameters.get(key)
-        if not isinstance(value, list) or len(value) != dimensions:
+        if not isinstance(value, list) or len(cast(list[Any], value)) != dimensions:
             raise ValueError(f"TensorFlow {key} expects {dimensions} pairs")
         pairs: list[tuple[int, int]] = []
         for item in cast(list[Any], value):
             if (
                 not isinstance(item, list)
-                or len(item) != 2
-                or any(not isinstance(entry, int) or isinstance(entry, bool) or entry < 0 for entry in item)
+                or len(cast(list[Any], item)) != 2
+                or any(not isinstance(entry, int) or isinstance(entry, bool) or entry < 0 for entry in cast(list[Any], item))
             ):
                 raise ValueError(f"TensorFlow {key} expects non-negative pairs")
-            pairs.append((int(item[0]), int(item[1])))
+            pair = cast(list[Any], item)
+            pairs.append((int(pair[0]), int(pair[1])))
         return tuple(pairs)
 
     # -------------------------------------------------------------------------
@@ -158,14 +158,6 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         configuration = graph.model_configuration.native.tensorflow.compilation
         outputs = [output for output in resolved_outputs(graph, catalog) if output.node is not None]
 
-        def selected(values: dict[str, Any], output: Any, default: Any) -> Any:
-            value = values.get("__default__", default)
-            for selector in output_selectors(output):
-                if selector and selector in values:
-                    value = values[selector]
-                    break
-            return value
-
         loss_ids: dict[str, str] = {}
         loss_parameters: dict[str, dict[str, Any]] = {}
         metric_ids: dict[str, list[str]] = {}
@@ -175,7 +167,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
         losses: dict[str, dict[str, Any]] = {}
         metrics: dict[str, list[dict[str, Any]]] = {}
         for output in outputs:
-            loss_value = selected(configuration.losses, output, None)
+            loss_value = selected_output_value(configuration.losses, output, None)
             if isinstance(loss_value, CompilationObject):
                 option = cls._catalog_option(compilation_catalog, "losses", loss_value.id)
                 loss_ids[output.name] = loss_value.id
@@ -186,9 +178,10 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 }
                 if option.target_contract is not None:
                     target_contracts[output.name] = option.target_contract
-            metric_values = selected(configuration.metrics, output, [])
+            metric_values = selected_output_value(configuration.metrics, output, [])
             if not isinstance(metric_values, list):
                 continue
+            metric_values = cast(list[Any], metric_values)
             metric_ids[output.name] = []
             metric_parameters[output.name] = []
             metrics[output.name] = []
@@ -781,7 +774,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 if shared_axes is not None:
                     if not isinstance(shared_axes, list):
                         raise ValueError("TensorFlow PReLU shared_axes must be a list or null")
-                    for shared_axis in shared_axes:
+                    for shared_axis in cast(list[Any], shared_axes):
                         if not isinstance(shared_axis, int) or not 1 <= shared_axis < source_spec.rank:
                             raise ValueError("TensorFlow PReLU shared_axes must contain non-batch axes")
                         alpha_shape[shared_axis - 1] = 1
@@ -1026,7 +1019,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                         f"TensorFlow Conv1D node {node.id} requires known input channels"
                     )
                 kernel_size = params.get("kernel_size", [3])
-                if not isinstance(kernel_size, list) or len(kernel_size) != 1:
+                if not isinstance(kernel_size, list) or len(cast(list[Any], kernel_size)) != 1:
                     raise ValueError("TensorFlow Conv1D expects one kernel_size value")
                 filters = int(params.get("filters", 32))
                 groups = int(params.get("groups", 1))
@@ -1034,7 +1027,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     raise ValueError(
                         "TensorFlow Conv1D channels and filters must be divisible by groups"
                     )
-                kernel = int(kernel_size[0])
+                kernel = int(cast(int, kernel_size[0]))
                 lines.append(
                     f"        self.{name}_kernel = tf.Variable(tf.zeros([{kernel}, {input_channels // groups}, {filters}], tf.float32), name={name + '_kernel'!r})"
                 )
@@ -1279,7 +1272,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                     output_shape = (int(raw_output_shape),)
                     output_dimension = int(raw_output_shape)
                 elif isinstance(raw_output_shape, list) and raw_output_shape:
-                    output_shape = tuple(int(value) for value in raw_output_shape)
+                    output_shape = tuple(int(value) for value in cast(list[Any], raw_output_shape))
                     output_dimension = 1
                     for value in output_shape:
                         output_dimension *= value
@@ -1439,10 +1432,10 @@ class NativeTensorFlowSourceExporter(SourceExporter):
             elif definition == "layer.flatten":
                 lines.append(f"        {name} = tf.reshape({source}, [tf.shape({source})[0], -1])")
             elif definition == "layer.prelu":
-                alpha_shape = [1, *[int(value) for value in summaries[item.input_node_ids[0]].shape[1:]]]
+                alpha_shape = [1, *[int(value) for value in cast(list[Any], summaries[item.input_node_ids[0]].shape[1:])]]
                 shared_axes = params.get("shared_axes")
                 if isinstance(shared_axes, list):
-                    for shared_axis in shared_axes:
+                    for shared_axis in cast(list[Any], shared_axes):
                         alpha_shape[int(shared_axis)] = 1
                 alpha = f"tf.reshape(self.{name}_alpha, {alpha_shape!r})"
                 lines.append(f"        {name} = tf.where({source} >= 0, {source}, {source} * {alpha})")
@@ -1799,7 +1792,7 @@ class NativeTensorFlowSourceExporter(SourceExporter):
                 elif isinstance(raw_output_shape, int) and not isinstance(raw_output_shape, bool):
                     output_shape = (int(raw_output_shape),)
                 elif isinstance(raw_output_shape, list) and raw_output_shape:
-                    output_shape = tuple(int(value) for value in raw_output_shape)
+                    output_shape = tuple(int(value) for value in cast(list[Any], raw_output_shape))
                 else:
                     raise ValueError(f"TensorFlow attention node {node.id} has an invalid output_shape")
                 query = source_by_port.get("query", source)

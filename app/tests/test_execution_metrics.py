@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
-import httpx
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
@@ -75,7 +75,7 @@ def smoke_graph(*, input_shape: list[Any] | None = None) -> dict[str, object]:
 
 ###############################################################################
 def worker_payload(
-    client: httpx.Client,
+    client: httpx2.Client,
     *,
     api: str = "keras",
     backend: str = "pytorch",
@@ -123,7 +123,7 @@ def worker_payload(
 
 ###############################################################################
 def create_project(
-    client: httpx.Client,
+    client: httpx2.Client,
     graph: dict[str, object] | None = None,
     *,
     backend: str = "pytorch",
@@ -142,7 +142,7 @@ def create_project(
     return str(response.json()["id"])
 
 ###############################################################################
-def wait_for_job(client: httpx.Client, job_id: str) -> dict[str, Any]:
+def wait_for_job(client: httpx2.Client, job_id: str) -> dict[str, Any]:
     deadline = time.monotonic() + 300
     while time.monotonic() < deadline:
         job = client.get(f"/api/execution/jobs/{job_id}").json()
@@ -168,7 +168,7 @@ def fail_runtime_import(job_dir: Path) -> subprocess.Popen[bytes]:
 
 ###############################################################################
 def test_smoke_job_returns_tensor_metadata_without_training(
-    client: httpx.Client,
+    client: httpx2.Client,
 ) -> None:
     project_id = create_project(client)
     response = client.post(
@@ -193,7 +193,7 @@ def test_smoke_job_returns_tensor_metadata_without_training(
 
 ###############################################################################
 def test_controlled_worker_import_failure_preserves_health_and_recovers(
-    client: httpx.Client,
+    client: httpx2.Client,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -252,7 +252,7 @@ def test_controlled_worker_import_failure_preserves_health_and_recovers(
 
 ###############################################################################
 def test_smoke_job_rejects_invalid_shape_before_worker_start(
-    client: httpx.Client,
+    client: httpx2.Client,
 ) -> None:
     invalid_graph = smoke_graph(input_shape=[0])
     project_id = create_project(client, invalid_graph)
@@ -276,7 +276,7 @@ def test_smoke_job_rejects_invalid_shape_before_worker_start(
 
 ###############################################################################
 def test_job_submission_rejects_runtime_selection_inconsistent_with_model(
-    client: httpx.Client,
+    client: httpx2.Client,
 ) -> None:
     project_id = create_project(client)
 
@@ -310,7 +310,7 @@ def test_job_submission_rejects_runtime_selection_inconsistent_with_model(
 
 ###############################################################################
 def test_job_stop_is_idempotent_and_releases_device_lease(
-    client: httpx.Client,
+    client: httpx2.Client,
 ) -> None:
     project_id = create_project(client)
     worker = worker_payload(client, require_operational=True)
@@ -380,7 +380,7 @@ def test_prediction_aggregate_metrics_use_prediction_values() -> None:
     assert float(keras.ops.convert_to_numpy(total.result())) == approx(4.0)
 
 ###############################################################################
-def test_custom_metric_lifecycle_and_builtin_locking(client: httpx.Client) -> None:
+def test_custom_metric_lifecycle_and_builtin_locking(client: httpx2.Client) -> None:
     builtins = client.get("/api/metrics")
     assert builtins.status_code == 200
     builtin = next(item for item in builtins.json()["definitions"] if item["id"] == "mean_squared_error")
@@ -453,7 +453,7 @@ def test_custom_metric_lifecycle_and_builtin_locking(client: httpx.Client) -> No
 
 ###############################################################################
 def test_custom_metric_and_loss_persist_into_supported_compilation_catalogs(
-    client: httpx.Client,
+    client: httpx2.Client,
 ) -> None:
     created_metric = client.post(
         "/api/metrics",
@@ -506,7 +506,7 @@ def test_custom_metric_and_loss_persist_into_supported_compilation_catalogs(
         assert client.delete(f"/api/metrics/{loss_id}").status_code == 204
 
 ###############################################################################
-def test_custom_metric_formula_validation_rejects_unsafe_input(client: httpx.Client) -> None:
+def test_custom_metric_formula_validation_rejects_unsafe_input(client: httpx2.Client) -> None:
     rejected = client.post(
         "/api/metrics",
         json={
@@ -519,7 +519,7 @@ def test_custom_metric_formula_validation_rejects_unsafe_input(client: httpx.Cli
     assert rejected.status_code == 422
 
 ###############################################################################
-def test_custom_metric_delete_reports_saved_model_references(client: httpx.Client) -> None:
+def test_custom_metric_delete_reports_saved_model_references(client: httpx2.Client) -> None:
     created = client.post(
         "/api/metrics",
         json={

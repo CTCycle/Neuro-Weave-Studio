@@ -1,9 +1,9 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
+import importlib
 import types
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -74,14 +74,14 @@ def build_native_model(
     if factory is None:
         raise RuntimeError(f"Native {backend.value} source did not define a model factory")
     if backend is ExecutionBackend.PYTORCH:
-        import torch
+        torch = cast(Any, importlib.import_module("torch"))
 
         torch.manual_seed(seed)
     elif backend is ExecutionBackend.TENSORFLOW:
-        import tensorflow as tf
+        tf = importlib.import_module("tensorflow")
 
         tf.random.set_seed(seed)
-    model = cast(Any, factory)()
+    model = factory()
     compile_factory = module.__dict__.get("compile_model")
     execution_model = (
         cast(Callable[[Any], Any], compile_factory)(model)
@@ -120,7 +120,7 @@ def build_native_model(
         if callable(compilation_factory):
             compilation = cast(Callable[[Any], dict[str, Any]], compilation_factory)(model)
     else:
-        import jax
+        jax = cast(Any, importlib.import_module("jax"))
 
         variables = model.init(jax.random.PRNGKey(seed), model_input)
         if zero_parameters:
@@ -168,7 +168,7 @@ def forward_native_with_trace(handle: NativeModelHandle) -> tuple[list[Any], dic
     """Run the generated native model once and retain canonical node outputs."""
 
     if handle.backend is ExecutionBackend.PYTORCH:
-        import torch
+        torch = cast(Any, importlib.import_module("torch"))
 
         # Inspection captures from the raw module when torch.compile is
         # enabled, because the optimized wrapper cannot reliably preserve the
@@ -176,17 +176,24 @@ def forward_native_with_trace(handle: NativeModelHandle) -> tuple[list[Any], dic
         # parameters while making that observability path explicit upstream.
         handle.model.eval()
         with torch.no_grad():
-            result = handle.model(handle.model_input, return_intermediates=True)
+            result: Any = handle.model(handle.model_input, return_intermediates=True)
     elif handle.backend is ExecutionBackend.TENSORFLOW:
-        result = handle.execution_model(handle.model_input, return_intermediates=True)
+        result: Any = handle.execution_model(handle.model_input, return_intermediates=True)
     else:
         apply = cast(Callable[..., Any], handle.apply or handle.model.apply)
-        result = apply(handle.variables, handle.model_input, return_intermediates=True)
-    if not isinstance(result, tuple) or len(result) != 2 or not isinstance(result[1], dict):
+        result: Any = apply(handle.variables, handle.model_input, return_intermediates=True)
+    if not isinstance(result, tuple):
         raise RuntimeError(
             "capture_unsupported: the selected native backend cannot expose intermediate tensors"
         )
-    return _as_list(result[0]), result[1]
+    result_tuple: tuple[Any, ...] = cast(tuple[Any, ...], result)
+    if len(result_tuple) != 2 or not isinstance(result_tuple[1], dict):
+        raise RuntimeError(
+            "capture_unsupported: the selected native backend cannot expose intermediate tensors"
+        )
+    intermediate_outputs = cast(dict[str, dict[str, Any]], result_tuple[1])
+    raw_outputs: Any = result_tuple[0]
+    return _as_list(raw_outputs), intermediate_outputs
 
 ###############################################################################
 def _dummy_inputs(
@@ -216,17 +223,17 @@ def _dummy_inputs(
         ]
         dtype = str(node.parameters.get("dtype", "float32"))
         if backend is ExecutionBackend.PYTORCH:
-            import torch
+            torch = cast(Any, importlib.import_module("torch"))
 
             fill = torch.ones if use_nonzero_inputs else torch.zeros
             result.append(fill(shape, dtype=_torch_dtype(torch, dtype)))
         elif backend is ExecutionBackend.TENSORFLOW:
-            import tensorflow as tf
+            tf = cast(Any, importlib.import_module("tensorflow"))
 
             fill = tf.ones if use_nonzero_inputs else tf.zeros
             result.append(fill(shape, dtype=_tensorflow_dtype(tf, dtype)))
         else:
-            import jax.numpy as jnp
+            jnp = cast(Any, importlib.import_module("jax.numpy"))
 
             fill = jnp.ones if use_nonzero_inputs else jnp.zeros
             result.append(fill(shape, dtype=dtype))
@@ -249,7 +256,7 @@ def _tensorflow_dtype(tf_module: Any, value: str) -> Any:
 
 ###############################################################################
 def _zero_pytorch_parameters(model: Any) -> None:
-    import torch
+    torch = cast(Any, importlib.import_module("torch"))
 
     with torch.no_grad():
         for parameter in model.parameters():
@@ -262,8 +269,10 @@ def _zero_pytorch_parameters(model: Any) -> None:
 
 ###############################################################################
 def _zero_jax_variables(variables: Any) -> Any:
-    import jax.numpy as jnp
-    from flax.traverse_util import flatten_dict, unflatten_dict
+    jnp = cast(Any, importlib.import_module("jax.numpy"))
+    flax_traverse = cast(Any, importlib.import_module("flax.traverse_util"))
+    flatten_dict: Callable[[Any], dict[tuple[Any, ...], Any]] = flax_traverse.flatten_dict
+    unflatten_dict: Callable[[dict[tuple[Any, ...], Any]], Any] = flax_traverse.unflatten_dict
 
     flattened = flatten_dict(variables)
     for path, value in flattened.items():
@@ -281,7 +290,7 @@ def _zero_jax_variables(variables: Any) -> Any:
 def _initialize_tensorflow_parameters(model: Any, seed: int) -> None:
     """Give the native TensorFlow inspection path normal deterministic weights."""
 
-    import tensorflow as tf
+    tf = cast(Any, importlib.import_module("tensorflow"))
 
     for index, variable in enumerate(model.variables):
         name = str(getattr(variable, "name", "")).lower()
@@ -305,7 +314,7 @@ def _initialize_tensorflow_parameters(model: Any, seed: int) -> None:
 
 ###############################################################################
 def _flatten_jax_variables(variables: Any) -> list[Any]:
-    from jax.tree_util import tree_leaves
+    tree_leaves = cast(Any, importlib.import_module("jax.tree_util")).tree_leaves
 
     return list(tree_leaves(variables))
 
@@ -325,7 +334,7 @@ def _array_size(value: Any) -> int:
 
 ###############################################################################
 def _as_list(value: Any) -> list[Any]:
-    return list(value) if isinstance(value, (tuple, list)) else [value]
+    return list(cast(list[Any] | tuple[Any, ...], value)) if isinstance(value, (tuple, list)) else [value]
 
 ###############################################################################
 def _checkpoint(callback: Callable[[], None] | None) -> None:

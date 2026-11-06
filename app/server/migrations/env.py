@@ -9,7 +9,7 @@ from typing import cast
 from alembic import context
 from sqlalchemy.engine import Connection
 
-from configurations.settings import get_database_settings
+from configurations.database_config import get_database_settings
 from repositories import (
     custom_nodes as _custom_nodes,  # pyright: ignore[reportUnusedImport]  # noqa: F401 - register ORM tables
 )

@@ -1282,7 +1282,7 @@ def test_universal_nodes_execute_through_keras_runtime_registry(
         pytest.skip("The selected Keras backend is not part of the supported profile set")
     from models.keras_worker import build_model
 
-    model: Any = cast(Any, build_model(factory()))
+    model: Any = build_model(factory())
     outputs: Any = model(inputs, training=False)
     values = _as_values(outputs)
     assert len(values) == len(expected_shapes), node_family
@@ -1328,7 +1328,7 @@ def test_keras_static_sources_have_no_public_inputs_and_reload(
         pytest.skip("The selected Keras backend is not part of the supported profile set")
     from models.keras_worker import build_model
 
-    model: Any = cast(Any, build_model(factory()))
+    model: Any = build_model(factory())
     assert not getattr(model, "inputs", ())
     assert len(model.trainable_variables) == trainable_count, node_family
     initial: Any = model({}, training=False)

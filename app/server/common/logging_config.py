@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 
-class _AccessLogFilter(logging.Filter):
+class AccessLogFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         # Uvicorn passes (client, method, path, HTTP version, status).
         if not isinstance(record.args, tuple) or len(record.args) != 5:
@@ -16,6 +16,8 @@ class _AccessLogFilter(logging.Filter):
         path = str(path).split("?", 1)[0]
         if path == "/api" or path.startswith("/api/"):
             return False  # The application logs API responses with their duration.
+        if not isinstance(status, (int, str)):
+            return True
         try:
             return int(status) >= 400 or logging.getLogger().isEnabledFor(logging.DEBUG)
         except (TypeError, ValueError):
@@ -32,8 +34,8 @@ def configure_logging(level: str, log_file: Path | None = None) -> None:
     root = logging.getLogger()
     root.setLevel(numeric_level)
     access_logger = logging.getLogger("uvicorn.access")
-    if not any(isinstance(item, _AccessLogFilter) for item in access_logger.filters):
-        access_logger.addFilter(_AccessLogFilter())
+    if not any(isinstance(item, AccessLogFilter) for item in access_logger.filters):
+        access_logger.addFilter(AccessLogFilter())
     if log_file is None:
         for handler in list(root.handlers):
             if getattr(handler, "_neuro_weave_log_file", None) is not None:

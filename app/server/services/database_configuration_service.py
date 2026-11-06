@@ -124,18 +124,17 @@ class DatabaseConfigurationService:
         async with self._condition:
             await self._condition.wait_for(lambda: not self._switching)
             self._switching = True
-            try:
-                await asyncio.wait_for(
-                    self._condition.wait_for(lambda: self._active_requests == 0),
-                    timeout=self._REQUEST_DRAIN_TIMEOUT_SECONDS,
-                )
-            except TimeoutError as error:
-                self._switching = False
-                self._condition.notify_all()
-                raise DatabaseSwitchBusyError(
-                    "Database operations are still in progress. Wait briefly and retry."
-                ) from error
         try:
+            async with self._condition:
+                try:
+                    await asyncio.wait_for(
+                        self._condition.wait_for(lambda: self._active_requests == 0),
+                        timeout=self._REQUEST_DRAIN_TIMEOUT_SECONDS,
+                    )
+                except TimeoutError as error:
+                    raise DatabaseSwitchBusyError(
+                        "Database operations are still in progress. Wait briefly and retry."
+                    ) from error
             yield
         finally:
             async with self._condition:
@@ -143,7 +142,38 @@ class DatabaseConfigurationService:
                 self._condition.notify_all()
 
     # -------------------------------------------------------------------------
+    def save_application_settings(
+        self,
+        settings: Settings,
+        *,
+        apply_settings: Callable[[Settings], None],
+    ) -> Settings:
+        context = self.repository_context
+        if context is None:
+            raise RuntimeError("The configured database is unavailable")
+        with context.new_unit_of_work() as uow:
+            previous = uow.application_settings.get() or self.settings
+            try:
+                apply_settings(settings)
+                uow.application_settings.save(settings)
+                uow.commit()
+            except Exception:
+                apply_settings(previous)
+                raise
+        self.settings = settings
+        return settings
+
+    # -------------------------------------------------------------------------
     async def test(self, candidate: DatabaseConfig) -> None:
+        operation = asyncio.create_task(self._test(candidate))
+        try:
+            await asyncio.shield(operation)
+        except asyncio.CancelledError:
+            await operation
+            raise
+
+    # -------------------------------------------------------------------------
+    async def _test(self, candidate: DatabaseConfig) -> None:
         async with self._configuration_operation_lock:
             if self.config is not None and candidate.sqlite_path == self.config.sqlite_path:
                 async with self.pause_requests():
@@ -154,6 +184,23 @@ class DatabaseConfigurationService:
 
     # -------------------------------------------------------------------------
     async def activate(
+        self,
+        candidate: DatabaseConfig,
+        *,
+        has_active_jobs: Callable[[], bool],
+        apply_settings: Callable[[Settings], None],
+    ) -> Settings:
+        operation = asyncio.create_task(
+            self._activate(candidate, has_active_jobs=has_active_jobs, apply_settings=apply_settings)
+        )
+        try:
+            return await asyncio.shield(operation)
+        except asyncio.CancelledError:
+            await operation
+            raise
+
+    # -------------------------------------------------------------------------
+    async def _activate(
         self,
         candidate: DatabaseConfig,
         *,

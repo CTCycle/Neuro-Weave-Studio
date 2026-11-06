@@ -140,6 +140,59 @@ def _depths(graph: ModelGraph, ordered: list[str]) -> dict[str, int]:
             depths[target] = max(depths.get(target, 0), depths[node_id] + 1)
     return depths
 
+
+###############################################################################
+class _TensorStore:
+    """Own the per-session byte budget while writing inspection values."""
+
+    def __init__(self, staging: Path) -> None:
+        self.staging = staging
+        self.stored_bytes = 0
+
+    def store(
+        self,
+        value: Any,
+        *,
+        node_id: str,
+        direction: str,
+        port_id: str,
+        item_index: int | None,
+    ) -> TensorDescriptor:
+        array = _safe_array(value)
+        tensor_id = f"{node_id}:{direction}:{port_id}:{item_index if item_index is not None else 0}"
+        storage_id = tensor_id.replace(":", "__")
+        statistics, histogram = _statistics(array)
+        storage_mode = "summary_only"
+        value_count = 0
+        if array.nbytes <= MAX_TENSOR_BYTES and self.stored_bytes + array.nbytes <= MAX_SESSION_BYTES:
+            np.save(self.staging / f"{storage_id}.npy", array, allow_pickle=False)
+            self.stored_bytes += int(array.nbytes)
+            storage_mode = "full"
+            value_count = int(array.size)
+        else:
+            sample, _ = _sample(array)
+            if self.stored_bytes + sample.nbytes <= MAX_SESSION_BYTES:
+                np.save(self.staging / f"{storage_id}.npy", sample, allow_pickle=False)
+                self.stored_bytes += int(sample.nbytes)
+                storage_mode = "sampled"
+                value_count = int(sample.size)
+        return TensorDescriptor(
+            id=tensor_id,
+            storage_id=storage_id,
+            node_id=node_id,
+            direction=direction,  # type: ignore[arg-type]
+            port_id=port_id,
+            item_index=item_index,
+            shape=[int(item) for item in array.shape],
+            dtype=str(array.dtype),
+            element_count=int(array.size),
+            storage_mode=storage_mode,  # type: ignore[arg-type]
+            value_count=value_count,
+            statistics=statistics,
+            histogram=histogram,
+        )
+
+
 ###############################################################################
 def persist_inspection(
     graph: ModelGraph,
@@ -168,53 +221,8 @@ def persist_inspection(
         ordered = topological_order(graph)
         depths = _depths(graph, ordered)
         incoming = incoming_edges(graph)
-        stored_bytes = 0
+        store = _TensorStore(staging).store
         node_records: list[TensorInspectionNode] = []
-
-        def store(value: Any, *, node_id: str, direction: str, port_id: str, item_index: int | None) -> TensorDescriptor:
-            nonlocal stored_bytes
-            array = _safe_array(value)
-            tensor_id = f"{node_id}:{direction}:{port_id}:{item_index if item_index is not None else 0}"
-            # Tensor ids are intentionally readable API identifiers, but they
-            # contain separators that are not valid Windows filenames. Keep a
-            # separate safe storage id so the filesystem bundle works on every
-            # supported platform while preserving the public tensor id.
-            storage_id = tensor_id.replace(":", "__")
-            statistics, histogram = _statistics(array)
-            storage_mode = "summary_only"
-            value_count = 0
-            if array.nbytes <= MAX_TENSOR_BYTES and stored_bytes + array.nbytes <= MAX_SESSION_BYTES:
-                np.save(staging / f"{storage_id}.npy", array, allow_pickle=False)
-                stored_bytes += int(array.nbytes)
-                storage_mode = "full"
-                value_count = int(array.size)
-            else:
-                sample, _ = _sample(array)
-                # A full array can be too large for one tensor while its
-                # bounded sample still fits the session budget. Store that
-                # sample regardless of the original tensor size; otherwise a
-                # large tensor needlessly degrades to metadata-only output.
-                if stored_bytes + sample.nbytes <= MAX_SESSION_BYTES:
-                    np.save(staging / f"{storage_id}.npy", sample, allow_pickle=False)
-                    stored_bytes += int(sample.nbytes)
-                    storage_mode = "sampled"
-                    value_count = int(sample.size)
-            descriptor = TensorDescriptor(
-                id=tensor_id,
-                storage_id=storage_id,
-                node_id=node_id,
-                direction=direction,  # type: ignore[arg-type]
-                port_id=port_id,
-                item_index=item_index,
-                shape=[int(item) for item in array.shape],
-                dtype=str(array.dtype),
-                element_count=int(array.size),
-                storage_mode=storage_mode,  # type: ignore[arg-type]
-                value_count=value_count,
-                statistics=statistics,
-                histogram=histogram,
-            )
-            return descriptor
 
         output_refs: dict[tuple[str, str, int | None], TensorDescriptor] = {}
         for node_id in ordered:

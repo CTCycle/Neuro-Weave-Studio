@@ -1,7 +1,6 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false
 
 from __future__ import annotations
 
@@ -9,7 +8,7 @@ import json
 import re
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 from zipfile import BadZipFile, ZipFile
 
 from domain.enums import ExecutionBackend
@@ -133,29 +132,37 @@ def parse_keras_architecture(
 
 ###############################################################################
 def _graph_from_config(document: Any) -> tuple[ModelGraph, str, list[str]]:
-    if not isinstance(document, dict):
+    document_object = _json_object(document)
+    if document_object is None:
         raise KerasArchitectureImportError(
             "invalid_config", "Keras config.json must contain an object"
         )
-    class_name = document.get("class_name")
-    config = document.get("config")
-    if class_name not in {"Functional", "Sequential"} or not isinstance(config, dict):
+    class_name = document_object.get("class_name")
+    config = _json_object(document_object.get("config"))
+    if class_name not in {"Functional", "Sequential"} or config is None:
         raise KerasArchitectureImportError(
             "unsupported_model_type",
             "Only Functional and Sequential Keras architectures can be imported",
         )
-    layers = config.get("layers")
-    if not isinstance(layers, list) or not layers:
+    raw_layers = config.get("layers")
+    if not isinstance(raw_layers, list) or not raw_layers:
         raise KerasArchitectureImportError(
             "missing_layers", "The Keras architecture does not contain a layer list"
         )
+    layers: list[Any] = cast(list[Any], raw_layers)
     layer_by_name: dict[str, dict[str, Any]] = {}
     for layer in layers:
-        if not isinstance(layer, dict) or not isinstance(layer.get("config"), dict):
+        layer_object = _json_object(layer)
+        if layer_object is None:
             raise KerasArchitectureImportError(
                 "invalid_layer", "A serialized Keras layer is malformed"
             )
-        layer_name = layer.get("config", {}).get("name") or layer.get("name")
+        layer_config = _json_object(layer_object.get("config"))
+        if layer_config is None:
+            raise KerasArchitectureImportError(
+                "invalid_layer", "A serialized Keras layer is malformed"
+            )
+        layer_name = layer_config.get("name") or layer_object.get("name")
         if not isinstance(layer_name, str) or not layer_name:
             raise KerasArchitectureImportError(
                 "invalid_layer_name", "Every imported Keras layer must have a name"
@@ -164,12 +171,12 @@ def _graph_from_config(document: Any) -> tuple[ModelGraph, str, list[str]]:
             raise KerasArchitectureImportError(
                 "duplicate_layer_name", f"Keras layer name '{layer_name}' is duplicated"
             )
-        if layer.get("class_name") not in SUPPORTED_LAYERS:
+        if layer_object.get("class_name") not in SUPPORTED_LAYERS:
             raise KerasArchitectureImportError(
                 "unsupported_layer",
-                f"Keras layer '{layer.get('class_name')}' is not in the safe import allowlist",
+                f"Keras layer '{layer_object.get('class_name')}' is not in the safe import allowlist",
             )
-        layer_by_name[layer_name] = layer
+        layer_by_name[layer_name] = {**layer_object, "config": layer_config}
 
     node_ids = _unique_ids(layer_by_name)
     nodes: list[NodeInstance] = []
@@ -356,9 +363,10 @@ def _shape(value: Any) -> list[int | None] | None:
 
 ###############################################################################
 def _is_scalar_list(value: Any) -> bool:
-    return isinstance(value, list) and all(
-        item is None or isinstance(item, (str, int, float, bool)) for item in value
-    )
+    if not isinstance(value, list):
+        return False
+    items: list[Any] = cast(list[Any], value)
+    return all(item is None or isinstance(item, (str, int, float, bool)) for item in items)
 
 ###############################################################################
 def _unique_ids(layers: dict[str, dict[str, Any]]) -> dict[str, str]:
@@ -384,20 +392,29 @@ def _unique_id(value: str, used: set[str]) -> str:
 
 ###############################################################################
 def _visit_inbound_names(item: Any, names: list[str]) -> None:
-    if isinstance(item, dict):
-        config = item.get("config")
-        history = config.get("keras_history") if isinstance(config, dict) else None
+    item_object = _json_object(item)
+    if item_object is not None:
+        config = _json_object(item_object.get("config"))
+        history = config.get("keras_history") if config is not None else None
         if isinstance(history, list) and history and isinstance(history[0], str):
             names.append(history[0])
             return
-        for child in item.values():
+        for child in item_object.values():
             _visit_inbound_names(child, names)
     elif isinstance(item, list):
-        if item and isinstance(item[0], str) and len(item) >= 3:
-            names.append(item[0])
+        items: list[Any] = cast(list[Any], item)
+        if items and isinstance(items[0], str) and len(items) >= 3:
+            names.append(items[0])
             return
-        for child in item:
+        for child in items:
             _visit_inbound_names(child, names)
+
+###############################################################################
+def _json_object(value: Any) -> dict[str, Any] | None:
+    """Validate an untrusted JSON object before accessing its string-keyed fields."""
+    if not isinstance(value, dict):
+        return None
+    return cast(dict[str, Any], value)
 
 ###############################################################################
 def _inbound_names(value: Any) -> list[str]:

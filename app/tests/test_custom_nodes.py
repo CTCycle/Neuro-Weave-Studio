@@ -6,11 +6,12 @@ from __future__ import annotations
 import io
 import json
 import os
+from functools import partial
 from typing import Self
 from urllib.error import URLError
 from zipfile import ZIP_DEFLATED, ZipFile
 
-import httpx
+import httpx2
 import pytest
 
 from domain.enums import ExecutionBackend
@@ -37,21 +38,35 @@ class _FakeResponse:
     def read(self) -> bytes:
         return json.dumps(self._payload).encode("utf-8")
 
+
+###############################################################################
+def _fake_huggingface_urlopen(
+    sha: str,
+    *_args: object,
+    **_kwargs: object,
+) -> _FakeResponse:
+    return _FakeResponse(
+        {
+            "sha": sha,
+            "library_name": "transformers",
+            "pipeline_tag": "feature-extraction",
+        }
+    )
+
+
+###############################################################################
+def _unavailable_huggingface_urlopen(*_args: object, **_kwargs: object) -> object:
+    raise URLError("offline")
+
 ###############################################################################
 def _stub_huggingface(monkeypatch: pytest.MonkeyPatch, sha: str = "a" * 40) -> None:
-    def fake_urlopen(*_args: object, **_kwargs: object) -> _FakeResponse:
-        return _FakeResponse(
-            {
-                "sha": sha,
-                "library_name": "transformers",
-                "pipeline_tag": "feature-extraction",
-            }
-        )
-
-    monkeypatch.setattr("services.huggingface_repository_service.urlopen", fake_urlopen)
+    monkeypatch.setattr(
+        "services.huggingface_repository_service.urlopen",
+        partial(_fake_huggingface_urlopen, sha),
+    )
 
 ###############################################################################
-def test_custom_node_lifecycle_versions_and_builtin_locking(client: httpx.Client) -> None:
+def test_custom_node_lifecycle_versions_and_builtin_locking(client: httpx2.Client) -> None:
     builtins = client.get("/api/nodes/catalog")
     assert builtins.status_code == 200
     builtin = builtins.json()["nodes"][0]
@@ -125,7 +140,7 @@ def test_custom_node_lifecycle_versions_and_builtin_locking(client: httpx.Client
     assert client.delete(f"/api/nodes/custom/{definition_id}").status_code == 204
 
 ###############################################################################
-def test_graph_template_nodes_validate_full_manifest_parameter_contract(client: httpx.Client) -> None:
+def test_graph_template_nodes_validate_full_manifest_parameter_contract(client: httpx2.Client) -> None:
     created = client.post(
         "/api/nodes/custom",
         json={
@@ -221,7 +236,7 @@ def test_graph_template_nodes_validate_full_manifest_parameter_contract(client: 
 
 ###############################################################################
 def test_repository_nodes_resolve_and_pin_public_hugging_face_reference(
-    client: httpx.Client,
+    client: httpx2.Client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _stub_huggingface(monkeypatch)
@@ -270,13 +285,12 @@ def test_repository_nodes_resolve_and_pin_public_hugging_face_reference(
 
 ###############################################################################
 def test_repository_resolution_outage_is_service_unavailable_and_recovers(
-    client: httpx.Client,
+    client: httpx2.Client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def unavailable(*_args: object, **_kwargs: object) -> object:
-        raise URLError("offline")
-
-    monkeypatch.setattr("services.huggingface_repository_service.urlopen", unavailable)
+    monkeypatch.setattr(
+        "services.huggingface_repository_service.urlopen", _unavailable_huggingface_urlopen
+    )
     response = client.post(
         "/api/nodes/custom",
         json={
@@ -328,7 +342,7 @@ def test_repository_resolution_outage_is_service_unavailable_and_recovers(
 
 ###############################################################################
 def test_repository_resolution_rejects_invalid_commit_response(
-    client: httpx.Client,
+    client: httpx2.Client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _stub_huggingface(monkeypatch, sha="z" * 40)
@@ -353,7 +367,7 @@ def test_repository_resolution_rejects_invalid_commit_response(
     os.getenv("NEURO_WEAVE_RUN_LIVE_REPOSITORY_TESTS") != "1",
     reason="Opt-in: exercises the live Hugging Face repository resolver.",
 )
-def test_repository_node_live_round_trip_and_missing_reference(client: httpx.Client) -> None:
+def test_repository_node_live_round_trip_and_missing_reference(client: httpx2.Client) -> None:
     created = client.post(
         "/api/nodes/custom",
         json={

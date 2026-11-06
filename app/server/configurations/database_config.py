@@ -66,6 +66,12 @@ def load_effective_database_config(config_path: Path = DATABASE_CONFIG_PATH) -> 
     return DatabaseConfig.model_validate(payload)
 
 ###############################################################################
+def get_database_settings() -> DatabaseSettings:
+    """Read connection settings from the independent database configuration file."""
+
+    return load_effective_database_config().to_database_settings()
+
+###############################################################################
 def write_database_config(
     config: DatabaseConfig,
     config_path: Path = DATABASE_CONFIG_PATH,

@@ -684,7 +684,6 @@ def test_dataset_definition_requires_current_split_definition_field(
 
 # Consolidated from test_filesystem_browser.py
 
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 
 
 

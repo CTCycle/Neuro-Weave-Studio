@@ -106,9 +106,3 @@ def get_settings() -> Settings:
     return Settings()
 
 ###############################################################################
-def get_database_settings() -> DatabaseSettings:
-    """Read connection settings from the independent database configuration file."""
-
-    from configurations.database_config import load_effective_database_config
-
-    return load_effective_database_config().to_database_settings()

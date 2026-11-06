@@ -673,43 +673,46 @@ def test_binary_merge_preserves_shared_tensor_list_connection_order() -> None:
     assert summary.outputs["output"].shape == [None, 2, 4]
 
 ###############################################################################
+def _declared_parameter_contract_graph(parameters: dict[str, object]) -> ModelGraph:
+    return ModelGraph(
+        nodes=[
+            make_node(
+                "input",
+                "input.tabular",
+                {"shape": [4], "dtype": "float32"},
+            ),
+            make_node("dense", "layer.dense", parameters),
+            make_node("output", "output.regression"),
+        ],
+        edges=[
+            EdgeInstance(
+                id="e1",
+                source_node_id="input",
+                source_port_id="output",
+                target_node_id="dense",
+                target_port_id="input",
+            ),
+            EdgeInstance(
+                id="e2",
+                source_node_id="dense",
+                source_port_id="output",
+                target_node_id="output",
+                target_port_id="input",
+            ),
+        ],
+    )
+
+
+###############################################################################
 def test_declared_parameter_contract_rejects_null_and_unknown_values() -> None:
-    def graph(parameters: dict[str, object]) -> ModelGraph:
-        return ModelGraph(
-            nodes=[
-                make_node(
-                    "input",
-                    "input.tabular",
-                    {"shape": [4], "dtype": "float32"},
-                ),
-                make_node("dense", "layer.dense", parameters),
-                make_node("output", "output.regression"),
-            ],
-            edges=[
-                EdgeInstance(
-                    id="e1",
-                    source_node_id="input",
-                    source_port_id="output",
-                    target_node_id="dense",
-                    target_port_id="input",
-                ),
-                EdgeInstance(
-                    id="e2",
-                    source_node_id="dense",
-                    source_port_id="output",
-                    target_node_id="output",
-                    target_port_id="input",
-                ),
-            ],
-        )
 
     null_result = ValidationService(get_node_catalog()).validate(
-        graph({"units": 2, "use_bias": None}),
+        _declared_parameter_contract_graph({"units": 2, "use_bias": None}),
         ExecutionBackend.PYTORCH,
         True,
     )
     unknown_result = ValidationService(get_node_catalog()).validate(
-        graph({"units": 2, "strieds": 2}),
+        _declared_parameter_contract_graph({"units": 2, "strieds": 2}),
         ExecutionBackend.PYTORCH,
         True,
     )

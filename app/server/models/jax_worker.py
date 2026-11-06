@@ -1,17 +1,15 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalOperand=false, reportOperatorIssue=false, reportArgumentType=false
 
 from __future__ import annotations
 
 import contextlib
 import gc
+import importlib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
-
-import jax
 
 from domain.compilation_catalog import CompilationCatalog
 from domain.enums import ExecutionBackend
@@ -27,6 +25,8 @@ from models.worker_backend import (
     run_native_inspection,
     run_native_smoke,
 )
+
+jax = cast(Any, importlib.import_module("jax"))
 
 
 ###############################################################################
@@ -54,7 +54,7 @@ class JaxWorker:
             device_name = str(devices[0])
         backend_name = "jax"
         if self._config is not None and self._config.api is RuntimeApi.KERAS:
-            import keras
+            keras = cast(Any, importlib.import_module("keras"))
 
             backend_name = str(keras.backend.backend())
         return {
@@ -123,7 +123,7 @@ class JaxWorker:
         if capabilities.get("accelerator") not in {None, "cpu"}:
             if self._config is not None and self._config.api is RuntimeApi.NATIVE:
                 return jax.default_device(jax.devices()[0])
-            import keras
+            keras = cast(Any, importlib.import_module("keras"))
 
             return keras.device("gpu:0")
         return contextlib.nullcontext()
@@ -153,7 +153,7 @@ class JaxWorker:
                 checkpoint=checkpoint,
                 compilation_catalog=compilation_catalog,
             )
-        import keras
+        keras = cast(Any, importlib.import_module("keras"))
 
         from models import keras_worker
         from models.keras_runtime import compile_model
@@ -189,15 +189,18 @@ class JaxWorker:
                 project_revision=project_revision, output_root=output_root, worker=self._config,
                 compilation_catalog=compilation_catalog,
             )
-        import keras
+        keras = cast(Any, importlib.import_module("keras"))
 
         from models import keras_worker
         from models.keras_runtime import compile_model
+        worker = self._config
+        if worker is None:
+            raise RuntimeError("JAX worker must be configured before inspection")
         return run_keras_inspection(
             graph, keras_module=keras, build_model=keras_worker.build_model, compile_model=compile_model,
             capabilities=self.capabilities(), scope=self.device_scope(), synchronize=self.synchronize,
             checkpoint=checkpoint, seed=seed, project_id=project_id, project_revision=project_revision,
-            output_root=output_root, worker=self._config, compilation_catalog=compilation_catalog,
+            output_root=output_root, worker=worker, compilation_catalog=compilation_catalog,
         )
 
     # -------------------------------------------------------------------------
@@ -234,7 +237,7 @@ class JaxWorker:
             if hasattr(jax, "clear_caches"):
                 jax.clear_caches()
             if self._config is not None and self._config.api is RuntimeApi.KERAS:
-                import keras
+                keras = cast(Any, importlib.import_module("keras"))
 
                 keras.backend.clear_session()
         except (AttributeError, RuntimeError, TypeError):

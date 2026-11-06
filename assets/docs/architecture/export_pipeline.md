@@ -20,7 +20,7 @@ Supported artifact families are:
 | Interchange | `.onnx`, `.onnx.zip` | Named inputs/outputs, default opset 18, dynamic batch, optional deterministic external-data package |
 | Weights/checkpoint | `.safetensors.zip`, `.tf-checkpoint.zip`, `.flax-checkpoint.zip` | Explicit weights-only package with graph/profile manifest; not universally loadable |
 
-All binary artifacts are initialized and untrained. No method claims optimizer or training-state preservation. ONNX uses verified native PyTorch and direct native JAX (`jax2onnx`) paths, the TensorFlow `tf2onnx` bridge, or the Keras path. Native JAX export is available when `jax2onnx` and the ONNX runtime dependencies are installed. Missing optional tooling disables only its affected capability with an actionable reason.
+All binary artifacts are initialized and untrained. No method claims optimizer or training-state preservation. ONNX uses verified native PyTorch and direct native JAX (`jax2onnx`) paths, the TensorFlow `tf2onnx` bridge, or the Keras path. Native PyTorch ONNX export requires PyTorch 2.5 or newer for its Dynamo exporter and `dynamic_shapes` API. Native JAX export is available when `jax2onnx` and the ONNX runtime dependencies are installed. Missing optional tooling disables only its affected capability with an actionable reason.
 
 `.keras` architecture import remains separate from export. `POST /api/imports/keras-architecture` reads allowlisted configuration metadata, maps it to canonical nodes and edges, and never deserializes arbitrary Python, custom code, or weights.
 

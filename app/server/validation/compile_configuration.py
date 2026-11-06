@@ -10,6 +10,7 @@ from typing import Any, cast
 from common.catalogs.loader import get_node_catalog
 from domain.compilation_catalog import (
     CompilationCatalog,
+    CompilationOption,
     get_compilation_catalog,
     get_compilation_catalog_for_implementation,
 )
@@ -17,7 +18,26 @@ from domain.compilation_plan import CompilationObject
 from domain.diagnostics import ValidationDiagnostic
 from domain.enums import DiagnosticSeverity, ExecutionBackend
 from domain.graph import ModelGraph
-from validation.output_resolution import ResolvedOutput, output_selectors, resolved_outputs
+from validation.output_resolution import (
+    ResolvedOutput,
+    output_selectors,
+    resolved_outputs,
+    selected_output_value,
+)
+
+
+###############################################################################
+def pytorch_compilation_option(
+    options: list[CompilationOption], identifier: str
+) -> CompilationOption:
+    """Select a supported adapter from the trusted PyTorch compilation catalog."""
+    selected = next((item for item in options if item.id == identifier), None)
+    if selected is None:
+        raise ValueError(f"No compilation catalog option registered for {identifier}")
+    implementation = selected.implementations.get("pytorch")
+    if implementation is None or not implementation.supported or not implementation.adapter:
+        raise ValueError(f"No PyTorch compilation adapter registered for {identifier}")
+    return selected
 
 
 ###############################################################################
@@ -45,17 +65,6 @@ def _output_selectors(outputs: Sequence[ResolvedOutput]) -> set[str]:
         for output in outputs
         for selector in output_selectors(output)
     }
-
-###############################################################################
-def _selected_value(
-    configuration: dict[str, Any], output: ResolvedOutput, default: Any
-) -> Any:
-    value = configuration.get("__default__", default)
-    for selector in output_selectors(output):
-        if selector and selector in configuration:
-            value = configuration[selector]
-            break
-    return value
 
 ###############################################################################
 def _output_details(output: ResolvedOutput, task: str | None = None) -> dict[str, object]:
@@ -354,7 +363,7 @@ def _validate_semantics(
                 )
             )
 
-        selected_loss = _selected_value(configuration.compilation.losses, output, None)
+        selected_loss = selected_output_value(configuration.compilation.losses, output, None)
         loss = (
             losses.get(selected_loss.id)
             if isinstance(selected_loss, CompilationObject)
@@ -391,7 +400,7 @@ def _validate_semantics(
                     )
                 )
 
-        selected_metrics = _selected_value(configuration.compilation.metrics, output, [])
+        selected_metrics = selected_output_value(configuration.compilation.metrics, output, [])
         if isinstance(selected_metrics, list):
             for metric_value in cast(list[Any], selected_metrics):
                 if not isinstance(metric_value, CompilationObject):

@@ -1,7 +1,6 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalSubscript=false, reportOptionalOperand=false, reportOptionalCall=false, reportOperatorIssue=false, reportArgumentType=false, reportAttributeAccessIssue=false, reportIndexIssue=false, reportUntypedFunctionDecorator=false, reportUnnecessaryCast=false, reportUnnecessaryIsInstance=false
 from __future__ import annotations
 
 from typing import Any, cast
@@ -288,10 +287,8 @@ class KerasSourceExporter(SourceExporter):
             for value in values.values():
                 if isinstance(value, CompilationObject):
                     identifiers.add(value.id)
-                elif isinstance(value, list):
-                    identifiers.update(
-                        item.id for item in value if isinstance(item, CompilationObject)
-                    )
+                else:
+                    identifiers.update(item.id for item in value)
         options = [
             option
             for option in (*compilation_catalog.losses, *compilation_catalog.metrics)

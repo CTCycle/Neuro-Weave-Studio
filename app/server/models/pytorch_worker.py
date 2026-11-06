@@ -1,19 +1,17 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingImports=false, reportMissingModuleSource=false, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportOptionalMemberAccess=false, reportOptionalOperand=false, reportOperatorIssue=false, reportArgumentType=false
 
 from __future__ import annotations
 
 import contextlib
 import gc
+import importlib
 import shutil
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
-
-import torch
+from typing import Any, cast
 
 from domain.compilation_catalog import CompilationCatalog
 from domain.enums import ExecutionBackend
@@ -29,6 +27,8 @@ from models.worker_backend import (
     run_native_inspection,
     run_native_smoke,
 )
+
+torch = cast(Any, importlib.import_module("torch"))
 
 
 ###############################################################################
@@ -76,7 +76,7 @@ class PyTorchWorker:
             device_name = "Apple Metal Performance Shaders"
         backend_name = "pytorch"
         if self._config is not None and self._config.api is RuntimeApi.KERAS:
-            import keras
+            keras = cast(Any, importlib.import_module("keras"))
 
             backend_name = str(keras.backend.backend())
         return {
@@ -164,10 +164,11 @@ class PyTorchWorker:
                 metrics["framework_peak_bytes"] = int(torch.cuda.max_memory_allocated(0))
                 device_memory_used = getattr(torch.cuda, "device_memory_used", None)
                 if callable(device_memory_used):
-                    metrics["device_used_bytes"] = int(device_memory_used(0))
-                metrics["device_total_bytes"] = int(
-                    torch.cuda.get_device_properties(0).total_memory
-                )
+                    used_bytes = cast(Callable[[int], int], device_memory_used)(0)
+                    metrics["device_used_bytes"] = int(used_bytes)
+                properties: Any = torch.cuda.get_device_properties(0)
+                property_bytes: int = cast(int, properties.total_memory)
+                metrics["device_total_bytes"] = int(property_bytes)
         except (AttributeError, ImportError, RuntimeError, TypeError, ValueError):
             return metrics
         return metrics
@@ -183,7 +184,7 @@ class PyTorchWorker:
                     else str(capabilities["accelerator"]) + ":0"
                 )
                 return torch.device(device)
-            import keras
+            keras = cast(Any, importlib.import_module("keras"))
 
             return keras.device("gpu:0")
         return contextlib.nullcontext()
@@ -218,7 +219,7 @@ class PyTorchWorker:
                 checkpoint=checkpoint,
                 compilation_catalog=compilation_catalog,
             )
-        import keras
+        keras = cast(Any, importlib.import_module("keras"))
 
         from models import keras_worker
         from models.keras_runtime import compile_model
@@ -262,7 +263,7 @@ class PyTorchWorker:
                 worker=self._config,
                 compilation_catalog=compilation_catalog,
             )
-        import keras
+        keras = cast(Any, importlib.import_module("keras"))
 
         from models import keras_worker
         from models.keras_runtime import compile_model
@@ -319,7 +320,7 @@ class PyTorchWorker:
                 torch.cuda.synchronize()
                 torch.cuda.empty_cache()
             if self._config is not None and self._config.api is RuntimeApi.KERAS:
-                import keras
+                keras = cast(Any, importlib.import_module("keras"))
 
                 keras.backend.clear_session()
         except (AttributeError, RuntimeError, TypeError):

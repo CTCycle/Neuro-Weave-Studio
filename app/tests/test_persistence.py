@@ -8,8 +8,9 @@ import json
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
-from threading import Barrier
+from threading import Barrier, Event
 from typing import Any, cast
 from uuid import UUID
 
@@ -41,8 +42,165 @@ from repositories.models import (
     ProjectRevisionRecord,
 )
 from repositories.session import RepositoryContext
+from services import database_configuration_service
 from services.database_configuration_service import DatabaseConfigurationService
 from services.runtime_controller import RuntimeController
+
+
+###############################################################################
+def _record_settings_application(
+    settings: Any,
+    *,
+    original_apply: Callable[[Any], None],
+    applied_log_levels: list[str],
+) -> None:
+    applied_log_levels.append(settings.log_level)
+    original_apply(settings)
+
+
+###############################################################################
+def _fail_application_settings_save(
+    _repository: ApplicationSettingsRepository,
+    _settings: Any,
+) -> None:
+    raise RuntimeError("injected settings write failure")
+
+
+###############################################################################
+async def _hold_request_gate(
+    manager: DatabaseConfigurationService,
+    activation_entered: asyncio.Event,
+    allow_activation_to_finish: asyncio.Event,
+) -> None:
+    async with manager.pause_requests():
+        activation_entered.set()
+        await allow_activation_to_finish.wait()
+
+
+###############################################################################
+async def _exercise_request_gate(tmp_path: Path) -> None:
+    manager = DatabaseConfigurationService(tmp_path / "database-config.json")
+    await manager.enter_request()
+    activation_entered = asyncio.Event()
+    allow_activation_to_finish = asyncio.Event()
+
+    activation = asyncio.create_task(
+        _hold_request_gate(manager, activation_entered, allow_activation_to_finish)
+    )
+    await asyncio.sleep(0)
+    queued_request = asyncio.create_task(manager.enter_request())
+    await asyncio.sleep(0)
+    assert manager.switching is True
+    assert activation_entered.is_set() is False
+    assert queued_request.done() is False
+
+    await manager.leave_request()
+    await activation_entered.wait()
+    assert queued_request.done() is False
+    allow_activation_to_finish.set()
+    await activation
+    await queued_request
+    assert manager.switching is False
+    await manager.leave_request()
+
+
+###############################################################################
+async def _pause_requests_for_test(manager: DatabaseConfigurationService) -> None:
+    async with manager.pause_requests():
+        pytest.fail("The active request should prevent activation")
+
+
+###############################################################################
+async def _exercise_cancelled_request_drain(tmp_path: Path) -> None:
+    manager = DatabaseConfigurationService(tmp_path / "database-config.json")
+    await manager.enter_request()
+
+    task = asyncio.create_task(_pause_requests_for_test(manager))
+    while not manager.switching:
+        await asyncio.sleep(0)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert manager.switching is False
+    await manager.leave_request()
+    await asyncio.wait_for(manager.enter_request(), timeout=1)
+    await manager.leave_request()
+
+
+###############################################################################
+def _delay_repository_context_creation(
+    settings: DatabaseSettings,
+    *,
+    entered: Event,
+    release: Event,
+    original_create: Callable[[DatabaseSettings], RepositoryContext],
+) -> RepositoryContext:
+    entered.set()
+    assert release.wait(10)
+    return original_create(settings)
+
+
+###############################################################################
+def _delay_database_config_write(
+    config: DatabaseConfig,
+    path: Path,
+    *,
+    entered: Event,
+    release: Event,
+    original_write: Callable[[DatabaseConfig, Path], None],
+) -> None:
+    entered.set()
+    assert release.wait(10)
+    original_write(config, path)
+
+
+###############################################################################
+async def _exercise_cancelled_database_activation(
+    manager: DatabaseConfigurationService,
+    target: DatabaseConfig,
+    entered: Event,
+    release: Event,
+    original_context: RepositoryContext | None,
+) -> None:
+    task = asyncio.create_task(
+        manager.activate(
+            target,
+            has_active_jobs=lambda: False,
+            apply_settings=lambda _settings: None,
+        )
+    )
+    while not entered.is_set():
+        await asyncio.sleep(0.01)
+    task.cancel()
+    release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert manager.switching is False
+    assert manager.repository_context is not original_context
+    assert manager.config == target
+    assert json.loads(manager.config_path.read_text(encoding="utf-8"))["sqlite_path"] == str(target.sqlite_path)
+    await asyncio.wait_for(manager.enter_request(), timeout=1)
+    await manager.leave_request()
+
+
+###############################################################################
+def _initialize_database_for_concurrency(path: Path, barrier: Barrier) -> str:
+    barrier.wait()
+    backend = initialize_database(_settings(path))
+    try:
+        with backend.engine.connect() as connection:
+            return str(
+                connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+            )
+    finally:
+        backend.engine.dispose()
+
+
+###############################################################################
+def _fail_migration_upgrade(config: object, _revision: str) -> None:
+    connection = cast(Connection, cast(Config, config).attributes["connection"])
+    connection.execute(text("CREATE TABLE migration_failure_marker (id INTEGER)"))
+    raise RuntimeError("forced migration failure")
 
 # Consolidated from test_database_configuration.py
 # Copyright Â© 2026 Thomas Virdis
@@ -90,6 +248,7 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
         assert partial.status_code == 200, partial.text
         assert partial.json()["runtime_preferences"]["pytorch"] == normalized_preference
         assert partial.json()["runtime_preference_backend"] == "pytorch"
+        assert cast(FastAPI, primary.app).state.database_configuration.settings.log_level == "DEBUG"
 
         connection_test = primary.post(
             "/api/settings/database/test",
@@ -113,6 +272,7 @@ def test_database_configuration_persists_and_switch_loads_isolated_settings(
         )
         assert switched.status_code == 200, switched.text
         assert switched.json()["settings"]["log_level"] == "ERROR"
+        assert cast(FastAPI, primary.app).state.database_configuration.settings.log_level == "ERROR"
         assert switched.json()["settings"]["runtime_preferences"] == {}
         assert primary.get("/api/settings").json()["log_level"] == "ERROR"
         assert primary.get("/api/projects").json()["projects"] == []
@@ -194,21 +354,23 @@ def test_settings_write_failure_restores_runtime_configuration(
     original_apply = controller.apply_settings
     applied_log_levels: list[str] = []
 
-    def record_application(settings: Any) -> None:
-        applied_log_levels.append(settings.log_level)
-        original_apply(settings)
-
-    def fail_save(_repository: ApplicationSettingsRepository, _settings: Any) -> None:
-        raise RuntimeError("injected settings write failure")
-
-    monkeypatch.setattr(controller, "apply_settings", record_application)
-    monkeypatch.setattr(ApplicationSettingsRepository, "save", fail_save)
+    monkeypatch.setattr(
+        controller,
+        "apply_settings",
+        partial(
+            _record_settings_application,
+            original_apply=original_apply,
+            applied_log_levels=applied_log_levels,
+        ),
+    )
+    monkeypatch.setattr(ApplicationSettingsRepository, "save", _fail_application_settings_save)
 
     response = client.patch("/api/settings", json={"log_level": "DEBUG"})
 
     assert response.status_code == 500
     assert applied_log_levels == ["DEBUG", "INFO"]
     assert application.state.settings.log_level == "INFO"
+    assert application.state.database_configuration.settings.log_level == "INFO"
     assert client.get("/api/settings").json()["log_level"] == "INFO"
 
 ###############################################################################
@@ -321,37 +483,62 @@ def test_active_runtime_jobs_block_database_switch(
 def test_switch_gate_drains_requests_and_holds_new_requests_until_activation(
     tmp_path: Path,
 ) -> None:
-    async def exercise_gate() -> None:
-        manager = DatabaseConfigurationService(
-            tmp_path / "database-config.json",
+    asyncio.run(_exercise_request_gate(tmp_path))
+
+
+###############################################################################
+def test_cancelled_request_drain_reopens_gate(tmp_path: Path) -> None:
+    asyncio.run(_exercise_cancelled_request_drain(tmp_path))
+
+
+###############################################################################
+@pytest.mark.parametrize("boundary", ["prepare", "publish"])
+def test_cancelled_database_activation_completes_consistently(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    boundary: str,
+) -> None:
+    manager = DatabaseConfigurationService(tmp_path / "database-config.json")
+    manager.start()
+    original_context = manager.repository_context
+    target = DatabaseConfig(sqlite_path=tmp_path / "replacement.db")
+    entered = Event()
+    release = Event()
+
+    if boundary == "prepare":
+        original_create = database_configuration_service.create_repository_context
+        monkeypatch.setattr(
+            database_configuration_service,
+            "create_repository_context",
+            partial(
+                _delay_repository_context_creation,
+                entered=entered,
+                release=release,
+                original_create=original_create,
+            ),
         )
-        await manager.enter_request()
-        activation_entered = asyncio.Event()
-        allow_activation_to_finish = asyncio.Event()
+    else:
+        original_write = database_configuration_service.write_database_config
+        monkeypatch.setattr(
+            database_configuration_service,
+            "write_database_config",
+            partial(
+                _delay_database_config_write,
+                entered=entered,
+                release=release,
+                original_write=original_write,
+            ),
+        )
 
-        async def activate() -> None:
-            async with manager.pause_requests():
-                activation_entered.set()
-                await allow_activation_to_finish.wait()
-
-        activation = asyncio.create_task(activate())
-        await asyncio.sleep(0)
-        queued_request = asyncio.create_task(manager.enter_request())
-        await asyncio.sleep(0)
-        assert manager.switching is True
-        assert activation_entered.is_set() is False
-        assert queued_request.done() is False
-
-        await manager.leave_request()
-        await activation_entered.wait()
-        assert queued_request.done() is False
-        allow_activation_to_finish.set()
-        await activation
-        await queued_request
-        assert manager.switching is False
-        await manager.leave_request()
-
-    asyncio.run(exercise_gate())
+    try:
+        asyncio.run(
+            _exercise_cancelled_database_activation(
+                manager, target, entered, release, original_context
+            )
+        )
+    finally:
+        release.set()
+        manager.dispose()
 
 # Consolidated from test_database_contract.py
 
@@ -611,20 +798,11 @@ def test_fresh_baseline_matches_metadata_and_reinitializes_idempotently(
 def test_concurrent_initializers_serialize_on_one_database(tmp_path: Path) -> None:
     path = tmp_path / "concurrent.db"
     barrier = Barrier(2)
-
-    def initialize() -> str:
-        barrier.wait()
-        backend = initialize_database(_settings(path))
-        try:
-            with backend.engine.connect() as connection:
-                return str(
-                    connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                )
-        finally:
-            backend.engine.dispose()
-
     with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = [executor.submit(initialize) for _ in range(2)]
+        futures = [
+            executor.submit(_initialize_database_for_concurrency, path, barrier)
+            for _ in range(2)
+        ]
         results = [future.result() for future in futures]
 
     assert results == [HEAD_REVISION, HEAD_REVISION]
@@ -641,12 +819,7 @@ def test_failed_migration_rolls_back_and_releases_lock(
 ) -> None:
     path = tmp_path / "rollback.db"
 
-    def fail_upgrade(config: object, _revision: str) -> None:
-        connection = cast(Connection, cast(Config, config).attributes["connection"])
-        connection.execute(text("CREATE TABLE migration_failure_marker (id INTEGER)"))
-        raise RuntimeError("forced migration failure")
-
-    monkeypatch.setattr(initializer.command, "upgrade", fail_upgrade)
+    monkeypatch.setattr(initializer.command, "upgrade", _fail_migration_upgrade)
     with pytest.raises(RuntimeError, match="forced migration failure"):
         initialize_database(_settings(path))
 

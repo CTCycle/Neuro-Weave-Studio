@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import importlib.util
+from dataclasses import dataclass
+from typing import cast
 from uuid import UUID
 
 from common.timestamps import utc_now
@@ -35,6 +37,75 @@ from services.errors import (
 from services.project_service import ProjectService
 from services.runtime_controller import RuntimeController
 from services.validation_service import ValidationService
+
+
+###############################################################################
+class _DefaultExportSetting: ...
+
+
+_DEFAULT_EXPORT_SETTING = _DefaultExportSetting()
+
+
+@dataclass
+class _ExportCapabilityBuilder:
+    formats: list[ExportCapability]
+    valid: bool
+    profile_api: RuntimeApi
+    execution_backend: ExecutionBackend
+
+    def add(
+        self,
+        export_format: ExportFormat,
+        *,
+        label: str,
+        category: ExportCategory,
+        conversion: ExportConversion,
+        layout: ExportLayout,
+        payload: ExportPayload,
+        api: RuntimeApi | _DefaultExportSetting | None = _DEFAULT_EXPORT_SETTING,
+        backend: ExecutionBackend | _DefaultExportSetting | None = _DEFAULT_EXPORT_SETTING,
+        available: bool | _DefaultExportSetting = _DEFAULT_EXPORT_SETTING,
+        reason_code: str | None = None,
+        reason: str | None = None,
+        limitations: list[str] | None = None,
+        dependencies: list[str] | None = None,
+        options: list[ExportOptionDefinition] | None = None,
+        compatibility: str = "Current project revision",
+    ) -> None:
+        is_available = (
+            self.valid
+            if available is _DEFAULT_EXPORT_SETTING
+            else cast(bool, available)
+        )
+        runtime_api = (
+            self.profile_api if api is _DEFAULT_EXPORT_SETTING else cast(RuntimeApi | None, api)
+        )
+        backend_value = (
+            self.execution_backend
+            if backend is _DEFAULT_EXPORT_SETTING
+            else cast(ExecutionBackend | None, backend)
+        )
+        self.formats.append(
+            ExportCapability(
+                format=export_format,
+                label=label,
+                category=category,
+                available=is_available,
+                reason_code=reason_code,
+                reason=reason,
+                execution_backend=backend_value,
+                runtime_api=runtime_api,
+                conversion=conversion,
+                layout=layout,
+                extension=export_suffix(export_format, ExportOptions()),
+                payload=payload,
+                compatibility=compatibility,
+                limitations=limitations
+                or ["Initialized inference artifact; training state is unavailable."],
+                dependencies=dependencies or [],
+                options=[_filename_option(), *(options or [])],
+            )
+        )
 
 
 ###############################################################################
@@ -114,50 +185,17 @@ class ExportService:
     def _format_capabilities(self, project: ProjectDocument, valid: bool) -> list[ExportCapability]:
         execution_backend = project.execution_backend  # type: ignore[attr-defined]
         keras_enabled = project.keras_enabled  # type: ignore[attr-defined]
-        formats: list[ExportCapability] = []
         profile_api = RuntimeApi.KERAS if keras_enabled else RuntimeApi.NATIVE
         profile_api_status = self._runtime.api_status(execution_backend, profile_api)
         profile_available = bool(profile_api_status and profile_api_status.available)
 
-        def add(
-            export_format: ExportFormat,
-            *,
-            label: str,
-            category: ExportCategory,
-            conversion: ExportConversion,
-            layout: ExportLayout,
-            payload: ExportPayload,
-            api: RuntimeApi | None = profile_api,
-            backend: ExecutionBackend | None = execution_backend,
-            available: bool = valid,
-            reason_code: str | None = None,
-            reason: str | None = None,
-            limitations: list[str] | None = None,
-            dependencies: list[str] | None = None,
-            options: list[ExportOptionDefinition] | None = None,
-            compatibility: str = "Current project revision",
-        ) -> None:
-            formats.append(
-                ExportCapability(
-                    format=export_format,
-                    label=label,
-                    category=category,
-                    available=available,
-                    reason_code=reason_code,
-                    reason=reason,
-                    execution_backend=backend,
-                    runtime_api=api,
-                    conversion=conversion,
-                    layout=layout,
-                    extension=export_suffix(export_format, ExportOptions()),
-                    payload=payload,
-                    compatibility=compatibility,
-                    limitations=limitations
-                    or ["Initialized inference artifact; training state is unavailable."],
-                    dependencies=dependencies or [],
-                    options=[_filename_option(), *(options or [])],
-                )
-            )
+        formats: list[ExportCapability] = []
+        add = _ExportCapabilityBuilder(
+            formats=formats,
+            valid=valid,
+            profile_api=profile_api,
+            execution_backend=execution_backend,
+        ).add
 
         add(
             ExportFormat.PROJECT_BUNDLE,

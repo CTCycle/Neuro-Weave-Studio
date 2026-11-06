@@ -42,11 +42,12 @@ def test_concurrent_first_start_creates_one_exact_environment_file(
     expected = b"FASTAPI_HOST=127.0.0.1\n"
     template.write_bytes(expected)
 
-    def ensure(_: int) -> Path:
-        return ensure_environment_file(environment_file, template)
-
     with ThreadPoolExecutor(max_workers=8) as executor:
-        results = list(executor.map(ensure, range(8)))
+        futures = [
+            executor.submit(ensure_environment_file, environment_file, template)
+            for _ in range(8)
+        ]
+        results = [future.result() for future in futures]
 
     assert results == [environment_file] * 8
     assert environment_file.read_bytes() == expected

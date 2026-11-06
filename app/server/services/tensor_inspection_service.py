@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import shutil
+import tempfile
 import time
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
@@ -51,6 +53,40 @@ class TensorInspectionError(RuntimeError):
         super().__init__(message)
 
 ###############################################################################
+def cleanup_inspection_sessions(root: Path) -> None:
+    now = time.time()
+    sessions: list[tuple[float, Path]] = []
+    for path in root.iterdir():
+        if not path.is_dir():
+            continue
+        try:
+            payload = json.loads((path / "session.json").read_text(encoding="utf-8"))
+            expires = datetime.fromisoformat(str(payload["expires_at"])).timestamp()
+            if expires <= now:
+                shutil.rmtree(path, ignore_errors=True)
+            else:
+                sessions.append((expires, path))
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+            shutil.rmtree(path, ignore_errors=True)
+    sessions.sort(key=lambda item: item[0], reverse=True)
+    for _, path in sessions[3:]:
+        shutil.rmtree(path, ignore_errors=True)
+
+###############################################################################
+def _refresh_session(path: Path, session: TensorInspectionSession) -> None:
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path, prefix=".session-", suffix=".tmp", delete=False
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            json.dump(session.model_dump(mode="json"), temporary)
+        os.replace(temporary_path, path / "session.json")
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+###############################################################################
 class TensorInspectionService:
 
     # -------------------------------------------------------------------------
@@ -62,23 +98,7 @@ class TensorInspectionService:
 
     # -------------------------------------------------------------------------
     def cleanup(self) -> None:
-        now = time.time()
-        sessions: list[tuple[float, Path]] = []
-        for path in self._root.iterdir():
-            if not path.is_dir():
-                continue
-            try:
-                payload = json.loads((path / "session.json").read_text(encoding="utf-8"))
-                expires = datetime.fromisoformat(str(payload["expires_at"])).timestamp()
-                if expires <= now:
-                    shutil.rmtree(path, ignore_errors=True)
-                else:
-                    sessions.append((expires, path))
-            except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
-                shutil.rmtree(path, ignore_errors=True)
-        sessions.sort(key=lambda item: item[0], reverse=True)
-        for _, path in sessions[3:]:
-            shutil.rmtree(path, ignore_errors=True)
+        cleanup_inspection_sessions(self._root)
 
     # -------------------------------------------------------------------------
     def _path(self, session_id: str) -> Path:
@@ -106,9 +126,7 @@ class TensorInspectionService:
                 update={"expires_at": datetime.now(UTC) + timedelta(seconds=self._ttl)}
             )
             with suppress(OSError):
-                (path / "session.json").write_text(
-                    json.dumps(session.model_dump(mode="json")), encoding="utf-8"
-                )
+                _refresh_session(path, session)
         return path, session
 
     # -------------------------------------------------------------------------

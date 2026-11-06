@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from common.catalogs.loader import NodeCatalog
 from domain.graph import ModelGraph, NodeInstance, OutputBinding, ShapeSummary
@@ -54,6 +54,18 @@ def output_selectors(output: ResolvedOutput) -> tuple[str, ...]:
     if output.node is not None and output.node.label:
         values.append(output.node.label)
     return tuple(dict.fromkeys(value for value in values if value))
+
+
+###############################################################################
+def selected_output_value(
+    configuration: dict[str, Any], output: ResolvedOutput, default: Any
+) -> Any:
+    """Resolve an output's override using the canonical selector order."""
+    value = configuration.get("__default__", default)
+    for selector in output_selectors(output):
+        if selector in configuration:
+            return configuration[selector]
+    return value
 
 ###############################################################################
 def input_nodes(graph: ModelGraph, catalog: NodeCatalog) -> list[NodeInstance]:

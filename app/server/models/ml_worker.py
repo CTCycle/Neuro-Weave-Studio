@@ -1,7 +1,6 @@
 # Copyright © 2026 Thomas Virdis
 # Licensed under the MIT License.
 
-# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportUnknownLambdaType=false, reportPrivateUsage=false
 
 """Fresh-interpreter dispatcher for one isolated execution backend."""
 
@@ -11,6 +10,7 @@ import argparse
 import json
 import traceback
 from pathlib import Path
+from typing import Any, cast
 
 from domain.enums import ExecutionBackend
 from domain.runtime import RuntimeApi, WorkerConfiguration
@@ -87,8 +87,9 @@ def _run_job_process(job_dir: Path) -> None:
         )
         raise SystemExit(20) from exc
     except Exception as exc:
-        operation = payload.get("operation", {})
-        operation_type = operation.get("type") if isinstance(operation, dict) else None
+        operation_value = payload.get("operation", {})
+        operation = cast(dict[str, Any], operation_value) if isinstance(operation_value, dict) else {}
+        operation_type = operation.get("type")
         error_code = "worker_failed"
         if operation_type == "tensor_inspection":
             # Preserve the stable inspection contract when a backend rejects

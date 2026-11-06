@@ -1316,18 +1316,22 @@ def get_compilation_catalog_for_implementation(
 ) -> CompilationCatalog:
     """Filter the trusted catalog to options with an explicit implementation."""
 
-    def supported(options: list[CompilationOption]) -> list[CompilationOption]:
-        return [
-            option
-            for option in options
-            if option.implementations.get(implementation, CompilationImplementation()).supported
-        ]
-
     return catalog.model_copy(
         deep=True,
         update={
-            "optimizers": supported(catalog.optimizers),
-            "losses": supported(catalog.losses),
-            "metrics": supported(catalog.metrics),
+            "optimizers": _supported_options(catalog.optimizers, implementation),
+            "losses": _supported_options(catalog.losses, implementation),
+            "metrics": _supported_options(catalog.metrics, implementation),
         },
     )
+
+
+###############################################################################
+def _supported_options(
+    options: list[CompilationOption], implementation: str
+) -> list[CompilationOption]:
+    return [
+        option
+        for option in options
+        if option.implementations.get(implementation, CompilationImplementation()).supported
+    ]
