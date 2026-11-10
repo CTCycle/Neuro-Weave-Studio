@@ -21,6 +21,7 @@
 <p align="center">
   <a href="#model-builder">Model Builder</a> ·
   <a href="#functional-validation-and-export">Validation and export</a> ·
+  <a href="#datasets">Datasets</a> ·
   <a href="#configuration">Configuration</a> ·
   <a href="assets/docs/project_index.md">Documentation</a>
 </p>
@@ -30,8 +31,6 @@ NeuroWeave Studio runs locally as an Angular application with a FastAPI backend.
 ## NeuroWeave Studio
 
 Use the Model Builder to assemble directed graphs from a searchable node catalog, configure parameters, connect typed ports, and review graph and tensor-shape diagnostics. Save a model to keep its graph revision. Mathematical and sequential node templates can be reused across graphs.
-
-Dataset registration refers to files already on disk and stores their definitions and inspection metadata; dataset contents are not copied into the application.
 
 ### Start NeuroWeave Studio
 
@@ -48,21 +47,31 @@ The launcher installs the base environment, initializes the database, builds the
 
 See [installation and backend setup](assets/docs/runtime/installation.md) for profile details. The [startup guide](assets/docs/runtime/startup.md) covers separate frontend and backend development processes.
 
-### Build a graph
+## Model Builder
 
-1. Choose **New model** and add nodes from the catalog.
-2. Connect ports, set input shapes, and configure node parameters.
-3. Save the model to persist its graph and revision.
+1. Choose **New model** and add nodes from the catalog (149 built-in definitions).
+2. Connect ports, set input shapes, and configure node parameters in the inspector.
+3. Validate, then save the model to persist its graph and revision.
+
+Four starter graphs (MLP, convolutional classifier, LSTM, Transformer encoder) are in [`examples`](examples). Each file is a project payload accepted by `POST /api/projects`.
+
+<p align="center"><img src="assets/QA/readme-20261110/model-library.png" alt="Model library listing three saved models with readiness and compilation status" width="760"></p>
+
+<p align="center"><img src="assets/QA/readme-20261110/model-builder.png" alt="Model Builder with a validated Transformer encoder graph and the inspector showing a selected node" width="760"></p>
 
 ## Functional Validation and Export
 
-Functional Validation runs a synthetic forward pass with initialized weights on an installed execution backend. The application does not train models or serve predictions, so binary exports contain untrained weights.
+Functional Validation runs a synthetic forward pass with initialized weights on an installed execution backend. The application does not train models or serve predictions, so binary exports contain untrained weights. The Training page is a session-only draft; dataset splits are settings, not materialized partitions.
 
 Compilation generates inspectable Keras source for a saved revision. Export can create project bundles and supported model formats when the required runtime is installed.
 
-<p align="center"><img src="assets/QA/readme-20261028/compilation.png" alt="Compilation workspace showing a validated execution profile and generated Python source for a saved model revision" width="760"></p>
+<p align="center"><img src="assets/QA/readme-20261110/compilation.png" alt="Compilation workspace with a valid Keras profile on the PyTorch backend and generated Python source for revision 1" width="760"></p>
 
-The screenshot shows a validated Keras compile profile with the PyTorch backend selected and a source snapshot for revision 3.
+## Datasets
+
+Register tabular, image, text, time-series, and array sources by path. NeuroWeave stores paths, schema metadata, validation findings, and processing and split settings only; it does not copy or read data into training.
+
+<p align="center"><img src="assets/QA/readme-20261110/dataset-workspace.png" alt="Dataset workspace showing a registered CSV table with 120 samples, input columns, and a valid registration" width="760"></p>
 
 ## Configuration
 

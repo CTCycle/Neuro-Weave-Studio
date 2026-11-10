@@ -4,8 +4,9 @@
 import logging
 
 import pytest
-from common.logging_config import AccessLogFilter, configure_logging
 from fastapi.testclient import TestClient
+
+from common.logging_config import AccessLogFilter, configure_logging
 
 
 def _record(path: str, status: int) -> logging.LogRecord:

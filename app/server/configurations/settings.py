@@ -30,7 +30,7 @@ class Settings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     app_name: str = "NeuroWeave Studio"
-    app_version: str = "1.0.0"
+    app_version: str = "1.0.1"
     log_level: str = Field(default="INFO", pattern=r"^(?i:DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     log_file: Path = RUNTIME_LOG_ROOT / "backend.log"
     export_root: Path = RUNTIME_EXPORT_ROOT

@@ -1,11 +1,17 @@
 # Changelog
 
-Last updated: 2026-10-18
+Last updated: 2026-11-10
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-10
+
 - Launcher serves the frontend from the backend on one origin, stays attached as the lifecycle owner (Enter/Ctrl+C to stop), and no longer starts the Node preview server.
 - Fixed Settings section links leaving `/settings` under the backend-served build (`<base href="/">`), `/openapi.json` and `/docs` failing with HTTP 500 (`typing.Self` in `ParameterValueSchema`), and missing static files returning the SPA shell instead of 404.
+- Windows launcher split into `start_on_windows.bat` (launch) and `setup_and_maintenance.ps1` (install, maintenance, uninstall), with hardened cleanup.
+- Keras model building refactored; HTTP client moved to httpx2; request and job lifecycle logging improved.
+- Dataset navigation paths consolidated and retired structure redirects removed.
+- README rewritten with screenshots of the running application.
 
 ## [1.0.0] - 2026-10-18
 

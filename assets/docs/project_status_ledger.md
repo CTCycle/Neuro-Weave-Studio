@@ -1,6 +1,6 @@
 # Project Status and Validation Record
 
-Last updated: 2026-10-25
+Last updated: 2026-11-10
 
 This ledger records the latest meaningful validation by product area and the boundaries of each claim. Architecture and ontology documents remain the source of behavior contracts; this file does not replace them.
 
@@ -42,6 +42,10 @@ The latest broad application-behavior evidence is from source revision bcca2e63e
 ## 2026-10-22 backend-served launch validation
 
 Working tree based on 229d503, launched with `setup_and_maintenance.ps1 -Action Launch -NoBrowser` against an isolated `-ResourcesDir`. PASSED: single-process same-origin serving (`/health`, `/`, deep links, `/runtime-config.json`, `/api`), project persistence across a launcher-tree kill and relaunch, clean port release, 104 frontend unit tests, lint, backend suite, and 68 live browser specs against `http://127.0.0.1:9750` (shell, workflows, datasets, metrics, settings, database settings, accessibility, runtime, UI consistency/refinement, custom nodes, catalog risk, repository network, profile matrix; 1 skipped by design). FAILED then FIXED and re-run PASS: Settings anchor links navigated to `/models#...`, `/openapi.json` returned 500, and missing static files returned HTML 200. NOT TESTED: interactive Enter/Ctrl+C shutdown (launcher run with redirected stdin), GPU, compiler-worker and node-functional matrices, assistive technology. Environment note: the developer database `data/database.db` references the removed Alembic revision `20261020_database_application_settings` and the app refuses to start on it by design; recreate it (the isolated run did not touch it).
+
+## 2026-11-10 v1.0.1 release validation
+
+Source: `develop` at 7c2b5f7 plus a Ruff import-order fix in `app/tests/test_logging.py` and version bump to 1.0.1; `main` fast-forwarded to match. PASSED: Ruff (after the fix), Pyright 0 errors, 104 frontend unit tests, ESLint, production build, and the full backend suite (CPU PyTorch, ONNX/safetensors export extras installed; no failures, expected skips only). The backend served the built frontend on one origin and the in-app flows were exercised on a clean resources directory: example import, Builder validation, Keras source compilation on the PyTorch backend, and CSV dataset registration (README screenshots). NOT RUN: the Playwright browser suite and launcher-driven start (the launcher stopped at a non-interactive confirmation for backend changes; the backend was started with uvicorn directly), TensorFlow/JAX parity, GPU execution. The v1.0.0 tag is unchanged.
 
 ## Product and validation boundaries
 
