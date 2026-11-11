@@ -794,6 +794,35 @@ import { expect, test, type APIRequestContext, type Page, type TestInfo } from '
         await rm(sourcePath, { force: true })
       }
     })
+
+    test('keeps the Builder reachable in a compact viewport', async ({ page }) => {
+      const viewport = { width: 320, height: 240 }
+      await page.setViewportSize(viewport)
+      await page.goto('/builder')
+      await expect(page.locator('.app-shell.builder-shell')).toBeVisible()
+      await expect(page.locator('.canvas-shell')).toBeVisible()
+
+      const geometry = await page.evaluate(() => {
+        const content = document.querySelector<HTMLElement>('.app-content')!
+        const header = document.querySelector<HTMLElement>('.app-header')!.getBoundingClientRect()
+        const contentBounds = content.getBoundingClientRect()
+        content.scrollTop = content.scrollHeight
+        const canvas = document.querySelector<HTMLElement>('.canvas-shell')?.getBoundingClientRect()
+        return {
+          headerFits: header.left >= 0 && header.right <= innerWidth + 1,
+          contentFits: contentBounds.left >= 0 && contentBounds.right <= innerWidth + 1,
+          contentScrolls: content.scrollHeight > content.clientHeight && content.scrollTop > 0,
+          canvasReachable: Boolean(canvas && canvas.bottom > contentBounds.top && canvas.top < contentBounds.bottom),
+          documentOverflowsHorizontally: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+        }
+      })
+
+      expect(geometry.headerFits).toBeTruthy()
+      expect(geometry.contentFits).toBeTruthy()
+      expect(geometry.contentScrolls).toBeTruthy()
+      expect(geometry.canvasReachable).toBeTruthy()
+      expect(geometry.documentOverflowsHorizontally).toBeFalsy()
+    })
   })
   test.describe('ui refinement.spec', () => {
     const evidenceDir = path.resolve(
